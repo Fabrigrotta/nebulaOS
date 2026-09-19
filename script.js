@@ -877,7 +877,7 @@ function setDockStyle(style) {
   renderSettingsApp();
 }
 
-/* ★ NUEVO: aplicar estilo del Dock Hover Preview */
+/* ★ Aplicar estilo del Dock Hover Preview (solo clase en body) */
 function applyDockPreviewStyle(styleId) {
   const allStyles = Object.keys(DOCK_PREVIEW_STYLES);
   allStyles.forEach(s => document.body.classList.remove(`dock-preview-${s}`));
@@ -2012,12 +2012,13 @@ function showDockPreview(appId, dockItemEl) {
 
     const app = APPS[appId];
     const preview = document.createElement('div');
+    // ★ El estilo se resuelve por la clase del body (no por clase en el preview)
     preview.className = 'dock-preview';
     if (win.classList.contains('minimized')) preview.classList.add('is-minimized');
     preview.dataset.appId = appId;
     preview.innerHTML = buildDockPreviewHTML(appId);
 
-    // ★ NUEVO: inyectar el color de la app como variables CSS locales
+    // ★ Inyectar el color de la app como variables CSS locales
     if (app && app.accentColor) {
       preview.style.setProperty('--app-accent', app.accentColor);
       preview.style.setProperty('--app-accent-glow', `${app.accentColor}66`);
@@ -2726,7 +2727,7 @@ function getAppContent(id) {
 
 function getDesignerSettingsHTML() {
   const currentStyle = designerState.dockPreviewStyle || 'blueprint';
-  // ★ La demo en vivo usa el color de Terminal
+  // La demo en vivo usa el color de Terminal
   const demoApp = APPS['terminal'];
 
   return `
