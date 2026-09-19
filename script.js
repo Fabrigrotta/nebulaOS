@@ -82,10 +82,10 @@ const THEME_PRESETS = {
 };
 
 const TRACKS = [
-  { title: 'Bocanada', artist: 'Gustavo Cerati', art: './spotify/tapa album 2.jpg', duration: 272 },   // 4:32
-  { title: 'Smells Like Teen Spirit', artist: 'Nirvana', art: './spotify/tapa album 1.jpg', duration: 301 }, // 5:01
-  { title: 'Prohibido', artist: 'Callejeros', art: './spotify/album 3.jpg', duration: 225 },           // 3:45
-  { title: 'Cyberpunk Night City Beat', artist: 'Hyper Sound', art: './spotify/top 50.jpg', duration: 192 } // 3:12
+  { title: 'Bocanada', artist: 'Gustavo Cerati', art: './spotify/tapa album 2.jpg', duration: 272 },
+  { title: 'Smells Like Teen Spirit', artist: 'Nirvana', art: './spotify/tapa album 1.jpg', duration: 301 },
+  { title: 'Prohibido', artist: 'Callejeros', art: './spotify/album 3.jpg', duration: 225 },
+  { title: 'Cyberpunk Night City Beat', artist: 'Hyper Sound', art: './spotify/top 50.jpg', duration: 192 }
 ];
 
 /* ================= VARIABLES GLOBALES DE ESTADO ================= */
@@ -100,30 +100,25 @@ const calendarState = { date: new Date(), selectedDate: null, notes: {} };
 const systemMetrics = { ram: 38, cpu: 24, temp: 42, gpu: 62, vram: 4.8, fps: 144 };
 
 let gameModeActive = false;
-let currentProfile = 'gamer'; // 'gamer' | 'streamer' | 'studio'
+let currentProfile = 'gamer';
 let gamerOverlayVisible = false;
 let currentTrackIndex = 0;
 let isPlaying = false;
 let playbackProgress = 32;
 let systemVolume = 80;
 
-/* ================= ESTADO DE CONECTIVIDAD ================= */
 let wifiEnabled = true;
 let bluetoothEnabled = false;
-
-/* ================= ESTADO DE NO MOLESTAR (DND) ================= */
 let dndEnabled = false;
-
-/* ================= ESTADO DE BRILLO ================= */
 let currentBrightness = 100;
 
-/* ================= ESTADO DEL REPRODUCTOR (QUICK CENTER) ================= */
-let currentPlaybackTime = 0; // segundos transcurridos del track actual
+let currentPlaybackTime = 0;
 let shuffleEnabled = false;
 let repeatEnabled = false;
 
 /* ================= ESTADO DE EDICIÓN DE NOTAS ================= */
-let editingNoteKey = null; // si está seteado, el input edita esa nota en vez de crear una nueva
+let editingNoteKey = null;   // key del día que se está editando
+let editingNoteIndex = null; // índice de la nota dentro del array del día
 
 let designerState = {
   activePreset: 'catppuccin',
@@ -138,7 +133,7 @@ let designerState = {
   panelAlpha: 0.72,
   blurAmount: 18,
   borderRadius: 14,
-  dockStyle: 'floating' // 'floating' | 'unified-bottom'
+  dockStyle: 'floating'
 };
 
 let desktopWidgets = [];
@@ -186,7 +181,7 @@ function updateToastPosition() {
   container.classList.toggle('shifted', isQuickCenterOpen);
 }
 
-/* ================= CIERRE DE PANELES (con reset del calendario) ================= */
+/* ================= CIERRE DE PANELES ================= */
 function closeControlCenter() {
   const cc = document.getElementById('control-center');
   if (!cc || cc.classList.contains('hidden')) return;
@@ -199,6 +194,24 @@ function closeQuickCenter() {
   if (!qc) return;
   qc.classList.add('hidden');
   updateToastPosition();
+}
+
+/* ================= MIGRACIÓN DE NOTAS (viejo → nuevo) ================= */
+/**
+ * Convierte { "YYYY-MM-DD": "texto" } → { "YYYY-MM-DD": ["texto"] }
+ */
+function migrateNotesFormat(notes) {
+  if (!notes || typeof notes !== 'object') return {};
+  const migrated = {};
+  Object.keys(notes).forEach(key => {
+    const value = notes[key];
+    if (Array.isArray(value)) {
+      migrated[key] = value.filter(v => typeof v === 'string' && v.trim().length > 0);
+    } else if (typeof value === 'string' && value.trim().length > 0) {
+      migrated[key] = [value];
+    }
+  });
+  return migrated;
 }
 
 /* ================= INICIALIZACIÓN DEL SISTEMA ================= */
@@ -245,14 +258,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const wasHidden = controlCenter?.classList.contains('hidden');
     controlCenter?.classList.toggle('hidden');
     if (wasHidden) {
-      // Se acaba de abrir → reseteamos al día de hoy
       resetCalendarToToday();
     }
     refreshIcons();
   };
 
   const toggleQuickCenter = () => {
-    // Cerrar el control center (con reset) si estaba abierto
     if (controlCenter && !controlCenter.classList.contains('hidden')) {
       closeControlCenter();
     }
@@ -276,9 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.addEventListener('click', (e) => {
-    // Excluir el reproductor del quick center
     const isPlayerClick = e.target.closest('#cc-spotify-player');
-    // Excluir el calendario (para que no se cierre al tocar días/notas)
     const isCalendarClick = e.target.closest('.calendar-panel') || e.target.closest('#notes-list');
 
     if (!sysTrayBtn?.contains(e.target)
@@ -327,7 +336,7 @@ function setupShortcuts() {
   });
 }
 
-/* ================= FEATURE: CONECTIVIDAD (WIFI & BLUETOOTH) ================= */
+/* ================= FEATURE: CONECTIVIDAD ================= */
 function toggleWifi(explicitState = null) {
   wifiEnabled = explicitState !== null ? explicitState : !wifiEnabled;
 
@@ -1279,6 +1288,10 @@ function loadPersistedState() {
       const parsed = Number(savedBrightness);
       if (!Number.isNaN(parsed)) currentBrightness = parsed;
     }
+
+    // --- Notas del calendario (con migración al formato nuevo) ---
+    const rawNotes = JSON.parse(localStorage.getItem(CALENDAR_NOTES_STORAGE_KEY) || '{}');
+    calendarState.notes = migrateNotesFormat(rawNotes);
   } catch (e) {}
 }
 
@@ -1347,12 +1360,6 @@ function setupSliders() {
 }
 
 function setupAdvancedWidget() {
-  try {
-    calendarState.notes = JSON.parse(localStorage.getItem(CALENDAR_NOTES_STORAGE_KEY) || '{}');
-  } catch (error) {
-    calendarState.notes = {};
-  }
-
   renderCalendar();
   renderNotesList();
   updateWidgetTime();
@@ -1402,14 +1409,13 @@ function calendarKey(date) {
 
 /**
  * Vuelve el calendario al mes actual y limpia la selección.
- * Se llama cada vez que se cierra el control-center.
  */
 function resetCalendarToToday() {
   calendarState.date = new Date();
   calendarState.selectedDate = null;
   editingNoteKey = null;
+  editingNoteIndex = null;
 
-  // Ocultar el editor de notas
   const editor = document.getElementById('note-editor');
   if (editor) editor.hidden = true;
   const input = document.getElementById('note-input');
@@ -1454,13 +1460,14 @@ function renderCalendar() {
     if (key === todayKey) day.classList.add('today');
     if (key === calendarState.selectedDate) day.classList.add('selected');
     day.textContent = String(cellDate.getDate());
-    if (calendarState.notes[key]) {
+    // El dot se muestra si el array de notas del día tiene al menos 1 elemento
+    const dayNotes = calendarState.notes[key];
+    if (Array.isArray(dayNotes) && dayNotes.length > 0) {
       const dot = document.createElement('span');
       dot.className = 'note-dot';
       day.appendChild(dot);
     }
     day.addEventListener('click', (e) => {
-      // CRÍTICO: evitar que el click burbujee y cierre el panel
       e.stopPropagation();
       e.preventDefault();
       selectCalendarDate(cellDate);
@@ -1475,17 +1482,21 @@ function changeCalendarMonth(offset) {
   renderCalendar();
 }
 
+/**
+ * Selecciona un día. Limpia el input para permitir crear una NUEVA nota.
+ */
 function selectCalendarDate(date) {
   calendarState.selectedDate = calendarKey(date);
   editingNoteKey = null;
+  editingNoteIndex = null;
 
   const editor = document.getElementById('note-editor');
   const input = document.getElementById('note-input');
   const label = document.getElementById('selected-date-label');
   const saveBtn = document.getElementById('save-note');
 
-  if (label) label.textContent = `Nota para ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
-  if (input) input.value = calendarState.notes[calendarState.selectedDate] || '';
+  if (label) label.textContent = `Nueva nota para ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+  if (input) input.value = '';
   if (editor) editor.hidden = false;
   if (saveBtn) {
     saveBtn.textContent = 'Guardar';
@@ -1497,24 +1508,48 @@ function selectCalendarDate(date) {
   renderNotesList();
 }
 
+/**
+ * Guarda la nota. SIEMPRE agrega una nueva al array del día (excepto en modo edición).
+ */
 function saveCalendarNote() {
   const input = document.getElementById('note-input');
   const value = input ? input.value.trim() : '';
 
-  // Determinar la key objetivo: si estamos editando, usamos esa; si no, el día seleccionado
-  let targetKey = editingNoteKey || calendarState.selectedDate;
-  if (!targetKey) return;
-
-  if (value) {
-    calendarState.notes[targetKey] = value;
-  } else {
-    delete calendarState.notes[targetKey];
+  // Caso 1: input vacío + no estamos editando → no hacer nada
+  if (!value && editingNoteKey === null) {
+    showToast('Sin cambios', 'Escribí algo para guardar un recordatorio.', 'info');
+    return;
   }
 
+  // Caso 2: modo edición
+  if (editingNoteKey !== null && editingNoteIndex !== null) {
+    const key = editingNoteKey;
+    const idx = editingNoteIndex;
+
+    if (!calendarState.notes[key]) calendarState.notes[key] = [];
+
+    if (!value) {
+      // Input vacío en edición → borrar esa nota específica
+      calendarState.notes[key].splice(idx, 1);
+      if (calendarState.notes[key].length === 0) delete calendarState.notes[key];
+      showToast('Nota eliminada', 'El recordatorio fue borrado.', 'trash-2');
+    } else {
+      // Reemplazar la nota del índice
+      calendarState.notes[key][idx] = value;
+    }
+  } else {
+    // Caso 3: agregar nota nueva al día seleccionado
+    const key = calendarState.selectedDate;
+    if (!key) return;
+    if (!calendarState.notes[key]) calendarState.notes[key] = [];
+    calendarState.notes[key].push(value);
+  }
+
+  // Persistir y resetear editor
   localStorage.setItem(CALENDAR_NOTES_STORAGE_KEY, JSON.stringify(calendarState.notes));
 
-  // Resetear el editor
   editingNoteKey = null;
+  editingNoteIndex = null;
   if (input) input.value = '';
   const saveBtn = document.getElementById('save-note');
   if (saveBtn) {
@@ -1527,11 +1562,11 @@ function saveCalendarNote() {
 }
 
 /**
- * Activa el modo edición de una nota existente.
- * Carga el texto en el input y cambia el label del botón a "Actualizar".
+ * Activa el modo edición de una nota específica (por índice).
  */
-function editCalendarNote(key) {
+function editCalendarNote(key, index) {
   editingNoteKey = key;
+  editingNoteIndex = index;
   calendarState.selectedDate = key;
 
   const editor = document.getElementById('note-editor');
@@ -1540,9 +1575,11 @@ function editCalendarNote(key) {
   const saveBtn = document.getElementById('save-note');
 
   const [y, m, d] = key.split('-').map(Number);
+  const notes = calendarState.notes[key] || [];
+
   if (label) label.textContent = `Editando nota del ${d}/${m}/${y}`;
   if (input) {
-    input.value = calendarState.notes[key] || '';
+    input.value = notes[index] || '';
     input.focus();
   }
   if (editor) editor.hidden = false;
@@ -1554,16 +1591,22 @@ function editCalendarNote(key) {
 }
 
 /**
- * Elimina una nota por su key.
+ * Elimina una nota específica por key + índice.
  */
-function deleteCalendarNote(key) {
+function deleteCalendarNote(key, index) {
   if (!key) return;
-  delete calendarState.notes[key];
+  const notes = calendarState.notes[key];
+  if (!Array.isArray(notes)) return;
+
+  notes.splice(index, 1);
+  if (notes.length === 0) delete calendarState.notes[key];
+
   localStorage.setItem(CALENDAR_NOTES_STORAGE_KEY, JSON.stringify(calendarState.notes));
 
-  // Si estábamos editando esa nota, salir del modo edición
-  if (editingNoteKey === key) {
+  // Si estábamos editando esa misma nota, salir del modo edición
+  if (editingNoteKey === key && editingNoteIndex === index) {
     editingNoteKey = null;
+    editingNoteIndex = null;
     const input = document.getElementById('note-input');
     if (input) input.value = '';
     const saveBtn = document.getElementById('save-note');
@@ -1579,18 +1622,18 @@ function deleteCalendarNote(key) {
 }
 
 /**
- * Renderiza la lista de notas del día seleccionado (o del día actual si no hay ninguno).
+ * Renderiza TODAS las notas del día seleccionado (o del día actual si no hay ninguno).
  */
 function renderNotesList() {
   const list = document.getElementById('notes-list');
   if (!list) return;
 
   const targetKey = calendarState.selectedDate || calendarKey(new Date());
-  const noteText = calendarState.notes[targetKey];
+  const notes = calendarState.notes[targetKey];
 
   list.innerHTML = '';
 
-  if (!noteText) {
+  if (!Array.isArray(notes) || notes.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'notes-empty';
     empty.textContent = 'Sin recordatorios para este día.';
@@ -1600,27 +1643,30 @@ function renderNotesList() {
 
   const [y, m, d] = targetKey.split('-').map(Number);
 
-  const item = document.createElement('div');
-  item.className = 'note-item';
-  item.innerHTML = `
-    <span class="note-item-date">${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}</span>
-    <span class="note-item-text" title="${escapeHtml(noteText)}">${escapeHtml(noteText)}</span>
-    <div class="note-actions">
-      <button class="note-btn" type="button" data-action="edit" title="Editar"><i data-lucide="pencil"></i></button>
-      <button class="note-btn danger" type="button" data-action="delete" title="Eliminar"><i data-lucide="trash-2"></i></button>
-    </div>
-  `;
+  notes.forEach((noteText, index) => {
+    const item = document.createElement('div');
+    item.className = 'note-item';
+    item.innerHTML = `
+      <span class="note-item-date">${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}</span>
+      <span class="note-item-text" title="${escapeHtml(noteText)}">${escapeHtml(noteText)}</span>
+      <div class="note-actions">
+        <button class="note-btn" type="button" data-action="edit" title="Editar"><i data-lucide="pencil"></i></button>
+        <button class="note-btn danger" type="button" data-action="delete" title="Eliminar"><i data-lucide="trash-2"></i></button>
+      </div>
+    `;
 
-  item.querySelector('[data-action="edit"]')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    editCalendarNote(targetKey);
-  });
-  item.querySelector('[data-action="delete"]')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    deleteCalendarNote(targetKey);
+    item.querySelector('[data-action="edit"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      editCalendarNote(targetKey, index);
+    });
+    item.querySelector('[data-action="delete"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteCalendarNote(targetKey, index);
+    });
+
+    list.appendChild(item);
   });
 
-  list.appendChild(item);
   refreshIcons();
 }
 
