@@ -310,7 +310,7 @@ svg, [data-lucide] {
 
 .note-item-date {
   flex-shrink: 0; font-family: "JetBrains Mono", monospace; font-size: 9px;
-  color: #0d0f17;  /* ← NEGRO para contraste sobre el fondo de acento */
+  color: #0d0f17;
   background: var(--accent);
   padding: 3px 6px; border-radius: 5px; font-weight: 800; letter-spacing: 0.3px;
   box-shadow: 0 0 8px var(--accent-glow);
@@ -336,6 +336,7 @@ svg, [data-lucide] {
 }
 
 /* ================= REDISEÑO DE SLIDERS ================= */
+/* El fondo del track lo maneja JS dinámicamente para que el color siga al thumb */
 .slider-row {
   display: flex; align-items: center; gap: 10px; padding: 8px 12px;
   border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-sm);
@@ -343,8 +344,8 @@ svg, [data-lucide] {
 }
 .slider-row input[type="range"] {
   appearance: none; -webkit-appearance: none; flex: 1; min-width: 0; height: 5px;
-  border-radius: 5px; outline: none; background: linear-gradient(to right, var(--accent) 50%, rgba(255,255,255,0.1) 50%);
-  cursor: pointer;
+  border-radius: 5px; outline: none; cursor: pointer;
+  background: rgba(255,255,255,0.1); /* fallback, JS lo sobreescribe */
 }
 .slider-row input[type="range"]::-webkit-slider-thumb {
   appearance: none; -webkit-appearance: none; width: 14px; height: 14px;
@@ -538,10 +539,48 @@ svg, [data-lucide] {
 .hud-mini-meter { height: 4px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 5px; overflow: hidden; }
 .hud-mini-meter .meter-bar { height: 100%; background: var(--accent); transition: width 0.4s ease; }
 
+/* ===== HUD BOTTOM BAR (con fondo blur de la portada actual) ===== */
 .hud-bottom-bar {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 12px; align-items: center;
-  padding: 12px 14px; background: rgba(0,0,0,0.35); border-radius: var(--radius-md); border: 1px solid rgba(255,255,255,0.06);
+  padding: 12px 14px; border-radius: var(--radius-md);
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(0,0,0,0.35); /* fallback */
 }
+
+/* Capa de fondo: portada actual con blur fuerte */
+.hud-media-bg {
+  position: absolute;
+  inset: -20px;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(28px) saturate(1.6) brightness(0.7);
+  opacity: 0.55;
+  transform: scale(1.15);
+  transition: background-image 0.4s ease, opacity 0.4s ease;
+  pointer-events: none;
+}
+
+/* Gradiente oscuro encima del blur para garantizar legibilidad */
+.hud-bottom-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(180deg, rgba(10, 12, 20, 0.42) 0%, rgba(10, 12, 20, 0.78) 100%);
+  pointer-events: none;
+}
+
+/* Contenido por encima del fondo */
+.hud-bottom-bar > *:not(.hud-media-bg) {
+  position: relative;
+  z-index: 1;
+}
+
 .hud-media-block { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .hud-media-block img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; }
 .hud-media-info { min-width: 0; flex: 1; }
@@ -561,7 +600,13 @@ svg, [data-lucide] {
 .hud-vol-label svg, .hud-vol-label i { width: 12px; height: 12px; }
 .hud-volume-block input[type="range"] {
   appearance: none; -webkit-appearance: none; height: 4px; border-radius: 4px;
-  background: linear-gradient(to right, #00ffcc 80%, rgba(255,255,255,0.1) 80%); outline: none;
+  cursor: pointer;
+  background: rgba(255,255,255,0.1); /* fallback, JS lo sobreescribe */
+}
+.hud-volume-block input[type="range"]::-webkit-slider-thumb {
+  appearance: none; -webkit-appearance: none; width: 12px; height: 12px;
+  border: 2px solid #0d0f17; border-radius: 50%; background: #fff;
+  box-shadow: 0 0 0 2px #00ffcc;
 }
 .hud-volume-block strong { font-family: "JetBrains Mono", monospace; font-size: 10px; color: #00ffcc; }
 
@@ -731,7 +776,7 @@ svg, [data-lucide] {
 .theme-preset-card strong { display: block; font-size: 12px; color: #fff; }
 .theme-preset-card small { display: block; font-size: 10px; color: var(--text-sub); margin-top: 2px; }
 
-/* SLIDERS EN VIVO DE PERSONALIZACIÓN */
+/* SLIDERS EN VIVO DE PERSONALIZACIÓN (fondo manejado por JS) */
 .designer-controls-grid { display: flex; flex-direction: column; gap: 8px; }
 .designer-control-item {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
@@ -743,7 +788,13 @@ svg, [data-lucide] {
 .designer-control-input { display: flex; align-items: center; gap: 10px; min-width: 170px; }
 .designer-control-input input[type="range"] {
   flex: 1; height: 5px; border-radius: 5px; appearance: none; -webkit-appearance: none;
-  background: linear-gradient(to right, var(--accent) 50%, rgba(255,255,255,0.1) 50%); outline: none;
+  outline: none; cursor: pointer;
+  background: rgba(255,255,255,0.1); /* fallback, JS lo sobreescribe */
+}
+.designer-control-input input[type="range"]::-webkit-slider-thumb {
+  appearance: none; -webkit-appearance: none; width: 14px; height: 14px;
+  border: 2px solid #0d0f17; border-radius: 50%; background: #fff;
+  box-shadow: 0 0 0 2px var(--accent);
 }
 .designer-control-input span { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--accent); min-width: 36px; text-align: right; }
 .designer-color-picker { width: 34px; height: 30px; border: 0; border-radius: 6px; cursor: pointer; background: transparent; }
@@ -901,6 +952,18 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
 .sp-controls svg, .sp-controls i { width: 16px; height: 16px; color: #fff; }
 .sp-bar { width: 100%; max-width: 360px; height: 4px; background: rgba(255,255,255,0.15); border-radius: 2px; }
 .sp-bar-fill { width: 40%; height: 100%; background: #fff; border-radius: 2px; }
+
+/* Slider de volumen del reproductor Spotify (barra inferior) — fondo manejado por JS */
+.sp-left input[type="range"] {
+  appearance: none; -webkit-appearance: none; height: 4px; border-radius: 4px;
+  outline: none; cursor: pointer;
+  background: rgba(255,255,255,0.15); /* fallback, JS lo sobreescribe */
+}
+.sp-left input[type="range"]::-webkit-slider-thumb {
+  appearance: none; -webkit-appearance: none; width: 12px; height: 12px;
+  border: 2px solid #0d0f17; border-radius: 50%; background: #fff;
+  box-shadow: 0 0 0 2px var(--accent);
+}
 
 /* ================= STATIC PREVIEWS ================= */
 .steam-preview, .firefox-preview, .vscode-preview { width: 100%; height: 100%; overflow: auto; background: #0c1017; }

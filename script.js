@@ -116,9 +116,8 @@ let currentPlaybackTime = 0;
 let shuffleEnabled = false;
 let repeatEnabled = false;
 
-/* ================= ESTADO DE EDICIÓN DE NOTAS ================= */
-let editingNoteKey = null;   // key del día que se está editando
-let editingNoteIndex = null; // índice de la nota dentro del array del día
+let editingNoteKey = null;
+let editingNoteIndex = null;
 
 let designerState = {
   activePreset: 'catppuccin',
@@ -159,6 +158,27 @@ function refreshIcons() {
   }
 }
 
+/* ================= SLIDERS: FILL DINÁMICO ================= */
+function syncSliderFill(slider) {
+  if (!slider || slider.type !== 'range') return;
+  const min = Number(slider.min) || 0;
+  const max = Number(slider.max) || 100;
+  const val = Number(slider.value);
+  const range = (max - min) || 1;
+  const pct = Math.max(0, Math.min(100, ((val - min) / range) * 100));
+  slider.style.background = `linear-gradient(to right, var(--accent) ${pct}%, rgba(255,255,255,0.1) ${pct}%)`;
+}
+
+function syncAllSliders() {
+  document.querySelectorAll('input[type="range"]').forEach(syncSliderFill);
+}
+
+document.addEventListener('input', (e) => {
+  if (e.target instanceof HTMLInputElement && e.target.type === 'range') {
+    syncSliderFill(e.target);
+  }
+});
+
 /* ================= RELOJ DE TOPBAR ================= */
 function updateClock() {
   const clock = document.getElementById('clock');
@@ -197,9 +217,6 @@ function closeQuickCenter() {
 }
 
 /* ================= MIGRACIÓN DE NOTAS (viejo → nuevo) ================= */
-/**
- * Convierte { "YYYY-MM-DD": "texto" } → { "YYYY-MM-DD": ["texto"] }
- */
 function migrateNotesFormat(notes) {
   if (!notes || typeof notes !== 'object') return {};
   const migrated = {};
@@ -240,6 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupQuickCenterPlayer();
   updatePlayerBackground();
   updateToastPosition();
+  syncAllSliders();
   refreshIcons();
 
   document.querySelectorAll('.waybar-module, #dock, #control-center, #quick-center, #launcher').forEach(el => {
@@ -269,6 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     quickCenter?.classList.toggle('hidden');
     updateToastPosition();
+    syncAllSliders();
     refreshIcons();
   };
 
@@ -289,13 +308,15 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('click', (e) => {
     const isPlayerClick = e.target.closest('#cc-spotify-player');
     const isCalendarClick = e.target.closest('.calendar-panel') || e.target.closest('#notes-list');
+    const isHudClick = e.target.closest('#gamer-overlay');
 
     if (!sysTrayBtn?.contains(e.target)
         && !clockCenter?.contains(e.target)
         && !controlCenter?.contains(e.target)
         && !quickCenter?.contains(e.target)
         && !isPlayerClick
-        && !isCalendarClick) {
+        && !isCalendarClick
+        && !isHudClick) {
       closeControlCenter();
       closeQuickCenter();
     }
@@ -468,7 +489,7 @@ function applyBrightness(val) {
   } catch (e) {}
 }
 
-/* ================= FEATURE: REPRODUCTOR QUICK CENTER ================= */
+/* ================= FEATURE: REPRODUCTOR QUICK CENTER + HUD ================= */
 function formatTime(seconds) {
   const s = Math.max(0, Math.floor(seconds));
   const m = Math.floor(s / 60);
@@ -498,11 +519,20 @@ function resetPlayerProgress() {
   updatePlayerProgress();
 }
 
+/**
+ * Actualiza los fondos con la portada del track actual:
+ *  - #cc-media-bg (reproductor del quick-center)
+ *  - #hud-media-bg (barra inferior del Gaming HUD)
+ */
 function updatePlayerBackground() {
-  const bg = document.getElementById('cc-media-bg');
   const track = TRACKS[currentTrackIndex];
-  if (!bg || !track) return;
-  bg.style.backgroundImage = `url("${track.art}")`;
+  if (!track) return;
+
+  const ccBg = document.getElementById('cc-media-bg');
+  if (ccBg) ccBg.style.backgroundImage = `url("${track.art}")`;
+
+  const hudBg = document.getElementById('hud-media-bg');
+  if (hudBg) hudBg.style.backgroundImage = `url("${track.art}")`;
 }
 
 function setupQuickCenterPlayer() {
@@ -588,6 +618,8 @@ function toggleGamerOverlay() {
 
   if (gamerOverlayVisible) {
     updateHUDTelemetry();
+    updatePlayerBackground();  // ← asegurar que el fondo del HUD tenga la portada actual
+    syncAllSliders();          // ← pintar sliders HUD
     refreshIcons();
   }
 }
@@ -678,6 +710,7 @@ function applyThemePreset(presetId) {
   saveDesignerState();
   showToast('Estilo Aplicado', `Paleta visual "${preset.name}" activada.`, 'palette');
   renderSettingsApp();
+  setTimeout(syncAllSliders, 0);
 }
 
 function setLiveAccentColor(color) {
@@ -686,6 +719,7 @@ function setLiveAccentColor(color) {
   root.style.setProperty('--accent', color);
   root.style.setProperty('--accent-glow', `${color}66`);
   saveDesignerState();
+  setTimeout(syncAllSliders, 0);
 }
 
 function setLiveTextMain(color) {
@@ -1289,7 +1323,6 @@ function loadPersistedState() {
       if (!Number.isNaN(parsed)) currentBrightness = parsed;
     }
 
-    // --- Notas del calendario (con migración al formato nuevo) ---
     const rawNotes = JSON.parse(localStorage.getItem(CALENDAR_NOTES_STORAGE_KEY) || '{}');
     calendarState.notes = migrateNotesFormat(rawNotes);
   } catch (e) {}
@@ -1342,9 +1375,8 @@ function setupSliders() {
     if(!slider) return;
     
     const updateBg = () => {
-      const val = slider.value;
-      slider.style.background = `linear-gradient(to right, var(--accent) ${val}%, rgba(255,255,255,0.1) ${val}%)`;
-      if (callback) callback(val);
+      syncSliderFill(slider);
+      if (callback) callback(slider.value);
     };
     
     slider.addEventListener('input', updateBg);
@@ -1407,9 +1439,6 @@ function calendarKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-/**
- * Vuelve el calendario al mes actual y limpia la selección.
- */
 function resetCalendarToToday() {
   calendarState.date = new Date();
   calendarState.selectedDate = null;
@@ -1460,7 +1489,6 @@ function renderCalendar() {
     if (key === todayKey) day.classList.add('today');
     if (key === calendarState.selectedDate) day.classList.add('selected');
     day.textContent = String(cellDate.getDate());
-    // El dot se muestra si el array de notas del día tiene al menos 1 elemento
     const dayNotes = calendarState.notes[key];
     if (Array.isArray(dayNotes) && dayNotes.length > 0) {
       const dot = document.createElement('span');
@@ -1482,9 +1510,6 @@ function changeCalendarMonth(offset) {
   renderCalendar();
 }
 
-/**
- * Selecciona un día. Limpia el input para permitir crear una NUEVA nota.
- */
 function selectCalendarDate(date) {
   calendarState.selectedDate = calendarKey(date);
   editingNoteKey = null;
@@ -1508,20 +1533,15 @@ function selectCalendarDate(date) {
   renderNotesList();
 }
 
-/**
- * Guarda la nota. SIEMPRE agrega una nueva al array del día (excepto en modo edición).
- */
 function saveCalendarNote() {
   const input = document.getElementById('note-input');
   const value = input ? input.value.trim() : '';
 
-  // Caso 1: input vacío + no estamos editando → no hacer nada
   if (!value && editingNoteKey === null) {
     showToast('Sin cambios', 'Escribí algo para guardar un recordatorio.', 'info');
     return;
   }
 
-  // Caso 2: modo edición
   if (editingNoteKey !== null && editingNoteIndex !== null) {
     const key = editingNoteKey;
     const idx = editingNoteIndex;
@@ -1529,23 +1549,19 @@ function saveCalendarNote() {
     if (!calendarState.notes[key]) calendarState.notes[key] = [];
 
     if (!value) {
-      // Input vacío en edición → borrar esa nota específica
       calendarState.notes[key].splice(idx, 1);
       if (calendarState.notes[key].length === 0) delete calendarState.notes[key];
       showToast('Nota eliminada', 'El recordatorio fue borrado.', 'trash-2');
     } else {
-      // Reemplazar la nota del índice
       calendarState.notes[key][idx] = value;
     }
   } else {
-    // Caso 3: agregar nota nueva al día seleccionado
     const key = calendarState.selectedDate;
     if (!key) return;
     if (!calendarState.notes[key]) calendarState.notes[key] = [];
     calendarState.notes[key].push(value);
   }
 
-  // Persistir y resetear editor
   localStorage.setItem(CALENDAR_NOTES_STORAGE_KEY, JSON.stringify(calendarState.notes));
 
   editingNoteKey = null;
@@ -1561,9 +1577,6 @@ function saveCalendarNote() {
   renderNotesList();
 }
 
-/**
- * Activa el modo edición de una nota específica (por índice).
- */
 function editCalendarNote(key, index) {
   editingNoteKey = key;
   editingNoteIndex = index;
@@ -1590,9 +1603,6 @@ function editCalendarNote(key, index) {
   renderNotesList();
 }
 
-/**
- * Elimina una nota específica por key + índice.
- */
 function deleteCalendarNote(key, index) {
   if (!key) return;
   const notes = calendarState.notes[key];
@@ -1603,7 +1613,6 @@ function deleteCalendarNote(key, index) {
 
   localStorage.setItem(CALENDAR_NOTES_STORAGE_KEY, JSON.stringify(calendarState.notes));
 
-  // Si estábamos editando esa misma nota, salir del modo edición
   if (editingNoteKey === key && editingNoteIndex === index) {
     editingNoteKey = null;
     editingNoteIndex = null;
@@ -1621,9 +1630,6 @@ function deleteCalendarNote(key, index) {
   showToast('Nota eliminada', 'El recordatorio fue borrado.', 'trash-2');
 }
 
-/**
- * Renderiza TODAS las notas del día seleccionado (o del día actual si no hay ninguno).
- */
 function renderNotesList() {
   const list = document.getElementById('notes-list');
   if (!list) return;
@@ -1759,6 +1765,7 @@ function applyWallpaper(index) {
   } catch (error) {}
   showToast('Fondo de Pantalla', `Fondo "${wallpaper.name}" aplicado.`, 'image');
   renderSettingsApp();
+  setTimeout(syncAllSliders, 0);
 }
 
 const contextMenu = document.getElementById('context-menu');
@@ -1905,6 +1912,7 @@ function openApp(id) {
   openWindows[id] = win;
   focusWindow(id);
   renderDock();
+  syncAllSliders();
   refreshIcons();
   
   const titlebar = win.querySelector('.titlebar');
@@ -2280,6 +2288,7 @@ function renderSettingsApp() {
   if (!content) return;
   content.innerHTML = getAppContent('settings');
   refreshIcons();
+  setTimeout(syncAllSliders, 0);
 }
 
 function setSettingsTab(tabName) {
