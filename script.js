@@ -90,10 +90,11 @@ const TRACKS = [
 
 /* ================= CATÁLOGO DE ESTILOS DE DOCK PREVIEW ================= */
 const DOCK_PREVIEW_STYLES = {
-  blueprint: { name: 'Blueprint', desc: 'Plano técnico / sci-fi con líneas de acento', available: true },
-  glass:     { name: 'Glass',     desc: 'Cristal translúcido y bordes suaves',        available: false },
-  minimal:   { name: 'Minimal',   desc: 'Limpio y directo, sin adornos',              available: false },
-  compact:   { name: 'Compacto',  desc: 'Solo lo esencial: ícono y datos',            available: false }
+  blueprint: { name: 'Blueprint',      desc: 'Plano técnico / sci-fi con líneas de acento',  available: true },
+  minimal:   { name: 'Minimal',        desc: 'Limpio y directo, sin adornos',                available: true },
+  brutalist: { name: 'Neo-Brutalism',  desc: 'Borde grueso y sombra dura estilo brutalista', available: true },
+  glass:     { name: 'Glass',          desc: 'Cristal translúcido y bordes suaves',          available: false },
+  compact:   { name: 'Compacto',       desc: 'Solo lo esencial: ícono y datos',              available: false }
 };
 
 /* ================= VARIABLES GLOBALES DE ESTADO ================= */
@@ -1949,7 +1950,7 @@ function renderDock() {
   refreshIcons();
 }
 
-/* ================= ★ DOCK HOVER PREVIEW — BLUEPRINT ================= */
+/* ================= ★ DOCK HOVER PREVIEW — multi-estilo ================= */
 function buildDockPreviewHTML(appId) {
   const app = APPS[appId];
   const win = openWindows[appId];
