@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nebula OS - Web Edition</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- CDN de Lucide Icons para iconografía vectorial moderna -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+<div id="boot-screen" aria-label="Iniciando Nebula OS">
+  <div class="boot-logo-mark" aria-hidden="true">
+     <svg viewBox="0 0 24 24" width="76" height="76" fill="currentColor"><path d="M12 2.5a.5.5 0 0 1 .5.5v1.5a.5.5 0 0 1-1 0V3a.5.5 0 0 1 .5-.5zm5.5 2.5a.5.5 0 0 1 .7.7l-1 1a.5.5 0 1 1-.7-.7l1-1zM21.5 12a.5.5 0 0 1-.5.5h-1.5a.5.5 0 0 1 0-1H21a.5.5 0 0 1 .5.5zm-2.5 5.5a.5.5 0 0 1-.7.7l-1-1a.5.5 0 1 1 .7-.7l1 1zM12 21.5a.5.5 0 0 1-.5-.5v-1.5a.5.5 0 0 1 1 0V21a.5.5 0 0 1-.5.5zm-5.5-2.5a.5.5 0 0 1-.7-.7l1-1a.5.5 0 1 1 .7.7l1 1zM2.5 12a.5.5 0 0 1 .5-.5h1.5a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm2.5-5.5a.5.5 0 0 1 .7-.7l1 1a.5.5 0 1 1-.7.7l-1-1zM12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg>
+    <img src="./logo nebula.png" alt="Logo de Nebula OS" width="76" height="76">
+  </div>
+  <div class="boot-wordmark">NEBULA OS</div>
+  <div class="boot-status">Iniciando entorno gráfico Gamer & IA</div>
+</div>
+
+<div id="screen">
+  <!-- Fondo Estrellas -->
+  <div id="background-layer"></div>
+
+  <!-- CAPA DE WIDGETS DE ESCRITORIO -->
+  <div id="desktop-widgets-layer"></div>
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div class="waybar-module left">
+      <div class="logo" title="Nebula OS (Lanzador)" onclick="toggleLauncher()" role="button" tabindex="0">
+        <img src="./logo nebula.png" alt="Nebula" width="18" height="18" style="vertical-align: middle; filter: drop-shadow(0 0 5px var(--accent-glow)); pointer-events: none;">
+      </div>
+      <div class="ws" id="ws-switcher">
+        <button class="active" onclick="switchWorkspace(1)" title="Espacio 1"></button>
+        <button onclick="switchWorkspace(2)" title="Espacio 2"></button>
+        <button onclick="switchWorkspace(3)" title="Espacio 3"></button>
+        <button onclick="switchWorkspace(4)" title="Espacio 4"></button>
+        <button onclick="switchWorkspace(5)" title="Espacio 5"></button>
+      </div>
+
+      <!-- PERFIL ACTUAL BADGE -->
+      <div class="topbar-profile-pill" id="topbar-profile-pill" title="Perfil activo. Clic para cambiar perfil" role="button" tabindex="0">
+        <span class="profile-icon" id="topbar-profile-icon"><i data-lucide="gamepad-2"></i></span>
+        <span class="profile-name" id="topbar-profile-name">Gamer</span>
+      </div>
+
+      <!-- MODO JUEGO BADGE -->
+      <div class="topbar-gamemode-badge" id="topbar-gamemode-badge" title="Modo Juego (Clic para alternar)" role="button" tabindex="0" onclick="toggleGameMode()">
+        <span class="gamemode-dot"></span>
+        <span>GAME MODE</span>
+      </div>
+
+      <span class="active-app" id="active-app-name">Escritorio</span>
+    </div>
+    
+    <div class="waybar-module center" id="clock-center" tabindex="0" role="button" aria-label="Abrir calendario y centro de control">
+      <span id="clock">00:00 · dom 1</span>
+    </div>
+    
+    <!-- Botón de Bandeja de Sistema -->
+    <div class="waybar-module right" id="sys-tray-btn">
+      <div class="sys-tray">
+        <div class="item hud-btn" id="tray-hud-toggle" title="Gaming Overlay HUD (Alt+Z / Win+G)">
+          <span class="hud-badge-icon"><i data-lucide="activity"></i> HUD</span>
+        </div>
+        <div class="item" id="tray-wifi-item" title="Red WiFi">
+          <i data-lucide="wifi" class="tray-icon"></i>
+        </div>
+        <div class="item hidden-tray" id="tray-bt-item" title="Bluetooth">
+          <i data-lucide="bluetooth" class="tray-icon"></i>
+        </div>
+        <div class="item" title="Volumen">
+          <i data-lucide="volume-2" class="tray-icon"></i>
+          <span id="tray-volume-num">80%</span>
+        </div>
+        <div class="item battery" title="Batería">
+          <i data-lucide="battery-charging" class="tray-icon" style="color: #a6e3a1;"></i>
+          <span style="color: #a6e3a1;">53%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WIDGET DE CALENDARIO Y CENTRO DE CONTROL -->
+  <div id="control-center" class="hidden" aria-label="Centro de control">
+    <div class="widget-header">
+      <div>
+        <div class="widget-kicker">NEBULA SYSTEM</div>
+        <div id="widget-time">00:00</div>
+        <div class="widget-uptime" id="widget-uptime">uptime: 0m</div>
+      </div>
+      <div class="cc-profile-box">
+        <div class="cc-section-label">PERFIL ACTIVO</div>
+        <div class="profile-switcher-chips">
+          <button class="profile-chip active" data-profile="gamer" onclick="switchProfile('gamer')"><i data-lucide="gamepad-2"></i> Gamer</button>
+          <button class="profile-chip" data-profile="streamer" onclick="switchProfile('streamer')"><i data-lucide="radio"></i> Streamer</button>
+          <button class="profile-chip" data-profile="studio" onclick="switchProfile('studio')"><i data-lucide="terminal"></i> Estudio</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="calendar-panel">
+      <div class="calendar-toolbar">
+        <button class="calendar-nav" id="calendar-prev" type="button" aria-label="Mes anterior"><i data-lucide="chevron-left"></i></button>
+        <div><strong id="calendar-month">Mes</strong><span id="calendar-year">2026</span></div>
+        <button class="calendar-nav" id="calendar-next" type="button" aria-label="Mes siguiente"><i data-lucide="chevron-right"></i></button>
+      </div>
+      <div class="calendar-weekdays"><span>lu</span><span>ma</span><span>mi</span><span>ju</span><span>vi</span><span>sá</span><span>do</span></div>
+      <div class="calendar-grid" id="calendar-grid"></div>
+      <div class="note-editor" id="note-editor" hidden>
+        <label id="selected-date-label" for="note-input">Nota rápida</label>
+        <div class="note-row"><input id="note-input" type="text" maxlength="80" placeholder="Escribí un recordatorio..."><button id="save-note" type="button">Guardar</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MENÚ DE UTILIDADES DE LA BANDEJA -->
+  <div id="quick-center" class="hidden" aria-label="Utilidades del sistema">
+    <div class="quick-panel-heading">
+      <div class="widget-kicker">CENTRO DE CONTROL</div>
+      <strong>Utilidades & Gaming</strong>
+      <span>Estado, recursos y reproducción</span>
+    </div>
+
+    <!-- CONECTIVIDAD: WIFI Y BLUETOOTH (ARRIBA DE TODO) -->
+    <div class="quick-connectivity-row">
+      <button class="quick-switch active" id="wifi-toggle" type="button" aria-pressed="true" onclick="toggleWifi()">
+        <div class="switch-meta">
+          <i data-lucide="wifi"></i>
+          <strong>WiFi</strong>
+        </div>
+        <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
+      </button>
+
+      <button class="quick-switch" id="bt-toggle" type="button" aria-pressed="false" onclick="toggleBluetooth()">
+        <div class="switch-meta">
+          <i data-lucide="bluetooth"></i>
+          <strong>Bluetooth</strong>
+        </div>
+        <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
+      </button>
+    </div>
+
+    <!-- SWITCHES RÁPIDOS CON ESTILO PILL MODERNO -->
+    <div class="quick-switches-grid">
+      <button class="quick-switch" id="gamemode-toggle" type="button" aria-pressed="false" onclick="toggleGameMode()">
+        <div class="switch-meta">
+          <i data-lucide="gamepad-2"></i>
+          <strong>Modo Juego</strong>
+        </div>
+        <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
+      </button>
+
+      <button class="quick-switch" id="dnd-toggle" type="button" aria-pressed="false">
+        <div class="switch-meta">
+          <i data-lucide="moon"></i>
+          <strong>No molestar</strong>
+        </div>
+        <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
+      </button>
+
+      <button class="quick-switch" id="battery-toggle" type="button" aria-pressed="false">
+        <div class="switch-meta">
+          <i data-lucide="zap"></i>
+          <strong>Alto Ahorro</strong>
+        </div>
+        <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
+      </button>
+
+      <button class="quick-switch" id="hud-toggle-btn" type="button" onclick="toggleGamerOverlay()">
+        <div class="switch-meta">
+          <i data-lucide="activity"></i>
+          <strong>Gaming HUD</strong>
+        </div>
+        <small class="hud-shortcut">Alt+Z</small>
+      </button>
+    </div>
+
+    <!-- SELECTOR DE PERFILES EN QUICK CENTER -->
+    <div class="quick-profiles-row">
+      <span class="quick-sublabel">Perfil:</span>
+      <div class="profile-mini-chips">
+        <button class="p-mini-chip active" data-profile="gamer" onclick="switchProfile('gamer')">Gamer</button>
+        <button class="p-mini-chip" data-profile="streamer" onclick="switchProfile('streamer')">Streamer</button>
+        <button class="p-mini-chip" data-profile="studio" onclick="switchProfile('studio')">Estudio</button>
+      </div>
+    </div>
+
+    <!-- SLIDERS CON ICONOGRAFÍA VECTORIAL LIMPIA -->
+    <div class="cc-sliders">
+      <div class="slider-row">
+        <i data-lucide="volume-2" class="slider-icon"></i>
+        <input type="range" id="volume-slider" min="0" max="100" value="80">
+        <span id="quick-volume-value">80%</span>
+      </div>
+      <div class="slider-row">
+        <i data-lucide="sun" class="slider-icon"></i>
+        <input type="range" id="brightness-slider" min="0" max="100" value="85">
+        <span id="quick-brightness-value">85%</span>
+      </div>
+    </div>
+
+    <div class="metrics-grid" aria-label="Estado del sistema">
+      <div class="metric-card" data-metric="ram">
+        <div class="metric-ring"><svg viewBox="0 0 42 42"><circle class="metric-track" cx="21" cy="21" r="16"></circle><circle class="metric-progress" cx="21" cy="21" r="16"></circle></svg><strong id="ram-value">38%</strong></div><span>RAM</span><div class="metric-tooltip" id="ram-tooltip"></div>
+      </div>
+      <div class="metric-card" data-metric="cpu">
+        <div class="metric-ring"><svg viewBox="0 0 42 42"><circle class="metric-track" cx="21" cy="21" r="16"></circle><circle class="metric-progress" cx="21" cy="21" r="16"></circle></svg><strong id="cpu-value">24%</strong></div><span>CPU</span><div class="metric-tooltip" id="cpu-tooltip"></div>
+      </div>
+      <div class="metric-card" data-metric="temp">
+        <div class="metric-ring"><svg viewBox="0 0 42 42"><circle class="metric-track" cx="21" cy="21" r="16"></circle><circle class="metric-progress" cx="21" cy="21" r="16"></circle></svg><strong id="temp-value">42%</strong></div><span>Temp.</span><div class="metric-tooltip" id="temp-tooltip"></div>
+      </div>
+    </div>
+
+    <div class="cc-media advanced-media">
+      <img src="./spotify/tapa album 2.jpg" alt="Bocanada" id="cc-media-art">
+      <div class="media-info">
+        <div class="m-title" id="cc-media-title">Bocanada</div>
+        <div class="m-artist" id="cc-media-artist">Gustavo Cerati</div>
+        <div class="media-progress"><span id="media-progress-fill"></span></div>
+      </div>
+      <button id="media-toggle" class="media-toggle" type="button" aria-label="Reproducir"><i data-lucide="play"></i></button>
+    </div>
+  </div>
+
+  <!-- GAMING OVERLAY (HUD FLOTANTE TRANSLÚCIDO) -->
+  <div id="gamer-overlay" class="gamer-overlay hidden" aria-label="Nebula Gaming Overlay">
+    <div class="hud-container glass-panel">
+      <!-- HUD HEADER -->
+      <div class="hud-header">
+        <div class="hud-title">
+          <span class="hud-badge"><i data-lucide="activity"></i> NEBULA HUD</span>
+          <strong>GAMING PERFORMANCE HUB</strong>
+          <small class="hud-shortcut-hint">Presioná <kbd>Alt + Z</kbd> o <kbd>Win + G</kbd> para alternar</small>
+        </div>
+        <div class="hud-actions">
+          <button class="hud-gamemode-btn" id="hud-gamemode-toggle" onclick="toggleGameMode()">
+            <span class="hud-pulse-dot"></span>
+            <span id="hud-gamemode-text">Modo Juego: OFF</span>
+          </button>
+          <button class="hud-close-btn" onclick="toggleGamerOverlay()" aria-label="Cerrar overlay"><i data-lucide="x"></i></button>
+        </div>
+      </div>
+
+      <!-- TELEMETRÍA EN VIVO -->
+      <div class="hud-telemetry-grid">
+        <!-- FPS CARD -->
+        <div class="hud-card hud-fps-card">
+          <div class="hud-card-header"><i data-lucide="gauge"></i> FPS TIEMPO REAL</div>
+          <div class="hud-fps-val" id="hud-fps">144</div>
+          <div class="hud-fps-label">ESTABLES · 144Hz G-SYNC</div>
+          <div class="hud-fps-bar"><div class="hud-fps-fill" id="hud-fps-fill"></div></div>
+        </div>
+
+        <!-- GPU MONITOR -->
+        <div class="hud-card">
+          <div class="hud-card-header"><i data-lucide="cpu"></i> GPU (RTX 4080 SUPRIM)</div>
+          <div class="hud-stat-row">
+            <span>Uso GPU</span>
+            <strong id="hud-gpu-usage">62%</strong>
+          </div>
+          <div class="hud-mini-meter"><div class="meter-bar" id="hud-gpu-bar" style="width: 62%;"></div></div>
+          <div class="hud-stat-row" style="margin-top: 8px;">
+            <span>VRAM</span>
+            <strong id="hud-vram-usage">4.8 / 16 GB</strong>
+          </div>
+          <div class="hud-stat-row">
+            <span>Temperatura</span>
+            <strong id="hud-gpu-temp" style="color: #a6e3a1;">54°C</strong>
+          </div>
+        </div>
+
+        <!-- CPU MONITOR -->
+        <div class="hud-card">
+          <div class="hud-card-header"><i data-lucide="hard-drive"></i> CPU (Ryzen 9 7950X)</div>
+          <div class="hud-stat-row">
+            <span>Uso CPU</span>
+            <strong id="hud-cpu-usage">28%</strong>
+          </div>
+          <div class="hud-mini-meter"><div class="meter-bar" id="hud-cpu-bar" style="width: 28%;"></div></div>
+          <div class="hud-stat-row" style="margin-top: 8px;">
+            <span>Frecuencia</span>
+            <strong id="hud-cpu-freq">4.85 GHz (Boost)</strong>
+          </div>
+          <div class="hud-stat-row">
+            <span>RAM Sistema</span>
+            <strong id="hud-ram-stat">5.4 / 32 GB (17%)</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- HUD CONTROLES RÁPIDOS DE AUDIO Y SPOTIFY -->
+      <div class="hud-bottom-bar">
+        <div class="hud-media-block">
+          <img src="./spotify/tapa album 2.jpg" alt="Track Art" id="hud-media-art">
+          <div class="hud-media-info">
+            <strong id="hud-media-title">Bocanada</strong>
+            <small id="hud-media-artist">Gustavo Cerati</small>
+          </div>
+          <div class="hud-media-btns">
+            <button class="hud-mbtn" onclick="previousTrack()" title="Anterior"><i data-lucide="skip-back"></i></button>
+            <button class="hud-mbtn main" id="hud-play-btn" onclick="toggleMediaPlayback()" title="Reproducir/Pausar"><i data-lucide="play"></i></button>
+            <button class="hud-mbtn" onclick="nextTrack()" title="Siguiente"><i data-lucide="skip-forward"></i></button>
+          </div>
+        </div>
+
+        <div class="hud-volume-block">
+          <div class="hud-vol-label"><i data-lucide="volume-2"></i><span>Volumen HUD</span></div>
+          <input type="range" id="hud-vol-slider" min="0" max="100" value="80" oninput="setSystemVolume(this.value)">
+          <strong id="hud-vol-val">80%</strong>
+        </div>
+
+        <div class="hud-tools-block">
+          <button class="hud-tool-btn" onclick="takeGamerScreenshot()" title="Tomar captura de pantalla"><i data-lucide="camera"></i> Captura</button>
+          <button class="hud-tool-btn" onclick="simulateRamBoost()" title="Limpiar RAM y optimizar"><i data-lucide="sparkles"></i> Optimizar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENEDOR DE VENTANAS -->
+  <div id="windows-container"></div>
+
+  <!-- DOCK -->
+  <div id="dock"></div>
+
+  <!-- LAUNCHER OVERLAY -->
+  <div id="launcher-overlay">
+    <div id="launcher">
+      <div class="searchbar">
+        <i data-lucide="search" class="searchbar-icon"></i>
+        <input type="text" id="launcher-input" placeholder="Buscar aplicaciones o comandos..." autocomplete="off">
+      </div>
+      <div id="launcher-results"></div>
+    </div>
+  </div>
+
+  <!-- MENÚ CONTEXTUAL DEL ESCRITORIO CON ICONOS VECTORIALES -->
+  <div id="context-menu" class="context-menu" role="menu">
+    <div class="context-item" tabindex="0" role="button" onclick="openContextApp('terminal')">
+      <span class="c-icon"><i data-lucide="terminal"></i></span> Abrir Terminal aquí
+    </div>
+    <div class="context-item" tabindex="0" role="button" onclick="openContextApp('files')">
+      <span class="c-icon"><i data-lucide="folder"></i></span> Abrir Archivos
+    </div>
+    <div class="context-item" tabindex="0" role="button" onclick="openContextApp('nova')">
+      <span class="c-icon"><i data-lucide="sparkles"></i></span> Preguntar a Nova AI
+    </div>
+    <div class="context-separator"></div>
+    <div class="context-item" tabindex="0" role="button" onclick="toggleGamerOverlay()">
+      <span class="c-icon"><i data-lucide="activity"></i></span> Abrir Gaming Overlay (HUD)
+    </div>
+    <div class="context-item" tabindex="0" role="button" onclick="toggleGameMode()">
+      <span class="c-icon"><i data-lucide="gamepad-2"></i></span> Alternar Modo Juego
+    </div>
+    <div class="context-separator"></div>
+    <div class="context-item" tabindex="0" role="button" onclick="openSettingsTab('designer')">
+      <span class="c-icon"><i data-lucide="palette"></i></span> Nebula Designer (Personalizar)
+    </div>
+    <div class="context-item" tabindex="0" role="button" onclick="cycleWallpaper()">
+      <span class="c-icon"><i data-lucide="image"></i></span> Siguiente fondo de pantalla
+    </div>
+    <div class="context-separator"></div>
+    <div class="context-item" tabindex="0" role="button" onclick="addDesktopWidget('hardware')">
+      <span class="c-icon"><i data-lucide="cpu"></i></span> Añadir Widget: Telemetría Hardware
+    </div>
+    <div class="context-item" tabindex="0" role="button" onclick="addDesktopWidget('media')">
+      <span class="c-icon"><i data-lucide="music"></i></span> Añadir Widget: Reproductor Multimedia
+    </div>
+    <div class="context-item" tabindex="0" role="button" onclick="addDesktopWidget('clock')">
+      <span class="c-icon"><i data-lucide="clock"></i></span> Añadir Widget: Reloj Digital Flotante
+    </div>
+    <div class="context-item" tabindex="0" role="button" onclick="clearDesktopWidgets()">
+      <span class="c-icon"><i data-lucide="trash-2"></i></span> Limpiar Widgets de Escritorio
+    </div>
+    <div class="context-separator"></div>
+    <div class="context-item" tabindex="0" role="button" onclick="refreshDesktop()">
+      <span class="c-icon"><i data-lucide="refresh-cw"></i></span> Actualizar escritorio
+    </div>
+  </div>
+
+  <!-- CONTENEDOR DE NOTIFICACIONES TOAST -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

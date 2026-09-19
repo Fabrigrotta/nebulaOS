@@ -1,0 +1,2388 @@
+/* ================= CONFIGURACIÓN DE APPS & ICONOS ================= */
+const APPS = {
+  files:    { title: 'Archivos', sub: 'Gestor inteligente de archivos', icon: 'folder', image: './imagenes/archivos.png', tileClass: 'app-tile-files' },
+  terminal: { title: 'Terminal', sub: 'WezTerm Emulator', icon: 'terminal', image: './imagenes/terminal.png', tileClass: 'app-tile-terminal' },
+  browser:  { title: 'Firefox', sub: 'Navegador Web', icon: 'globe', image: './imagenes/firefox.png', tileClass: 'app-tile-browser' },
+  music:    { title: 'Spotify', sub: 'Reproductor de Música', icon: 'music', image: './imagenes/spotify.png', tileClass: 'app-tile-music' },
+  games:    { title: 'Steam', sub: 'Librería de Juegos', icon: 'gamepad-2', image: './imagenes/Steam.png', tileClass: 'app-tile-games' },
+  vscode:   { title: 'VS Code', sub: 'Editor de Código', icon: 'code-2', image: './imagenes/VSC.png', tileClass: 'app-tile-vscode' },
+  settings: { title: 'Ajustes', sub: 'Panel de Control & Designer', icon: 'sliders', image: './imagenes/Ajustes.png', tileClass: 'app-tile-settings' },
+  nova:     { title: 'Nova AI', sub: 'Asistente Gamer & Tweaker', icon: 'sparkles', image: './NOVA AI/logo nova.png', tileClass: 'app-tile-nova' }
+};
+
+const DOCK_APPS = ['browser', 'terminal', 'nova', 'files', 'vscode', 'music', 'games', 'settings'];
+
+const WALLPAPERS = [
+  { file: 'fondo principal.jpg', name: 'Nebula', accent: '#b4befe', text: '#cdd6f4', sub: '#bac2de', green: '#a6e3a1', panel: 'rgba(18,21,33,0.72)' },
+  { file: 'fondo 2.jpg', name: 'Aurora', accent: '#89dceb', text: '#d9f4ff', sub: '#a9c6d3', green: '#a6e3a1', panel: 'rgba(11,31,39,0.75)' },
+  { file: 'fondo 3.jpg', name: 'Solar', accent: '#f9c784', text: '#fff1dc', sub: '#d7bfa4', green: '#b8e986', panel: 'rgba(43,25,20,0.75)' }
+];
+
+const THEME_PRESETS = {
+  cyberpunk: {
+    name: 'Cyberpunk Neón',
+    accent: '#00ffcc',
+    accentGlow: 'rgba(0, 255, 204, 0.5)',
+    panelColor: 'rgba(10, 14, 22, 0.88)',
+    blurAmount: '12px',
+    borderRadius: '10px',
+    textMain: '#e0fff5',
+    textSub: '#7ab8a8',
+    bgDark: '#0a0e18',
+    accentGreen: '#00ff88',
+    accentRed: '#ff2a6d',
+    accentOrange: '#ff9e00',
+    colors: ['#00ffcc', '#ff007f', '#7928ca', '#0a0e18']
+  },
+  catppuccin: {
+    name: 'Minimal Catppuccin',
+    accent: '#cba6f7',
+    accentGlow: 'rgba(203, 166, 247, 0.45)',
+    panelColor: 'rgba(18, 21, 33, 0.72)',
+    blurAmount: '20px',
+    borderRadius: '16px',
+    textMain: '#cdd6f4',
+    textSub: '#9399b2',
+    bgDark: '#0d0f17',
+    accentGreen: '#a6e3a1',
+    accentRed: '#f38ba8',
+    accentOrange: '#fab387',
+    colors: ['#cba6f7', '#89b4fa', '#f5c2e7', '#1e1e2e']
+  },
+  synthwave: {
+    name: 'Retro Synthwave',
+    accent: '#ff71ce',
+    accentGlow: 'rgba(255, 113, 206, 0.5)',
+    panelColor: 'rgba(26, 16, 44, 0.82)',
+    blurAmount: '16px',
+    borderRadius: '14px',
+    textMain: '#ffe4f6',
+    textSub: '#b07aa8',
+    bgDark: '#1a102c',
+    accentGreen: '#05ffa1',
+    accentRed: '#ff3860',
+    accentOrange: '#ffb86c',
+    colors: ['#ff71ce', '#01cdfe', '#05ffa1', '#1a102c']
+  },
+  stealth: {
+    name: 'Dark Stealth',
+    accent: '#10b981',
+    accentGlow: 'rgba(16, 185, 129, 0.4)',
+    panelColor: 'rgba(12, 14, 18, 0.94)',
+    blurAmount: '6px',
+    borderRadius: '6px',
+    textMain: '#d1d5db',
+    textSub: '#6b7280',
+    bgDark: '#08090c',
+    accentGreen: '#34d399',
+    accentRed: '#ef4444',
+    accentOrange: '#f59e0b',
+    colors: ['#10b981', '#3b82f6', '#475569', '#08090c']
+  }
+};
+
+const TRACKS = [
+  { title: 'Bocanada', artist: 'Gustavo Cerati', art: './spotify/tapa album 2.jpg' },
+  { title: 'Smells Like Teen Spirit', artist: 'Nirvana', art: './spotify/tapa album 1.jpg' },
+  { title: 'Prohibido', artist: 'Callejeros', art: './spotify/album 3.jpg' },
+  { title: 'Cyberpunk Night City Beat', artist: 'Hyper Sound', art: './spotify/top 50.jpg' }
+];
+
+/* ================= VARIABLES GLOBALES DE ESTADO ================= */
+let openWindows = {};
+let zIndexCounter = 100;
+let activeAppId = null;
+let currentWorkspace = 1;
+let currentWallpaperIndex = 0;
+let fullscreenWindowId = null;
+const widgetStartedAt = Date.now();
+const calendarState = { date: new Date(), selectedDate: null, notes: {} };
+const systemMetrics = { ram: 38, cpu: 24, temp: 42, gpu: 62, vram: 4.8, fps: 144 };
+
+let gameModeActive = false;
+let currentProfile = 'gamer'; // 'gamer' | 'streamer' | 'studio'
+let gamerOverlayVisible = false;
+let currentTrackIndex = 0;
+let isPlaying = false;
+let playbackProgress = 32;
+let systemVolume = 80;
+
+/* ================= ESTADO DE CONECTIVIDAD ================= */
+let wifiEnabled = true;
+let bluetoothEnabled = false;
+
+let designerState = {
+  activePreset: 'catppuccin',
+  accent: '#b4befe',
+  textMain: '#cdd6f4',
+  textSub: '#9399b2',
+  bgDark: '#0d0f17',
+  accentGreen: '#a6e3a1',
+  accentRed: '#f38ba8',
+  accentOrange: '#fab387',
+  panelColor: 'rgba(18, 21, 33, 0.72)',
+  panelAlpha: 0.72,
+  blurAmount: 18,
+  borderRadius: 14,
+  dockStyle: 'floating' // 'floating' | 'unified-bottom'
+};
+
+let desktopWidgets = [];
+
+const SETTINGS_STORAGE_KEY = 'nebula-os:settings';
+const WALLPAPER_STORAGE_KEY = 'nebula-os:wallpaper';
+const GAMEMODE_STORAGE_KEY = 'nebula-os:gamemode';
+const PROFILE_STORAGE_KEY = 'nebula-os:profile';
+const DESIGNER_STORAGE_KEY = 'nebula-os:designer';
+const WIDGETS_STORAGE_KEY = 'nebula-os:widgets';
+const WIFI_STORAGE_KEY = 'nebula-os:wifi';
+const BT_STORAGE_KEY = 'nebula-os:bluetooth';
+
+let settingsState = { animations: true, transparency: true, activeSettingsTab: 'designer' };
+
+/* ================= HELPER DE ICONOGRAFÍA LUCIDE ================= */
+function refreshIcons() {
+  if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
+    lucide.createIcons();
+  }
+}
+
+/* ================= RELOJ DE TOPBAR ================= */
+function updateClock() {
+  const clock = document.getElementById('clock');
+  if (!clock) return;
+
+  const now = new Date();
+  const weekdays = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  clock.textContent = `${hours}:${minutes} · ${weekdays[now.getDay()]} ${now.getDate()}`;
+}
+
+/* ================= INICIALIZACIÓN DEL SISTEMA ================= */
+document.addEventListener('DOMContentLoaded', () => {
+  const bootScreen = document.getElementById('boot-screen');
+  setTimeout(() => bootScreen && bootScreen.classList.add('boot-complete'), 850);
+  setTimeout(() => bootScreen && bootScreen.remove(), 1450);
+
+  createStars();
+  loadPersistedState();
+  renderDock();
+  setupSliders();
+  updateClock();
+  setInterval(updateClock, 30000);
+  applyWallpaper(currentWallpaperIndex);
+  applySettings();
+  setupDeviceStatus();
+  setupKeyboardAccessibility();
+  setupAdvancedWidget();
+  setupTelemetryLoop();
+  setupShortcuts();
+  renderDesktopWidgets();
+  renderConnectivityState();
+  refreshIcons();
+
+  document.querySelectorAll('.waybar-module, #dock, #control-center, #quick-center, #launcher').forEach(el => {
+    el.classList.add('glass-panel');
+  });
+  
+  const sysTrayBtn = document.getElementById('sys-tray-btn');
+  const clockCenter = document.getElementById('clock-center');
+  const controlCenter = document.getElementById('control-center');
+  const quickCenter = document.getElementById('quick-center');
+  const trayHudToggle = document.getElementById('tray-hud-toggle');
+  const topbarProfilePill = document.getElementById('topbar-profile-pill');
+
+  const toggleControlCenter = () => {
+    quickCenter?.classList.add('hidden');
+    controlCenter?.classList.toggle('hidden');
+    refreshIcons();
+  };
+  const toggleQuickCenter = () => {
+    controlCenter?.classList.add('hidden');
+    quickCenter?.classList.toggle('hidden');
+    refreshIcons();
+  };
+
+  if (sysTrayBtn) sysTrayBtn.addEventListener('click', (e) => {
+    if (e.target.closest('#tray-hud-toggle')) return;
+    toggleQuickCenter();
+  });
+  if (clockCenter) clockCenter.addEventListener('click', toggleControlCenter);
+  if (trayHudToggle) trayHudToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleGamerOverlay();
+  });
+  if (topbarProfilePill) topbarProfilePill.addEventListener('click', () => {
+    const next = currentProfile === 'gamer' ? 'streamer' : currentProfile === 'streamer' ? 'studio' : 'gamer';
+    switchProfile(next);
+  });
+
+  document.addEventListener('click', (e) => {
+    if(!sysTrayBtn?.contains(e.target) && !clockCenter?.contains(e.target) && !controlCenter?.contains(e.target) && !quickCenter?.contains(e.target)) {
+      controlCenter?.classList.add('hidden');
+      quickCenter?.classList.add('hidden');
+    }
+    hideContextMenu();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      controlCenter?.classList.add('hidden');
+      quickCenter?.classList.add('hidden');
+      if (gamerOverlayVisible) toggleGamerOverlay();
+    }
+  });
+
+  document.getElementById('screen').addEventListener('contextmenu', (e) => {
+    if (e.target.closest('#context-menu') || e.target.closest('.window') || e.target.closest('.desktop-widget')) return;
+    e.preventDefault();
+    showContextMenu(e.clientX, e.clientY);
+  });
+
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && fullscreenWindowId) {
+      const id = fullscreenWindowId;
+      fullscreenWindowId = null;
+      restoreWindow(id);
+    }
+  });
+});
+
+/* ================= SHORTCUTS GLOBALES ================= */
+function setupShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    if ((e.altKey && (e.key === 'z' || e.key === 'Z' || e.key === 'g' || e.key === 'G')) ||
+        (e.metaKey && (e.key === 'g' || e.key === 'G'))) {
+      e.preventDefault();
+      toggleGamerOverlay();
+    }
+  });
+}
+
+/* ================= FEATURE: CONECTIVIDAD (WIFI & BLUETOOTH) ================= */
+function toggleWifi(explicitState = null) {
+  wifiEnabled = explicitState !== null ? explicitState : !wifiEnabled;
+
+  const wifiToggle = document.getElementById('wifi-toggle');
+  if (wifiToggle) {
+    wifiToggle.classList.toggle('active', wifiEnabled);
+    wifiToggle.setAttribute('aria-pressed', String(wifiEnabled));
+  }
+
+  try {
+    localStorage.setItem(WIFI_STORAGE_KEY, JSON.stringify(wifiEnabled));
+  } catch (e) {}
+
+  renderConnectivityState();
+
+  showToast(
+    wifiEnabled ? 'WiFi Activado' : 'WiFi Desactivado',
+    wifiEnabled ? 'Conexión inalámbrica establecida.' : 'Sin conexión inalámbrica.',
+    wifiEnabled ? 'wifi' : 'wifi-off'
+  );
+}
+
+function toggleBluetooth(explicitState = null) {
+  bluetoothEnabled = explicitState !== null ? explicitState : !bluetoothEnabled;
+
+  const btToggle = document.getElementById('bt-toggle');
+  if (btToggle) {
+    btToggle.classList.toggle('active', bluetoothEnabled);
+    btToggle.setAttribute('aria-pressed', String(bluetoothEnabled));
+  }
+
+  try {
+    localStorage.setItem(BT_STORAGE_KEY, JSON.stringify(bluetoothEnabled));
+  } catch (e) {}
+
+  renderConnectivityState();
+
+  showToast(
+    bluetoothEnabled ? 'Bluetooth Activado' : 'Bluetooth Desactivado',
+    bluetoothEnabled ? 'Listo para emparejar dispositivos.' : 'Bluetooth apagado.',
+    'bluetooth'
+  );
+}
+
+function renderConnectivityState() {
+  // --- Topbar: WiFi ---
+  const trayWifi = document.getElementById('tray-wifi-item');
+  if (trayWifi) {
+    const iconEl = trayWifi.querySelector('i, svg');
+    if (wifiEnabled) {
+      trayWifi.classList.remove('off');
+      trayWifi.title = 'WiFi: Conectado';
+      if (iconEl) {
+        iconEl.outerHTML = '<i data-lucide="wifi" class="tray-icon"></i>';
+      }
+    } else {
+      trayWifi.classList.add('off');
+      trayWifi.title = 'WiFi: Desconectado';
+      if (iconEl) {
+        iconEl.outerHTML = '<i data-lucide="wifi-off" class="tray-icon"></i>';
+      }
+    }
+  }
+
+  // --- Topbar: Bluetooth ---
+  const trayBt = document.getElementById('tray-bt-item');
+  if (trayBt) {
+    if (bluetoothEnabled) {
+      trayBt.classList.remove('hidden-tray');
+      trayBt.title = 'Bluetooth: Activado';
+    } else {
+      trayBt.classList.add('hidden-tray');
+      trayBt.title = 'Bluetooth: Apagado';
+    }
+  }
+
+  // --- Quick Center toggles ---
+  const wifiToggle = document.getElementById('wifi-toggle');
+  if (wifiToggle) {
+    wifiToggle.classList.toggle('active', wifiEnabled);
+    wifiToggle.setAttribute('aria-pressed', String(wifiEnabled));
+  }
+  const btToggle = document.getElementById('bt-toggle');
+  if (btToggle) {
+    btToggle.classList.toggle('active', bluetoothEnabled);
+    btToggle.setAttribute('aria-pressed', String(bluetoothEnabled));
+  }
+
+  refreshIcons();
+}
+
+/* ================= FEATURE 1: GAME MODE & GAMING OVERLAY ================= */
+function toggleGameMode(explicitState = null) {
+  gameModeActive = explicitState !== null ? explicitState : !gameModeActive;
+  document.body.classList.toggle('game-mode-active', gameModeActive);
+  
+  const gmToggle = document.getElementById('gamemode-toggle');
+  const hudGmBtn = document.getElementById('hud-gamemode-toggle');
+  const hudGmText = document.getElementById('hud-gamemode-text');
+  const topbarBadge = document.getElementById('topbar-gamemode-badge');
+
+  if (gmToggle) {
+    gmToggle.classList.toggle('active', gameModeActive);
+    gmToggle.setAttribute('aria-pressed', String(gameModeActive));
+  }
+  if (hudGmBtn) hudGmBtn.classList.toggle('active', gameModeActive);
+  if (hudGmText) hudGmText.textContent = `Modo Juego: ${gameModeActive ? 'ON' : 'OFF'}`;
+  if (topbarBadge) topbarBadge.style.display = gameModeActive ? 'flex' : 'none';
+
+  if (gameModeActive) {
+    systemMetrics.ram = Math.max(16, Math.min(22, Math.round(systemMetrics.ram * 0.45)));
+    systemMetrics.cpu = Math.min(85, systemMetrics.cpu + 15);
+    systemMetrics.fps = 144;
+    updateMetrics();
+    showToast('Modo Juego Activado', 'Recursos optimizados: RAM liberada y perfil de alto rendimiento fijado.', 'gamepad-2');
+  } else {
+    showToast('Modo Juego Desactivado', 'Perfil estándar balanceado restablecido.', 'zap');
+  }
+
+  try {
+    localStorage.setItem(GAMEMODE_STORAGE_KEY, JSON.stringify(gameModeActive));
+  } catch (e) {}
+
+  updateHUDTelemetry();
+  refreshIcons();
+}
+
+function toggleGamerOverlay() {
+  const overlay = document.getElementById('gamer-overlay');
+  if (!overlay) return;
+  
+  gamerOverlayVisible = !gamerOverlayVisible;
+  overlay.classList.toggle('hidden', !gamerOverlayVisible);
+
+  if (gamerOverlayVisible) {
+    updateHUDTelemetry();
+    refreshIcons();
+  }
+}
+
+function updateHUDTelemetry() {
+  const fpsEl = document.getElementById('hud-fps');
+  const gpuUsageEl = document.getElementById('hud-gpu-usage');
+  const gpuBarEl = document.getElementById('hud-gpu-bar');
+  const gpuTempEl = document.getElementById('hud-gpu-temp');
+  const vramEl = document.getElementById('hud-vram-usage');
+  const cpuUsageEl = document.getElementById('hud-cpu-usage');
+  const cpuBarEl = document.getElementById('hud-cpu-bar');
+  const cpuFreqEl = document.getElementById('hud-cpu-freq');
+  const ramStatEl = document.getElementById('hud-ram-stat');
+
+  if (fpsEl) fpsEl.textContent = String(systemMetrics.fps);
+  if (gpuUsageEl) gpuUsageEl.textContent = `${systemMetrics.gpu}%`;
+  if (gpuBarEl) gpuBarEl.style.width = `${systemMetrics.gpu}%`;
+  if (gpuTempEl) gpuTempEl.textContent = `${Math.round(48 + systemMetrics.gpu * 0.15)}°C`;
+  if (vramEl) vramEl.textContent = `${systemMetrics.vram.toFixed(1)} / 16 GB`;
+  if (cpuUsageEl) cpuUsageEl.textContent = `${systemMetrics.cpu}%`;
+  if (cpuBarEl) cpuBarEl.style.width = `${systemMetrics.cpu}%`;
+  if (cpuFreqEl) cpuFreqEl.textContent = gameModeActive ? '4.95 GHz (Turbo Boost)' : '4.20 GHz (Estándar)';
+  if (ramStatEl) ramStatEl.textContent = `${(systemMetrics.ram * 32 / 100).toFixed(1)} / 32 GB (${systemMetrics.ram}%)`;
+}
+
+function setupTelemetryLoop() {
+  setInterval(() => {
+    if (gameModeActive) {
+      systemMetrics.fps = 142 + Math.floor(Math.random() * 3);
+      systemMetrics.gpu = Math.max(50, Math.min(88, systemMetrics.gpu + Math.round((Math.random() - 0.5) * 6)));
+      systemMetrics.vram = 4.6 + Math.random() * 0.4;
+    } else {
+      systemMetrics.fps = 120 + Math.floor(Math.random() * 20);
+      systemMetrics.gpu = Math.max(20, Math.min(65, systemMetrics.gpu + Math.round((Math.random() - 0.5) * 8)));
+    }
+    if (gamerOverlayVisible) updateHUDTelemetry();
+    updateWidgetStats();
+  }, 1200);
+}
+
+function takeGamerScreenshot() {
+  const screen = document.getElementById('screen');
+  screen.style.filter = 'brightness(1.5)';
+  setTimeout(() => screen.style.filter = '', 120);
+  showToast('Captura Guardada', 'Guardada en Archivos / Capturas de Juegos', 'camera');
+}
+
+function simulateRamBoost() {
+  const previous = systemMetrics.ram;
+  systemMetrics.ram = 17;
+  updateMetrics();
+  updateHUDTelemetry();
+  showToast('Memoria Optimizada', `RAM liberada de ${previous}% a 17%. 4.8 GB liberados.`, 'sparkles');
+}
+
+/* ================= FEATURE 2: NEBULA DESIGNER ================= */
+function applyThemePreset(presetId) {
+  const preset = THEME_PRESETS[presetId];
+  if (!preset) return;
+
+  designerState.activePreset = presetId;
+  designerState.accent = preset.accent;
+  designerState.panelColor = preset.panelColor;
+  designerState.blurAmount = parseInt(preset.blurAmount, 10);
+  designerState.borderRadius = parseInt(preset.borderRadius, 10);
+  designerState.textMain = preset.textMain;
+  designerState.textSub = preset.textSub;
+  designerState.bgDark = preset.bgDark;
+  designerState.accentGreen = preset.accentGreen;
+  designerState.accentRed = preset.accentRed;
+  designerState.accentOrange = preset.accentOrange;
+
+  const root = document.documentElement;
+  root.style.setProperty('--accent', preset.accent);
+  root.style.setProperty('--accent-glow', preset.accentGlow);
+  root.style.setProperty('--panel-color', preset.panelColor);
+  root.style.setProperty('--blur-amount', `${preset.blurAmount}`);
+  root.style.setProperty('--radius-md', `${preset.borderRadius}`);
+  root.style.setProperty('--radius-lg', `${parseInt(preset.borderRadius, 10) + 6}px`);
+  root.style.setProperty('--text-main', preset.textMain);
+  root.style.setProperty('--text-sub', preset.textSub);
+  root.style.setProperty('--bg-dark', preset.bgDark);
+  root.style.setProperty('--accent-green', preset.accentGreen);
+  root.style.setProperty('--accent-red', preset.accentRed);
+  root.style.setProperty('--accent-orange', preset.accentOrange);
+
+  // Nebula Designer sólo modifica estilos, paletas y controles UI (el fondo permanece intacto)
+  saveDesignerState();
+  showToast('Estilo Aplicado', `Paleta visual "${preset.name}" activada.`, 'palette');
+  renderSettingsApp();
+}
+
+function setLiveAccentColor(color) {
+  designerState.accent = color;
+  const root = document.documentElement;
+  root.style.setProperty('--accent', color);
+  root.style.setProperty('--accent-glow', `${color}66`);
+  saveDesignerState();
+}
+
+function setLiveTextMain(color) {
+  designerState.textMain = color;
+  document.documentElement.style.setProperty('--text-main', color);
+  saveDesignerState();
+}
+
+function setLiveTextSub(color) {
+  designerState.textSub = color;
+  document.documentElement.style.setProperty('--text-sub', color);
+  saveDesignerState();
+}
+
+function setLiveBgDark(color) {
+  designerState.bgDark = color;
+  document.documentElement.style.setProperty('--bg-dark', color);
+  saveDesignerState();
+}
+
+function setLiveAccentGreen(color) {
+  designerState.accentGreen = color;
+  document.documentElement.style.setProperty('--accent-green', color);
+  saveDesignerState();
+}
+
+function setLiveAccentRed(color) {
+  designerState.accentRed = color;
+  document.documentElement.style.setProperty('--accent-red', color);
+  saveDesignerState();
+}
+
+function setLiveAccentOrange(color) {
+  designerState.accentOrange = color;
+  document.documentElement.style.setProperty('--accent-orange', color);
+  saveDesignerState();
+}
+
+function setLiveBlurAmount(amount) {
+  designerState.blurAmount = amount;
+  document.documentElement.style.setProperty('--blur-amount', `${amount}px`);
+  const valEl = document.getElementById('designer-blur-val');
+  if (valEl) valEl.textContent = `${amount}px`;
+  saveDesignerState();
+}
+
+function setLiveBorderRadius(radius) {
+  designerState.borderRadius = radius;
+  document.documentElement.style.setProperty('--radius-md', `${radius}px`);
+  document.documentElement.style.setProperty('--radius-lg', `${parseInt(radius, 10) + 6}px`);
+  const valEl = document.getElementById('designer-radius-val');
+  if (valEl) valEl.textContent = `${radius}px`;
+  saveDesignerState();
+}
+
+function setLivePanelAlpha(alpha) {
+  designerState.panelAlpha = alpha;
+  const alphaVal = alpha / 100;
+  // Use bgDark hex as the base color for panel transparency
+  const hex = designerState.bgDark || '#0d0f17';
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  const newColor = `rgba(${r}, ${g}, ${b}, ${alphaVal})`;
+  designerState.panelColor = newColor;
+  document.documentElement.style.setProperty('--panel-color', newColor);
+  const valEl = document.getElementById('designer-alpha-val');
+  if (valEl) valEl.textContent = `${alpha}%`;
+  saveDesignerState();
+}
+
+function resetDesignerToPreset() {
+  const presetId = designerState.activePreset || 'catppuccin';
+  applyThemePreset(presetId);
+  showToast('Reseteo Completo', `Todos los colores fueron restaurados al preset "${THEME_PRESETS[presetId].name}".`, 'rotate-ccw');
+}
+
+function setDockStyle(style) {
+  designerState.dockStyle = style;
+  document.body.classList.toggle('dock-unified-bottom', style === 'unified-bottom');
+  saveDesignerState();
+  showToast('Estilo de Dock', `Cambiado a ${style === 'unified-bottom' ? 'Barra Unificada Inferior' : 'Dock Flotante'}.`, 'layout');
+  renderSettingsApp();
+}
+
+function saveDesignerState() {
+  try {
+    localStorage.setItem(DESIGNER_STORAGE_KEY, JSON.stringify(designerState));
+  } catch (e) {}
+}
+
+/* ================= WIDGETS FLOTANTES DE ESCRITORIO ================= */
+function addDesktopWidget(type, x = null, y = null) {
+  const existing = desktopWidgets.find(w => w.type === type);
+  if (existing) {
+    showToast('Widget Existente', `El widget de ${type} ya está en el escritorio.`, 'info');
+    return;
+  }
+
+  const id = 'widget-' + Date.now();
+  const defaultPositions = {
+    hardware: { x: window.innerWidth - 260, y: 60 },
+    media:    { x: window.innerWidth - 260, y: 230 },
+    clock:    { x: 24, y: 60 }
+  };
+  const posX = x !== null ? x : (defaultPositions[type]?.x || 40);
+  const posY = y !== null ? y : (defaultPositions[type]?.y || 90);
+
+  desktopWidgets.push({ id, type, x: posX, y: posY });
+  saveDesktopWidgets();
+  renderDesktopWidgets();
+  showToast('Widget Añadido', `Widget de ${type} colocado en el escritorio.`, 'plus');
+  hideContextMenu();
+}
+
+function removeDesktopWidget(id) {
+  desktopWidgets = desktopWidgets.filter(w => w.id !== id);
+  saveDesktopWidgets();
+  renderDesktopWidgets();
+}
+
+function clearDesktopWidgets() {
+  desktopWidgets = [];
+  saveDesktopWidgets();
+  renderDesktopWidgets();
+  showToast('Widgets Limpiados', 'Se retiraron todos los widgets del escritorio.', 'trash-2');
+  hideContextMenu();
+}
+
+function saveDesktopWidgets() {
+  try {
+    localStorage.setItem(WIDGETS_STORAGE_KEY, JSON.stringify(desktopWidgets));
+  } catch (e) {}
+}
+
+function renderDesktopWidgets() {
+  const layer = document.getElementById('desktop-widgets-layer');
+  if (!layer) return;
+  layer.innerHTML = '';
+
+  desktopWidgets.forEach(widget => {
+    const el = document.createElement('div');
+    el.className = 'desktop-widget';
+    el.id = widget.id;
+    el.style.left = `${widget.x}px`;
+    el.style.top = `${widget.y}px`;
+
+    let bodyHTML = '';
+    let title = '';
+    let iconName = 'activity';
+
+    if (widget.type === 'hardware') {
+      title = 'TELEMETRÍA HARDWARE';
+      iconName = 'cpu';
+      bodyHTML = `
+        <div class="hw-widget-grid">
+          <div class="hw-item"><span>FPS</span><strong id="w-fps">${systemMetrics.fps}</strong></div>
+          <div class="hw-item"><span>GPU</span><strong id="w-gpu">${systemMetrics.gpu}%</strong></div>
+          <div class="hw-item"><span>CPU</span><strong id="w-cpu">${systemMetrics.cpu}%</strong></div>
+          <div class="hw-item"><span>RAM</span><strong id="w-ram">${systemMetrics.ram}%</strong></div>
+        </div>
+      `;
+    } else if (widget.type === 'media') {
+      title = 'REPRODUCTOR';
+      iconName = 'music';
+      const track = TRACKS[currentTrackIndex];
+      bodyHTML = `
+        <div class="media-widget-body">
+          <img src="${track.art}" alt="Art" id="w-media-art">
+          <div class="media-widget-info">
+            <strong id="w-media-title">${track.title}</strong>
+            <small id="w-media-artist">${track.artist}</small>
+          </div>
+          <button class="media-toggle" onclick="toggleMediaPlayback()" type="button"><i data-lucide="${isPlaying ? 'pause' : 'play'}"></i></button>
+        </div>
+      `;
+    } else if (widget.type === 'clock') {
+      title = 'RELOJ DIGITAL';
+      iconName = 'clock';
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+      const weekdays = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+      const dateStr = `${weekdays[now.getDay()]}, ${now.getDate()}`;
+      bodyHTML = `
+        <div class="clock-widget-body">
+          <div class="clock-widget-big" id="w-clock-time">${timeStr}</div>
+          <div class="clock-widget-date">${dateStr}</div>
+        </div>
+      `;
+    }
+
+    el.innerHTML = `
+      <div class="widget-titlebar">
+        <strong><i data-lucide="${iconName}"></i> ${title}</strong>
+        <button class="widget-close-btn" onclick="removeDesktopWidget('${widget.id}')" title="Cerrar widget"><i data-lucide="x"></i></button>
+      </div>
+      ${bodyHTML}
+    `;
+
+    setupDraggableWidget(el, widget);
+    layer.appendChild(el);
+  });
+  refreshIcons();
+}
+
+function setupDraggableWidget(el, widgetData) {
+  const titlebar = el.querySelector('.widget-titlebar');
+  if (!titlebar) return;
+
+  titlebar.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.widget-close-btn')) return;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const initialLeft = el.offsetLeft;
+    const initialTop = el.offsetTop;
+
+    function move(ev) {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      const newX = Math.max(10, Math.min(window.innerWidth - el.offsetWidth - 10, initialLeft + dx));
+      const newY = Math.max(50, Math.min(window.innerHeight - el.offsetHeight - 10, initialTop + dy));
+      el.style.left = `${newX}px`;
+      el.style.top = `${newY}px`;
+      widgetData.x = newX;
+      widgetData.y = newY;
+    }
+
+    function stop() {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', stop);
+      saveDesktopWidgets();
+    }
+
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', stop);
+  });
+}
+
+function updateWidgetStats() {
+  const fps = document.getElementById('w-fps');
+  const gpu = document.getElementById('w-gpu');
+  const cpu = document.getElementById('w-cpu');
+  const ram = document.getElementById('w-ram');
+  if (fps) fps.textContent = String(systemMetrics.fps);
+  if (gpu) gpu.textContent = `${systemMetrics.gpu}%`;
+  if (cpu) cpu.textContent = `${systemMetrics.cpu}%`;
+  if (ram) ram.textContent = `${systemMetrics.ram}%`;
+
+  const clockTime = document.getElementById('w-clock-time');
+  if (clockTime) {
+    const now = new Date();
+    clockTime.textContent = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  }
+}
+
+/* ================= FEATURE 4: GESTOR DE PERFILES ================= */
+function closeAllOpenApps() {
+  const ids = Object.keys(openWindows);
+  ids.forEach(id => closeApp(id));
+}
+
+function switchProfile(profileId) {
+  // Cerrar todas las apps del perfil anterior antes de abrir las del nuevo
+  closeAllOpenApps();
+
+  currentProfile = profileId;
+  
+  const profileNameEl = document.getElementById('topbar-profile-name');
+  const profileIconEl = document.getElementById('topbar-profile-icon');
+  
+  const profileMap = {
+    gamer: { name: 'Gamer', icon: 'gamepad-2', toast: 'Perfil Gamer: Modo Juego activado, HUD y telemetría listos.' },
+    streamer: { name: 'Streamer', icon: 'radio', toast: 'Perfil Streamer: Widgets multimedia y monitoreo de audio en vivo.' },
+    studio: { name: 'Estudio', icon: 'terminal', toast: 'Perfil Estudio / Dev: Espacio optimizado para programación con VS Code y Terminal.' }
+  };
+
+  const pData = profileMap[profileId] || profileMap.gamer;
+  if (profileNameEl) profileNameEl.textContent = pData.name;
+  if (profileIconEl) profileIconEl.innerHTML = `<i data-lucide="${pData.icon}"></i>`;
+
+  document.querySelectorAll('.profile-chip, .p-mini-chip').forEach(chip => {
+    chip.classList.toggle('active', chip.dataset.profile === profileId);
+  });
+
+  if (profileId === 'gamer') {
+    applyThemePreset('cyberpunk');
+    toggleGameMode(true);
+    addDesktopWidget('hardware', window.innerWidth - 260, 60);
+    openApp('games');
+  } else if (profileId === 'streamer') {
+    applyThemePreset('synthwave');
+    toggleGameMode(false);
+    addDesktopWidget('media', window.innerWidth - 260, 60);
+    openApp('music');
+  } else if (profileId === 'studio') {
+    applyThemePreset('catppuccin');
+    toggleGameMode(false);
+    switchWorkspace(1);
+    openApp('vscode');
+    openApp('terminal');
+  }
+
+  try {
+    localStorage.setItem(PROFILE_STORAGE_KEY, profileId);
+  } catch (e) {}
+
+  showToast(`Perfil: ${pData.name}`, pData.toast, pData.icon);
+  refreshIcons();
+}
+
+/* ================= FEATURE 3: NOVA AI PROMPT-TO-ACTION ================= */
+function parseAndExecuteNovaAction(query) {
+  const q = query.toLowerCase().trim();
+  let actionTaken = null;
+  let replyText = '';
+  let actionBtnHTML = '';
+
+  if (q.includes('cyberpunk') || (q.includes('tema') && q.includes('neon'))) {
+    applyThemePreset('cyberpunk');
+    actionTaken = 'Tema Cyberpunk Neón aplicado';
+    replyText = 'He cambiado la paleta visual a Cyberpunk Neón, ajustando acentos turquesa, contraste dinámico y fondo espacial.';
+  } else if (q.includes('catppuccin') || q.includes('minimal')) {
+    applyThemePreset('catppuccin');
+    actionTaken = 'Tema Minimal Catppuccin aplicado';
+    replyText = 'Listo. Apliqué la paleta suave y minimalista Catppuccin con efectos de cristal pulido.';
+  } else if (q.includes('synthwave') || q.includes('retro')) {
+    applyThemePreset('synthwave');
+    actionTaken = 'Tema Retro Synthwave aplicado';
+    replyText = '¡Vibras synthwave! Tema Retro Synthwave activo con tonos magenta y violeta.';
+  } else if (q.includes('stealth') || q.includes('oscuro')) {
+    applyThemePreset('stealth');
+    actionTaken = 'Tema Dark Stealth aplicado';
+    replyText = 'Activé el modo Dark Stealth con bajo contraste y acentos esmeralda para descansar la vista.';
+  } else if (q.includes('activa') && (q.includes('modo juego') || q.includes('game mode'))) {
+    toggleGameMode(true);
+    actionTaken = 'Modo Juego Activado';
+    replyText = '¡Modo Juego iniciado! He liberado memoria RAM y ajustado el perfil de CPU/GPU al máximo rendimiento.';
+  } else if (q.includes('desactiva') && (q.includes('modo juego') || q.includes('game mode'))) {
+    toggleGameMode(false);
+    actionTaken = 'Modo Juego Desactivado';
+    replyText = 'Modo Juego apagado. El sistema ha vuelto al perfil energético estándar.';
+  } else if (q.includes('optimiza') || q.includes('limpia') || q.includes('ram') || q.includes('memoria') || q.includes('rendimiento')) {
+    simulateRamBoost();
+    actionTaken = 'RAM Optimizada y Cache Purgada';
+    replyText = 'He ejecutado una limpieza profunda de procesos inactivos y cache. La memoria RAM quedó optimizada.';
+  } else if (q.includes('musica') || q.includes('música') || q.includes('cancion') || q.includes('canción') || q.includes('spotify') || q.includes('cerati') || q.includes('nirvana')) {
+    toggleMediaPlayback();
+    const track = TRACKS[currentTrackIndex];
+    actionTaken = isPlaying ? `Reproduciendo: ${track.title}` : 'Música en pausa';
+    replyText = isPlaying ? `Reproduciendo "${track.title}" de ${track.artist}. Podés controlar el volumen desde el HUD o centro de control.` : 'He pausado la reproducción de música.';
+  } else if (q.includes('abre steam') || q.includes('juegos')) {
+    openApp('games');
+    actionTaken = 'Abriendo Steam';
+    replyText = 'Abriendo tu biblioteca de Steam.';
+  } else if (q.includes('abre archivos') || q.includes('explorador')) {
+    openApp('files');
+    actionTaken = 'Abriendo Archivos';
+    replyText = 'Abriendo el Gestor Inteligente de Archivos.';
+  } else if (q.includes('abre vs code') || q.includes('código') || q.includes('editor')) {
+    openApp('vscode');
+    actionTaken = 'Abriendo Visual Studio Code';
+    replyText = 'Abriendo Visual Studio Code.';
+  } else if (q.includes('abre terminal')) {
+    openApp('terminal');
+    actionTaken = 'Abriendo WezTerm';
+    replyText = 'Terminal iniciada.';
+  } else if (q.includes('abre ajustes') || q.includes('designer')) {
+    openApp('settings');
+    actionTaken = 'Abriendo Nebula Designer';
+    replyText = 'Abriendo el panel de Ajustes y personalización.';
+  } else if (q.includes('cyberpunk 2077') || q.includes('fps') || q.includes('consejos') || q.includes('juego') || q.includes('gamer')) {
+    replyText = 'Para maximizar tus FPS y estabilidad en juegos exigentes te recomiendo:\n\n• Activar Modo Juego (fija frecuencia CPU en 4.95 GHz y libera RAM).\n• Habilitar el Gaming HUD (Alt+Z) para monitoreo de temperaturas.\n• Usar tema Cyberpunk de bajo consumo de sombreado.';
+    actionBtnHTML = `<button class="nova-action-btn" type="button" onclick="applyGamerOptimization()"><i data-lucide="zap"></i> Aplicar Optimización Gamer (1-Clic)</button>`;
+  } else if (/^(hola|buenas|hey|buen d[ií]a)/.test(q)) {
+    replyText = '¡Hola! Soy Nova AI, tu copiloto en Nebula OS. Puedo optimizar tu sistema, cambiar temas, poner música, abrir juegos y mucho más. ¿Qué querés configurar?';
+  } else {
+    replyText = `Entendido. He analizado "${query}". Podés pedirme cosas como "Activa el modo juego", "Cambia al tema Cyberpunk", "Optimiza el sistema" o "Pon música".`;
+  }
+
+  return { replyText, actionTaken, actionBtnHTML };
+}
+
+function applyGamerOptimization() {
+  toggleGameMode(true);
+  applyThemePreset('cyberpunk');
+  simulateRamBoost();
+  addDesktopWidget('hardware', window.innerWidth - 260, 60);
+  showToast('Optimización Gamer Lista', 'CPU Turbo activado, RAM purgada y HUD listo para jugar.', 'zap');
+}
+
+function startNovaVoiceInput() {
+  const voiceBtn = document.getElementById('nova-voice-btn');
+  const input = document.querySelector('.nova-input');
+  
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    if (voiceBtn) voiceBtn.classList.add('listening');
+    showToast('Voz a Acción', 'Simulando comando por voz: "Activa el modo juego y optimiza"...', 'mic');
+    setTimeout(() => {
+      if (input) {
+        input.value = 'Activa el modo juego y optimiza el sistema';
+        document.querySelector('.nova-form')?.requestSubmit();
+      }
+      if (voiceBtn) voiceBtn.classList.remove('listening');
+    }, 1200);
+    return;
+  }
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'es-ES';
+  recognition.interimResults = false;
+
+  recognition.onstart = () => {
+    if (voiceBtn) voiceBtn.classList.add('listening');
+    showToast('Escuchando...', 'Hablá ahora para pedirle una acción a Nova AI', 'mic');
+  };
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    if (input) {
+      input.value = transcript;
+      document.querySelector('.nova-form')?.requestSubmit();
+    }
+  };
+
+  recognition.onend = () => {
+    if (voiceBtn) voiceBtn.classList.remove('listening');
+  };
+
+  recognition.onerror = () => {
+    if (voiceBtn) voiceBtn.classList.remove('listening');
+    showToast('Voz', 'No se detectó audio. Podés escribir tu comando.', 'alert-circle');
+  };
+
+  recognition.start();
+}
+
+/* ================= FEATURE 5: SMART FILE EXPLORER ================= */
+const FILE_SYSTEM = {
+  name: 'Inicio', label: 'Inicio', type: 'folder', children: [
+    {
+      name: 'capturas', label: 'Capturas de Juegos', type: 'folder', children: [
+        { name: 'cyberpunk_night_city_4k.jpg', type: 'image', path: './fondos/fondo principal.jpg', size: 'JPG · 3840x2160 · 144 FPS Capture' },
+        { name: 'elden_ring_boss_victory.jpg', type: 'image', path: './fondos/fondo 2.jpg', size: 'JPG · 2560x1440 · HDR On' },
+        { name: 'valorant_ace_round.jpg', type: 'image', path: './fondos/fondo 3.jpg', size: 'JPG · 1920x1080 · Clip' }
+      ]
+    },
+    {
+      name: 'mods', label: 'MODs & Configs', type: 'folder', children: [
+        { name: 'cyberpunk_ultra_textures.pak', type: 'text', path: './message.txt', size: 'PAK · Mod gráfico 4K' },
+        { name: 'elden_ring_ultrawide_fov.zip', type: 'text', path: './message.txt', size: 'ZIP · Patch 21:9 support' },
+        { name: 'reshade_cinematic_preset.ini', type: 'text', path: './styles.css', size: 'INI · Preset de post-procesado' }
+      ]
+    },
+    {
+      name: 'juegos', label: 'Juegos & ISOs', type: 'folder', children: [
+        { name: 'Cyberpunk_2077.exe', type: 'image', path: './steam/image.png', size: 'EXE · Acceso directo' },
+        { name: 'Hollow_Knight_Silksong.iso', type: 'image', path: './steam/image.png', size: 'ISO · Imagen de disco' },
+        { name: 'Doom_Eternal_Ultra.exe', type: 'image', path: './steam/image.png', size: 'EXE · Lanzador Vulkan' }
+      ]
+    },
+    {
+      name: 'musica', label: 'Música & Audio', type: 'folder', children: [
+        { name: 'Gustavo_Cerati_Bocanada.mp3', type: 'audio', path: './spotify/tapa album 2.jpg', size: 'MP3 · 320 kbps · Bocanada' },
+        { name: 'Nirvana_Smells_Like_Teen_Spirit.mp3', type: 'audio', path: './spotify/tapa album 1.jpg', size: 'MP3 · 320 kbps · Nevermind' },
+        { name: 'Synthwave_Chill_Night.flac', type: 'audio', path: './spotify/top 50.jpg', size: 'FLAC · 24-bit · Lossless' }
+      ]
+    },
+    { name: 'fondos', label: 'Fondos', type: 'folder', children: WALLPAPERS.map(w => ({ name: w.file, type: 'image', path: `./fondos/${w.file}`, size: 'JPG · Fondo HD' })) },
+    { name: 'imagenes', label: 'Imágenes', type: 'folder', children: ['archivos.png', 'Ajustes.png', 'Home.png', 'Lupa.png', 'Play.png', 'Senial.png', 'Steam.png', 'VSC.png'].map(name => ({ name, type: 'image', path: `./imagenes/${name}`, size: 'PNG · Icono UI' })) },
+    { name: 'spotify', label: 'Spotify', type: 'folder', children: ['tapa album 1.jpg', 'top 50.jpg', 'tapa album 2.jpg', 'album 3.jpg'].map(name => ({ name, type: 'image', path: `./spotify/${name}`, size: 'JPG · Portada Álbum' })) },
+    { name: 'vsc', label: 'Proyectos Dev', type: 'folder', children: [{ name: 'vscimg.png', type: 'image', path: './vsc/vscimg.png', size: 'PNG · Workspace' }] },
+    { name: 'index.html', type: 'text', path: './index.html', size: 'HTML · Estructura Nebula OS' },
+    { name: 'styles.css', type: 'text', path: './styles.css', size: 'CSS · Estilos y Variables' },
+    { name: 'script.js', type: 'text', path: './script.js', size: 'JS · Núcleo del sistema' }
+  ]
+};
+
+/* ================= CONTROL MULTIMEDIA ================= */
+function toggleMediaPlayback() {
+  isPlaying = !isPlaying;
+  const playBtn = document.getElementById('media-toggle');
+  const hudPlayBtn = document.getElementById('hud-play-btn');
+
+  if (playBtn) playBtn.innerHTML = `<i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>`;
+  if (hudPlayBtn) hudPlayBtn.innerHTML = `<i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>`;
+
+  renderDesktopWidgets();
+  refreshIcons();
+}
+
+function nextTrack() {
+  currentTrackIndex = (currentTrackIndex + 1) % TRACKS.length;
+  updateMediaUI();
+}
+
+function previousTrack() {
+  currentTrackIndex = (currentTrackIndex - 1 + TRACKS.length) % TRACKS.length;
+  updateMediaUI();
+}
+
+function updateMediaUI() {
+  const track = TRACKS[currentTrackIndex];
+  ['cc-media-art', 'hud-media-art', 'w-media-art'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.src = track.art;
+  });
+  ['cc-media-title', 'hud-media-title', 'w-media-title'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = track.title;
+  });
+  ['cc-media-artist', 'hud-media-artist', 'w-media-artist'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = track.artist;
+  });
+}
+
+function setSystemVolume(val) {
+  systemVolume = val;
+  const volNum = document.getElementById('tray-volume-num');
+  const hudVolVal = document.getElementById('hud-vol-val');
+  const qVolVal = document.getElementById('quick-volume-value');
+  if (volNum) volNum.textContent = `${val}%`;
+  if (hudVolVal) hudVolVal.textContent = `${val}%`;
+  if (qVolVal) qVolVal.textContent = `${val}%`;
+}
+
+/* ================= SISTEMA DE NOTIFICACIONES TOAST ================= */
+function showToast(title, message, iconName = 'sparkles') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = 'toast-notification';
+  toast.innerHTML = `
+    <span class="toast-icon"><i data-lucide="${iconName}"></i></span>
+    <div class="toast-content">
+      <strong>${escapeHtml(title)}</strong>
+      <small>${escapeHtml(message)}</small>
+    </div>
+  `;
+
+  container.appendChild(toast);
+  refreshIcons();
+  setTimeout(() => toast.remove(), 4000);
+}
+
+/* ================= PERSISTENCIA & CONFIG ================= */
+function loadPersistedState() {
+  try {
+    const savedGm = localStorage.getItem(GAMEMODE_STORAGE_KEY);
+    if (savedGm !== null) gameModeActive = JSON.parse(savedGm);
+    if (gameModeActive) document.body.classList.add('game-mode-active');
+
+    const savedProf = localStorage.getItem(PROFILE_STORAGE_KEY);
+    if (savedProf) currentProfile = savedProf;
+
+    const savedDesigner = JSON.parse(localStorage.getItem(DESIGNER_STORAGE_KEY));
+    if (savedDesigner) {
+      designerState = { ...designerState, ...savedDesigner };
+      const root = document.documentElement;
+      root.style.setProperty('--accent', designerState.accent);
+      root.style.setProperty('--panel-color', designerState.panelColor);
+      root.style.setProperty('--blur-amount', `${designerState.blurAmount}px`);
+      root.style.setProperty('--radius-md', `${designerState.borderRadius}px`);
+      root.style.setProperty('--radius-lg', `${parseInt(designerState.borderRadius, 10) + 6}px`);
+      document.body.classList.toggle('dock-unified-bottom', designerState.dockStyle === 'unified-bottom');
+    }
+
+    const savedWidgets = JSON.parse(localStorage.getItem(WIDGETS_STORAGE_KEY));
+    if (Array.isArray(savedWidgets)) desktopWidgets = savedWidgets;
+
+    const wpIndex = Number.parseInt(localStorage.getItem(WALLPAPER_STORAGE_KEY), 10);
+    if (Number.isInteger(wpIndex) && WALLPAPERS[wpIndex]) currentWallpaperIndex = wpIndex;
+
+    const savedSettings = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY));
+    if (savedSettings) settingsState = { ...settingsState, ...savedSettings };
+
+    // --- Conectividad (WiFi / Bluetooth) ---
+    const savedWifi = localStorage.getItem(WIFI_STORAGE_KEY);
+    if (savedWifi !== null) {
+      wifiEnabled = JSON.parse(savedWifi);
+    }
+    const savedBt = localStorage.getItem(BT_STORAGE_KEY);
+    if (savedBt !== null) {
+      bluetoothEnabled = JSON.parse(savedBt);
+    }
+  } catch (e) {}
+}
+
+function applySettings() {
+  const screen = document.getElementById('screen');
+  document.body.classList.toggle('no-blur', !settingsState.transparency);
+  if (screen) screen.classList.toggle('reduce-motion', !settingsState.animations);
+}
+
+function toggleSetting(setting) {
+  if (!Object.prototype.hasOwnProperty.call(settingsState, setting)) return;
+  settingsState[setting] = !settingsState[setting];
+  applySettings();
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settingsState));
+  } catch (e) {}
+}
+
+/* ================= GESTIÓN DE WORKSPACES ================= */
+function switchWorkspace(num) {
+  currentWorkspace = num;
+  
+  const buttons = document.querySelectorAll('#ws-switcher button');
+  buttons.forEach((btn, index) => {
+    btn.className = (index + 1 === num) ? 'active' : '';
+  });
+
+  let hasActiveInWorkspace = false;
+  Object.values(openWindows).forEach(win => {
+    if (parseInt(win.dataset.ws) === currentWorkspace) {
+      if (!win.classList.contains('minimized')) {
+        win.style.display = 'flex';
+        hasActiveInWorkspace = true;
+      }
+    } else {
+      win.style.display = 'none';
+    }
+  });
+
+  if (!hasActiveInWorkspace) updateTopBar(null);
+  renderDock();
+}
+
+/* ================= SLIDERS FUNCIONALES ================= */
+function setupSliders() {
+  const initSlider = (id, callback) => {
+    const slider = document.getElementById(id);
+    if(!slider) return;
+    
+    const updateBg = () => {
+      const val = slider.value;
+      slider.style.background = `linear-gradient(to right, var(--accent) ${val}%, rgba(255,255,255,0.1) ${val}%)`;
+      if (callback) callback(val);
+    };
+    
+    slider.addEventListener('input', updateBg);
+    updateBg(); 
+  };
+  
+  initSlider('brightness-slider', val => {
+    const label = document.getElementById('quick-brightness-value');
+    if (label) label.textContent = `${val}%`;
+  });
+  initSlider('volume-slider', val => {
+    setSystemVolume(val);
+  });
+}
+
+function setupAdvancedWidget() {
+  try {
+    calendarState.notes = JSON.parse(localStorage.getItem('nebula-os:calendar-notes') || '{}');
+  } catch (error) {
+    calendarState.notes = {};
+  }
+
+  renderCalendar();
+  updateWidgetTime();
+  updateMetrics();
+  setInterval(updateWidgetTime, 60000);
+  setInterval(simulateMetrics, 3000);
+
+  document.getElementById('calendar-prev')?.addEventListener('click', () => changeCalendarMonth(-1));
+  document.getElementById('calendar-next')?.addEventListener('click', () => changeCalendarMonth(1));
+  document.getElementById('save-note')?.addEventListener('click', saveCalendarNote);
+  document.getElementById('note-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveCalendarNote();
+  });
+  setupQuickSwitch('dnd-toggle');
+  setupQuickSwitch('battery-toggle');
+  setupMediaPlayer();
+
+  // Sincronizar UI de conectividad con el estado cargado
+  renderConnectivityState();
+}
+
+function updateWidgetTime() {
+  const now = new Date();
+  const time = document.getElementById('widget-time');
+  const uptime = document.getElementById('widget-uptime');
+  if (time) time.textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  if (uptime) {
+    const elapsedMinutes = Math.floor((Date.now() - widgetStartedAt) / 60000);
+    uptime.textContent = `uptime: ${elapsedMinutes < 60 ? `${elapsedMinutes}m` : `${Math.floor(elapsedMinutes / 60)}h ${elapsedMinutes % 60}m`}`;
+  }
+}
+
+function calendarKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('calendar-grid');
+  if (!grid) return;
+  const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const year = calendarState.date.getFullYear();
+  const month = calendarState.date.getMonth();
+  const mEl = document.getElementById('calendar-month');
+  const yEl = document.getElementById('calendar-year');
+  if (mEl) mEl.textContent = monthNames[month];
+  if (yEl) yEl.textContent = year;
+  grid.innerHTML = '';
+
+  const firstDay = new Date(year, month, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayKey = calendarKey(new Date());
+
+  for (let index = 0; index < 42; index += 1) {
+    const dayNumber = index - startOffset + 1;
+    const cellDate = new Date(year, month, dayNumber);
+    const isOutside = dayNumber < 1 || dayNumber > daysInMonth;
+    if (isOutside && index >= startOffset + daysInMonth && index >= 35) continue;
+    const day = document.createElement('button');
+    day.type = 'button';
+    day.className = 'calendar-day';
+    if (isOutside) day.classList.add('outside');
+    const key = calendarKey(cellDate);
+    if (key === todayKey) day.classList.add('today');
+    if (key === calendarState.selectedDate) day.classList.add('selected');
+    day.textContent = String(cellDate.getDate());
+    if (calendarState.notes[key]) {
+      const dot = document.createElement('span');
+      dot.className = 'note-dot';
+      day.appendChild(dot);
+    }
+    day.addEventListener('click', () => selectCalendarDate(cellDate));
+    grid.appendChild(day);
+  }
+  refreshIcons();
+}
+
+function changeCalendarMonth(offset) {
+  calendarState.date.setMonth(calendarState.date.getMonth() + offset);
+  renderCalendar();
+}
+
+function selectCalendarDate(date) {
+  calendarState.selectedDate = calendarKey(date);
+  const editor = document.getElementById('note-editor');
+  const input = document.getElementById('note-input');
+  const label = document.getElementById('selected-date-label');
+  if (label) label.textContent = `Nota para ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+  if (input) input.value = calendarState.notes[calendarState.selectedDate] || '';
+  if (editor) editor.hidden = false;
+  if (input) input.focus();
+  renderCalendar();
+}
+
+function saveCalendarNote() {
+  if (!calendarState.selectedDate) return;
+  const input = document.getElementById('note-input');
+  const value = input ? input.value.trim() : '';
+  if (value) calendarState.notes[calendarState.selectedDate] = value;
+  else delete calendarState.notes[calendarState.selectedDate];
+  localStorage.setItem('nebula-os:calendar-notes', JSON.stringify(calendarState.notes));
+  renderCalendar();
+}
+
+function updateMetrics() {
+  const definitions = {
+    ram: `RAM: ${(systemMetrics.ram * 16 / 100).toFixed(1)}GB / 16GB (${systemMetrics.ram}%)`,
+    cpu: `CPU: ${systemMetrics.cpu}% de carga`,
+    temp: `Temperatura: ${Math.round(28 + systemMetrics.temp / 2)}°C`
+  };
+  Object.keys(definitions).forEach(metric => {
+    const value = systemMetrics[metric];
+    const card = document.querySelector(`[data-metric="${metric}"]`);
+    if (!card) return;
+    const strong = card.querySelector('strong');
+    if (strong) strong.textContent = `${value}%`;
+    const progress = card.querySelector('.metric-progress');
+    if (progress) progress.style.strokeDashoffset = String(100.53 - (100.53 * value / 100));
+    const tooltip = document.getElementById(`${metric}-tooltip`);
+    if (tooltip) tooltip.textContent = definitions[metric];
+  });
+}
+
+function simulateMetrics() {
+  if (!gameModeActive) {
+    systemMetrics.ram = Math.max(25, Math.min(55, systemMetrics.ram + Math.round((Math.random() - 0.5) * 6)));
+    systemMetrics.cpu = Math.max(8, Math.min(78, systemMetrics.cpu + Math.round((Math.random() - 0.5) * 16)));
+    systemMetrics.temp = Math.max(30, Math.min(68, systemMetrics.temp + Math.round((Math.random() - 0.5) * 8)));
+  }
+  updateMetrics();
+}
+
+function setupQuickSwitch(id) {
+  const button = document.getElementById(id);
+  if (!button) return;
+  button.addEventListener('click', () => {
+    const active = button.classList.toggle('active');
+    button.setAttribute('aria-pressed', String(active));
+  });
+}
+
+function setupMediaPlayer() {
+  const button = document.getElementById('media-toggle');
+  const fill = document.getElementById('media-progress-fill');
+  if (button) button.addEventListener('click', toggleMediaPlayback);
+  setInterval(() => {
+    if (!isPlaying) return;
+    playbackProgress = playbackProgress >= 100 ? 0 : playbackProgress + 1;
+    if (fill) fill.style.width = `${playbackProgress}%`;
+  }, 1000);
+}
+
+/* ================= UTILIDADES VISUALES ================= */
+function createStars() {
+  const bg = document.getElementById('background-layer');
+  if (!bg) return;
+  for(let i = 0; i < 40; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    star.style.left = Math.random() * 100 + 'vw';
+    star.style.top = Math.random() * 100 + 'vh';
+    const size = Math.random() * 3 + 1;
+    star.style.width = size + 'px';
+    star.style.height = size + 'px';
+    bg.appendChild(star);
+  }
+}
+
+function applyWallpaper(index) {
+  const wallpaper = WALLPAPERS[index];
+  if (!wallpaper) return;
+  currentWallpaperIndex = index;
+  const root = document.documentElement;
+  const screen = document.getElementById('screen');
+  
+  if (!designerState.accent) {
+    root.style.setProperty('--accent', wallpaper.accent);
+  }
+  root.style.setProperty('--text-main', wallpaper.text);
+  root.style.setProperty('--text-sub', wallpaper.sub);
+  root.style.setProperty('--accent-green', wallpaper.green);
+  
+  screen.style.setProperty('--wallpaper-old', screen.style.backgroundImage);
+  screen.style.backgroundImage = `linear-gradient(rgba(8, 9, 17, 0.42), rgba(8, 9, 17, 0.58)), url("./fondos/${wallpaper.file}")`;
+  screen.classList.remove('wallpaper-transition');
+  void screen.offsetWidth;
+  screen.classList.add('wallpaper-transition');
+  setTimeout(() => screen.classList.remove('wallpaper-transition'), 500);
+  try {
+    localStorage.setItem(WALLPAPER_STORAGE_KEY, String(index));
+  } catch (error) {}
+  showToast('Fondo de Pantalla', `Fondo "${wallpaper.name}" aplicado.`, 'image');
+  renderSettingsApp();
+}
+
+const contextMenu = document.getElementById('context-menu');
+function showContextMenu(x, y) {
+  if (!contextMenu) return;
+  contextMenu.classList.add('open');
+  contextMenu.style.left = `${Math.min(x, window.innerWidth - contextMenu.offsetWidth - 12)}px`;
+  contextMenu.style.top = `${Math.min(y, window.innerHeight - contextMenu.offsetHeight - 12)}px`;
+  refreshIcons();
+}
+
+function hideContextMenu() {
+  if (contextMenu) contextMenu.classList.remove('open');
+}
+
+function openContextApp(id) {
+  hideContextMenu();
+  openApp(id);
+}
+
+function openSettingsTab(tab) {
+  openApp('settings');
+  settingsState.activeSettingsTab = tab;
+  renderSettingsApp();
+  hideContextMenu();
+}
+
+function cycleWallpaper() {
+  applyWallpaper((currentWallpaperIndex + 1) % WALLPAPERS.length);
+  hideContextMenu();
+}
+
+function refreshDesktop() {
+  const background = document.getElementById('background-layer');
+  if (background) {
+    background.innerHTML = '';
+    createStars();
+  }
+  hideContextMenu();
+  showToast('Escritorio Actualizado', 'Vista y widgets recargados.', 'refresh-cw');
+}
+
+function getAppTileHTML(appId) {
+  const app = APPS[appId];
+  if (!app) return '';
+  if (app.image) {
+    return `<div class="app-tile ${app.tileClass}" title="${app.title}"><img src="${app.image}" alt="${app.title}" class="app-tile-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" /><i data-lucide="${app.icon}" style="display:none;"></i></div>`;
+  }
+  return `<div class="app-tile ${app.tileClass}" title="${app.title}"><i data-lucide="${app.icon}"></i></div>`;
+}
+
+function renderDock() {
+  const dock = document.getElementById('dock');
+  if (!dock) return;
+  dock.innerHTML = '';
+  
+  const lBtn = document.createElement('div');
+  lBtn.className = 'dock-item dock-launcher-btn';
+  lBtn.tabIndex = 0;
+  lBtn.setAttribute('role', 'button');
+  lBtn.title = 'Lanzador de Aplicaciones (Nebula Menu)';
+  lBtn.innerHTML = `<img src="./logo nebula.png" alt="Nebula" class="dock-launcher-logo" onerror="this.onerror=null; this.outerHTML='<i data-lucide=\\'layout-grid\\'></i>'; refreshIcons();" />`;
+  lBtn.onclick = toggleLauncher;
+  dock.appendChild(lBtn);
+
+  DOCK_APPS.forEach(id => {
+    const div = document.createElement('div');
+    const win = openWindows[id];
+    const isCurrentWorkspace = win && parseInt(win.dataset.ws) === currentWorkspace;
+    div.className = `dock-item ${win ? 'running' : ''} ${win && !isCurrentWorkspace ? 'other-workspace' : ''}`;
+    div.tabIndex = 0;
+    div.setAttribute('role', 'button');
+    div.title = APPS[id].title;
+    div.innerHTML = `${getAppTileHTML(id)}<div class="dot"></div>`;
+    div.onclick = () => openApp(id);
+    dock.appendChild(div);
+  });
+  refreshIcons();
+}
+
+function updateTopBar(id) {
+  const appNameSpan = document.getElementById('active-app-name');
+  if (!appNameSpan) return;
+  if (id && APPS[id]) {
+    appNameSpan.textContent = APPS[id].title;
+  } else {
+    appNameSpan.textContent = 'Escritorio';
+  }
+}
+
+/* ================= GESTIÓN DE VENTANAS ================= */
+function openApp(id) {
+  if (openWindows[id]) {
+    if (parseInt(openWindows[id].dataset.ws) !== currentWorkspace) {
+      switchWorkspace(parseInt(openWindows[id].dataset.ws));
+    }
+    focusWindow(id);
+    return;
+  }
+  
+  const app = APPS[id];
+  const win = document.createElement('div');
+  win.className = 'window focused';
+  win.id = `win-${id}`;
+  win.dataset.ws = currentWorkspace; 
+  
+  const top = 65 + Math.random() * 25;
+  const left = 100 + Math.random() * 50;
+  win.style.top = top + 'px';
+  win.style.left = left + 'px';
+  
+  win.style.width = id === 'music' ? '860px' : id === 'settings' ? '780px' : '680px';
+  win.style.height = id === 'music' ? '560px' : id === 'settings' ? '540px' : '480px';
+  win.style.zIndex = ++zIndexCounter;
+
+  win.innerHTML = `
+    <div class="titlebar">
+      <div class="window-identity">
+        <span class="win-icon">
+          ${app.image ? `<img src="${app.image}" alt="${app.title}" class="win-icon-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';" /><i data-lucide="${app.icon}" style="display:none;"></i>` : `<i data-lucide="${app.icon}"></i>`}
+        </span>
+        <strong>${app.title}</strong>
+        <small>${app.sub}</small>
+      </div>
+      <div class="wbtns">
+        <button class="min" onclick="minimizeApp('${id}')" title="Minimizar"></button>
+        <button class="max" onclick="maximizeApp('${id}')" title="Maximizar"></button>
+        <button class="close" onclick="closeApp('${id}')" title="Cerrar"></button>
+      </div>
+    </div>
+    <div class="wcontent">
+      ${getAppContent(id)}
+    </div>
+  `;
+
+  win.addEventListener('mousedown', () => focusWindow(id));
+  document.getElementById('windows-container').appendChild(win);
+  
+  if (id === 'terminal') setupTerminal(win);
+  if (id === 'nova') setupNovaAI(win);
+  if (id === 'files') setupFiles(win);
+  if (id === 'settings') renderSettingsApp();
+  
+  openWindows[id] = win;
+  focusWindow(id);
+  renderDock();
+  refreshIcons();
+  
+  const titlebar = win.querySelector('.titlebar');
+  function getPointerPosition(e) {
+    const point = e.touches ? e.touches[0] : e;
+    return { x: point.clientX, y: point.clientY };
+  }
+
+  function startDrag(e) {
+    if(e.target.tagName === 'BUTTON' || e.target.closest('.wbtns')) return;
+    if (e.type === 'touchstart') e.preventDefault();
+
+    const start = getPointerPosition(e);
+    const sx = start.x, sy = start.y;
+    const ol = win.offsetLeft, ot = win.offsetTop;
+    const moveEvent = e.type === 'touchstart' ? 'touchmove' : 'mousemove';
+    const endEvent = e.type === 'touchstart' ? 'touchend' : 'mouseup';
+    
+    function move(ev) {
+      if (moveEvent === 'touchmove') ev.preventDefault();
+      const point = getPointerPosition(ev);
+      win.style.left = (ol + point.x - sx) + 'px';
+      win.style.top = Math.max(46, (ot + point.y - sy)) + 'px';
+    }
+    function up() {
+      document.removeEventListener(moveEvent, move);
+      document.removeEventListener(endEvent, up);
+    }
+    document.addEventListener(moveEvent, move, { passive: false });
+    document.addEventListener(endEvent, up);
+  }
+
+  titlebar.addEventListener('mousedown', startDrag);
+  titlebar.addEventListener('touchstart', startDrag, { passive: false });
+}
+
+function focusWindow(id) {
+  activeAppId = id;
+  Object.values(openWindows).forEach(w => w.classList.remove('focused'));
+  if (openWindows[id]) {
+    openWindows[id].classList.add('focused');
+    openWindows[id].classList.remove('minimized');
+    openWindows[id].style.zIndex = ++zIndexCounter;
+    if (parseInt(openWindows[id].dataset.ws) === currentWorkspace) {
+      openWindows[id].style.display = 'flex'; 
+    }
+  }
+  updateTopBar(id);
+}
+
+function closeApp(id) {
+  if (openWindows[id]) {
+    openWindows[id].remove();
+    delete openWindows[id];
+    activeAppId = null;
+    updateTopBar(null);
+    renderDock();
+  }
+}
+
+function maximizeApp(id) {
+  const win = openWindows[id];
+  if (!win) return;
+  if (win.classList.contains('maximized')) {
+    restoreWindow(id);
+  } else {
+    win.dataset.oldW = win.style.width;
+    win.dataset.oldH = win.style.height;
+    win.dataset.oldT = win.style.top;
+    win.dataset.oldL = win.style.left;
+    
+    win.classList.add('maximized');
+    win.style.width = '100vw';
+    win.style.height = 'calc(100vh - 46px)';
+    win.style.top = '46px';
+    win.style.left = '0';
+    win.style.borderRadius = "0";
+  }
+}
+
+function restoreWindow(id) {
+  const win = openWindows[id];
+  if (!win) return;
+  win.classList.remove('maximized');
+  win.style.width = win.dataset.oldW;
+  win.style.height = win.dataset.oldH;
+  win.style.top = win.dataset.oldT;
+  win.style.left = win.dataset.oldL;
+  win.style.borderRadius = "var(--radius-md)";
+}
+
+function minimizeApp(id) {
+  if (openWindows[id]) {
+    openWindows[id].classList.add('minimized');
+    openWindows[id].style.display = 'none';
+    activeAppId = null;
+    updateTopBar(null);
+  }
+}
+
+/* ================= SETUP NOVA AI ================= */
+function setupNovaAI(win) {
+  const history = win.querySelector('.nova-history');
+  const form = win.querySelector('.nova-form');
+  const input = win.querySelector('.nova-input');
+  if (!history || !form || !input) return;
+
+  const appendMessage = (text, sender, actionBadge = null, actionBtnHTML = '') => {
+    const message = document.createElement('div');
+    message.className = `nova-message ${sender}`;
+    message.innerHTML = `<div>${escapeHtml(text).replace(/\n/g, '<br>')}</div>`;
+    if (actionBadge) {
+      message.innerHTML += `<div class="nova-action-badge"><i data-lucide="check-circle-2"></i> ${escapeHtml(actionBadge)}</div>`;
+    }
+    if (actionBtnHTML) {
+      message.innerHTML += actionBtnHTML;
+    }
+    history.appendChild(message);
+    history.scrollTop = history.scrollHeight;
+    refreshIcons();
+  };
+
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    const query = input.value.trim();
+    if (!query) return;
+    appendMessage(query, 'user');
+    input.value = '';
+
+    const typing = document.createElement('div');
+    typing.className = 'nova-typing';
+    typing.textContent = 'Nova ejecutando acción...';
+    history.appendChild(typing);
+    history.scrollTop = history.scrollHeight;
+
+    setTimeout(() => {
+      typing.remove();
+      const { replyText, actionTaken, actionBtnHTML } = parseAndExecuteNovaAction(query);
+      appendMessage(replyText, 'nova', actionTaken, actionBtnHTML);
+    }, 380);
+  });
+
+  win.querySelectorAll('[data-nova-prompt]').forEach(button => {
+    button.addEventListener('click', () => {
+      input.value = button.dataset.novaPrompt;
+      form.requestSubmit();
+    });
+  });
+
+  input.focus();
+  refreshIcons();
+}
+
+/* ================= SETUP SMART FILES ================= */
+function findFolder(name, folder = FILE_SYSTEM) {
+  if (folder.name === name) return folder;
+  for (const child of folder.children || []) {
+    if (child.type === 'folder') {
+      const result = findFolder(name, child);
+      if (result) return result;
+    }
+  }
+  return null;
+}
+
+function setupFiles(win) {
+  const explorer = win.querySelector('.files-preview');
+  if (!explorer) return;
+  const state = { current: FILE_SYSTEM, trail: [FILE_SYSTEM], history: [], future: [], query: '', view: 'grid' };
+  const grid = explorer.querySelector('.files-grid');
+  const title = explorer.querySelector('[data-files-title]');
+  const path = explorer.querySelector('[data-files-path]');
+  const preview = explorer.querySelector('[data-files-preview]');
+  const search = explorer.querySelector('[data-files-search]');
+  const back = explorer.querySelector('[data-files-back]');
+  const forward = explorer.querySelector('[data-files-forward]');
+
+  const iconNameFor = item => item.type === 'folder' ? 'folder' : item.type === 'image' ? 'image' : item.type === 'audio' ? 'music' : 'file-code-2';
+
+  const visibleItems = () => (state.current.children || []).filter(item => item.name.toLowerCase().includes(state.query));
+
+  const setPreview = item => {
+    if (!item) {
+      preview.innerHTML = '<div class="files-empty-preview">Seleccioná un archivo para previsualización interactiva rápida.</div>';
+      return;
+    }
+    
+    if (item.type === 'image') {
+      preview.innerHTML = `
+        <div style="display:flex; gap:12px; align-items:center;">
+          <img src="${item.path}" alt="${escapeHtml(item.name)}" style="width:75px; height:60px; border-radius:6px; object-fit:cover;">
+          <div>
+            <strong style="color:#fff; font-size:12px;">${escapeHtml(item.name)}</strong>
+            <small style="display:block; color:var(--text-sub); font-size:10px;">${escapeHtml(item.size)}</small>
+            <button class="preview-set-wall-btn" type="button" onclick="setCustomWallpaperFromFile('${item.path}')"><i data-lucide="image"></i> Establecer de fondo</button>
+          </div>
+        </div>
+      `;
+    } else if (item.type === 'audio') {
+      preview.innerHTML = `
+        <div>
+          <strong style="color:#fff; font-size:12px;"><i data-lucide="music" style="width:14px; height:14px; color:var(--accent);"></i> ${escapeHtml(item.name)}</strong>
+          <small style="display:block; color:var(--text-sub); font-size:10px;">${escapeHtml(item.size)}</small>
+          <div class="preview-audio-player">
+            <button class="preview-play-btn" type="button" onclick="toggleMediaPlayback()"><i data-lucide="play"></i></button>
+            <div class="preview-audio-wave">
+              <span style="height:40%;"></span><span style="height:80%;"></span><span style="height:60%;"></span>
+              <span style="height:100%;"></span><span style="height:50%;"></span><span style="height:70%;"></span>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      preview.innerHTML = `
+        <div>
+          <strong style="color:#fff; font-size:12px;"><i data-lucide="file-text" style="width:14px; height:14px; color:var(--accent);"></i> ${escapeHtml(item.name)}</strong>
+          <small style="display:block; color:var(--text-sub); font-size:10px;">${escapeHtml(item.size)} · Solo lectura</small>
+          <div style="margin-top:6px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-sub); background:rgba(0,0,0,0.3); padding:6px; border-radius:4px; max-height:80px; overflow:hidden;">
+            // Nebula OS File Descriptor\n// Archivo listo para ejecución y lectura
+          </div>
+        </div>
+      `;
+    }
+    refreshIcons();
+  };
+
+  const render = () => {
+    const items = visibleItems();
+    if (title) title.textContent = state.current.label || state.current.name;
+    if (path) path.textContent = `Inicio / ${state.trail.slice(1).map(folder => folder.label || folder.name).join(' / ') || 'Escritorio'}`;
+    
+    grid.innerHTML = items.length ? items.map(item => `
+      <button class="explorer-item" type="button" data-file-name="${escapeHtml(item.name)}">
+        <span class="file-visual">
+          ${item.type === 'image' ? `<img src="${item.path}" alt="">` : `<span class="file-type-icon"><i data-lucide="${iconNameFor(item)}"></i></span>`}
+        </span>
+        <strong>${escapeHtml(item.label || item.name)}</strong>
+        <small>${item.type === 'folder' ? `${item.children.length} elementos` : escapeHtml(item.size.split(' · ')[0])}</small>
+      </button>
+    `).join('') : '<div class="files-no-results">No hay elementos que coincidan.</div>';
+    
+    if (back) back.disabled = state.history.length === 0;
+    if (forward) forward.disabled = state.future.length === 0;
+    refreshIcons();
+  };
+
+  const goTo = (folder, record = true) => {
+    if (record) { state.history.push(state.current); state.future = []; }
+    state.current = folder;
+    const index = state.trail.indexOf(folder);
+    state.trail = index >= 0 ? state.trail.slice(0, index + 1) : [...state.trail, folder];
+    state.query = '';
+    if (search) search.value = '';
+    setPreview(null);
+    render();
+  };
+
+  grid.addEventListener('click', event => {
+    const itemElement = event.target.closest('[data-file-name]');
+    if (itemElement) {
+      const found = (state.current.children || []).find(item => item.name === itemElement.dataset.fileName);
+      setPreview(found);
+    }
+  });
+
+  grid.addEventListener('dblclick', event => {
+    const itemElement = event.target.closest('[data-file-name]');
+    if (!itemElement) return;
+    const item = (state.current.children || []).find(entry => entry.name === itemElement.dataset.fileName);
+    if (item?.type === 'folder') goTo(item);
+  });
+
+  if (search) search.addEventListener('input', () => { state.query = search.value.trim().toLowerCase(); render(); });
+  if (back) back.onclick = () => { const previous = state.history.pop(); state.future.unshift(state.current); goTo(previous, false); };
+  if (forward) forward.onclick = () => { const next = state.future.shift(); state.history.push(state.current); goTo(next, false); };
+
+  explorer.querySelectorAll('[data-files-location]').forEach(button => {
+    button.onclick = () => {
+      explorer.querySelectorAll('[data-files-location]').forEach(b => b.classList.remove('active'));
+      button.classList.add('active');
+      const folder = findFolder(button.dataset.filesLocation);
+      if (folder) goTo(folder);
+    };
+  });
+
+  render();
+}
+
+function setCustomWallpaperFromFile(imgPath) {
+  const screen = document.getElementById('screen');
+  if (screen) {
+    screen.style.backgroundImage = `linear-gradient(rgba(8, 9, 17, 0.42), rgba(8, 9, 17, 0.58)), url("${imgPath}")`;
+    showToast('Fondo Actualizado', 'Nueva imagen establecida como fondo de pantalla.', 'image');
+  }
+}
+
+/* ================= SETUP TERMINAL ================= */
+function setupTerminal(win) {
+  const history = win.querySelector('.term-history');
+  const input = win.querySelector('.term-input');
+  if (!history || !input) return;
+
+  const appendLine = (text, className = '') => {
+    const line = document.createElement('div');
+    line.className = `term-line ${className}`;
+    line.textContent = text;
+    history.appendChild(line);
+  };
+
+  const showFetch = (cmd) => {
+    appendLine(`
+  _   _ _____ ____  _   _ _        _       ___  ____  
+ | \\ | | ____| __ )| | | | |      / \\     / _ \\/ ___| 
+ |  \\| |  _| |  _ \\| | | | |     / _ \\   | | | \\___ \\ 
+ | |\\  | |___| |_) | |_| | |___ / ___ \\  | |_| |___) |
+ |_| \\_|_____|____/ \\___/|_____/_/   \\_\\  \\___/|____/ 
+    `, 'term-art');
+    appendLine(`${cmd} — Nebula OS (Gamer Edition)`);
+    appendLine('OS: Nebula OS v2.4 (Gaming Kernel)');
+    appendLine('GPU: NVIDIA GeForce RTX 4080 (16GB VRAM)');
+    appendLine('CPU: AMD Ryzen 9 7950X (16 Cores / 32 Threads @ 4.85GHz)');
+    appendLine(`Game Mode: ${gameModeActive ? 'ACTIVO (Boost)' : 'Inactivo'}`);
+    appendLine(`Perfil: ${currentProfile.toUpperCase()}`);
+    appendLine(`Memoria: ${(systemMetrics.ram * 32 / 100).toFixed(1)}GB / 32GB`);
+  };
+
+  input.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const cmd = input.value.trim();
+    if (!cmd) return;
+    appendLine(`❯ ${cmd}`, 'term-command');
+
+    if (cmd === 'clear') {
+      history.innerHTML = '';
+    } else if (cmd === 'help') {
+      appendLine('Comandos: neofetch, screenfetch, gamemode [on|off], optimize, profile [gamer|streamer|studio], clear');
+    } else if (cmd === 'neofetch' || cmd === 'screenfetch') {
+      showFetch(cmd);
+    } else if (cmd === 'gamemode on') {
+      toggleGameMode(true);
+      appendLine('Game Mode Activado.', 'term-line');
+    } else if (cmd === 'gamemode off') {
+      toggleGameMode(false);
+      appendLine('Game Mode Desactivado.', 'term-line');
+    } else if (cmd === 'optimize') {
+      simulateRamBoost();
+      appendLine('Memoria y recursos optimizados.', 'term-line');
+    } else if (cmd.startsWith('profile ')) {
+      const p = cmd.split(' ')[1];
+      if (['gamer', 'streamer', 'studio'].includes(p)) {
+        switchProfile(p);
+        appendLine(`Cambiado a perfil: ${p}`, 'term-line');
+      } else {
+        appendLine('Perfiles válidos: gamer, streamer, studio', 'term-error');
+      }
+    } else {
+      appendLine(`comando no encontrado: ${cmd}. Escribí 'help' para ver comandos.`, 'term-error');
+    }
+
+    input.value = '';
+    input.focus();
+  });
+
+  input.focus();
+}
+
+/* ================= RENDERIZADO DE NEBULA DESIGNER & AJUSTES ================= */
+function renderSettingsApp() {
+  const win = openWindows['settings'];
+  if (!win) return;
+  const content = win.querySelector('.wcontent');
+  if (!content) return;
+  content.innerHTML = getAppContent('settings');
+  refreshIcons();
+}
+
+function setSettingsTab(tabName) {
+  settingsState.activeSettingsTab = tabName;
+  renderSettingsApp();
+}
+
+/* ================= CONTENIDO DE APPS (HTML DINÁMICO) ================= */
+function getAppContent(id) {
+  if (id === 'nova') {
+    return `
+      <div class="nova-app">
+        <header class="nova-header">
+          <div class="nova-mark"><i data-lucide="sparkles"></i></div>
+          <div><strong>Nova AI Assistant</strong><span>Prompt-to-Action & System Tweaker · En línea</span></div>
+        </header>
+        <div class="nova-context">
+          <span class="nova-context-dot"></span>
+          <span>Perfil: <strong>${currentProfile.toUpperCase()}</strong> | Modo Juego: <strong>${gameModeActive ? 'ON (Boost)' : 'OFF'}</strong></span>
+        </div>
+        <div class="nova-history" aria-live="polite">
+          <div class="nova-message nova">
+            ¡Hola! Soy Nova AI. Puedo ejecutar acciones directas en tu sistema (cambiar temas, activar Modo Juego, optimizar RAM o poner música). ¿Qué querés configurar hoy?
+          </div>
+          <div class="nova-suggestions">
+            <button type="button" data-nova-prompt="Cambia al tema Cyberpunk"><i data-lucide="palette"></i> Tema Cyberpunk</button>
+            <button type="button" data-nova-prompt="Activa el modo juego"><i data-lucide="gamepad-2"></i> Modo Juego</button>
+            <button type="button" data-nova-prompt="Optimiza el sistema"><i data-lucide="sparkles"></i> Limpiar RAM</button>
+            <button type="button" data-nova-prompt="Pon música"><i data-lucide="music"></i> Poner música</button>
+            <button type="button" data-nova-prompt="¿Cómo optimizo Cyberpunk 2077?"><i data-lucide="zap"></i> Tips de Rendimiento</button>
+          </div>
+        </div>
+        <form class="nova-form">
+          <button type="button" class="nova-voice-btn" id="nova-voice-btn" title="Comando por voz" onclick="startNovaVoiceInput()"><i data-lucide="mic"></i></button>
+          <input class="nova-input" type="text" autocomplete="off" maxlength="240" placeholder="Pedile a Nova AI que cambie el tema, optimice o abra un juego...">
+          <button type="submit" aria-label="Enviar comando">Enviar</button>
+        </form>
+      </div>
+    `;
+  }
+
+  if (id === 'files') {
+    return `
+      <div class="files-preview">
+        <div class="files-toolbar">
+          <button type="button" class="files-nav-btn" data-files-back aria-label="Atrás"><i data-lucide="chevron-left"></i></button>
+          <button type="button" class="files-nav-btn" data-files-forward aria-label="Adelante"><i data-lucide="chevron-right"></i></button>
+          <i data-lucide="folder"></i>
+          <strong>Archivos Inteligentes</strong>
+          <span class="files-path" data-files-path>Inicio</span>
+          <label class="files-search"><i data-lucide="search"></i><input type="search" data-files-search placeholder="Buscar archivo o mod..." aria-label="Buscar"></label>
+        </div>
+        <div class="files-layout">
+          <aside class="files-sidebar">
+            <small>GAMING & MULTIMEDIA</small>
+            <button class="files-side-item" type="button" data-files-location="capturas"><i data-lucide="gamepad-2"></i> Capturas de Juegos</button>
+            <button class="files-side-item" type="button" data-files-location="mods"><i data-lucide="cpu"></i> MODs & Configs</button>
+            <button class="files-side-item" type="button" data-files-location="juegos"><i data-lucide="disc"></i> Juegos / ISOs</button>
+            <button class="files-side-item" type="button" data-files-location="musica"><i data-lucide="music"></i> Música & Audio</button>
+            <small>UBICACIONES</small>
+            <button class="files-side-item active" type="button" data-files-location="Inicio"><i data-lucide="home"></i> Inicio</button>
+            <button class="files-side-item" type="button" data-files-location="fondos"><i data-lucide="image"></i> Fondos</button>
+            <button class="files-side-item" type="button" data-files-location="imagenes"><i data-lucide="layers"></i> Imágenes</button>
+            <button class="files-side-item" type="button" data-files-location="vsc"><i data-lucide="code"></i> Proyectos</button>
+          </aside>
+          <section class="files-content">
+            <div class="files-content-bar">
+              <strong data-files-title>Inicio</strong>
+              <span>Explorador Inteligente</span>
+            </div>
+            <div class="files-grid"></div>
+            <aside class="files-preview-pane" data-files-preview>
+              <div class="files-empty-preview">Seleccioná un archivo para previsualización interactiva rápida.</div>
+            </aside>
+          </section>
+        </div>
+      </div>
+    `;
+  }
+
+  if (id === 'settings') {
+    const activeTab = settingsState.activeSettingsTab || 'designer';
+    return `
+      <div class="settings-preview">
+        <aside class="settings-nav">
+          <div class="settings-nav-title"><i data-lucide="sliders"></i> Ajustes</div>
+          <div class="settings-nav-item ${activeTab === 'designer' ? 'active' : ''}" onclick="setSettingsTab('designer')"><i data-lucide="palette"></i> Nebula Designer</div>
+          <div class="settings-nav-item ${activeTab === 'appearance' ? 'active' : ''}" onclick="setSettingsTab('appearance')"><i data-lucide="image"></i> Fondos de Pantalla</div>
+          <div class="settings-nav-item ${activeTab === 'gaming' ? 'active' : ''}" onclick="setSettingsTab('gaming')"><i data-lucide="gamepad-2"></i> Gaming & HUD</div>
+          <div class="settings-nav-item ${activeTab === 'system' ? 'active' : ''}" onclick="setSettingsTab('system')"><i data-lucide="cpu"></i> Sistema</div>
+        </aside>
+        <section class="settings-main">
+          ${activeTab === 'designer' ? getDesignerSettingsHTML() : activeTab === 'appearance' ? getAppearanceSettingsHTML() : activeTab === 'gaming' ? getGamingSettingsHTML() : getSystemSettingsHTML()}
+        </section>
+      </div>
+    `;
+  }
+
+  if (id === 'browser') {
+    return `<div class="firefox-preview"><img src="./capturafirefox.jpg" alt="Vista de Firefox"></div>`;
+  }
+
+  if (id === 'vscode') {
+    return `<div class="vscode-preview"><img src="./vsc/vscimg.png" alt="Captura de Visual Studio Code"></div>`;
+  }
+
+  if (id === 'games') {
+    return `
+      <div class="steam-preview" style="position:relative;">
+        <div style="position:absolute; top:12px; right:12px; z-index:10; background:rgba(10,14,24,0.85); padding:8px 12px; border-radius:8px; border:1px solid rgba(0,255,204,0.3); display:flex; gap:10px; align-items:center; backdrop-filter:blur(10px);">
+          <span style="font-size:11px; font-weight:700; color:#00ffcc; display:flex; align-items:center; gap:4px;"><i data-lucide="gamepad-2"></i> Modo Juego:</span>
+          <button class="quick-switch ${gameModeActive ? 'active' : ''}" onclick="toggleGameMode()" style="padding:0; margin:0; border:0; background:transparent;">
+            <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
+          </button>
+          <button class="hud-tool-btn" onclick="toggleGamerOverlay()" style="padding:4px 8px;"><i data-lucide="activity"></i> HUD (Alt+Z)</button>
+        </div>
+        <img src="./steam/image.png" alt="Vista de Steam">
+      </div>
+    `;
+  }
+
+  if (id === 'music') {
+    return `
+      <div class="spot-app">
+        <div class="spot-sidebar">
+          <div class="spot-nav-item active"><i data-lucide="home"></i> Inicio</div>
+          <div class="spot-nav-item"><i data-lucide="search"></i> Buscar</div>
+          <div class="spot-nav-item"><i data-lucide="library"></i> Tu Biblioteca</div>
+          <hr style="border-color: rgba(255,255,255,0.08); margin: 8px 0;">
+          <div class="spot-nav-item" style="font-size: 11px;">Descubrimiento Semanal</div>
+          <div class="spot-nav-item" style="font-size: 11px;">Mix de Rock</div>
+          <div class="spot-nav-item" style="font-size: 11px;">Lofi Beats Gaming</div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column;">
+          <div class="spot-main">
+            <h2>Buenos días</h2>
+            <div class="spot-grid">
+              <div class="spot-card" onclick="currentTrackIndex=1; updateMediaUI(); toggleMediaPlayback();">
+                <img class="spot-card-img" src="./spotify/tapa album 1.jpg" alt="Nirvana">
+                <div class="spot-card-title">Nirvana</div>
+                <div class="spot-card-sub">Nevermind</div>
+              </div>
+              <div class="spot-card" onclick="currentTrackIndex=3; updateMediaUI(); toggleMediaPlayback();">
+                <img class="spot-card-img" src="./spotify/top 50.jpg" alt="Top 50">
+                <div class="spot-card-title">Cyberpunk Beats</div>
+                <div class="spot-card-sub">Synthwave Mix</div>
+              </div>
+              <div class="spot-card" onclick="currentTrackIndex=0; updateMediaUI(); toggleMediaPlayback();">
+                <img class="spot-card-img" src="./spotify/tapa album 2.jpg" alt="Bocanada">
+                <div class="spot-card-title">Bocanada</div>
+                <div class="spot-card-sub">Gustavo Cerati</div>
+              </div>
+              <div class="spot-card" onclick="currentTrackIndex=2; updateMediaUI(); toggleMediaPlayback();">
+                <img class="spot-card-img" src="./spotify/album 3.jpg" alt="Callejeros">
+                <div class="spot-card-title">Callejeros</div>
+                <div class="spot-card-sub">Rock nacional</div>
+              </div>
+            </div>
+          </div>
+          <div class="spot-player">
+            <div class="sp-left">
+              <img src="./spotify/tapa album 2.jpg" alt="Bocanada" id="spot-cover">
+              <div>
+                <div style="font-size:12px; font-weight:700;" id="spot-title">Bocanada</div>
+                <div style="font-size:10px; color:var(--text-sub);" id="spot-artist">Gustavo Cerati</div>
+              </div>
+            </div>
+            <div class="sp-center">
+              <div class="sp-controls">
+                <i data-lucide="skip-back" onclick="previousTrack()"></i>
+                <i data-lucide="${isPlaying ? 'pause' : 'play'}" onclick="toggleMediaPlayback()"></i>
+                <i data-lucide="skip-forward" onclick="nextTrack()"></i>
+              </div>
+              <div class="sp-bar"><div class="sp-bar-fill"></div></div>
+            </div>
+            <div class="sp-left" style="justify-content: flex-end; gap:8px;">
+              <i data-lucide="volume-2" class="slider-icon"></i>
+              <input type="range" min="0" max="100" value="80" oninput="setSystemVolume(this.value)" style="width:70px; height:4px;">
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (id === 'terminal') {
+    return `
+    <div class="term-body">
+      <div class="prompt">
+        <span class="dir">~/nebula-os/gaming-core</span>
+        <span class="branch"> main [profile:${currentProfile}]</span>
+      </div>
+      <div class="term-history"></div>
+      <div class="prompt" style="margin-top:4px;">
+        <span class="time">❯</span>
+        <input class="term-input" autocomplete="off" autofocus>
+      </div>
+    </div>`;
+  }
+  
+  return `<div class="app-pad"><h2>${APPS[id].title}</h2><p>${APPS[id].sub}</p></div>`;
+}
+
+function getDesignerSettingsHTML() {
+  return `
+    <div class="settings-heading">
+      <div>
+        <div class="settings-kicker">NEBULA DESIGNER</div>
+        <h2>Colores, Estilos & Efectos UI</h2>
+        <p>Personalizá la paleta cromática, desenfoque y formas de la interfaz. Tu fondo de pantalla permanecerá intacto.</p>
+      </div>
+      <div class="settings-status"><span></span> En vivo (:root)</div>
+    </div>
+
+    <div class="settings-section-label">Paletas de Color & Estilos de UI</div>
+    <div class="designer-presets-grid">
+      <div class="theme-preset-card ${designerState.activePreset === 'cyberpunk' ? 'selected' : ''}" onclick="applyThemePreset('cyberpunk')">
+        <div class="preset-colors-row">
+          <span class="preset-color-chip" style="background:#00ffcc;"></span>
+          <span class="preset-color-chip" style="background:#ff007f;"></span>
+          <span class="preset-color-chip" style="background:#7928ca;"></span>
+        </div>
+        <strong>Cyberpunk Neón</strong>
+        <small>Cyan neón, sombras optimizadas y alto contraste</small>
+      </div>
+
+      <div class="theme-preset-card ${designerState.activePreset === 'catppuccin' ? 'selected' : ''}" onclick="applyThemePreset('catppuccin')">
+        <div class="preset-colors-row">
+          <span class="preset-color-chip" style="background:#cba6f7;"></span>
+          <span class="preset-color-chip" style="background:#89b4fa;"></span>
+          <span class="preset-color-chip" style="background:#f5c2e7;"></span>
+        </div>
+        <strong>Minimal Catppuccin</strong>
+        <small>Tonos pastel lavanda, desenfoque suave y relajante</small>
+      </div>
+
+      <div class="theme-preset-card ${designerState.activePreset === 'synthwave' ? 'selected' : ''}" onclick="applyThemePreset('synthwave')">
+        <div class="preset-colors-row">
+          <span class="preset-color-chip" style="background:#ff71ce;"></span>
+          <span class="preset-color-chip" style="background:#01cdfe;"></span>
+          <span class="preset-color-chip" style="background:#05ffa1;"></span>
+        </div>
+        <strong>Retro Synthwave</strong>
+        <small>Magenta brillante, estética 80s arcade</small>
+      </div>
+
+      <div class="theme-preset-card ${designerState.activePreset === 'stealth' ? 'selected' : ''}" onclick="applyThemePreset('stealth')">
+        <div class="preset-colors-row">
+          <span class="preset-color-chip" style="background:#10b981;"></span>
+          <span class="preset-color-chip" style="background:#3b82f6;"></span>
+          <span class="preset-color-chip" style="background:#1e293b;"></span>
+        </div>
+        <strong>Dark Stealth</strong>
+        <small>Carbón táctico y esmeralda de bajo consumo visual</small>
+      </div>
+    </div>
+
+    <div class="settings-section-label">Ajuste Fino en Vivo (CSS Variables)</div>
+    <div class="designer-controls-grid">
+      <div class="designer-control-item">
+        <div class="designer-control-info">
+          <strong>Color Primario / Acento (--accent)</strong>
+          <small>Color de botones activos, bordes y brillos</small>
+        </div>
+        <input type="color" class="designer-color-picker" value="${designerState.accent}" onchange="setLiveAccentColor(this.value)">
+      </div>
+
+      <div class="designer-control-item">
+        <div class="designer-control-info">
+          <strong>Desenfoque Glassmorphism (--blur-amount)</strong>
+          <small>Nivel de blur de ventanas y paneles</small>
+        </div>
+        <div class="designer-control-input">
+          <input type="range" min="0" max="30" value="${designerState.blurAmount}" oninput="setLiveBlurAmount(this.value)">
+          <span id="designer-blur-val">${designerState.blurAmount}px</span>
+        </div>
+      </div>
+
+      <div class="designer-control-item">
+        <div class="designer-control-info">
+          <strong>Redondeo de Bordes (--radius-md)</strong>
+          <small>Curvatura de ventanas y tarjetas</small>
+        </div>
+        <div class="designer-control-input">
+          <input type="range" min="0" max="28" value="${designerState.borderRadius}" oninput="setLiveBorderRadius(this.value)">
+          <span id="designer-radius-val">${designerState.borderRadius}px</span>
+        </div>
+      </div>
+
+      <div class="designer-control-item">
+        <div class="designer-control-info">
+          <strong>Opacidad de Paneles (--panel-color)</strong>
+          <small>Translucidez del cristal de la UI</small>
+        </div>
+        <div class="designer-control-input">
+          <input type="range" min="20" max="95" value="${Math.round(designerState.panelAlpha * 100)}" oninput="setLivePanelAlpha(this.value)">
+          <span id="designer-alpha-val">${Math.round(designerState.panelAlpha * 100)}%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section-label">Estilo de Barra / Dock</div>
+    <div class="dock-styles-grid">
+      <div class="dock-style-card ${designerState.dockStyle === 'floating' ? 'selected' : ''}" onclick="setDockStyle('floating')">
+        <strong>Dock Flotante</strong>
+        <small style="display:block; margin-top:3px; color:var(--text-sub);">Estilo Hyprland / macOS centrado</small>
+      </div>
+      <div class="dock-style-card ${designerState.dockStyle === 'unified-bottom' ? 'selected' : ''}" onclick="setDockStyle('unified-bottom')">
+        <strong>Barra Unificada Inferior</strong>
+        <small style="display:block; margin-top:3px; color:var(--text-sub);">Estilo Taskbar de Windows</small>
+      </div>
+    </div>
+  `;
+}
+
+function getGamingSettingsHTML() {
+  return `
+    <div class="settings-heading">
+      <div>
+        <div class="settings-kicker">NEBULA GAMING HUB</div>
+        <h2>Configuración de Alto Rendimiento</h2>
+        <p>Control de Game Mode, Overlay y telemetría de hardware.</p>
+      </div>
+      <div class="settings-status"><span></span> ${gameModeActive ? 'Modo Juego: ON' : 'Estándar'}</div>
+    </div>
+
+    <div class="settings-section-label">Estado de Rendimiento</div>
+    <div class="designer-controls-grid">
+      <div class="designer-control-item">
+        <div class="designer-control-info">
+          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="gamepad-2" style="color:#00ffcc;"></i> Modo Juego (Game Mode)</strong>
+          <small>Fija el perfil en Máximo Rendimiento y reduce efectos pesados</small>
+        </div>
+        <button class="quick-switch ${gameModeActive ? 'active' : ''}" onclick="toggleGameMode()" style="padding:0; border:0; background:transparent;">
+          <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
+        </button>
+      </div>
+
+      <div class="designer-control-item">
+        <div class="designer-control-info">
+          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="activity" style="color:#3a86ff;"></i> Gaming Overlay (HUD)</strong>
+          <small>Atajo rápido: <kbd style="color:#00ffcc; background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:4px;">Alt + Z</kbd></small>
+        </div>
+        <button class="hud-tool-btn" onclick="toggleGamerOverlay()" style="margin-left:auto;"><i data-lucide="activity"></i> Abrir HUD</button>
+      </div>
+    </div>
+
+    <div class="settings-section-label">Perfil de Usuario Activo</div>
+    <div class="profile-switcher-chips" style="justify-content:flex-start; margin-top:10px;">
+      <button class="profile-chip ${currentProfile === 'gamer' ? 'active' : ''}" onclick="switchProfile('gamer')"><i data-lucide="gamepad-2"></i> Gamer</button>
+      <button class="profile-chip ${currentProfile === 'streamer' ? 'active' : ''}" onclick="switchProfile('streamer')"><i data-lucide="radio"></i> Streamer</button>
+      <button class="profile-chip ${currentProfile === 'studio' ? 'active' : ''}" onclick="switchProfile('studio')"><i data-lucide="terminal"></i> Estudio</button>
+    </div>
+  `;
+}
+
+function getAppearanceSettingsHTML() {
+  return `
+    <div class="settings-heading">
+      <div>
+        <div class="settings-kicker">PERSONALIZACIÓN DE ESCRITORIO</div>
+        <h2>Fondos de Pantalla</h2>
+        <p>Elegí la escena de fondo para tu escritorio. No afectará a tus colores y ajustes de diseño actuales.</p>
+      </div>
+      <div class="settings-status"><span></span> Fondo Activo: ${WALLPAPERS[currentWallpaperIndex]?.name || 'Nebula'}</div>
+    </div>
+
+    <div class="settings-section-label">Galería de Fondos Disponibles</div>
+    <div class="designer-presets-grid">
+      <div class="theme-preset-card ${currentWallpaperIndex === 0 ? 'selected' : ''}" onclick="applyWallpaper(0)">
+        <div style="height:65px; border-radius:8px; background:url('./fondos/fondo principal.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
+        <strong>Fondo Nebula</strong>
+        <small>Violeta espacial profundo y nebulosas estelares</small>
+      </div>
+      <div class="theme-preset-card ${currentWallpaperIndex === 1 ? 'selected' : ''}" onclick="applyWallpaper(1)">
+        <div style="height:65px; border-radius:8px; background:url('./fondos/fondo 2.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
+        <strong>Fondo Aurora</strong>
+        <small>Azul ártico cósmico y resplandor polar</small>
+      </div>
+      <div class="theme-preset-card ${currentWallpaperIndex === 2 ? 'selected' : ''}" onclick="applyWallpaper(2)">
+        <div style="height:65px; border-radius:8px; background:url('./fondos/fondo 3.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
+        <strong>Fondo Solar</strong>
+        <small>Dorado estelar cálido y destellos solares</small>
+      </div>
+    </div>
+  `;
+}
+
+function getSystemSettingsHTML() {
+  return `
+    <div class="settings-heading">
+      <div>
+        <div class="settings-kicker">INFORMACIÓN DEL SISTEMA</div>
+        <h2>Nebula OS v2.5 Ultimate</h2>
+        <p>Especificaciones de hardware y configuración del entorno.</p>
+      </div>
+      <div class="settings-status"><span></span> Kernel Optimizado</div>
+    </div>
+
+    <div class="settings-section-label">Especificaciones del Equipo</div>
+    <div class="designer-controls-grid">
+      <div class="designer-control-item">
+        <div class="designer-control-info">
+          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="cpu" style="color:var(--accent);"></i> Procesador (CPU)</strong>
+          <small>AMD Ryzen 9 7950X · 16 Cores, 32 Threads @ 4.5 - 5.7 GHz</small>
+        </div>
+      </div>
+      <div class="designer-control-item">
+        <div class="designer-control-info">
+          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="activity" style="color:#00ffcc;"></i> Tarjeta Gráfica (GPU)</strong>
+          <small>NVIDIA GeForce RTX 4090 · 24GB GDDR6X · Driver 560.81 GameReady</small>
+        </div>
+      </div>
+      <div class="designer-control-item">
+        <div class="designer-control-info">
+          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="zap" style="color:#ff71ce;"></i> Memoria RAM</strong>
+          <small>32 GB DDR5 6000MHz Dual-Channel (Uso actual: ${systemMetrics.ram}%)</small>
+        </div>
+        <button class="hud-tool-btn" onclick="simulateCleanRam()" style="margin-left:auto;"><i data-lucide="sparkles"></i> Limpiar</button>
+      </div>
+      <div class="designer-control-item">
+        <div class="designer-control-info">
+          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="monitor" style="color:#38bdf8;"></i> Pantalla</strong>
+          <small>2560x1440 QHD @ 240Hz OLED HDR · Espacio de trabajo ${currentWorkspace}/5</small>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ================= LAUNCHER OVERLAY ================= */
+const launcherOverlay = document.getElementById('launcher-overlay');
+const launcherInput = document.getElementById('launcher-input');
+const launcherResults = document.getElementById('launcher-results');
+
+function toggleLauncher() {
+  if (!launcherOverlay) return;
+  if (launcherOverlay.classList.contains('open')) {
+    launcherOverlay.classList.remove('open');
+  } else {
+    launcherOverlay.classList.add('open');
+    if (launcherInput) {
+      launcherInput.value = '';
+      renderLauncherResults('');
+      setTimeout(() => launcherInput.focus(), 50);
+    }
+  }
+  refreshIcons();
+}
+
+launcherOverlay?.addEventListener('mousedown', e => {
+  if (e.target === launcherOverlay) toggleLauncher();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && launcherOverlay?.classList.contains('open')) toggleLauncher();
+});
+launcherInput?.addEventListener('input', e => {
+  renderLauncherResults(e.target.value.toLowerCase());
+});
+
+function renderLauncherResults(query) {
+  if (!launcherResults) return;
+  launcherResults.innerHTML = '';
+  Object.keys(APPS).forEach(id => {
+    const app = APPS[id];
+    if (app.title.toLowerCase().includes(query) || app.sub.toLowerCase().includes(query)) {
+      const res = document.createElement('div');
+      res.className = 'result';
+      res.innerHTML = `
+        ${getAppTileHTML(id)}
+        <div class="meta"><div class="title">${app.title}</div><div class="sub">${app.sub}</div></div>
+      `;
+      res.onclick = () => {
+        openApp(id);
+        toggleLauncher();
+      };
+      launcherResults.appendChild(res);
+    }
+  });
+  refreshIcons();
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character]));
+}
+
+function handleImageError(e) {
+  if (!(e.target instanceof HTMLImageElement)) return;
+  e.target.classList.add('img-broken');
+}
+
+function setupKeyboardAccessibility() {
+  document.addEventListener('keydown', e => {
+    if (!['Enter', ' '].includes(e.key)) return;
+    const target = e.target.closest('[role="button"][tabindex="0"]');
+    if (!target) return;
+    e.preventDefault();
+    target.click();
+  });
+}
+
+function setupDeviceStatus() {
+  const batteryLabel = document.querySelector('#sys-tray-btn .battery span');
+  const batteryIcon = document.querySelector('#sys-tray-btn .battery i, #sys-tray-btn .battery svg');
+  if (batteryLabel && batteryIcon && typeof navigator.getBattery === 'function') {
+    navigator.getBattery().then(battery => {
+      const updateBattery = () => {
+        const level = Math.round(battery.level * 100);
+        batteryLabel.textContent = `${level}%`;
+      };
+      updateBattery();
+      battery.addEventListener('levelchange', updateBattery);
+    }).catch(() => {});
+  }
+}
