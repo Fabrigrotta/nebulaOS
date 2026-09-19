@@ -82,10 +82,10 @@ const THEME_PRESETS = {
 };
 
 const TRACKS = [
-  { title: 'Bocanada', artist: 'Gustavo Cerati', art: './spotify/tapa album 2.jpg' },
-  { title: 'Smells Like Teen Spirit', artist: 'Nirvana', art: './spotify/tapa album 1.jpg' },
-  { title: 'Prohibido', artist: 'Callejeros', art: './spotify/album 3.jpg' },
-  { title: 'Cyberpunk Night City Beat', artist: 'Hyper Sound', art: './spotify/top 50.jpg' }
+  { title: 'Bocanada', artist: 'Gustavo Cerati', art: './spotify/tapa album 2.jpg', duration: 272 },   // 4:32
+  { title: 'Smells Like Teen Spirit', artist: 'Nirvana', art: './spotify/tapa album 1.jpg', duration: 301 }, // 5:01
+  { title: 'Prohibido', artist: 'Callejeros', art: './spotify/album 3.jpg', duration: 225 },           // 3:45
+  { title: 'Cyberpunk Night City Beat', artist: 'Hyper Sound', art: './spotify/top 50.jpg', duration: 192 } // 3:12
 ];
 
 /* ================= VARIABLES GLOBALES DE ESTADO ================= */
@@ -116,6 +116,11 @@ let dndEnabled = false;
 
 /* ================= ESTADO DE BRILLO ================= */
 let currentBrightness = 100;
+
+/* ================= ESTADO DEL REPRODUCTOR (QUICK CENTER) ================= */
+let currentPlaybackTime = 0; // segundos transcurridos del track actual
+let shuffleEnabled = false;
+let repeatEnabled = false;
 
 let designerState = {
   activePreset: 'catppuccin',
@@ -190,6 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderConnectivityState();
   renderDndState();
   applyBrightness(currentBrightness);
+  setupQuickCenterPlayer();
   refreshIcons();
 
   document.querySelectorAll('.waybar-module, #dock, #control-center, #quick-center, #launcher').forEach(el => {
@@ -229,7 +235,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.addEventListener('click', (e) => {
-    if(!sysTrayBtn?.contains(e.target) && !clockCenter?.contains(e.target) && !controlCenter?.contains(e.target) && !quickCenter?.contains(e.target)) {
+    // Excluir el reproductor del quick center para que no cierre el menú al interactuar
+    const isPlayerClick = e.target.closest('#cc-spotify-player');
+    if(!sysTrayBtn?.contains(e.target) && !clockCenter?.contains(e.target) && !controlCenter?.contains(e.target) && !quickCenter?.contains(e.target) && !isPlayerClick) {
       controlCenter?.classList.add('hidden');
       quickCenter?.classList.add('hidden');
     }
@@ -409,6 +417,79 @@ function applyBrightness(val) {
   try {
     localStorage.setItem(BRIGHTNESS_STORAGE_KEY, String(currentBrightness));
   } catch (e) {}
+}
+
+/* ================= FEATURE: REPRODUCTOR QUICK CENTER ================= */
+function formatTime(seconds) {
+  const s = Math.max(0, Math.floor(seconds));
+  const m = Math.floor(s / 60);
+  const r = String(s % 60).padStart(2, '0');
+  return `${m}:${r}`;
+}
+
+function updatePlayerProgress() {
+  const track = TRACKS[currentTrackIndex];
+  if (!track) return;
+
+  const fill = document.getElementById('cc-progress-fill');
+  const currentEl = document.getElementById('cc-time-current');
+  const totalEl = document.getElementById('cc-time-total');
+  const dot = document.getElementById('cc-eq-dot');
+
+  const pct = Math.min(100, (currentPlaybackTime / track.duration) * 100);
+  if (fill) fill.style.width = `${pct}%`;
+  if (currentEl) currentEl.textContent = formatTime(currentPlaybackTime);
+  if (totalEl) totalEl.textContent = formatTime(track.duration);
+
+  if (dot) {
+    dot.classList.toggle('paused', !isPlaying);
+  }
+}
+
+function resetPlayerProgress() {
+  currentPlaybackTime = 0;
+  updatePlayerProgress();
+}
+
+function setupQuickCenterPlayer() {
+  // Arrancar el timer de progreso (cada segundo si está reproduciendo)
+  setInterval(() => {
+    if (!isPlaying) return;
+    const track = TRACKS[currentTrackIndex];
+    if (!track) return;
+    currentPlaybackTime += 1;
+    if (currentPlaybackTime >= track.duration) {
+      // Repetir o pasar al siguiente
+      if (repeatEnabled) {
+        currentPlaybackTime = 0;
+      } else {
+        nextTrack();
+        return;
+      }
+    }
+    updatePlayerProgress();
+  }, 1000);
+
+  // Botón shuffle
+  const shuffleBtn = document.getElementById('cc-shuffle');
+  if (shuffleBtn) {
+    shuffleBtn.addEventListener('click', () => {
+      shuffleEnabled = !shuffleEnabled;
+      shuffleBtn.classList.toggle('active', shuffleEnabled);
+    });
+  }
+
+  // Botón repeat
+  const repeatBtn = document.getElementById('cc-repeat');
+  if (repeatBtn) {
+    repeatBtn.addEventListener('click', () => {
+      repeatEnabled = !repeatEnabled;
+      repeatBtn.classList.toggle('active', repeatEnabled);
+    });
+  }
+
+  // Inicializar UI
+  updatePlayerProgress();
 }
 
 /* ================= FEATURE 1: GAME MODE & GAMING OVERLAY ================= */
@@ -1038,9 +1119,15 @@ function toggleMediaPlayback() {
   isPlaying = !isPlaying;
   const playBtn = document.getElementById('media-toggle');
   const hudPlayBtn = document.getElementById('hud-play-btn');
+  const ccPlayBtn = document.getElementById('cc-play-btn');
 
-  if (playBtn) playBtn.innerHTML = `<i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>`;
-  if (hudPlayBtn) hudPlayBtn.innerHTML = `<i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>`;
+  const iconName = isPlaying ? 'pause' : 'play';
+  if (playBtn) playBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
+  if (hudPlayBtn) hudPlayBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
+  if (ccPlayBtn) ccPlayBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
+
+  // Actualizar dot de estado del quick center player
+  updatePlayerProgress();
 
   renderDesktopWidgets();
   refreshIcons();
@@ -1049,11 +1136,13 @@ function toggleMediaPlayback() {
 function nextTrack() {
   currentTrackIndex = (currentTrackIndex + 1) % TRACKS.length;
   updateMediaUI();
+  resetPlayerProgress();
 }
 
 function previousTrack() {
   currentTrackIndex = (currentTrackIndex - 1 + TRACKS.length) % TRACKS.length;
   updateMediaUI();
+  resetPlayerProgress();
 }
 
 function updateMediaUI() {
@@ -1070,6 +1159,9 @@ function updateMediaUI() {
     const el = document.getElementById(id);
     if (el) el.textContent = track.artist;
   });
+  // Actualizar duración en el quick center player
+  const totalEl = document.getElementById('cc-time-total');
+  if (totalEl) totalEl.textContent = formatTime(track.duration);
 }
 
 function setSystemVolume(val) {

@@ -214,14 +214,30 @@
       </div>
     </div>
 
-    <div class="cc-media advanced-media">
-      <img src="./spotify/tapa album 2.jpg" alt="Bocanada" id="cc-media-art">
-      <div class="media-info">
-        <div class="m-title" id="cc-media-title">Bocanada</div>
-        <div class="m-artist" id="cc-media-artist">Gustavo Cerati</div>
-        <div class="media-progress"><span id="media-progress-fill"></span></div>
+    <!-- REPRODUCTOR TIPO SPOTIFY (REDISEÑO) -->
+    <div class="cc-media advanced-media" id="cc-spotify-player">
+      <div class="cc-media-top">
+        <img src="./spotify/tapa album 2.jpg" alt="Bocanada" id="cc-media-art">
+        <div class="media-info">
+          <div class="m-title" id="cc-media-title">Bocanada</div>
+          <div class="m-artist" id="cc-media-artist">Gustavo Cerati</div>
+        </div>
       </div>
-      <button id="media-toggle" class="media-toggle" type="button" aria-label="Reproducir"><i data-lucide="play"></i></button>
+
+      <div class="cc-media-progress">
+        <span class="cc-time" id="cc-time-current">0:00</span>
+        <div class="cc-progress-track"><span id="cc-progress-fill"></span></div>
+        <span class="cc-time" id="cc-time-total">4:32</span>
+      </div>
+
+      <div class="cc-media-controls">
+        <button class="cc-ctrl" id="cc-shuffle" title="Aleatorio" type="button"><i data-lucide="shuffle"></i></button>
+        <button class="cc-ctrl" onclick="previousTrack()" title="Anterior" type="button"><i data-lucide="skip-back"></i></button>
+        <button class="cc-ctrl main" id="cc-play-btn" onclick="toggleMediaPlayback()" title="Reproducir/Pausar" type="button"><i data-lucide="play"></i></button>
+        <button class="cc-ctrl" onclick="nextTrack()" title="Siguiente" type="button"><i data-lucide="skip-forward"></i></button>
+        <button class="cc-ctrl" id="cc-repeat" title="Repetir" type="button"><i data-lucide="repeat"></i></button>
+        <span class="cc-eq-dot" id="cc-eq-dot" title="Estado"></span>
+      </div>
     </div>
   </div>
 

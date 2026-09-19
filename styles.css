@@ -305,15 +305,57 @@ svg, [data-lucide] {
 .metric-tooltip { position: absolute; left: 50%; bottom: calc(100% + 7px); width: max-content; max-width: 180px; padding: 6px 9px; border-radius: 6px; opacity: 0; pointer-events: none; transform: translate(-50%, 4px); transition: opacity .2s, transform .2s; background: #090a10; color: #fff; font-size: 10px; border: 1px solid rgba(255,255,255,0.12); }
 .metric-card:hover .metric-tooltip { opacity: 1; transform: translate(-50%, 0); }
 
-.cc-media { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.04); padding: 10px; border-radius: var(--radius-md); border: 1px solid rgba(255,255,255,0.06); }
-.advanced-media img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; }
-.media-info { min-width: 0; flex: 1; }
-.m-title { overflow: hidden; color: #fff; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.m-artist { color: var(--text-sub); font-size: 10px; }
-.media-progress { height: 3px; margin-top: 6px; overflow: hidden; border-radius: 3px; background: rgba(255,255,255,0.1); }
-.media-progress span { display: block; width: 32%; height: 100%; background: var(--accent); transition: width .3s linear; }
-.media-toggle { width: 30px; height: 30px; border: 0; border-radius: 50%; color: #0d0f17; background: var(--accent); cursor: pointer; display: grid; place-items: center; }
-.media-toggle svg, .media-toggle i { width: 14px; height: 14px; }
+/* ================= REPRODUCTOR TIPO SPOTIFY (QUICK CENTER) ================= */
+.cc-media { display: flex; flex-direction: column; gap: 12px; background: rgba(20, 20, 30, 0.72); padding: 14px; border-radius: var(--radius-md); border: 1px solid rgba(255,255,255,0.07); }
+
+.cc-media-top { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cc-media-top img { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.45); }
+.cc-media-top .media-info { min-width: 0; flex: 1; }
+.cc-media-top .m-title { overflow: hidden; color: #fff; font-size: 14px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.cc-media-top .m-artist { color: var(--text-sub); font-size: 11px; margin-top: 2px; }
+
+/* BARRA DE PROGRESO CON TIEMPOS */
+.cc-media-progress { display: flex; align-items: center; gap: 8px; }
+.cc-media-progress .cc-time { color: var(--text-sub); font: 9px "JetBrains Mono", monospace; min-width: 32px; text-align: center; }
+.cc-progress-track {
+  flex: 1; height: 4px; border-radius: 4px; background: rgba(255,255,255,0.12); overflow: hidden; position: relative;
+}
+.cc-progress-track span {
+  display: block; height: 100%; width: 0%; border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #fff 30%));
+  transition: width 0.3s linear;
+}
+
+/* FILA DE CONTROLES CIRCULARES */
+.cc-media-controls { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.cc-ctrl {
+  width: 28px; height: 28px; border-radius: 50%; border: 0; background: transparent;
+  color: var(--text-sub); cursor: pointer; display: grid; place-items: center;
+  transition: all 0.18s ease;
+}
+.cc-ctrl svg, .cc-ctrl i { width: 14px; height: 14px; }
+.cc-ctrl:hover { color: #fff; background: rgba(255,255,255,0.08); transform: scale(1.08); }
+.cc-ctrl.active { color: var(--accent); }
+.cc-ctrl.active::after {
+  content: ""; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
+  width: 3px; height: 3px; border-radius: 50%; background: var(--accent);
+}
+
+.cc-ctrl.main {
+  width: 36px; height: 36px; background: #fff; color: #0d0f17;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.cc-ctrl.main svg, .cc-ctrl.main i { width: 16px; height: 16px; }
+.cc-ctrl.main:hover { background: var(--accent); color: #0d0f17; transform: scale(1.08); }
+
+/* DOT VERDE DE ESTADO (EQ) */
+.cc-eq-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #1ed760; margin-left: 4px;
+  box-shadow: 0 0 8px rgba(30, 215, 96, 0.6);
+  transition: opacity 0.2s ease;
+}
+.cc-eq-dot.paused { background: #4b5563; box-shadow: none; opacity: 0.5; }
 
 /* ================= GAMING OVERLAY (HUD FLOTANTE) ================= */
 .gamer-overlay {
