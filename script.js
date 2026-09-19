@@ -196,6 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderDndState();
   applyBrightness(currentBrightness);
   setupQuickCenterPlayer();
+  updatePlayerBackground();
   refreshIcons();
 
   document.querySelectorAll('.waybar-module, #dock, #control-center, #quick-center, #launcher').forEach(el => {
@@ -451,6 +452,17 @@ function resetPlayerProgress() {
   updatePlayerProgress();
 }
 
+/**
+ * Aplica la portada del track actual como fondo del reproductor del quick center.
+ * SOLO afecta a #cc-media-bg (reproductor dentro del #quick-center).
+ */
+function updatePlayerBackground() {
+  const bg = document.getElementById('cc-media-bg');
+  const track = TRACKS[currentTrackIndex];
+  if (!bg || !track) return;
+  bg.style.backgroundImage = `url("${track.art}")`;
+}
+
 function setupQuickCenterPlayer() {
   // Arrancar el timer de progreso (cada segundo si está reproduciendo)
   setInterval(() => {
@@ -473,7 +485,8 @@ function setupQuickCenterPlayer() {
   // Botón shuffle
   const shuffleBtn = document.getElementById('cc-shuffle');
   if (shuffleBtn) {
-    shuffleBtn.addEventListener('click', () => {
+    shuffleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
       shuffleEnabled = !shuffleEnabled;
       shuffleBtn.classList.toggle('active', shuffleEnabled);
     });
@@ -482,7 +495,8 @@ function setupQuickCenterPlayer() {
   // Botón repeat
   const repeatBtn = document.getElementById('cc-repeat');
   if (repeatBtn) {
-    repeatBtn.addEventListener('click', () => {
+    repeatBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
       repeatEnabled = !repeatEnabled;
       repeatBtn.classList.toggle('active', repeatEnabled);
     });
@@ -1137,12 +1151,14 @@ function nextTrack() {
   currentTrackIndex = (currentTrackIndex + 1) % TRACKS.length;
   updateMediaUI();
   resetPlayerProgress();
+  updatePlayerBackground();
 }
 
 function previousTrack() {
   currentTrackIndex = (currentTrackIndex - 1 + TRACKS.length) % TRACKS.length;
   updateMediaUI();
   resetPlayerProgress();
+  updatePlayerBackground();
 }
 
 function updateMediaUI() {
@@ -1162,6 +1178,8 @@ function updateMediaUI() {
   // Actualizar duración en el quick center player
   const totalEl = document.getElementById('cc-time-total');
   if (totalEl) totalEl.textContent = formatTime(track.duration);
+  // Actualizar el fondo con blur
+  updatePlayerBackground();
 }
 
 function setSystemVolume(val) {

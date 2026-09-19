@@ -308,6 +308,44 @@ svg, [data-lucide] {
 /* ================= REPRODUCTOR TIPO SPOTIFY (QUICK CENTER) ================= */
 .cc-media { display: flex; flex-direction: column; gap: 12px; background: rgba(20, 20, 30, 0.72); padding: 14px; border-radius: var(--radius-md); border: 1px solid rgba(255,255,255,0.07); }
 
+/* Reproductor del quick-center: fondo con blur de la portada actual */
+#cc-spotify-player {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Capa de fondo: portada actual con blur fuerte */
+.cc-media-bg {
+  position: absolute;
+  inset: -20px;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(28px) saturate(1.6) brightness(0.85);
+  opacity: 0.62;
+  transform: scale(1.15);
+  transition: background-image 0.4s ease, opacity 0.4s ease;
+  pointer-events: none;
+}
+
+/* Gradiente oscuro encima del blur para garantizar legibilidad del texto */
+#cc-spotify-player::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(180deg, rgba(10, 12, 20, 0.35) 0%, rgba(10, 12, 20, 0.72) 100%);
+  pointer-events: none;
+}
+
+/* Contenido interno por encima del fondo */
+#cc-spotify-player > *:not(.cc-media-bg) {
+  position: relative;
+  z-index: 1;
+}
+
 .cc-media-top { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .cc-media-top img { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.45); }
 .cc-media-top .media-info { min-width: 0; flex: 1; }
@@ -327,7 +365,7 @@ svg, [data-lucide] {
 }
 
 /* FILA DE CONTROLES CIRCULARES */
-.cc-media-controls { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.cc-media-controls { display: flex; align-items: center; justify-content: center; gap: 8px; position: relative; }
 .cc-ctrl {
   width: 28px; height: 28px; border-radius: 50%; border: 0; background: transparent;
   color: var(--text-sub); cursor: pointer; display: grid; place-items: center;

@@ -214,8 +214,10 @@
       </div>
     </div>
 
-    <!-- REPRODUCTOR TIPO SPOTIFY (REDISEÑO) -->
+    <!-- REPRODUCTOR TIPO SPOTIFY CON FONDO BLUR (REDISEÑO) -->
     <div class="cc-media advanced-media" id="cc-spotify-player">
+      <div class="cc-media-bg" id="cc-media-bg"></div>
+
       <div class="cc-media-top">
         <img src="./spotify/tapa album 2.jpg" alt="Bocanada" id="cc-media-art">
         <div class="media-info">
@@ -230,7 +232,7 @@
         <span class="cc-time" id="cc-time-total">4:32</span>
       </div>
 
-      <div class="cc-media-controls">
+      <div class="cc-media-controls" onclick="event.stopPropagation()">
         <button class="cc-ctrl" id="cc-shuffle" title="Aleatorio" type="button"><i data-lucide="shuffle"></i></button>
         <button class="cc-ctrl" onclick="previousTrack()" title="Anterior" type="button"><i data-lucide="skip-back"></i></button>
         <button class="cc-ctrl main" id="cc-play-btn" onclick="toggleMediaPlayback()" title="Reproducir/Pausar" type="button"><i data-lucide="play"></i></button>
