@@ -3,7 +3,7 @@ const APPS = {
   files:    { title: 'Archivos', sub: 'Gestor inteligente de archivos', icon: 'folder', image: './imagenes/archivos.png', tileClass: 'app-tile-files', accentColor: '#3a86ff' },
   terminal: { title: 'Terminal', sub: 'WezTerm Emulator', icon: 'terminal', image: './imagenes/terminal.png', tileClass: 'app-tile-terminal', accentColor: '#38bdf8' },
   browser:  { title: 'Firefox', sub: 'Navegador Web', icon: 'globe', image: './imagenes/firefox.png', tileClass: 'app-tile-browser', accentColor: '#f59e0b' },
-  music:    { title: 'Spotify', sub: 'Reproductor de Música', icon: 'music', image: './imagenes/spotify.png', tileClass: 'app-tile-music', accentColor: '#10b981' },
+  music:    { title: 'Spotify', sub: 'Reproductor de Música', icon: 'music', image: './imagenes/spotify.png', tileClass: 'app-tile-music', accentColor: '#1ed760' },
   games:    { title: 'Steam', sub: 'Librería de Juegos', icon: 'gamepad-2', image: './imagenes/Steam.png', tileClass: 'app-tile-games', accentColor: '#7c3aed' },
   vscode:   { title: 'VS Code', sub: 'Editor de Código', icon: 'code-2', image: './imagenes/VSC.png', tileClass: 'app-tile-vscode', accentColor: '#0284c7' },
   settings: { title: 'Ajustes', sub: 'Panel de Control & Designer', icon: 'sliders', image: './imagenes/Ajustes.png', tileClass: 'app-tile-settings', accentColor: '#94a3b8' },
@@ -82,10 +82,10 @@ const THEME_PRESETS = {
 };
 
 const TRACKS = [
-  { title: 'Bocanada', artist: 'Gustavo Cerati', art: './spotify/tapa album 2.jpg', duration: 272 },
-  { title: 'Smells Like Teen Spirit', artist: 'Nirvana', art: './spotify/tapa album 1.jpg', duration: 301 },
-  { title: 'Prohibido', artist: 'Callejeros', art: './spotify/album 3.jpg', duration: 225 },
-  { title: 'Cyberpunk Night City Beat', artist: 'Hyper Sound', art: './spotify/top 50.jpg', duration: 192 }
+  { title: 'Bocanada', artist: 'Gustavo Cerati', album: 'Bocanada', art: './spotify/tapa album 2.jpg', duration: 272 },
+  { title: 'Smells Like Teen Spirit', artist: 'Nirvana', album: 'Nevermind', art: './spotify/tapa album 1.jpg', duration: 301 },
+  { title: 'Prohibido', artist: 'Callejeros', album: 'Rock Nacional', art: './spotify/album 3.jpg', duration: 225 },
+  { title: 'Cyberpunk Night City Beat', artist: 'Hyper Sound', album: 'Synthwave Mix', art: './spotify/top 50.jpg', duration: 192 }
 ];
 
 /* ================= CATÁLOGO DE ESTILOS DE DOCK PREVIEW ================= */
@@ -563,6 +563,7 @@ function updatePlayerProgress() {
   const currentFormatted = formatTime(currentPlaybackTime);
   const totalFormatted = formatTime(track.duration);
 
+  /* Quick Center */
   const fill = document.getElementById('cc-progress-fill');
   const currentEl = document.getElementById('cc-time-current');
   const totalEl = document.getElementById('cc-time-total');
@@ -573,10 +574,19 @@ function updatePlayerProgress() {
   if (totalEl) totalEl.textContent = totalFormatted;
   if (dot) dot.classList.toggle('paused', !isPlaying);
 
+  /* HUD Overlay */
   const hudFill = document.getElementById('hud-progress-fill');
   const hudTime = document.getElementById('hud-progress-time');
   if (hudFill) hudFill.style.width = `${pct}%`;
   if (hudTime) hudTime.textContent = `${currentFormatted} / ${totalFormatted}`;
+
+  /* ★ Spotify App — barra de progreso */
+  const spFill = document.getElementById('spot-progress-fill');
+  const spCurrent = document.getElementById('spot-time-current');
+  const spTotal = document.getElementById('spot-time-total');
+  if (spFill) spFill.style.width = `${pct}%`;
+  if (spCurrent) spCurrent.textContent = currentFormatted;
+  if (spTotal) spTotal.textContent = totalFormatted;
 }
 
 function resetPlayerProgress() {
@@ -618,6 +628,7 @@ function setupQuickCenterPlayer() {
       e.stopPropagation();
       shuffleEnabled = !shuffleEnabled;
       shuffleBtn.classList.toggle('active', shuffleEnabled);
+      syncSpotifyShuffleRepeatUI();
     });
   }
 
@@ -627,10 +638,19 @@ function setupQuickCenterPlayer() {
       e.stopPropagation();
       repeatEnabled = !repeatEnabled;
       repeatBtn.classList.toggle('active', repeatEnabled);
+      syncSpotifyShuffleRepeatUI();
     });
   }
 
   updatePlayerProgress();
+}
+
+/* Sincroniza el estado visual de shuffle/repeat del Spotify con el estado global */
+function syncSpotifyShuffleRepeatUI() {
+  const spShuffle = document.getElementById('spot-shuffle');
+  const spRepeat = document.getElementById('spot-repeat');
+  if (spShuffle) spShuffle.classList.toggle('active', shuffleEnabled);
+  if (spRepeat) spRepeat.classList.toggle('active', repeatEnabled);
 }
 
 /* ================= FEATURE 1: GAME MODE & GAMING OVERLAY ================= */
@@ -1289,6 +1309,8 @@ const FILE_SYSTEM = {
 /* ================= CONTROL MULTIMEDIA ================= */
 function toggleMediaPlayback() {
   isPlaying = !isPlaying;
+
+  /* Botones del sistema (Quick Center / HUD / Widgets) */
   const playBtn = document.getElementById('media-toggle');
   const hudPlayBtn = document.getElementById('hud-play-btn');
   const ccPlayBtn = document.getElementById('cc-play-btn');
@@ -1297,6 +1319,10 @@ function toggleMediaPlayback() {
   if (playBtn) playBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
   if (hudPlayBtn) hudPlayBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
   if (ccPlayBtn) ccPlayBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
+
+  /* ★ Botón del Spotify App */
+  const spPlayBtn = document.getElementById('spot-play-btn');
+  if (spPlayBtn) spPlayBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
 
   updatePlayerProgress();
   renderDesktopWidgets();
@@ -1319,20 +1345,35 @@ function previousTrack() {
 
 function updateMediaUI() {
   const track = TRACKS[currentTrackIndex];
-  ['cc-media-art', 'hud-media-art', 'w-media-art'].forEach(id => {
+
+  /* Artwork — Quick Center, HUD, Widget, Spotify app */
+  ['cc-media-art', 'hud-media-art', 'w-media-art', 'spot-player-cover'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.src = track.art;
   });
-  ['cc-media-title', 'hud-media-title', 'w-media-title'].forEach(id => {
+
+  /* Título */
+  ['cc-media-title', 'hud-media-title', 'w-media-title', 'spot-player-title'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = track.title;
   });
-  ['cc-media-artist', 'hud-media-artist', 'w-media-artist'].forEach(id => {
+
+  /* Artista */
+  ['cc-media-artist', 'hud-media-artist', 'w-media-artist', 'spot-player-artist'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = track.artist;
   });
+
+  /* Total time */
   const totalEl = document.getElementById('cc-time-total');
   if (totalEl) totalEl.textContent = formatTime(track.duration);
+
+  /* ★ Cards del Spotify: marcar la activa */
+  document.querySelectorAll('.spot-card[data-track-index]').forEach(card => {
+    const idx = parseInt(card.dataset.trackIndex, 10);
+    card.classList.toggle('playing', idx === currentTrackIndex);
+  });
+
   updatePlayerBackground();
   updatePlayerProgress();
 }
@@ -1343,6 +1384,13 @@ function setSystemVolume(val) {
   const qVolVal = document.getElementById('quick-volume-value');
   if (volNum) volNum.textContent = `${val}%`;
   if (qVolVal) qVolVal.textContent = `${val}%`;
+
+  /* ★ Sincronizar slider del Spotify */
+  const spVol = document.getElementById('spot-volume-slider');
+  if (spVol && Number(spVol.value) !== Number(val)) {
+    spVol.value = val;
+    syncSliderFill(spVol);
+  }
 }
 
 /* ================= SISTEMA DE NOTIFICACIONES TOAST ================= */
@@ -2095,8 +2143,8 @@ function openApp(id) {
   win.style.top = top + 'px';
   win.style.left = left + 'px';
   
-  win.style.width = id === 'music' ? '860px' : id === 'settings' ? '780px' : '680px';
-  win.style.height = id === 'music' ? '560px' : id === 'settings' ? '540px' : '480px';
+  win.style.width = id === 'music' ? '980px' : id === 'settings' ? '780px' : '680px';
+  win.style.height = id === 'music' ? '640px' : id === 'settings' ? '540px' : '480px';
   win.style.zIndex = ++zIndexCounter;
 
   win.innerHTML = `
@@ -2126,6 +2174,7 @@ function openApp(id) {
   if (id === 'nova') setupNovaAI(win);
   if (id === 'files') setupFiles(win);
   if (id === 'settings') renderSettingsApp();
+  if (id === 'music') setupSpotifyApp(win);
   
   openWindows[id] = win;
   focusWindow(id);
@@ -2499,6 +2548,110 @@ function setupTerminal(win) {
   input.focus();
 }
 
+/* ================= SETUP SPOTIFY APP ================= */
+function setupSpotifyApp(win) {
+  if (!win) return;
+
+  /* Cards de playlists / canciones */
+  win.querySelectorAll('.spot-card[data-track-index]').forEach(card => {
+    card.addEventListener('click', () => {
+      const idx = parseInt(card.dataset.trackIndex, 10);
+      if (Number.isNaN(idx)) return;
+      currentTrackIndex = idx;
+      currentPlaybackTime = 0;
+      if (!isPlaying) {
+        isPlaying = true;
+      }
+      updateMediaUI();
+      updatePlayerBackground();
+      updatePlayerProgress();
+      /* Refrescar los íconos de play/pause */
+      const iconName = isPlaying ? 'pause' : 'play';
+      ['media-toggle', 'hud-play-btn', 'cc-play-btn', 'spot-play-btn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = `<i data-lucide="${iconName}"></i>`;
+      });
+      refreshIcons();
+    });
+  });
+
+  /* Play / Pause */
+  const spPlay = win.querySelector('#spot-play-btn');
+  if (spPlay) spPlay.addEventListener('click', () => toggleMediaPlayback());
+
+  /* Next / Prev */
+  const spNext = win.querySelector('#spot-next-btn');
+  if (spNext) spNext.addEventListener('click', () => nextTrack());
+
+  const spPrev = win.querySelector('#spot-prev-btn');
+  if (spPrev) spPrev.addEventListener('click', () => previousTrack());
+
+  /* Shuffle / Repeat */
+  const spShuffle = win.querySelector('#spot-shuffle');
+  if (spShuffle) spShuffle.addEventListener('click', () => {
+    shuffleEnabled = !shuffleEnabled;
+    spShuffle.classList.toggle('active', shuffleEnabled);
+    syncSpotifyShuffleRepeatUI();
+
+    const ccShuffle = document.getElementById('cc-shuffle');
+    if (ccShuffle) ccShuffle.classList.toggle('active', shuffleEnabled);
+  });
+
+  const spRepeat = win.querySelector('#spot-repeat');
+  if (spRepeat) spRepeat.addEventListener('click', () => {
+    repeatEnabled = !repeatEnabled;
+    spRepeat.classList.toggle('active', repeatEnabled);
+    syncSpotifyShuffleRepeatUI();
+
+    const ccRepeat = document.getElementById('cc-repeat');
+    if (ccRepeat) ccRepeat.classList.toggle('active', repeatEnabled);
+  });
+
+  /* Like (solo visual) */
+  const spLike = win.querySelector('#spot-like-btn');
+  if (spLike) spLike.addEventListener('click', () => {
+    spLike.classList.toggle('liked');
+  });
+
+  /* Volume slider */
+  const spVol = win.querySelector('#spot-volume-slider');
+  if (spVol) {
+    spVol.value = systemVolume;
+    syncSliderFill(spVol);
+    spVol.addEventListener('input', () => {
+      setSystemVolume(spVol.value);
+    });
+  }
+
+  /* Progress bar — click para simular seek */
+  const spProgress = win.querySelector('#spot-progress-track');
+  if (spProgress) {
+    spProgress.addEventListener('click', (e) => {
+      const rect = spProgress.getBoundingClientRect();
+      const pct = (e.clientX - rect.left) / rect.width;
+      const track = TRACKS[currentTrackIndex];
+      if (!track) return;
+      currentPlaybackTime = Math.floor(pct * track.duration);
+      updatePlayerProgress();
+    });
+  }
+
+  /* Sincronizar la UI del player con el estado global actual */
+  syncSpotifyShuffleRepeatUI();
+
+  /* Marcar la card activa */
+  updateMediaUI();
+
+  /* Actualizar el ícono de play/pause según estado actual */
+  const iconName = isPlaying ? 'pause' : 'play';
+  if (spPlay) spPlay.innerHTML = `<i data-lucide="${iconName}"></i>`;
+
+  /* Aplicar fill a sliders */
+  setTimeout(syncAllSliders, 0);
+
+  refreshIcons();
+}
+
 /* ================= RENDERIZADO DE NEBULA DESIGNER & AJUSTES ================= */
 function renderSettingsApp() {
   const win = openWindows['settings'];
@@ -2630,63 +2783,207 @@ function getAppContent(id) {
   }
 
   if (id === 'music') {
+    const track = TRACKS[currentTrackIndex];
+    const currentFormatted = formatTime(currentPlaybackTime);
+    const totalFormatted = formatTime(track.duration);
+
     return `
       <div class="spot-app">
-        <div class="spot-sidebar">
-          <div class="spot-nav-item active"><i data-lucide="home"></i> Inicio</div>
-          <div class="spot-nav-item"><i data-lucide="search"></i> Buscar</div>
-          <div class="spot-nav-item"><i data-lucide="library"></i> Tu Biblioteca</div>
-          <hr style="border-color: rgba(255,255,255,0.08); margin: 8px 0;">
-          <div class="spot-nav-item" style="font-size: 11px;">Descubrimiento Semanal</div>
-          <div class="spot-nav-item" style="font-size: 11px;">Mix de Rock</div>
-          <div class="spot-nav-item" style="font-size: 11px;">Lofi Beats Gaming</div>
+        <!-- ============ TOPBAR ============ -->
+        <div class="spot-topbar">
+          <div class="spot-topbar-nav">
+            <button class="spot-nav-arrow" type="button" disabled aria-label="Atrás"><i data-lucide="chevron-left"></i></button>
+            <button class="spot-nav-arrow" type="button" disabled aria-label="Adelante"><i data-lucide="chevron-right"></i></button>
+          </div>
+
+          <label class="spot-searchbar">
+            <i data-lucide="search"></i>
+            <input type="search" placeholder="¿Qué querés reproducir?" aria-label="Buscar en Spotify">
+          </label>
+
+          <div class="spot-topbar-right">
+            <div class="spot-topbar-avatar" title="Perfil">N</div>
+          </div>
         </div>
-        <div style="flex: 1; display: flex; flex-direction: column;">
-          <div class="spot-main">
-            <h2>Buenos días</h2>
-            <div class="spot-grid">
-              <div class="spot-card" onclick="currentTrackIndex=1; updateMediaUI(); toggleMediaPlayback();">
-                <img class="spot-card-img" src="./spotify/tapa album 1.jpg" alt="Nirvana">
-                <div class="spot-card-title">Nirvana</div>
-                <div class="spot-card-sub">Nevermind</div>
+
+        <!-- ============ SIDEBAR ============ -->
+        <aside class="spot-sidebar">
+          <div class="spot-sidebar-header">
+            <strong><i data-lucide="library"></i> Tu biblioteca</strong>
+            <button class="spot-sidebar-create" type="button">
+              <i data-lucide="plus"></i> Crear
+            </button>
+          </div>
+
+          <div class="spot-sidebar-filters">
+            <button class="spot-filter-chip active" type="button">Playlists</button>
+            <button class="spot-filter-chip" type="button">Álbumes</button>
+            <button class="spot-filter-chip" type="button">Artistas</button>
+          </div>
+
+          <label class="spot-library-search">
+            <i data-lucide="search"></i>
+            <input type="search" placeholder="Buscar en tu biblioteca" aria-label="Buscar en tu biblioteca">
+          </label>
+
+          <div class="spot-library-list">
+            <button class="spot-lib-item active" type="button">
+              <span class="spot-lib-icon"><i data-lucide="heart"></i></span>
+              <div class="spot-lib-info">
+                <strong>Tus me gusta</strong>
+                <small>Playlist · 42 canciones</small>
               </div>
-              <div class="spot-card" onclick="currentTrackIndex=3; updateMediaUI(); toggleMediaPlayback();">
-                <img class="spot-card-img" src="./spotify/top 50.jpg" alt="Top 50">
-                <div class="spot-card-title">Cyberpunk Beats</div>
-                <div class="spot-card-sub">Synthwave Mix</div>
+            </button>
+
+            <button class="spot-lib-item" type="button">
+              <span class="spot-lib-icon"><i data-lucide="sparkles"></i></span>
+              <div class="spot-lib-info">
+                <strong>Descubrimiento semanal</strong>
+                <small>Playlist · 30 canciones</small>
               </div>
-              <div class="spot-card" onclick="currentTrackIndex=0; updateMediaUI(); toggleMediaPlayback();">
-                <img class="spot-card-img" src="./spotify/tapa album 2.jpg" alt="Bocanada">
-                <div class="spot-card-title">Bocanada</div>
-                <div class="spot-card-sub">Gustavo Cerati</div>
+            </button>
+
+            <button class="spot-lib-item" type="button">
+              <span class="spot-lib-icon"><i data-lucide="music"></i></span>
+              <div class="spot-lib-info">
+                <strong>Mix de Rock</strong>
+                <small>Playlist · 50 canciones</small>
               </div>
-              <div class="spot-card" onclick="currentTrackIndex=2; updateMediaUI(); toggleMediaPlayback();">
-                <img class="spot-card-img" src="./spotify/album 3.jpg" alt="Callejeros">
-                <div class="spot-card-title">Callejeros</div>
-                <div class="spot-card-sub">Rock nacional</div>
+            </button>
+
+            <button class="spot-lib-item" type="button">
+              <span class="spot-lib-icon"><i data-lucide="headphones"></i></span>
+              <div class="spot-lib-info">
+                <strong>Lofi Beats Gaming</strong>
+                <small>Playlist · 25 canciones</small>
               </div>
+            </button>
+
+            <button class="spot-lib-item" type="button">
+              <span class="spot-lib-icon"><i data-lucide="radio"></i></span>
+              <div class="spot-lib-info">
+                <strong>Cyberpunk Beats</strong>
+                <small>Playlist · 40 canciones</small>
+              </div>
+            </button>
+          </div>
+        </aside>
+
+        <!-- ============ MAIN ============ -->
+        <main class="spot-main">
+          <!-- Hero -->
+          <div class="spot-hero">
+            <div class="spot-hero-info">
+              <div class="spot-hero-kicker">Playlist destacada</div>
+              <h1>Música para programar</h1>
+              <button class="spot-hero-btn" type="button" onclick="currentTrackIndex=0; currentPlaybackTime=0; if(!isPlaying){isPlaying=true;} updateMediaUI(); updatePlayerBackground(); updatePlayerProgress(); const iconName = isPlaying ? 'pause' : 'play'; ['media-toggle','hud-play-btn','cc-play-btn','spot-play-btn'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = '<i data-lucide=\\'' + iconName + '\\'></i>'; }); refreshIcons();">
+                <i data-lucide="play"></i> Escuchar ahora
+              </button>
+            </div>
+            <img class="spot-hero-cover" src="./spotify/top 50.jpg" alt="Playlist destacada">
+          </div>
+
+          <!-- Filtros -->
+          <div class="spot-main-chips">
+            <button class="spot-main-chip active" type="button">Todo</button>
+            <button class="spot-main-chip" type="button">Música</button>
+            <button class="spot-main-chip" type="button">Podcasts</button>
+          </div>
+
+          <!-- Grid de tracks -->
+          <div class="spot-section-title">Tus canciones</div>
+          <div class="spot-grid">
+            ${TRACKS.map((t, i) => `
+              <button class="spot-card ${i === currentTrackIndex ? 'playing' : ''}" type="button" data-track-index="${i}">
+                <img class="spot-card-img" src="${t.art}" alt="${escapeHtml(t.title)}">
+                <div class="spot-card-info">
+                  <div class="spot-card-title">${escapeHtml(t.title)}</div>
+                  <div class="spot-card-sub">${escapeHtml(t.artist)}</div>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+
+          <!-- Segunda fila de descubrimiento -->
+          <div class="spot-section-title">Descubrí algo nuevo</div>
+          <div class="spot-grid">
+            <button class="spot-card" type="button" data-track-index="2">
+              <img class="spot-card-img" src="./spotify/album 3.jpg" alt="Callejeros">
+              <div class="spot-card-info">
+                <div class="spot-card-title">Rock Nacional</div>
+                <div class="spot-card-sub">Callejeros · Prohibido</div>
+              </div>
+            </button>
+            <button class="spot-card" type="button" data-track-index="3">
+              <img class="spot-card-img" src="./spotify/top 50.jpg" alt="Synthwave">
+              <div class="spot-card-info">
+                <div class="spot-card-title">Synthwave Mix</div>
+                <div class="spot-card-sub">Hyper Sound · Night City</div>
+              </div>
+            </button>
+            <button class="spot-card" type="button" data-track-index="1">
+              <img class="spot-card-img" src="./spotify/tapa album 1.jpg" alt="Nirvana">
+              <div class="spot-card-info">
+                <div class="spot-card-title">Nevermind</div>
+                <div class="spot-card-sub">Nirvana · Smells Like...</div>
+              </div>
+            </button>
+          </div>
+        </main>
+
+        <!-- ============ PLAYER BAR ============ -->
+        <div class="spot-player">
+          <!-- Izquierda: cover + info + like -->
+          <div class="spot-player-left">
+            <img src="${track.art}" alt="${escapeHtml(track.title)}" id="spot-player-cover">
+            <div class="spot-player-track">
+              <strong id="spot-player-title">${escapeHtml(track.title)}</strong>
+              <small id="spot-player-artist">${escapeHtml(track.artist)}</small>
+            </div>
+            <button class="spot-player-like" type="button" id="spot-like-btn" title="Me gusta">
+              <i data-lucide="heart"></i>
+            </button>
+          </div>
+
+          <!-- Centro: controles + progreso -->
+          <div class="spot-player-center">
+            <div class="spot-player-controls">
+              <button class="spot-ctrl ${shuffleEnabled ? 'active' : ''}" type="button" id="spot-shuffle" title="Aleatorio">
+                <i data-lucide="shuffle"></i>
+              </button>
+              <button class="spot-ctrl" type="button" id="spot-prev-btn" title="Anterior">
+                <i data-lucide="skip-back"></i>
+              </button>
+              <button class="spot-ctrl main" type="button" id="spot-play-btn" title="Reproducir / Pausar">
+                <i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>
+              </button>
+              <button class="spot-ctrl" type="button" id="spot-next-btn" title="Siguiente">
+                <i data-lucide="skip-forward"></i>
+              </button>
+              <button class="spot-ctrl ${repeatEnabled ? 'active' : ''}" type="button" id="spot-repeat" title="Repetir">
+                <i data-lucide="repeat"></i>
+              </button>
+            </div>
+
+            <div class="spot-player-progress">
+              <span class="spot-player-time" id="spot-time-current">${currentFormatted}</span>
+              <div class="spot-progress-track" id="spot-progress-track">
+                <span id="spot-progress-fill" style="width: 0%;"></span>
+              </div>
+              <span class="spot-player-time" id="spot-time-total">${totalFormatted}</span>
             </div>
           </div>
-          <div class="spot-player">
-            <div class="sp-left">
-              <img src="./spotify/tapa album 2.jpg" alt="Bocanada" id="spot-cover">
-              <div>
-                <div style="font-size:12px; font-weight:700;" id="spot-title">Bocanada</div>
-                <div style="font-size:10px; color:var(--text-sub);" id="spot-artist">Gustavo Cerati</div>
-              </div>
+
+          <!-- Derecha: extras + volumen -->
+          <div class="spot-player-right">
+            <button class="spot-extra-btn" type="button" title="Letra"><i data-lucide="mic-2"></i></button>
+            <button class="spot-extra-btn" type="button" title="Cola de reproducción"><i data-lucide="list-music"></i></button>
+            <button class="spot-extra-btn" type="button" title="Dispositivos"><i data-lucide="monitor-speaker"></i></button>
+            <div class="spot-volume">
+              <i data-lucide="volume-2" class="spot-extra-btn" style="pointer-events: none;"></i>
+              <input type="range" min="0" max="100" value="${systemVolume}" id="spot-volume-slider" aria-label="Volumen">
             </div>
-            <div class="sp-center">
-              <div class="sp-controls">
-                <i data-lucide="skip-back" onclick="previousTrack()"></i>
-                <i data-lucide="${isPlaying ? 'pause' : 'play'}" onclick="toggleMediaPlayback()"></i>
-                <i data-lucide="skip-forward" onclick="nextTrack()"></i>
-              </div>
-              <div class="sp-bar"><div class="sp-bar-fill"></div></div>
-            </div>
-            <div class="sp-left" style="justify-content: flex-end; gap:8px;">
-              <i data-lucide="volume-2" class="slider-icon"></i>
-              <input type="range" min="0" max="100" value="80" oninput="setSystemVolume(this.value)" style="width:70px; height:4px;">
-            </div>
+            <button class="spot-extra-btn" type="button" title="Pantalla completa"><i data-lucide="maximize-2"></i></button>
           </div>
         </div>
       </div>
