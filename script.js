@@ -94,7 +94,7 @@ const DOCK_PREVIEW_STYLES = {
   minimal:   { name: 'Minimal',          desc: 'Limpio y directo, sin adornos',                     available: true },
   brutalist: { name: 'Neo-Brutalism',    desc: 'Borde grueso y sombra dura estilo brutalista',      available: true },
   glitch:    { name: 'Cyberpunk Glitch', desc: 'Scanlines, glitch digital y neón cyan/magenta',     available: true },
-  comic:     { name: 'Comic',            desc: 'Estilo historieta: fondo crema y bordes gruesos',   available: true },
+  neumorph:  { name: 'Neumorphism',      desc: 'Relieve esculpido suave, estilo Apple-esque',       available: true },
   crt:       { name: 'Terminal CRT',     desc: 'Monitor retro con scanlines y fósforo',             available: true },
   glass:     { name: 'Glass',            desc: 'Cristal translúcido y bordes suaves',               available: false },
   compact:   { name: 'Compacto',         desc: 'Solo lo esencial: ícono y datos',                   available: false }

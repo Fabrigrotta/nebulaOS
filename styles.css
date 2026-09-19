@@ -559,14 +559,8 @@ svg, [data-lucide] {
 .hover-style-thumb.thumb-brutalist .hover-style-thumb-body { background: transparent; }
 .hover-style-thumb.thumb-brutalist .hover-style-thumb-line { background: var(--accent); border-radius: 0; height: 3px; }
 .hover-style-thumb.thumb-brutalist .hover-style-thumb-line.w70 { background: rgba(255,255,255,0.3); }
-.hover-style-thumb.thumb-compact { background: rgba(0,0,0,0.45); border-color: rgba(255,255,255,0.12); flex-direction: row; align-items: center; padding: 4px 6px; gap: 5px; }
-.hover-style-thumb.thumb-compact .hover-style-thumb-bar { display: none; }
-.hover-style-thumb.thumb-compact .hover-style-thumb-body { flex-direction: row; align-items: center; padding: 0; gap: 4px; }
-.hover-style-thumb.thumb-compact .hover-style-thumb-line { display: none; }
-.hover-style-thumb.thumb-compact::after { content: ""; width: 16px; height: 16px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 40%, transparent); border: 1px solid var(--accent); flex-shrink: 0; }
-.hover-style-thumb.thumb-compact .hover-style-thumb-body::after { content: ""; flex: 1; height: 3px; background: rgba(255,255,255,0.25); border-radius: 2px; }
 
-/* Thumbs: CRT y Glitch */
+/* Thumbs: CRT, Glitch, Neumorph */
 .hover-style-thumb.thumb-crt {
   background: repeating-linear-gradient(0deg, rgba(0,0,0,0.9) 0, rgba(0,0,0,0.9) 2px, rgba(20,20,20,0.9) 2px, rgba(20,20,20,0.9) 3px), #000;
   border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
@@ -589,6 +583,24 @@ svg, [data-lucide] {
 .hover-style-thumb.thumb-glitch .t-dot { border-radius: 0; }
 .hover-style-thumb.thumb-glitch .hover-style-thumb-line { background: var(--accent); }
 .hover-style-thumb.thumb-glitch .hover-style-thumb-line.accent { box-shadow: 2px 0 0 #ff007f, -2px 0 0 #00ffcc; }
+
+.hover-style-thumb.thumb-neumorph {
+  background: #1a1d2a;
+  border: 0;
+  border-radius: 8px;
+  box-shadow: inset 2px 2px 4px rgba(0,0,0,0.5), inset -2px -2px 4px rgba(255,255,255,0.04);
+}
+.hover-style-thumb.thumb-neumorph .hover-style-thumb-bar {
+  background: transparent;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.hover-style-thumb.thumb-neumorph .t-dot { border-radius: 50%; background: rgba(255,255,255,0.3); }
+.hover-style-thumb.thumb-neumorph .hover-style-thumb-line { background: rgba(255,255,255,0.1); }
+.hover-style-thumb.thumb-neumorph .hover-style-thumb-line.accent {
+  background: var(--accent);
+  opacity: 0.7;
+  box-shadow: none;
+}
 
 /* =====================================================
    DOCK HOVER PREVIEW — VARIANTES
@@ -758,7 +770,7 @@ body.dock-preview-crt .dock-preview-badge.minimized { border-color: var(--accent
 body.dock-preview-crt .dock-preview-badge.other-ws { border-color: var(--app-accent, var(--accent)); color: var(--app-accent, var(--accent)); }
 body.dock-preview-crt .dock-preview.is-minimized .dock-preview-sketch-body { opacity: 0.35; }
 
-/* ---------- GLITCH (reescrito ultra simple) ---------- */
+/* ---------- GLITCH ---------- */
 body.dock-preview-glitch .dock-preview {
   background: #000;
   border: 1px solid var(--app-accent, var(--accent));
@@ -841,6 +853,134 @@ body.dock-preview-glitch .dock-preview-badge {
 body.dock-preview-glitch .dock-preview-badge.minimized { border-color: #ff007f; color: #ff007f; text-shadow: 0 0 6px #ff007f; }
 body.dock-preview-glitch .dock-preview-badge.other-ws { border-color: #00ffcc; color: #00ffcc; text-shadow: 0 0 6px #00ffcc; }
 body.dock-preview-glitch .dock-preview.is-minimized .dock-preview-sketch-body { opacity: 0.4; }
+
+/* ---------- NEUMORPH (nuevo) ---------- */
+body.dock-preview-neumorph .dock-preview {
+  background: #1a1d2a;
+  border: 0;
+  border-radius: 14px;
+  box-shadow:
+    6px 6px 14px rgba(0, 0, 0, 0.55),
+    -6px -6px 14px rgba(255, 255, 255, 0.045),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  font-family: "Inter", sans-serif;
+  color: #d8dbe8;
+}
+body.dock-preview-neumorph .dock-preview-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+body.dock-preview-neumorph .dock-preview-title {
+  color: #d8dbe8;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: none;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+body.dock-preview-neumorph .dock-preview-sub {
+  color: #6d7288;
+}
+body.dock-preview-neumorph .dock-preview-close {
+  border: 0;
+  border-radius: 8px;
+  color: #8a90a8;
+  background: #1a1d2a;
+  box-shadow:
+    2px 2px 5px rgba(0, 0, 0, 0.5),
+    -2px -2px 5px rgba(255, 255, 255, 0.04);
+  clip-path: none;
+}
+body.dock-preview-neumorph .dock-preview-close:hover {
+  color: #ff8ba7;
+  box-shadow:
+    inset 2px 2px 5px rgba(0, 0, 0, 0.5),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.04);
+}
+body.dock-preview-neumorph .dock-preview-sketch {
+  border: 0;
+  border-radius: 10px;
+  background: #1a1d2a;
+  box-shadow:
+    inset 4px 4px 8px rgba(0, 0, 0, 0.55),
+    inset -4px -4px 8px rgba(255, 255, 255, 0.04);
+  clip-path: none;
+}
+body.dock-preview-neumorph .dock-preview-sketch-bar {
+  background: transparent;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+body.dock-preview-neumorph .dock-preview-sketch-bar .sketch-dot {
+  border-radius: 50%;
+  width: 6px;
+  height: 6px;
+  border: 0;
+  background: #1a1d2a;
+  box-shadow:
+    1px 1px 2px rgba(0, 0, 0, 0.6),
+    -1px -1px 2px rgba(255, 255, 255, 0.05);
+}
+body.dock-preview-neumorph .dock-preview-sketch-bar .sketch-dot.min { background: rgba(250, 179, 135, 0.6); }
+body.dock-preview-neumorph .dock-preview-sketch-bar .sketch-dot.max { background: rgba(166, 227, 161, 0.6); }
+body.dock-preview-neumorph .dock-preview-sketch-bar .sketch-dot.close { background: rgba(243, 139, 168, 0.6); }
+body.dock-preview-neumorph .dock-preview-sketch-bar .sketch-title {
+  color: #8a90a8;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  text-transform: none;
+}
+body.dock-preview-neumorph .sketch-line {
+  background: #14161f;
+  border-radius: 3px;
+  box-shadow:
+    inset 1px 1px 2px rgba(0, 0, 0, 0.6),
+    inset -1px -1px 2px rgba(255, 255, 255, 0.03);
+  opacity: 1;
+}
+body.dock-preview-neumorph .sketch-line.w40 { opacity: 0.85; }
+body.dock-preview-neumorph .sketch-line.w60 { opacity: 0.7; }
+body.dock-preview-neumorph .sketch-line.w75 { opacity: 0.55; }
+body.dock-preview-neumorph .sketch-line.w90 { opacity: 0.4; }
+body.dock-preview-neumorph .sketch-line.accent {
+  background: var(--app-accent, var(--accent));
+  opacity: 0.85;
+  box-shadow: none;
+}
+body.dock-preview-neumorph .sketch-block {
+  background: #14161f;
+  border: 0;
+  border-radius: 8px;
+  box-shadow:
+    inset 3px 3px 6px rgba(0, 0, 0, 0.55),
+    inset -3px -3px 6px rgba(255, 255, 255, 0.03);
+  clip-path: none;
+}
+body.dock-preview-neumorph .dock-preview-badge {
+  border-radius: 8px;
+  border: 0;
+  background: #1a1d2a;
+  color: #8a90a8;
+  clip-path: none;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: none;
+  font-size: 8px;
+  box-shadow:
+    2px 2px 5px rgba(0, 0, 0, 0.5),
+    -2px -2px 5px rgba(255, 255, 255, 0.04);
+}
+body.dock-preview-neumorph .dock-preview-badge.minimized {
+  color: var(--accent-orange);
+  box-shadow:
+    inset 2px 2px 5px rgba(0, 0, 0, 0.5),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.04);
+}
+body.dock-preview-neumorph .dock-preview-badge.other-ws {
+  color: var(--app-accent, var(--accent));
+  box-shadow:
+    inset 2px 2px 5px rgba(0, 0, 0, 0.5),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.04);
+}
+body.dock-preview-neumorph .dock-preview.is-minimized .dock-preview-sketch-body { opacity: 0.45; }
+body.dock-preview-neumorph .dock-preview.is-minimized .dock-preview-sketch-bar { filter: grayscale(0.4) brightness(0.9); }
 
 /* DOCK UNIFIED BOTTOM MODE */
 body.dock-unified-bottom #dock { left: 0; right: 0; bottom: 0; transform: none; width: 100%; border-radius: 0; justify-content: flex-start; padding: 0 14px; height: 46px; border: 0; border-top: 1px solid rgba(255,255,255,0.1); background: rgba(12, 14, 22, 0.95); }
