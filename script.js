@@ -111,6 +111,12 @@ let systemVolume = 80;
 let wifiEnabled = true;
 let bluetoothEnabled = false;
 
+/* ================= ESTADO DE NO MOLESTAR (DND) ================= */
+let dndEnabled = false;
+
+/* ================= ESTADO DE BRILLO ================= */
+let currentBrightness = 100;
+
 let designerState = {
   activePreset: 'catppuccin',
   accent: '#b4befe',
@@ -137,6 +143,8 @@ const DESIGNER_STORAGE_KEY = 'nebula-os:designer';
 const WIDGETS_STORAGE_KEY = 'nebula-os:widgets';
 const WIFI_STORAGE_KEY = 'nebula-os:wifi';
 const BT_STORAGE_KEY = 'nebula-os:bluetooth';
+const DND_STORAGE_KEY = 'nebula-os:dnd';
+const BRIGHTNESS_STORAGE_KEY = 'nebula-os:brightness';
 
 let settingsState = { animations: true, transparency: true, activeSettingsTab: 'designer' };
 
@@ -180,6 +188,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setupShortcuts();
   renderDesktopWidgets();
   renderConnectivityState();
+  renderDndState();
+  applyBrightness(currentBrightness);
   refreshIcons();
 
   document.querySelectorAll('.waybar-module, #dock, #control-center, #quick-center, #launcher').forEach(el => {
@@ -350,6 +360,55 @@ function renderConnectivityState() {
   }
 
   refreshIcons();
+}
+
+/* ================= FEATURE: NO MOLESTAR (DND) ================= */
+function toggleDnd(explicitState = null) {
+  dndEnabled = explicitState !== null ? explicitState : !dndEnabled;
+
+  const dndToggle = document.getElementById('dnd-toggle');
+  if (dndToggle) {
+    dndToggle.classList.toggle('active', dndEnabled);
+    dndToggle.setAttribute('aria-pressed', String(dndEnabled));
+  }
+
+  try {
+    localStorage.setItem(DND_STORAGE_KEY, JSON.stringify(dndEnabled));
+  } catch (e) {}
+
+  // Forzamos el toast para que siempre se vea el feedback del toggle DND
+  showToast(
+    dndEnabled ? 'No Molestar Activado' : 'No Molestar Desactivado',
+    dndEnabled ? 'Las notificaciones estarán silenciadas.' : 'Las notificaciones volverán a mostrarse.',
+    dndEnabled ? 'moon' : 'bell',
+    true
+  );
+}
+
+function renderDndState() {
+  const dndToggle = document.getElementById('dnd-toggle');
+  if (dndToggle) {
+    dndToggle.classList.toggle('active', dndEnabled);
+    dndToggle.setAttribute('aria-pressed', String(dndEnabled));
+  }
+}
+
+/* ================= FEATURE: BRILLO ================= */
+function applyBrightness(val) {
+  currentBrightness = Number(val);
+  const screen = document.getElementById('screen');
+  if (!screen) return;
+
+  // Mapeo 0-100 → 40%-130% para que sea util sin dejar la pantalla negra
+  const mapped = 40 + (currentBrightness / 100) * 90;
+  screen.style.filter = `brightness(${mapped.toFixed(1)}%)`;
+
+  const label = document.getElementById('quick-brightness-value');
+  if (label) label.textContent = `${currentBrightness}%`;
+
+  try {
+    localStorage.setItem(BRIGHTNESS_STORAGE_KEY, String(currentBrightness));
+  } catch (e) {}
 }
 
 /* ================= FEATURE 1: GAME MODE & GAMING OVERLAY ================= */
@@ -1024,7 +1083,10 @@ function setSystemVolume(val) {
 }
 
 /* ================= SISTEMA DE NOTIFICACIONES TOAST ================= */
-function showToast(title, message, iconName = 'sparkles') {
+function showToast(title, message, iconName = 'sparkles', force = false) {
+  // Si DND está activado y no se fuerza, no mostrar el toast
+  if (dndEnabled && !force) return;
+
   const container = document.getElementById('toast-container');
   if (!container) return;
 
@@ -1082,6 +1144,19 @@ function loadPersistedState() {
     const savedBt = localStorage.getItem(BT_STORAGE_KEY);
     if (savedBt !== null) {
       bluetoothEnabled = JSON.parse(savedBt);
+    }
+
+    // --- No Molestar (DND) ---
+    const savedDnd = localStorage.getItem(DND_STORAGE_KEY);
+    if (savedDnd !== null) {
+      dndEnabled = JSON.parse(savedDnd);
+    }
+
+    // --- Brillo ---
+    const savedBrightness = localStorage.getItem(BRIGHTNESS_STORAGE_KEY);
+    if (savedBrightness !== null) {
+      const parsed = Number(savedBrightness);
+      if (!Number.isNaN(parsed)) currentBrightness = parsed;
     }
   } catch (e) {}
 }
@@ -1143,8 +1218,7 @@ function setupSliders() {
   };
   
   initSlider('brightness-slider', val => {
-    const label = document.getElementById('quick-brightness-value');
-    if (label) label.textContent = `${val}%`;
+    applyBrightness(val);
   });
   initSlider('volume-slider', val => {
     setSystemVolume(val);
@@ -1170,7 +1244,6 @@ function setupAdvancedWidget() {
   document.getElementById('note-input')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') saveCalendarNote();
   });
-  setupQuickSwitch('dnd-toggle');
   setupQuickSwitch('battery-toggle');
   setupMediaPlayer();
 
