@@ -134,6 +134,44 @@ svg, [data-lucide] {
 
 .waybar-module.center { position: absolute; left: 50%; transform: translateX(-50%); gap: 8px; cursor: pointer; }
 
+/* ===== RELOJ CENTRAL CON SEGUNDOS Y ANIMACIÓN ===== */
+#clock {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 600;
+  letter-spacing: 0.3px; color: var(--text-main);
+}
+#clock .clock-time {
+  color: #fff;
+  display: inline-block;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+#clock .clock-sep { color: var(--text-sub); opacity: 0.7; }
+#clock .clock-date {
+  color: var(--text-sub); font-weight: 500; text-transform: lowercase;
+}
+
+/* Cada segundo → fade + translateY sutil del bloque entero */
+#clock.clock-tick .clock-time {
+  animation: clock-tick 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes clock-tick {
+  0%   { opacity: 0.55; transform: translateY(-2px); }
+  100% { opacity: 1;    transform: translateY(0); }
+}
+
+/* Al cambiar el minuto → bounce scale + glow acento */
+#clock.clock-minute-bounce .clock-time {
+  animation: clock-minute-bounce 0.75s cubic-bezier(0.34, 1.56, 0.64, 1);
+  color: var(--accent);
+  text-shadow: 0 0 8px var(--accent-glow);
+}
+@keyframes clock-minute-bounce {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.14); }
+  70%  { transform: scale(0.98); }
+  100% { transform: scale(1); }
+}
+
 /* Tray icons */
 .waybar-module.right { cursor: pointer; transition: 0.2s; padding: 0 12px; }
 .waybar-module.right:hover { background: rgba(255,255,255,0.08); }

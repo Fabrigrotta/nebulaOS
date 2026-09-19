@@ -55,8 +55,13 @@
       <span class="active-app" id="active-app-name">Escritorio</span>
     </div>
     
+    <!-- RELOJ CENTRAL CON SEGUNDOS -->
     <div class="waybar-module center" id="clock-center" tabindex="0" role="button" aria-label="Abrir calendario y centro de control">
-      <span id="clock">00:00 · dom 1</span>
+      <span id="clock">
+        <span class="clock-time" id="clock-time">00:00:00</span>
+        <span class="clock-sep">·</span>
+        <span class="clock-date" id="clock-date">sáb 1</span>
+      </span>
     </div>
     
     <!-- Botón de Bandeja de Sistema -->

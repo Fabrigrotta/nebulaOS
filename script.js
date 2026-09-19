@@ -119,6 +119,10 @@ let repeatEnabled = false;
 let editingNoteKey = null;
 let editingNoteIndex = null;
 
+/* Estado del reloj para detectar cambios */
+let lastClockSecond = null;
+let lastClockMinute = null;
+
 let designerState = {
   activePreset: 'catppuccin',
   accent: '#b4befe',
@@ -179,16 +183,62 @@ document.addEventListener('input', (e) => {
   }
 });
 
-/* ================= RELOJ DE TOPBAR ================= */
+/* ================= RELOJ CON SEGUNDOS Y ANIMACIÓN ================= */
 function updateClock() {
-  const clock = document.getElementById('clock');
-  if (!clock) return;
+  const clockWrap = document.getElementById('clock');
+  const timeEl = document.getElementById('clock-time');
+  const dateEl = document.getElementById('clock-date');
+  if (!clockWrap || !timeEl || !dateEl) return;
 
   const now = new Date();
-  const weekdays = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  clock.textContent = `${hours}:${minutes} · ${weekdays[now.getDay()]} ${now.getDate()}`;
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+
+  // Actualizar texto
+  timeEl.textContent = `${hh}:${mm}:${ss}`;
+
+  // Fecha corta: "sáb 19"
+  const shortDays = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+  dateEl.textContent = `${shortDays[now.getDay()]} ${now.getDate()}`;
+
+  // Tooltip completo en español
+  const longDays = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  const longMonths = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const fullTooltip = `${longDays[now.getDay()]}, ${now.getDate()} de ${longMonths[now.getMonth()]} de ${now.getFullYear()} · ${hh}:${mm}:${ss}`;
+  clockWrap.setAttribute('title', fullTooltip);
+
+  // Detectar cambios para animaciones
+  const currentSecond = now.getSeconds();
+  const currentMinute = now.getMinutes();
+
+  // Primera pasada: no animar, solo guardar estado
+  if (lastClockSecond === null) {
+    lastClockSecond = currentSecond;
+    lastClockMinute = currentMinute;
+    return;
+  }
+
+  // ¿Cambió el segundo? → tick suave (fade + translateY)
+  if (currentSecond !== lastClockSecond) {
+    clockWrap.classList.remove('clock-tick');
+    void clockWrap.offsetWidth; // fuerza reflow para reiniciar la animación
+    clockWrap.classList.add('clock-tick');
+
+    // Limpiar la clase después de la animación
+    setTimeout(() => clockWrap.classList.remove('clock-tick'), 600);
+    lastClockSecond = currentSecond;
+  }
+
+  // ¿Cambió el minuto? (o sea, estamos en el segundo 0) → bounce + glow acento
+  if (currentMinute !== lastClockMinute) {
+    clockWrap.classList.remove('clock-minute-bounce');
+    void clockWrap.offsetWidth;
+    clockWrap.classList.add('clock-minute-bounce');
+
+    setTimeout(() => clockWrap.classList.remove('clock-minute-bounce'), 800);
+    lastClockMinute = currentMinute;
+  }
 }
 
 /* ================= POSICIÓN DINÁMICA DE TOASTS ================= */
@@ -242,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderDock();
   setupSliders();
   updateClock();
-  setInterval(updateClock, 30000);
+  setInterval(updateClock, 1000); // ← cada 1s para que corran los segundos
   applyWallpaper(currentWallpaperIndex);
   applySettings();
   setupDeviceStatus();
@@ -2796,9 +2846,6 @@ function setupKeyboardAccessibility() {
 }
 
 /* ================= BATERÍA (real o simulada) ================= */
-/**
- * Actualiza el UI de la batería según el nivel (0-100) y si está cargando.
- */
 function updateBatteryUI(level, charging) {
   const item = document.getElementById('tray-battery-item');
   const icon = document.getElementById('tray-battery-icon');
@@ -2835,7 +2882,6 @@ function updateBatteryUI(level, charging) {
 
   if (icon) {
     icon.setAttribute('data-lucide', iconName);
-    // Reemplazar el nodo para que Lucide lo renderice de nuevo
     const svg = icon.tagName.toLowerCase() === 'svg' ? icon : null;
     if (svg) {
       const newIcon = document.createElement('i');
@@ -2852,15 +2898,9 @@ function updateBatteryUI(level, charging) {
     ? `Batería: ${lvl}% (Cargando)`
     : `Batería: ${lvl}%`;
 
-  // Re-render Lucide para el ícono nuevo
   refreshIcons();
 }
 
-/**
- * Inicializa el estado de la batería:
- *  - Si el navegador soporta navigator.getBattery → usa valores reales.
- *  - Si no → simula con un mock que baja 1% cada 30s y recarga al 15%.
- */
 function setupDeviceStatus() {
   const hasRealBattery = typeof navigator.getBattery === 'function';
 
@@ -2893,9 +2933,8 @@ function startSimulatedBattery() {
       if (mockLevel >= 100) mockCharging = false;
     } else {
       mockLevel = Math.max(0, mockLevel - 1);
-      // Cuando llega a 15% empezamos a cargar (simula que enchufaste)
       if (mockLevel <= 15) mockCharging = true;
     }
     update();
-  }, 30000); // cada 30s
+  }, 30000);
 }
