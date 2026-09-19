@@ -172,6 +172,20 @@ function updateClock() {
   clock.textContent = `${hours}:${minutes} · ${weekdays[now.getDay()]} ${now.getDate()}`;
 }
 
+/* ================= POSICIÓN DINÁMICA DE TOASTS ================= */
+/**
+ * Si el quick-center está abierto, movemos los toasts a la izquierda
+ * para que no se superpongan con el menú.
+ */
+function updateToastPosition() {
+  const container = document.getElementById('toast-container');
+  const quickCenter = document.getElementById('quick-center');
+  if (!container || !quickCenter) return;
+
+  const isQuickCenterOpen = !quickCenter.classList.contains('hidden');
+  container.classList.toggle('shifted', isQuickCenterOpen);
+}
+
 /* ================= INICIALIZACIÓN DEL SISTEMA ================= */
 document.addEventListener('DOMContentLoaded', () => {
   const bootScreen = document.getElementById('boot-screen');
@@ -197,6 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
   applyBrightness(currentBrightness);
   setupQuickCenterPlayer();
   updatePlayerBackground();
+  updateToastPosition();
   refreshIcons();
 
   document.querySelectorAll('.waybar-module, #dock, #control-center, #quick-center, #launcher').forEach(el => {
@@ -213,11 +228,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const toggleControlCenter = () => {
     quickCenter?.classList.add('hidden');
     controlCenter?.classList.toggle('hidden');
+    updateToastPosition();
     refreshIcons();
   };
   const toggleQuickCenter = () => {
     controlCenter?.classList.add('hidden');
     quickCenter?.classList.toggle('hidden');
+    updateToastPosition();
     refreshIcons();
   };
 
@@ -241,6 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(!sysTrayBtn?.contains(e.target) && !clockCenter?.contains(e.target) && !controlCenter?.contains(e.target) && !quickCenter?.contains(e.target) && !isPlayerClick) {
       controlCenter?.classList.add('hidden');
       quickCenter?.classList.add('hidden');
+      updateToastPosition();
     }
     hideContextMenu();
   });
@@ -249,6 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Escape') {
       controlCenter?.classList.add('hidden');
       quickCenter?.classList.add('hidden');
+      updateToastPosition();
       if (gamerOverlayVisible) toggleGamerOverlay();
     }
   });
