@@ -90,14 +90,13 @@ const TRACKS = [
 
 /* ================= CATÁLOGO DE ESTILOS DE DOCK PREVIEW ================= */
 const DOCK_PREVIEW_STYLES = {
-  blueprint: { name: 'Blueprint',      desc: 'Plano técnico / sci-fi con líneas de acento',     available: true },
-  minimal:   { name: 'Minimal',        desc: 'Limpio y directo, sin adornos',                   available: true },
-  brutalist: { name: 'Neo-Brutalism',  desc: 'Borde grueso y sombra dura estilo brutalista',    available: true },
-  hologram:  { name: 'Hologram',       desc: 'Cristal translúcido con neón y scanline animado', available: true },
-  crt:       { name: 'Terminal CRT',   desc: 'Monitor retro con scanlines y fósforo',           available: true },
-  arcade:    { name: 'Arcade',         desc: 'Pixelado retro estilo NES / arcade',              available: true },
-  glass:     { name: 'Glass',          desc: 'Cristal translúcido y bordes suaves',             available: false },
-  compact:   { name: 'Compacto',       desc: 'Solo lo esencial: ícono y datos',                 available: false }
+  blueprint: { name: 'Blueprint',     desc: 'Plano técnico / sci-fi con líneas de acento',  available: true },
+  minimal:   { name: 'Minimal',       desc: 'Limpio y directo, sin adornos',                available: true },
+  brutalist: { name: 'Neo-Brutalism', desc: 'Borde grueso y sombra dura estilo brutalista', available: true },
+  glitch:    { name: 'Cyberpunk Glitch', desc: 'Scanlines, glitch digital y neón cyan/magenta', available: true },
+  crt:       { name: 'Terminal CRT',  desc: 'Monitor retro con scanlines y fósforo',        available: true },
+  glass:     { name: 'Glass',         desc: 'Cristal translúcido y bordes suaves',          available: false },
+  compact:   { name: 'Compacto',      desc: 'Solo lo esencial: ícono y datos',              available: false }
 };
 
 /* ================= VARIABLES GLOBALES DE ESTADO ================= */
@@ -154,7 +153,7 @@ let designerState = {
 
 let desktopWidgets = [];
 
-/* ★ NUEVO: estado del Dock Hover Preview */
+/* ★ Estado del Dock Hover Preview */
 let dockPreviewEl = null;
 let dockPreviewTimeout = null;
 
@@ -212,47 +211,37 @@ function updateClock() {
   const mm = String(now.getMinutes()).padStart(2, '0');
   const ss = String(now.getSeconds()).padStart(2, '0');
 
-  // Actualizar texto
   timeEl.textContent = `${hh}:${mm}:${ss}`;
 
-  // Fecha corta: "sáb 19"
   const shortDays = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
   dateEl.textContent = `${shortDays[now.getDay()]} ${now.getDate()}`;
 
-  // Tooltip completo en español
   const longDays = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
   const longMonths = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   const fullTooltip = `${longDays[now.getDay()]}, ${now.getDate()} de ${longMonths[now.getMonth()]} de ${now.getFullYear()} · ${hh}:${mm}:${ss}`;
   clockWrap.setAttribute('title', fullTooltip);
 
-  // Detectar cambios para animaciones
   const currentSecond = now.getSeconds();
   const currentMinute = now.getMinutes();
 
-  // Primera pasada: no animar, solo guardar estado
   if (lastClockSecond === null) {
     lastClockSecond = currentSecond;
     lastClockMinute = currentMinute;
     return;
   }
 
-  // ¿Cambió el segundo? → tick suave (fade + translateY)
   if (currentSecond !== lastClockSecond) {
     clockWrap.classList.remove('clock-tick');
-    void clockWrap.offsetWidth; // fuerza reflow para reiniciar la animación
+    void clockWrap.offsetWidth;
     clockWrap.classList.add('clock-tick');
-
-    // Limpiar la clase después de la animación
     setTimeout(() => clockWrap.classList.remove('clock-tick'), 600);
     lastClockSecond = currentSecond;
   }
 
-  // ¿Cambió el minuto? (o sea, estamos en el segundo 0) → bounce + glow acento
   if (currentMinute !== lastClockMinute) {
     clockWrap.classList.remove('clock-minute-bounce');
     void clockWrap.offsetWidth;
     clockWrap.classList.add('clock-minute-bounce');
-
     setTimeout(() => clockWrap.classList.remove('clock-minute-bounce'), 800);
     lastClockMinute = currentMinute;
   }
@@ -283,7 +272,7 @@ function closeQuickCenter() {
   updateToastPosition();
 }
 
-/* ================= MIGRACIÓN DE NOTAS (viejo → nuevo) ================= */
+/* ================= MIGRACIÓN DE NOTAS ================= */
 function migrateNotesFormat(notes) {
   if (!notes || typeof notes !== 'object') return {};
   const migrated = {};
@@ -309,7 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderDock();
   setupSliders();
   updateClock();
-  setInterval(updateClock, 1000); // ← cada 1s para que corran los segundos
+  setInterval(updateClock, 1000);
   applyWallpaper(currentWallpaperIndex);
   applySettings();
   setupDeviceStatus();
@@ -573,7 +562,6 @@ function updatePlayerProgress() {
   const currentFormatted = formatTime(currentPlaybackTime);
   const totalFormatted = formatTime(track.duration);
 
-  // Quick center player
   const fill = document.getElementById('cc-progress-fill');
   const currentEl = document.getElementById('cc-time-current');
   const totalEl = document.getElementById('cc-time-total');
@@ -584,7 +572,6 @@ function updatePlayerProgress() {
   if (totalEl) totalEl.textContent = totalFormatted;
   if (dot) dot.classList.toggle('paused', !isPlaying);
 
-  // HUD progress bar
   const hudFill = document.getElementById('hud-progress-fill');
   const hudTime = document.getElementById('hud-progress-time');
   if (hudFill) hudFill.style.width = `${pct}%`;
@@ -877,11 +864,21 @@ function setDockStyle(style) {
   renderSettingsApp();
 }
 
-/* ★ Aplicar estilo del Dock Hover Preview (solo clase en body) */
+/* ★ Aplicar estilo del Dock Hover Preview (con validación de ID) */
 function applyDockPreviewStyle(styleId) {
+  // Validar que el estilo exista, si no, fallback a blueprint
+  const validId = (styleId && DOCK_PREVIEW_STYLES[styleId] && DOCK_PREVIEW_STYLES[styleId].available)
+    ? styleId
+    : 'blueprint';
+
   const allStyles = Object.keys(DOCK_PREVIEW_STYLES);
   allStyles.forEach(s => document.body.classList.remove(`dock-preview-${s}`));
-  document.body.classList.add(`dock-preview-${styleId}`);
+  document.body.classList.add(`dock-preview-${validId}`);
+
+  // Sincronizar estado si hubo fallback
+  if (validId !== designerState.dockPreviewStyle) {
+    designerState.dockPreviewStyle = validId;
+  }
 }
 
 function setDockPreviewStyle(styleId) {
@@ -1391,7 +1388,7 @@ function loadPersistedState() {
       root.style.setProperty('--radius-md', `${designerState.borderRadius}px`);
       root.style.setProperty('--radius-lg', `${parseInt(designerState.borderRadius, 10) + 6}px`);
       document.body.classList.toggle('dock-unified-bottom', designerState.dockStyle === 'unified-bottom');
-      // ★ Aplicar estilo de Dock Hover Preview guardado
+      // ★ Aplicar estilo de Dock Hover Preview guardado (con validación)
       applyDockPreviewStyle(designerState.dockPreviewStyle || 'blueprint');
     } else {
       // ★ Primera vez: aplicar default
@@ -1463,7 +1460,7 @@ function switchWorkspace(num) {
   });
 
   if (!hasActiveInWorkspace) updateTopBar(null);
-  hideDockPreview(); // ★ limpiar preview al cambiar de workspace
+  hideDockPreview();
   renderDock();
 }
 
@@ -1938,11 +1935,10 @@ function renderDock() {
     div.tabIndex = 0;
     div.setAttribute('role', 'button');
     div.title = APPS[id].title;
-    div.dataset.appId = id; // ★ para el preview
+    div.dataset.appId = id;
     div.innerHTML = `${getAppTileHTML(id)}<div class="dot"></div>`;
     div.onclick = () => openApp(id);
 
-    // ★ NUEVO: listeners para el Dock Hover Preview (solo si hay ventana)
     if (win) {
       div.addEventListener('mouseenter', () => showDockPreview(id, div));
       div.addEventListener('mouseleave', () => hideDockPreview());
@@ -1953,7 +1949,7 @@ function renderDock() {
   refreshIcons();
 }
 
-/* ================= ★ DOCK HOVER PREVIEW — multi-estilo ================= */
+/* ================= DOCK HOVER PREVIEW — multi-estilo ================= */
 function buildDockPreviewHTML(appId) {
   const app = APPS[appId];
   const win = openWindows[appId];
@@ -2004,7 +2000,6 @@ function buildDockPreviewHTML(appId) {
 function showDockPreview(appId, dockItemEl) {
   clearTimeout(dockPreviewTimeout);
   dockPreviewTimeout = setTimeout(() => {
-    // Si ya hay uno visible, lo sacamos
     hideDockPreview(true);
 
     const win = openWindows[appId];
@@ -2012,13 +2007,11 @@ function showDockPreview(appId, dockItemEl) {
 
     const app = APPS[appId];
     const preview = document.createElement('div');
-    // ★ El estilo se resuelve por la clase del body (no por clase en el preview)
     preview.className = 'dock-preview';
     if (win.classList.contains('minimized')) preview.classList.add('is-minimized');
     preview.dataset.appId = appId;
     preview.innerHTML = buildDockPreviewHTML(appId);
 
-    // ★ Inyectar el color de la app como variables CSS locales
     if (app && app.accentColor) {
       preview.style.setProperty('--app-accent', app.accentColor);
       preview.style.setProperty('--app-accent-glow', `${app.accentColor}66`);
@@ -2026,7 +2019,6 @@ function showDockPreview(appId, dockItemEl) {
 
     document.body.appendChild(preview);
 
-    // Posicionar arriba del dock item (centrado)
     const rect = dockItemEl.getBoundingClientRect();
     const previewRect = preview.getBoundingClientRect();
     let left = rect.left + rect.width / 2 - previewRect.width / 2;
@@ -2036,11 +2028,9 @@ function showDockPreview(appId, dockItemEl) {
     preview.style.left = `${left}px`;
     preview.style.top = `${top}px`;
 
-    // Tail apuntando al dock item
     const tailX = (rect.left + rect.width / 2) - left;
     preview.style.setProperty('--tail-x', `${tailX}px`);
 
-    // Click en el preview (fuera del botón cerrar) → enfocar ventana
     preview.addEventListener('click', (e) => {
       if (e.target.closest('.dock-preview-close')) return;
       focusWindow(appId);
@@ -2051,7 +2041,6 @@ function showDockPreview(appId, dockItemEl) {
       hideDockPreview();
     });
 
-    // Botón cerrar
     preview.querySelector('.dock-preview-close')?.addEventListener('click', (e) => {
       e.stopPropagation();
       closeApp(appId);
@@ -2062,7 +2051,7 @@ function showDockPreview(appId, dockItemEl) {
     refreshIcons();
 
     dockPreviewEl = preview;
-  }, 180); // delay tipo Windows 11
+  }, 180);
 }
 
 function hideDockPreview(instant = false) {
@@ -2202,7 +2191,7 @@ function closeApp(id) {
     activeAppId = null;
     updateTopBar(null);
     renderDock();
-    hideDockPreview(); // ★ limpiar preview al cerrar
+    hideDockPreview();
   }
 }
 
@@ -2727,7 +2716,6 @@ function getAppContent(id) {
 
 function getDesignerSettingsHTML() {
   const currentStyle = designerState.dockPreviewStyle || 'blueprint';
-  // La demo en vivo usa el color de Terminal
   const demoApp = APPS['terminal'];
 
   return `
@@ -2841,7 +2829,7 @@ function getDesignerSettingsHTML() {
 
     <div class="settings-section-label">Apariencia del Hover</div>
 
-    <!-- Preview en vivo del estilo activo (usa el color de Terminal) -->
+    <!-- Preview en vivo del estilo activo -->
     <div class="hover-live-preview">
       <div class="hover-live-preview-inner">
         <span class="hover-live-preview-label">Estilo activo: <strong>${DOCK_PREVIEW_STYLES[currentStyle]?.name || 'Blueprint'}</strong></span>
@@ -3102,7 +3090,6 @@ function updateBatteryUI(level, charging) {
 
   const lvl = Math.max(0, Math.min(100, Math.round(level)));
 
-  // Clase según estado
   item.classList.remove('high', 'medium', 'low', 'charging');
   if (charging) {
     item.classList.add('charging');
@@ -3114,7 +3101,6 @@ function updateBatteryUI(level, charging) {
     item.classList.add('low');
   }
 
-  // Ícono según estado / nivel
   let iconName = 'battery';
   if (charging) {
     iconName = 'battery-charging';
@@ -3140,7 +3126,6 @@ function updateBatteryUI(level, charging) {
     }
   }
 
-  // Texto y título
   num.textContent = `${lvl}%`;
   item.title = charging
     ? `Batería: ${lvl}% (Cargando)`
