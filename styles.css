@@ -33,10 +33,7 @@ body.game-mode-active {
   --blur-amount: 10px;
 }
 
-body.game-mode-active #topbar {
-  border-bottom: 1px solid rgba(0, 255, 204, 0.3);
-  box-shadow: 0 0 25px rgba(0, 255, 204, 0.18);
-}
+/* body.game-mode-active #topbar { eliminado } */
 
 body.game-mode-active .topbar-gamemode-badge {
   display: flex !important;
@@ -336,7 +333,6 @@ svg, [data-lucide] {
 }
 
 /* ================= REDISEÑO DE SLIDERS ================= */
-/* El fondo del track lo maneja JS dinámicamente para que el color siga al thumb */
 .slider-row {
   display: flex; align-items: center; gap: 10px; padding: 8px 12px;
   border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-sm);
@@ -467,16 +463,14 @@ svg, [data-lucide] {
   position: relative;
 }
 
-.hud-container::before {
-  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, transparent, #00ffcc, #ff007f, transparent);
-}
+/* .hud-container::before { eliminado } */
 
 .hud-header {
   display: flex; align-items: center; justify-content: space-between;
   padding-bottom: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 16px;
+  gap: 14px; flex-wrap: wrap;
 }
-.hud-title { display: flex; flex-direction: column; gap: 3px; }
+.hud-title { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .hud-badge {
   display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px;
   background: rgba(0, 255, 204, 0.15); color: #00ffcc; font-size: 9px; font-weight: 800; letter-spacing: 1.5px;
@@ -489,7 +483,22 @@ svg, [data-lucide] {
   font-family: "JetBrains Mono", monospace; color: #00ffcc; border: 1px solid rgba(255,255,255,0.12);
 }
 
-.hud-actions { display: flex; align-items: center; gap: 10px; }
+.hud-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* ===== BOTONES EN EL HEADER DEL HUD (mismo look que Modo Juego) ===== */
+.hud-actions .hud-tool-btn {
+  display: flex; align-items: center; gap: 8px; padding: 7px 14px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
+  border-radius: var(--radius-sm); color: #fff; font-size: 11px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s;
+}
+.hud-actions .hud-tool-btn:hover {
+  background: rgba(0, 255, 204, 0.15); border-color: #00ffcc; color: #00ffcc;
+}
+.hud-actions .hud-tool-btn svg, .hud-actions .hud-tool-btn i {
+  width: 13px; height: 13px;
+}
+
 .hud-gamemode-btn {
   display: flex; align-items: center; gap: 8px; padding: 7px 14px;
   background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
@@ -544,7 +553,7 @@ svg, [data-lucide] {
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 12px; align-items: center;
+  display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; align-items: center;
   padding: 12px 14px; border-radius: var(--radius-md);
   border: 1px solid rgba(255,255,255,0.06);
   background: rgba(0,0,0,0.35); /* fallback */
@@ -595,29 +604,26 @@ svg, [data-lucide] {
 .hud-mbtn:hover { background: rgba(255,255,255,0.2); }
 .hud-mbtn.main { background: #00ffcc; color: #0d0f17; }
 
-.hud-volume-block { display: flex; flex-direction: column; gap: 3px; font-size: 11px; }
-.hud-vol-label { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-sub); }
-.hud-vol-label svg, .hud-vol-label i { width: 12px; height: 12px; }
-.hud-volume-block input[type="range"] {
-  appearance: none; -webkit-appearance: none; height: 4px; border-radius: 4px;
-  cursor: pointer;
-  background: rgba(255,255,255,0.1); /* fallback, JS lo sobreescribe */
+/* ===== PROGRESO DE LA CANCIÓN EN EL HUD ===== */
+.hud-progress-block {
+  display: flex; flex-direction: column; gap: 6px;
 }
-.hud-volume-block input[type="range"]::-webkit-slider-thumb {
-  appearance: none; -webkit-appearance: none; width: 12px; height: 12px;
-  border: 2px solid #0d0f17; border-radius: 50%; background: #fff;
-  box-shadow: 0 0 0 2px #00ffcc;
+.hud-progress-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; color: var(--text-sub); font-family: "JetBrains Mono", monospace;
 }
-.hud-volume-block strong { font-family: "JetBrains Mono", monospace; font-size: 10px; color: #00ffcc; }
-
-.hud-tools-block { display: flex; gap: 8px; justify-content: flex-end; }
-.hud-tool-btn {
-  display: flex; align-items: center; gap: 5px; border: 1px solid rgba(255,255,255,0.12);
-  padding: 7px 11px; border-radius: var(--radius-sm); background: rgba(255,255,255,0.06);
-  color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+.hud-progress-label svg, .hud-progress-label i {
+  width: 12px; height: 12px; color: #00ffcc;
 }
-.hud-tool-btn svg, .hud-tool-btn i { width: 13px; height: 13px; }
-.hud-tool-btn:hover { background: rgba(0, 255, 204, 0.15); border-color: #00ffcc; color: #00ffcc; transform: translateY(-1px); }
+.hud-progress-track {
+  width: 100%; height: 4px; border-radius: 4px;
+  background: rgba(255,255,255,0.12); overflow: hidden;
+}
+.hud-progress-track span {
+  display: block; height: 100%; width: 0%; border-radius: 4px;
+  background: linear-gradient(90deg, #00ffcc, color-mix(in srgb, #00ffcc 70%, #fff 30%));
+  transition: width 0.3s linear;
+}
 
 /* ================= DESKTOP FLOATING WIDGETS ================= */
 #desktop-widgets-layer { position: absolute; inset: 0; pointer-events: none; z-index: 5; }

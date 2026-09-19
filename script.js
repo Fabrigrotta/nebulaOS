@@ -256,6 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
   applyBrightness(currentBrightness);
   setupQuickCenterPlayer();
   updatePlayerBackground();
+  updatePlayerProgress();
   updateToastPosition();
   syncAllSliders();
   refreshIcons();
@@ -497,21 +498,36 @@ function formatTime(seconds) {
   return `${m}:${r}`;
 }
 
+/**
+ * Actualiza:
+ *  - Barra de progreso del quick-center (cc-progress-fill, cc-time-current, cc-time-total)
+ *  - Dot de estado (cc-eq-dot)
+ *  - Barra de progreso del HUD (hud-progress-fill, hud-progress-time)
+ */
 function updatePlayerProgress() {
   const track = TRACKS[currentTrackIndex];
   if (!track) return;
 
+  const pct = Math.min(100, (currentPlaybackTime / track.duration) * 100);
+  const currentFormatted = formatTime(currentPlaybackTime);
+  const totalFormatted = formatTime(track.duration);
+
+  // Quick center player
   const fill = document.getElementById('cc-progress-fill');
   const currentEl = document.getElementById('cc-time-current');
   const totalEl = document.getElementById('cc-time-total');
   const dot = document.getElementById('cc-eq-dot');
 
-  const pct = Math.min(100, (currentPlaybackTime / track.duration) * 100);
   if (fill) fill.style.width = `${pct}%`;
-  if (currentEl) currentEl.textContent = formatTime(currentPlaybackTime);
-  if (totalEl) totalEl.textContent = formatTime(track.duration);
-
+  if (currentEl) currentEl.textContent = currentFormatted;
+  if (totalEl) totalEl.textContent = totalFormatted;
   if (dot) dot.classList.toggle('paused', !isPlaying);
+
+  // HUD progress bar
+  const hudFill = document.getElementById('hud-progress-fill');
+  const hudTime = document.getElementById('hud-progress-time');
+  if (hudFill) hudFill.style.width = `${pct}%`;
+  if (hudTime) hudTime.textContent = `${currentFormatted} / ${totalFormatted}`;
 }
 
 function resetPlayerProgress() {
@@ -618,8 +634,9 @@ function toggleGamerOverlay() {
 
   if (gamerOverlayVisible) {
     updateHUDTelemetry();
-    updatePlayerBackground();  // ← asegurar que el fondo del HUD tenga la portada actual
-    syncAllSliders();          // ← pintar sliders HUD
+    updatePlayerBackground();
+    updatePlayerProgress();
+    syncAllSliders();
     refreshIcons();
   }
 }
@@ -1244,15 +1261,14 @@ function updateMediaUI() {
   const totalEl = document.getElementById('cc-time-total');
   if (totalEl) totalEl.textContent = formatTime(track.duration);
   updatePlayerBackground();
+  updatePlayerProgress();
 }
 
 function setSystemVolume(val) {
   systemVolume = val;
   const volNum = document.getElementById('tray-volume-num');
-  const hudVolVal = document.getElementById('hud-vol-val');
   const qVolVal = document.getElementById('quick-volume-value');
   if (volNum) volNum.textContent = `${val}%`;
-  if (hudVolVal) hudVolVal.textContent = `${val}%`;
   if (qVolVal) qVolVal.textContent = `${val}%`;
 }
 

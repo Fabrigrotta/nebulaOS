@@ -242,7 +242,7 @@
   <!-- GAMING OVERLAY (HUD FLOTANTE TRANSLÚCIDO) -->
   <div id="gamer-overlay" class="gamer-overlay hidden" aria-label="Nebula Gaming Overlay">
     <div class="hud-container glass-panel">
-      <!-- HUD HEADER -->
+      <!-- HUD HEADER (con botones Captura / Optimizar / Modo Juego) -->
       <div class="hud-header">
         <div class="hud-title">
           <span class="hud-badge"><i data-lucide="activity"></i> NEBULA HUD</span>
@@ -250,6 +250,8 @@
           <small class="hud-shortcut-hint">Presioná <kbd>Alt + Z</kbd> o <kbd>Win + G</kbd> para alternar</small>
         </div>
         <div class="hud-actions">
+          <button class="hud-tool-btn" onclick="takeGamerScreenshot()" title="Tomar captura de pantalla"><i data-lucide="camera"></i> Captura</button>
+          <button class="hud-tool-btn" onclick="simulateRamBoost()" title="Limpiar RAM y optimizar"><i data-lucide="sparkles"></i> Optimizar</button>
           <button class="hud-gamemode-btn" id="hud-gamemode-toggle" onclick="toggleGameMode()">
             <span class="hud-pulse-dot"></span>
             <span id="hud-gamemode-text">Modo Juego: OFF</span>
@@ -322,15 +324,13 @@
           </div>
         </div>
 
-        <div class="hud-volume-block">
-          <div class="hud-vol-label"><i data-lucide="volume-2"></i><span>Volumen HUD</span></div>
-          <input type="range" id="hud-vol-slider" min="0" max="100" value="80" oninput="setSystemVolume(this.value)">
-          <strong id="hud-vol-val">80%</strong>
-        </div>
-
-        <div class="hud-tools-block">
-          <button class="hud-tool-btn" onclick="takeGamerScreenshot()" title="Tomar captura de pantalla"><i data-lucide="camera"></i> Captura</button>
-          <button class="hud-tool-btn" onclick="simulateRamBoost()" title="Limpiar RAM y optimizar"><i data-lucide="sparkles"></i> Optimizar</button>
+        <!-- PROGRESO DE LA CANCIÓN (reemplaza al volumen) -->
+        <div class="hud-progress-block">
+          <div class="hud-progress-label">
+            <i data-lucide="music"></i>
+            <span id="hud-progress-time">0:00 / 4:32</span>
+          </div>
+          <div class="hud-progress-track"><span id="hud-progress-fill"></span></div>
         </div>
       </div>
     </div>
