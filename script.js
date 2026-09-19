@@ -122,6 +122,9 @@ let currentPlaybackTime = 0; // segundos transcurridos del track actual
 let shuffleEnabled = false;
 let repeatEnabled = false;
 
+/* ================= ESTADO DE EDICIÓN DE NOTAS ================= */
+let editingNoteKey = null; // si está seteado, el input edita esa nota en vez de crear una nueva
+
 let designerState = {
   activePreset: 'catppuccin',
   accent: '#b4befe',
@@ -150,6 +153,7 @@ const WIFI_STORAGE_KEY = 'nebula-os:wifi';
 const BT_STORAGE_KEY = 'nebula-os:bluetooth';
 const DND_STORAGE_KEY = 'nebula-os:dnd';
 const BRIGHTNESS_STORAGE_KEY = 'nebula-os:brightness';
+const CALENDAR_NOTES_STORAGE_KEY = 'nebula-os:calendar-notes';
 
 let settingsState = { animations: true, transparency: true, activeSettingsTab: 'designer' };
 
@@ -173,10 +177,6 @@ function updateClock() {
 }
 
 /* ================= POSICIÓN DINÁMICA DE TOASTS ================= */
-/**
- * Si el quick-center está abierto, movemos los toasts a la izquierda
- * para que no se superpongan con el menú.
- */
 function updateToastPosition() {
   const container = document.getElementById('toast-container');
   const quickCenter = document.getElementById('quick-center');
@@ -184,6 +184,21 @@ function updateToastPosition() {
 
   const isQuickCenterOpen = !quickCenter.classList.contains('hidden');
   container.classList.toggle('shifted', isQuickCenterOpen);
+}
+
+/* ================= CIERRE DE PANELES (con reset del calendario) ================= */
+function closeControlCenter() {
+  const cc = document.getElementById('control-center');
+  if (!cc || cc.classList.contains('hidden')) return;
+  cc.classList.add('hidden');
+  resetCalendarToToday();
+}
+
+function closeQuickCenter() {
+  const qc = document.getElementById('quick-center');
+  if (!qc) return;
+  qc.classList.add('hidden');
+  updateToastPosition();
 }
 
 /* ================= INICIALIZACIÓN DEL SISTEMA ================= */
@@ -226,13 +241,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const topbarProfilePill = document.getElementById('topbar-profile-pill');
 
   const toggleControlCenter = () => {
-    quickCenter?.classList.add('hidden');
+    closeQuickCenter();
+    const wasHidden = controlCenter?.classList.contains('hidden');
     controlCenter?.classList.toggle('hidden');
-    updateToastPosition();
+    if (wasHidden) {
+      // Se acaba de abrir → reseteamos al día de hoy
+      resetCalendarToToday();
+    }
     refreshIcons();
   };
+
   const toggleQuickCenter = () => {
-    controlCenter?.classList.add('hidden');
+    // Cerrar el control center (con reset) si estaba abierto
+    if (controlCenter && !controlCenter.classList.contains('hidden')) {
+      closeControlCenter();
+    }
     quickCenter?.classList.toggle('hidden');
     updateToastPosition();
     refreshIcons();
@@ -253,21 +276,27 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.addEventListener('click', (e) => {
-    // Excluir el reproductor del quick center para que no cierre el menú al interactuar
+    // Excluir el reproductor del quick center
     const isPlayerClick = e.target.closest('#cc-spotify-player');
-    if(!sysTrayBtn?.contains(e.target) && !clockCenter?.contains(e.target) && !controlCenter?.contains(e.target) && !quickCenter?.contains(e.target) && !isPlayerClick) {
-      controlCenter?.classList.add('hidden');
-      quickCenter?.classList.add('hidden');
-      updateToastPosition();
+    // Excluir el calendario (para que no se cierre al tocar días/notas)
+    const isCalendarClick = e.target.closest('.calendar-panel') || e.target.closest('#notes-list');
+
+    if (!sysTrayBtn?.contains(e.target)
+        && !clockCenter?.contains(e.target)
+        && !controlCenter?.contains(e.target)
+        && !quickCenter?.contains(e.target)
+        && !isPlayerClick
+        && !isCalendarClick) {
+      closeControlCenter();
+      closeQuickCenter();
     }
     hideContextMenu();
   });
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      controlCenter?.classList.add('hidden');
-      quickCenter?.classList.add('hidden');
-      updateToastPosition();
+      closeControlCenter();
+      closeQuickCenter();
       if (gamerOverlayVisible) toggleGamerOverlay();
     }
   });
@@ -344,26 +373,20 @@ function toggleBluetooth(explicitState = null) {
 }
 
 function renderConnectivityState() {
-  // --- Topbar: WiFi ---
   const trayWifi = document.getElementById('tray-wifi-item');
   if (trayWifi) {
     const iconEl = trayWifi.querySelector('i, svg');
     if (wifiEnabled) {
       trayWifi.classList.remove('off');
       trayWifi.title = 'WiFi: Conectado';
-      if (iconEl) {
-        iconEl.outerHTML = '<i data-lucide="wifi" class="tray-icon"></i>';
-      }
+      if (iconEl) iconEl.outerHTML = '<i data-lucide="wifi" class="tray-icon"></i>';
     } else {
       trayWifi.classList.add('off');
       trayWifi.title = 'WiFi: Desconectado';
-      if (iconEl) {
-        iconEl.outerHTML = '<i data-lucide="wifi-off" class="tray-icon"></i>';
-      }
+      if (iconEl) iconEl.outerHTML = '<i data-lucide="wifi-off" class="tray-icon"></i>';
     }
   }
 
-  // --- Topbar: Bluetooth ---
   const trayBt = document.getElementById('tray-bt-item');
   if (trayBt) {
     if (bluetoothEnabled) {
@@ -375,7 +398,6 @@ function renderConnectivityState() {
     }
   }
 
-  // --- Quick Center toggles ---
   const wifiToggle = document.getElementById('wifi-toggle');
   if (wifiToggle) {
     wifiToggle.classList.toggle('active', wifiEnabled);
@@ -404,7 +426,6 @@ function toggleDnd(explicitState = null) {
     localStorage.setItem(DND_STORAGE_KEY, JSON.stringify(dndEnabled));
   } catch (e) {}
 
-  // Forzamos el toast para que siempre se vea el feedback del toggle DND
   showToast(
     dndEnabled ? 'No Molestar Activado' : 'No Molestar Desactivado',
     dndEnabled ? 'Las notificaciones estarán silenciadas.' : 'Las notificaciones volverán a mostrarse.',
@@ -427,7 +448,6 @@ function applyBrightness(val) {
   const screen = document.getElementById('screen');
   if (!screen) return;
 
-  // Mapeo 0-100 → 40%-130% para que sea util sin dejar la pantalla negra
   const mapped = 40 + (currentBrightness / 100) * 90;
   screen.style.filter = `brightness(${mapped.toFixed(1)}%)`;
 
@@ -461,9 +481,7 @@ function updatePlayerProgress() {
   if (currentEl) currentEl.textContent = formatTime(currentPlaybackTime);
   if (totalEl) totalEl.textContent = formatTime(track.duration);
 
-  if (dot) {
-    dot.classList.toggle('paused', !isPlaying);
-  }
+  if (dot) dot.classList.toggle('paused', !isPlaying);
 }
 
 function resetPlayerProgress() {
@@ -471,10 +489,6 @@ function resetPlayerProgress() {
   updatePlayerProgress();
 }
 
-/**
- * Aplica la portada del track actual como fondo del reproductor del quick center.
- * SOLO afecta a #cc-media-bg (reproductor dentro del #quick-center).
- */
 function updatePlayerBackground() {
   const bg = document.getElementById('cc-media-bg');
   const track = TRACKS[currentTrackIndex];
@@ -483,14 +497,12 @@ function updatePlayerBackground() {
 }
 
 function setupQuickCenterPlayer() {
-  // Arrancar el timer de progreso (cada segundo si está reproduciendo)
   setInterval(() => {
     if (!isPlaying) return;
     const track = TRACKS[currentTrackIndex];
     if (!track) return;
     currentPlaybackTime += 1;
     if (currentPlaybackTime >= track.duration) {
-      // Repetir o pasar al siguiente
       if (repeatEnabled) {
         currentPlaybackTime = 0;
       } else {
@@ -501,7 +513,6 @@ function setupQuickCenterPlayer() {
     updatePlayerProgress();
   }, 1000);
 
-  // Botón shuffle
   const shuffleBtn = document.getElementById('cc-shuffle');
   if (shuffleBtn) {
     shuffleBtn.addEventListener('click', (e) => {
@@ -511,7 +522,6 @@ function setupQuickCenterPlayer() {
     });
   }
 
-  // Botón repeat
   const repeatBtn = document.getElementById('cc-repeat');
   if (repeatBtn) {
     repeatBtn.addEventListener('click', (e) => {
@@ -521,7 +531,6 @@ function setupQuickCenterPlayer() {
     });
   }
 
-  // Inicializar UI
   updatePlayerProgress();
 }
 
@@ -657,7 +666,6 @@ function applyThemePreset(presetId) {
   root.style.setProperty('--accent-red', preset.accentRed);
   root.style.setProperty('--accent-orange', preset.accentOrange);
 
-  // Nebula Designer sólo modifica estilos, paletas y controles UI (el fondo permanece intacto)
   saveDesignerState();
   showToast('Estilo Aplicado', `Paleta visual "${preset.name}" activada.`, 'palette');
   renderSettingsApp();
@@ -727,7 +735,6 @@ function setLiveBorderRadius(radius) {
 function setLivePanelAlpha(alpha) {
   designerState.panelAlpha = alpha;
   const alphaVal = alpha / 100;
-  // Use bgDark hex as the base color for panel transparency
   const hex = designerState.bgDark || '#0d0f17';
   const r = parseInt(hex.slice(1,3), 16);
   const g = parseInt(hex.slice(3,5), 16);
@@ -931,7 +938,6 @@ function closeAllOpenApps() {
 }
 
 function switchProfile(profileId) {
-  // Cerrar todas las apps del perfil anterior antes de abrir las del nuevo
   closeAllOpenApps();
 
   currentProfile = profileId;
@@ -1159,9 +1165,7 @@ function toggleMediaPlayback() {
   if (hudPlayBtn) hudPlayBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
   if (ccPlayBtn) ccPlayBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
 
-  // Actualizar dot de estado del quick center player
   updatePlayerProgress();
-
   renderDesktopWidgets();
   refreshIcons();
 }
@@ -1194,10 +1198,8 @@ function updateMediaUI() {
     const el = document.getElementById(id);
     if (el) el.textContent = track.artist;
   });
-  // Actualizar duración en el quick center player
   const totalEl = document.getElementById('cc-time-total');
   if (totalEl) totalEl.textContent = formatTime(track.duration);
-  // Actualizar el fondo con blur
   updatePlayerBackground();
 }
 
@@ -1213,7 +1215,6 @@ function setSystemVolume(val) {
 
 /* ================= SISTEMA DE NOTIFICACIONES TOAST ================= */
 function showToast(title, message, iconName = 'sparkles', force = false) {
-  // Si DND está activado y no se fuerza, no mostrar el toast
   if (dndEnabled && !force) return;
 
   const container = document.getElementById('toast-container');
@@ -1265,23 +1266,14 @@ function loadPersistedState() {
     const savedSettings = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY));
     if (savedSettings) settingsState = { ...settingsState, ...savedSettings };
 
-    // --- Conectividad (WiFi / Bluetooth) ---
     const savedWifi = localStorage.getItem(WIFI_STORAGE_KEY);
-    if (savedWifi !== null) {
-      wifiEnabled = JSON.parse(savedWifi);
-    }
+    if (savedWifi !== null) wifiEnabled = JSON.parse(savedWifi);
     const savedBt = localStorage.getItem(BT_STORAGE_KEY);
-    if (savedBt !== null) {
-      bluetoothEnabled = JSON.parse(savedBt);
-    }
+    if (savedBt !== null) bluetoothEnabled = JSON.parse(savedBt);
 
-    // --- No Molestar (DND) ---
     const savedDnd = localStorage.getItem(DND_STORAGE_KEY);
-    if (savedDnd !== null) {
-      dndEnabled = JSON.parse(savedDnd);
-    }
+    if (savedDnd !== null) dndEnabled = JSON.parse(savedDnd);
 
-    // --- Brillo ---
     const savedBrightness = localStorage.getItem(BRIGHTNESS_STORAGE_KEY);
     if (savedBrightness !== null) {
       const parsed = Number(savedBrightness);
@@ -1356,27 +1348,40 @@ function setupSliders() {
 
 function setupAdvancedWidget() {
   try {
-    calendarState.notes = JSON.parse(localStorage.getItem('nebula-os:calendar-notes') || '{}');
+    calendarState.notes = JSON.parse(localStorage.getItem(CALENDAR_NOTES_STORAGE_KEY) || '{}');
   } catch (error) {
     calendarState.notes = {};
   }
 
   renderCalendar();
+  renderNotesList();
   updateWidgetTime();
   updateMetrics();
   setInterval(updateWidgetTime, 60000);
   setInterval(simulateMetrics, 3000);
 
-  document.getElementById('calendar-prev')?.addEventListener('click', () => changeCalendarMonth(-1));
-  document.getElementById('calendar-next')?.addEventListener('click', () => changeCalendarMonth(1));
-  document.getElementById('save-note')?.addEventListener('click', saveCalendarNote);
+  document.getElementById('calendar-prev')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    changeCalendarMonth(-1);
+  });
+  document.getElementById('calendar-next')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    changeCalendarMonth(1);
+  });
+  document.getElementById('save-note')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    saveCalendarNote();
+  });
   document.getElementById('note-input')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') saveCalendarNote();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      saveCalendarNote();
+    }
   });
   setupQuickSwitch('battery-toggle');
   setupMediaPlayer();
 
-  // Sincronizar UI de conectividad con el estado cargado
   renderConnectivityState();
 }
 
@@ -1393,6 +1398,30 @@ function updateWidgetTime() {
 
 function calendarKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Vuelve el calendario al mes actual y limpia la selección.
+ * Se llama cada vez que se cierra el control-center.
+ */
+function resetCalendarToToday() {
+  calendarState.date = new Date();
+  calendarState.selectedDate = null;
+  editingNoteKey = null;
+
+  // Ocultar el editor de notas
+  const editor = document.getElementById('note-editor');
+  if (editor) editor.hidden = true;
+  const input = document.getElementById('note-input');
+  if (input) input.value = '';
+  const saveBtn = document.getElementById('save-note');
+  if (saveBtn) {
+    saveBtn.textContent = 'Guardar';
+    saveBtn.classList.remove('editing');
+  }
+
+  renderCalendar();
+  renderNotesList();
 }
 
 function renderCalendar() {
@@ -1430,7 +1459,12 @@ function renderCalendar() {
       dot.className = 'note-dot';
       day.appendChild(dot);
     }
-    day.addEventListener('click', () => selectCalendarDate(cellDate));
+    day.addEventListener('click', (e) => {
+      // CRÍTICO: evitar que el click burbujee y cierre el panel
+      e.stopPropagation();
+      e.preventDefault();
+      selectCalendarDate(cellDate);
+    });
     grid.appendChild(day);
   }
   refreshIcons();
@@ -1443,24 +1477,151 @@ function changeCalendarMonth(offset) {
 
 function selectCalendarDate(date) {
   calendarState.selectedDate = calendarKey(date);
+  editingNoteKey = null;
+
   const editor = document.getElementById('note-editor');
   const input = document.getElementById('note-input');
   const label = document.getElementById('selected-date-label');
+  const saveBtn = document.getElementById('save-note');
+
   if (label) label.textContent = `Nota para ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
   if (input) input.value = calendarState.notes[calendarState.selectedDate] || '';
   if (editor) editor.hidden = false;
+  if (saveBtn) {
+    saveBtn.textContent = 'Guardar';
+    saveBtn.classList.remove('editing');
+  }
   if (input) input.focus();
+
   renderCalendar();
+  renderNotesList();
 }
 
 function saveCalendarNote() {
-  if (!calendarState.selectedDate) return;
   const input = document.getElementById('note-input');
   const value = input ? input.value.trim() : '';
-  if (value) calendarState.notes[calendarState.selectedDate] = value;
-  else delete calendarState.notes[calendarState.selectedDate];
-  localStorage.setItem('nebula-os:calendar-notes', JSON.stringify(calendarState.notes));
+
+  // Determinar la key objetivo: si estamos editando, usamos esa; si no, el día seleccionado
+  let targetKey = editingNoteKey || calendarState.selectedDate;
+  if (!targetKey) return;
+
+  if (value) {
+    calendarState.notes[targetKey] = value;
+  } else {
+    delete calendarState.notes[targetKey];
+  }
+
+  localStorage.setItem(CALENDAR_NOTES_STORAGE_KEY, JSON.stringify(calendarState.notes));
+
+  // Resetear el editor
+  editingNoteKey = null;
+  if (input) input.value = '';
+  const saveBtn = document.getElementById('save-note');
+  if (saveBtn) {
+    saveBtn.textContent = 'Guardar';
+    saveBtn.classList.remove('editing');
+  }
+
   renderCalendar();
+  renderNotesList();
+}
+
+/**
+ * Activa el modo edición de una nota existente.
+ * Carga el texto en el input y cambia el label del botón a "Actualizar".
+ */
+function editCalendarNote(key) {
+  editingNoteKey = key;
+  calendarState.selectedDate = key;
+
+  const editor = document.getElementById('note-editor');
+  const input = document.getElementById('note-input');
+  const label = document.getElementById('selected-date-label');
+  const saveBtn = document.getElementById('save-note');
+
+  const [y, m, d] = key.split('-').map(Number);
+  if (label) label.textContent = `Editando nota del ${d}/${m}/${y}`;
+  if (input) {
+    input.value = calendarState.notes[key] || '';
+    input.focus();
+  }
+  if (editor) editor.hidden = false;
+  if (saveBtn) {
+    saveBtn.textContent = 'Actualizar';
+    saveBtn.classList.add('editing');
+  }
+  renderNotesList();
+}
+
+/**
+ * Elimina una nota por su key.
+ */
+function deleteCalendarNote(key) {
+  if (!key) return;
+  delete calendarState.notes[key];
+  localStorage.setItem(CALENDAR_NOTES_STORAGE_KEY, JSON.stringify(calendarState.notes));
+
+  // Si estábamos editando esa nota, salir del modo edición
+  if (editingNoteKey === key) {
+    editingNoteKey = null;
+    const input = document.getElementById('note-input');
+    if (input) input.value = '';
+    const saveBtn = document.getElementById('save-note');
+    if (saveBtn) {
+      saveBtn.textContent = 'Guardar';
+      saveBtn.classList.remove('editing');
+    }
+  }
+
+  renderCalendar();
+  renderNotesList();
+  showToast('Nota eliminada', 'El recordatorio fue borrado.', 'trash-2');
+}
+
+/**
+ * Renderiza la lista de notas del día seleccionado (o del día actual si no hay ninguno).
+ */
+function renderNotesList() {
+  const list = document.getElementById('notes-list');
+  if (!list) return;
+
+  const targetKey = calendarState.selectedDate || calendarKey(new Date());
+  const noteText = calendarState.notes[targetKey];
+
+  list.innerHTML = '';
+
+  if (!noteText) {
+    const empty = document.createElement('div');
+    empty.className = 'notes-empty';
+    empty.textContent = 'Sin recordatorios para este día.';
+    list.appendChild(empty);
+    return;
+  }
+
+  const [y, m, d] = targetKey.split('-').map(Number);
+
+  const item = document.createElement('div');
+  item.className = 'note-item';
+  item.innerHTML = `
+    <span class="note-item-date">${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}</span>
+    <span class="note-item-text" title="${escapeHtml(noteText)}">${escapeHtml(noteText)}</span>
+    <div class="note-actions">
+      <button class="note-btn" type="button" data-action="edit" title="Editar"><i data-lucide="pencil"></i></button>
+      <button class="note-btn danger" type="button" data-action="delete" title="Eliminar"><i data-lucide="trash-2"></i></button>
+    </div>
+  `;
+
+  item.querySelector('[data-action="edit"]')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    editCalendarNote(targetKey);
+  });
+  item.querySelector('[data-action="delete"]')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    deleteCalendarNote(targetKey);
+  });
+
+  list.appendChild(item);
+  refreshIcons();
 }
 
 function updateMetrics() {

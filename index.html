@@ -91,14 +91,6 @@
         <div id="widget-time">00:00</div>
         <div class="widget-uptime" id="widget-uptime">uptime: 0m</div>
       </div>
-      <div class="cc-profile-box">
-        <div class="cc-section-label">PERFIL ACTIVO</div>
-        <div class="profile-switcher-chips">
-          <button class="profile-chip active" data-profile="gamer" onclick="switchProfile('gamer')"><i data-lucide="gamepad-2"></i> Gamer</button>
-          <button class="profile-chip" data-profile="streamer" onclick="switchProfile('streamer')"><i data-lucide="radio"></i> Streamer</button>
-          <button class="profile-chip" data-profile="studio" onclick="switchProfile('studio')"><i data-lucide="terminal"></i> Estudio</button>
-        </div>
-      </div>
     </div>
 
     <div class="calendar-panel">
@@ -111,8 +103,12 @@
       <div class="calendar-grid" id="calendar-grid"></div>
       <div class="note-editor" id="note-editor" hidden>
         <label id="selected-date-label" for="note-input">Nota rápida</label>
-        <div class="note-row"><input id="note-input" type="text" maxlength="80" placeholder="Escribí un recordatorio..."><button id="save-note" type="button">Guardar</button></div>
+        <div class="note-row">
+          <input id="note-input" type="text" maxlength="80" placeholder="Escribí un recordatorio...">
+          <button id="save-note" type="button">Guardar</button>
+        </div>
       </div>
+      <div class="notes-list" id="notes-list" aria-live="polite"></div>
     </div>
   </div>
 
