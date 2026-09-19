@@ -90,13 +90,14 @@ const TRACKS = [
 
 /* ================= CATÁLOGO DE ESTILOS DE DOCK PREVIEW ================= */
 const DOCK_PREVIEW_STYLES = {
-  blueprint: { name: 'Blueprint',     desc: 'Plano técnico / sci-fi con líneas de acento',  available: true },
-  minimal:   { name: 'Minimal',       desc: 'Limpio y directo, sin adornos',                available: true },
-  brutalist: { name: 'Neo-Brutalism', desc: 'Borde grueso y sombra dura estilo brutalista', available: true },
-  glitch:    { name: 'Cyberpunk Glitch', desc: 'Scanlines, glitch digital y neón cyan/magenta', available: true },
-  crt:       { name: 'Terminal CRT',  desc: 'Monitor retro con scanlines y fósforo',        available: true },
-  glass:     { name: 'Glass',         desc: 'Cristal translúcido y bordes suaves',          available: false },
-  compact:   { name: 'Compacto',      desc: 'Solo lo esencial: ícono y datos',              available: false }
+  blueprint: { name: 'Blueprint',        desc: 'Plano técnico / sci-fi con líneas de acento',       available: true },
+  minimal:   { name: 'Minimal',          desc: 'Limpio y directo, sin adornos',                     available: true },
+  brutalist: { name: 'Neo-Brutalism',    desc: 'Borde grueso y sombra dura estilo brutalista',      available: true },
+  glitch:    { name: 'Cyberpunk Glitch', desc: 'Scanlines, glitch digital y neón cyan/magenta',     available: true },
+  comic:     { name: 'Comic',            desc: 'Estilo historieta: fondo crema y bordes gruesos',   available: true },
+  crt:       { name: 'Terminal CRT',     desc: 'Monitor retro con scanlines y fósforo',             available: true },
+  glass:     { name: 'Glass',            desc: 'Cristal translúcido y bordes suaves',               available: false },
+  compact:   { name: 'Compacto',         desc: 'Solo lo esencial: ícono y datos',                   available: false }
 };
 
 /* ================= VARIABLES GLOBALES DE ESTADO ================= */
@@ -866,7 +867,6 @@ function setDockStyle(style) {
 
 /* ★ Aplicar estilo del Dock Hover Preview (con validación de ID) */
 function applyDockPreviewStyle(styleId) {
-  // Validar que el estilo exista, si no, fallback a blueprint
   const validId = (styleId && DOCK_PREVIEW_STYLES[styleId] && DOCK_PREVIEW_STYLES[styleId].available)
     ? styleId
     : 'blueprint';
@@ -875,7 +875,6 @@ function applyDockPreviewStyle(styleId) {
   allStyles.forEach(s => document.body.classList.remove(`dock-preview-${s}`));
   document.body.classList.add(`dock-preview-${validId}`);
 
-  // Sincronizar estado si hubo fallback
   if (validId !== designerState.dockPreviewStyle) {
     designerState.dockPreviewStyle = validId;
   }
@@ -1388,10 +1387,8 @@ function loadPersistedState() {
       root.style.setProperty('--radius-md', `${designerState.borderRadius}px`);
       root.style.setProperty('--radius-lg', `${parseInt(designerState.borderRadius, 10) + 6}px`);
       document.body.classList.toggle('dock-unified-bottom', designerState.dockStyle === 'unified-bottom');
-      // ★ Aplicar estilo de Dock Hover Preview guardado (con validación)
       applyDockPreviewStyle(designerState.dockPreviewStyle || 'blueprint');
     } else {
-      // ★ Primera vez: aplicar default
       applyDockPreviewStyle('blueprint');
     }
 
@@ -2829,7 +2826,6 @@ function getDesignerSettingsHTML() {
 
     <div class="settings-section-label">Apariencia del Hover</div>
 
-    <!-- Preview en vivo del estilo activo -->
     <div class="hover-live-preview">
       <div class="hover-live-preview-inner">
         <span class="hover-live-preview-label">Estilo activo: <strong>${DOCK_PREVIEW_STYLES[currentStyle]?.name || 'Blueprint'}</strong></span>
@@ -2865,7 +2861,6 @@ function getDesignerSettingsHTML() {
       </div>
     </div>
 
-    <!-- Selector de cards -->
     <div class="hover-styles-grid" style="margin-top:12px;">
       ${Object.entries(DOCK_PREVIEW_STYLES).map(([styleId, style]) => {
         const isSelected = styleId === currentStyle;
