@@ -33,8 +33,6 @@ body.game-mode-active {
   --blur-amount: 10px;
 }
 
-/* body.game-mode-active #topbar { eliminado } */
-
 body.game-mode-active .topbar-gamemode-badge {
   display: flex !important;
 }
@@ -157,16 +155,43 @@ svg, [data-lucide] {
 
 .hidden-tray { display: none !important; }
 
-.hud-badge-icon {
-  display: flex; align-items: center; gap: 4px;
-  background: linear-gradient(135deg, rgba(0, 255, 204, 0.25), rgba(58, 134, 255, 0.25));
-  border: 1px solid rgba(0, 255, 204, 0.4);
-  color: #00ffcc; padding: 3px 8px; border-radius: 6px;
-  font-size: 10px; font-weight: 800; letter-spacing: 0.5px;
-  box-shadow: 0 0 10px rgba(0, 255, 204, 0.25);
+/* ===== BATERÍA EN TOPBAR (con estados por color) ===== */
+#tray-battery-item {
+  color: var(--accent-green);
 }
-.hud-badge-icon svg, .hud-badge-icon i { width: 12px; height: 12px; }
-.sys-tray .hud-btn:hover .hud-badge-icon { filter: brightness(1.2); }
+#tray-battery-item svg, #tray-battery-item i { color: var(--accent-green); }
+#tray-battery-item span { color: var(--accent-green); }
+
+/* Estado: HIGH (> 50%) → verde (default, ya heredado) */
+
+/* Estado: MEDIUM (20–50%) → amarillo */
+#tray-battery-item.medium { color: var(--accent-orange); }
+#tray-battery-item.medium svg, #tray-battery-item.medium i { color: var(--accent-orange); }
+#tray-battery-item.medium span { color: var(--accent-orange); }
+
+/* Estado: LOW (< 20%) → rojo + pulse */
+#tray-battery-item.low { color: var(--accent-red); }
+#tray-battery-item.low svg, #tray-battery-item.low i { color: var(--accent-red); }
+#tray-battery-item.low span { color: var(--accent-red); }
+#tray-battery-item.low svg, #tray-battery-item.low i {
+  animation: battery-low-pulse 1.4s infinite ease-in-out;
+}
+@keyframes battery-low-pulse {
+  0%, 100% { opacity: 1; filter: drop-shadow(0 0 3px var(--accent-red)); }
+  50%      { opacity: 0.55; filter: drop-shadow(0 0 8px var(--accent-red)); }
+}
+
+/* Estado: CHARGING → verde + glow suave */
+#tray-battery-item.charging { color: var(--accent-green); }
+#tray-battery-item.charging svg, #tray-battery-item.charging i { color: var(--accent-green); }
+#tray-battery-item.charging span { color: var(--accent-green); }
+#tray-battery-item.charging svg, #tray-battery-item.charging i {
+  animation: battery-charge-pulse 2s infinite ease-in-out;
+}
+@keyframes battery-charge-pulse {
+  0%, 100% { filter: drop-shadow(0 0 2px color-mix(in srgb, var(--accent-green) 60%, transparent)); }
+  50%      { filter: drop-shadow(0 0 8px var(--accent-green)); }
+}
 
 /* ================= CALENDARIO Y CENTRO DE CONTROL ================= */
 #control-center {
@@ -462,8 +487,6 @@ svg, [data-lucide] {
   box-shadow: 0 0 50px rgba(0, 255, 204, 0.15), 0 30px 80px rgba(0,0,0,0.85);
   position: relative;
 }
-
-/* .hud-container::before { eliminado } */
 
 .hud-header {
   display: flex; align-items: center; justify-content: space-between;

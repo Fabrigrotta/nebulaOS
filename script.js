@@ -498,12 +498,6 @@ function formatTime(seconds) {
   return `${m}:${r}`;
 }
 
-/**
- * Actualiza:
- *  - Barra de progreso del quick-center (cc-progress-fill, cc-time-current, cc-time-total)
- *  - Dot de estado (cc-eq-dot)
- *  - Barra de progreso del HUD (hud-progress-fill, hud-progress-time)
- */
 function updatePlayerProgress() {
   const track = TRACKS[currentTrackIndex];
   if (!track) return;
@@ -535,11 +529,6 @@ function resetPlayerProgress() {
   updatePlayerProgress();
 }
 
-/**
- * Actualiza los fondos con la portada del track actual:
- *  - #cc-media-bg (reproductor del quick-center)
- *  - #hud-media-bg (barra inferior del Gaming HUD)
- */
 function updatePlayerBackground() {
   const track = TRACKS[currentTrackIndex];
   if (!track) return;
@@ -2806,17 +2795,107 @@ function setupKeyboardAccessibility() {
   });
 }
 
+/* ================= BATERÍA (real o simulada) ================= */
+/**
+ * Actualiza el UI de la batería según el nivel (0-100) y si está cargando.
+ */
+function updateBatteryUI(level, charging) {
+  const item = document.getElementById('tray-battery-item');
+  const icon = document.getElementById('tray-battery-icon');
+  const num = document.getElementById('tray-battery-num');
+  if (!item || !num) return;
+
+  const lvl = Math.max(0, Math.min(100, Math.round(level)));
+
+  // Clase según estado
+  item.classList.remove('high', 'medium', 'low', 'charging');
+  if (charging) {
+    item.classList.add('charging');
+  } else if (lvl > 50) {
+    item.classList.add('high');
+  } else if (lvl >= 20) {
+    item.classList.add('medium');
+  } else {
+    item.classList.add('low');
+  }
+
+  // Ícono según estado / nivel
+  let iconName = 'battery';
+  if (charging) {
+    iconName = 'battery-charging';
+  } else if (lvl >= 90) {
+    iconName = 'battery-full';
+  } else if (lvl >= 50) {
+    iconName = 'battery-medium';
+  } else if (lvl >= 20) {
+    iconName = 'battery-low';
+  } else {
+    iconName = 'battery-warning';
+  }
+
+  if (icon) {
+    icon.setAttribute('data-lucide', iconName);
+    // Reemplazar el nodo para que Lucide lo renderice de nuevo
+    const svg = icon.tagName.toLowerCase() === 'svg' ? icon : null;
+    if (svg) {
+      const newIcon = document.createElement('i');
+      newIcon.setAttribute('data-lucide', iconName);
+      newIcon.id = 'tray-battery-icon';
+      newIcon.className = 'tray-icon';
+      svg.replaceWith(newIcon);
+    }
+  }
+
+  // Texto y título
+  num.textContent = `${lvl}%`;
+  item.title = charging
+    ? `Batería: ${lvl}% (Cargando)`
+    : `Batería: ${lvl}%`;
+
+  // Re-render Lucide para el ícono nuevo
+  refreshIcons();
+}
+
+/**
+ * Inicializa el estado de la batería:
+ *  - Si el navegador soporta navigator.getBattery → usa valores reales.
+ *  - Si no → simula con un mock que baja 1% cada 30s y recarga al 15%.
+ */
 function setupDeviceStatus() {
-  const batteryLabel = document.querySelector('#sys-tray-btn .battery span');
-  const batteryIcon = document.querySelector('#sys-tray-btn .battery i, #sys-tray-btn .battery svg');
-  if (batteryLabel && batteryIcon && typeof navigator.getBattery === 'function') {
+  const hasRealBattery = typeof navigator.getBattery === 'function';
+
+  if (hasRealBattery) {
     navigator.getBattery().then(battery => {
       const updateBattery = () => {
-        const level = Math.round(battery.level * 100);
-        batteryLabel.textContent = `${level}%`;
+        updateBatteryUI(battery.level * 100, battery.charging);
       };
       updateBattery();
       battery.addEventListener('levelchange', updateBattery);
-    }).catch(() => {});
+      battery.addEventListener('chargingchange', updateBattery);
+    }).catch(() => {
+      startSimulatedBattery();
+    });
+  } else {
+    startSimulatedBattery();
   }
+}
+
+function startSimulatedBattery() {
+  let mockLevel = 53;
+  let mockCharging = false;
+
+  const update = () => updateBatteryUI(mockLevel, mockCharging);
+  update();
+
+  setInterval(() => {
+    if (mockCharging) {
+      mockLevel = Math.min(100, mockLevel + 1);
+      if (mockLevel >= 100) mockCharging = false;
+    } else {
+      mockLevel = Math.max(0, mockLevel - 1);
+      // Cuando llega a 15% empezamos a cargar (simula que enchufaste)
+      if (mockLevel <= 15) mockCharging = true;
+    }
+    update();
+  }, 30000); // cada 30s
 }
