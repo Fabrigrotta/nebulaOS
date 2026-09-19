@@ -151,6 +151,45 @@ svg, [data-lucide] {
 .sys-tray .item { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; font-family: "JetBrains Mono", monospace; transition: color 0.25s ease, opacity 0.25s ease; }
 .sys-tray .item svg, .sys-tray .item i { transition: color 0.25s ease, opacity 0.25s ease; }
 
+/* ================= HUD TOGGLE BADGE (nuevo estilo pill cyan) ================= */
+#tray-hud-toggle {
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(0, 255, 204, 0.14), rgba(0, 255, 204, 0.06));
+  border: 1px solid rgba(0, 255, 204, 0.55);
+  color: #00ffcc;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-shadow: 0 0 6px rgba(0, 255, 204, 0.6);
+  box-shadow:
+    0 0 10px rgba(0, 255, 204, 0.18),
+    inset 0 0 8px rgba(0, 255, 204, 0.08);
+  transition: all 0.2s ease;
+}
+#tray-hud-toggle:hover {
+  background: linear-gradient(180deg, rgba(0, 255, 204, 0.24), rgba(0, 255, 204, 0.12));
+  border-color: #00ffcc;
+  box-shadow:
+    0 0 16px rgba(0, 255, 204, 0.45),
+    inset 0 0 10px rgba(0, 255, 204, 0.15);
+  transform: translateY(-1px);
+}
+#tray-hud-toggle .hud-badge-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #00ffcc;
+}
+#tray-hud-toggle .hud-badge-icon svg,
+#tray-hud-toggle .hud-badge-icon i {
+  width: 13px !important;
+  height: 13px !important;
+  color: #00ffcc !important;
+  filter: drop-shadow(0 0 4px rgba(0, 255, 204, 0.8));
+}
+
 #tray-wifi-item { color: var(--accent-green); }
 #tray-wifi-item svg, #tray-wifi-item i { color: var(--accent-green); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent-green) 55%, transparent)); }
 #tray-wifi-item.off { color: var(--accent-red); }
