@@ -379,16 +379,44 @@ svg, [data-lucide] {
 .hud-title strong { font-size: 17px; color: #fff; letter-spacing: 0.5px; }
 .hud-shortcut-hint { font-size: 11px; color: var(--text-sub); }
 .hud-shortcut-hint kbd { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-family: "JetBrains Mono", monospace; color: #00ffcc; border: 1px solid rgba(255,255,255,0.12); }
+
+/* ================= HUD TOOL BUTTONS (BASE GLOBAL — reutilizable) ================= */
+.hud-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-family: "Inter", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.hud-tool-btn:hover {
+  background: rgba(0, 255, 204, 0.15);
+  border-color: #00ffcc;
+  color: #00ffcc;
+}
+.hud-tool-btn svg, .hud-tool-btn i {
+  width: 13px;
+  height: 13px;
+}
+
 .hud-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.hud-actions .hud-tool-btn { display: flex; align-items: center; gap: 8px; padding: 7px 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: var(--radius-sm); color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
-.hud-actions .hud-tool-btn:hover { background: rgba(0, 255, 204, 0.15); border-color: #00ffcc; color: #00ffcc; }
-.hud-actions .hud-tool-btn svg, .hud-actions .hud-tool-btn i { width: 13px; height: 13px; }
+
 .hud-gamemode-btn { display: flex; align-items: center; gap: 8px; padding: 7px 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: var(--radius-sm); color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
 .hud-gamemode-btn:hover { background: rgba(0, 255, 204, 0.15); border-color: #00ffcc; }
 .hud-gamemode-btn.active { background: rgba(0, 255, 204, 0.2); border-color: #00ffcc; color: #00ffcc; box-shadow: 0 0 15px rgba(0, 255, 204, 0.35); }
 .hud-pulse-dot { width: 7px; height: 7px; border-radius: 50%; background: #666; }
 .hud-gamemode-btn.active .hud-pulse-dot { background: #00ffcc; box-shadow: 0 0 8px #00ffcc; }
-.hud-close-btn { width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: #fff; cursor: pointer; display: grid; place-items: center; transition: 0.2s; }
+.hud-close-btn { width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: #fff; cursor: pointer; display: grid; place-items: center; transition: 0.2s; flex-shrink: 0; }
 .hud-close-btn svg, .hud-close-btn i { width: 14px; height: 14px; }
 .hud-close-btn:hover { background: rgba(243, 139, 168, 0.3); border-color: #f38ba8; color: #f38ba8; }
 .hud-telemetry-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
@@ -510,9 +538,26 @@ svg, [data-lucide] {
 .settings-kicker { color: var(--accent); font-size: 9px; font-weight: 800; letter-spacing: 1.2px; }
 .settings-heading h2 { margin: 3px 0 4px; color: #fff; font-size: 19px; font-weight: 800; }
 .settings-heading p { color: var(--text-sub); font-size: 11px; }
-.settings-status { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid rgba(166,227,161,0.25); border-radius: 999px; background: rgba(166,227,161,0.08); color: var(--accent-green); font-size: 10px; font-weight: 700; white-space: nowrap; }
+.settings-status { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid rgba(166,227,161,0.25); border-radius: 999px; background: rgba(166,227,161,0.08); color: var(--accent-green); font-size: 10px; font-weight: 700; white-space: nowrap; flex-shrink: 0; align-self: flex-start; }
 .settings-status span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
 .settings-section-label { margin: 16px 0 8px; color: var(--text-sub); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; }
+
+/* Ajuste especial para que los toggles dentro de Ajustes (Gaming) queden alineados */
+.designer-control-item > .quick-switch {
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  width: auto;
+}
+.designer-control-item > .quick-switch:hover {
+  background: transparent;
+  border: 0;
+}
+.designer-control-item > .hud-tool-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+}
 
 .designer-presets-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .theme-preset-card { padding: 12px; border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-md); background: rgba(255,255,255,0.035); cursor: pointer; transition: all 0.2s; }
@@ -524,7 +569,8 @@ svg, [data-lucide] {
 .theme-preset-card small { display: block; font-size: 10px; color: var(--text-sub); margin-top: 2px; }
 
 .designer-controls-grid { display: flex; flex-direction: column; gap: 8px; }
-.designer-control-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 12px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07); border-radius: var(--radius-sm); }
+.designer-control-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 12px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07); border-radius: var(--radius-sm); min-height: 52px; }
+.designer-control-info { min-width: 0; flex: 1; }
 .designer-control-info strong { display: block; font-size: 11px; color: #fff; font-weight: 600; }
 .designer-control-info small { color: var(--text-sub); font-size: 9px; }
 .designer-control-input { display: flex; align-items: center; gap: 10px; min-width: 170px; }
