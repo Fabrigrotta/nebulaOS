@@ -1,13 +1,13 @@
 /* ================= CONFIGURACIÓN DE APPS & ICONOS ================= */
 const APPS = {
-  files:    { title: 'Archivos', sub: 'Gestor inteligente de archivos', icon: 'folder', image: './imagenes/archivos.png', tileClass: 'app-tile-files' },
-  terminal: { title: 'Terminal', sub: 'WezTerm Emulator', icon: 'terminal', image: './imagenes/terminal.png', tileClass: 'app-tile-terminal' },
-  browser:  { title: 'Firefox', sub: 'Navegador Web', icon: 'globe', image: './imagenes/firefox.png', tileClass: 'app-tile-browser' },
-  music:    { title: 'Spotify', sub: 'Reproductor de Música', icon: 'music', image: './imagenes/spotify.png', tileClass: 'app-tile-music' },
-  games:    { title: 'Steam', sub: 'Librería de Juegos', icon: 'gamepad-2', image: './imagenes/Steam.png', tileClass: 'app-tile-games' },
-  vscode:   { title: 'VS Code', sub: 'Editor de Código', icon: 'code-2', image: './imagenes/VSC.png', tileClass: 'app-tile-vscode' },
-  settings: { title: 'Ajustes', sub: 'Panel de Control & Designer', icon: 'sliders', image: './imagenes/Ajustes.png', tileClass: 'app-tile-settings' },
-  nova:     { title: 'Nova AI', sub: 'Asistente Gamer & Tweaker', icon: 'sparkles', image: './NOVA AI/logo nova.png', tileClass: 'app-tile-nova' }
+  files:    { title: 'Archivos', sub: 'Gestor inteligente de archivos', icon: 'folder', image: './imagenes/archivos.png', tileClass: 'app-tile-files', accentColor: '#3a86ff' },
+  terminal: { title: 'Terminal', sub: 'WezTerm Emulator', icon: 'terminal', image: './imagenes/terminal.png', tileClass: 'app-tile-terminal', accentColor: '#38bdf8' },
+  browser:  { title: 'Firefox', sub: 'Navegador Web', icon: 'globe', image: './imagenes/firefox.png', tileClass: 'app-tile-browser', accentColor: '#f59e0b' },
+  music:    { title: 'Spotify', sub: 'Reproductor de Música', icon: 'music', image: './imagenes/spotify.png', tileClass: 'app-tile-music', accentColor: '#10b981' },
+  games:    { title: 'Steam', sub: 'Librería de Juegos', icon: 'gamepad-2', image: './imagenes/Steam.png', tileClass: 'app-tile-games', accentColor: '#7c3aed' },
+  vscode:   { title: 'VS Code', sub: 'Editor de Código', icon: 'code-2', image: './imagenes/VSC.png', tileClass: 'app-tile-vscode', accentColor: '#0284c7' },
+  settings: { title: 'Ajustes', sub: 'Panel de Control & Designer', icon: 'sliders', image: './imagenes/Ajustes.png', tileClass: 'app-tile-settings', accentColor: '#94a3b8' },
+  nova:     { title: 'Nova AI', sub: 'Asistente Gamer & Tweaker', icon: 'sparkles', image: './NOVA AI/logo nova.png', tileClass: 'app-tile-nova', accentColor: '#c026d3' }
 };
 
 const DOCK_APPS = ['browser', 'terminal', 'nova', 'files', 'vscode', 'music', 'games', 'settings'];
@@ -2007,11 +2007,18 @@ function showDockPreview(appId, dockItemEl) {
     const win = openWindows[appId];
     if (!win) return;
 
+    const app = APPS[appId];
     const preview = document.createElement('div');
     preview.className = 'dock-preview';
     if (win.classList.contains('minimized')) preview.classList.add('is-minimized');
     preview.dataset.appId = appId;
     preview.innerHTML = buildDockPreviewHTML(appId);
+
+    // ★ NUEVO: inyectar el color de la app como variables CSS locales
+    if (app && app.accentColor) {
+      preview.style.setProperty('--app-accent', app.accentColor);
+      preview.style.setProperty('--app-accent-glow', `${app.accentColor}66`);
+    }
 
     document.body.appendChild(preview);
 
@@ -2716,6 +2723,8 @@ function getAppContent(id) {
 
 function getDesignerSettingsHTML() {
   const currentStyle = designerState.dockPreviewStyle || 'blueprint';
+  // ★ La demo en vivo usa el color de Terminal
+  const demoApp = APPS['terminal'];
 
   return `
     <div class="settings-heading">
@@ -2828,26 +2837,26 @@ function getDesignerSettingsHTML() {
 
     <div class="settings-section-label">Apariencia del Hover</div>
 
-    <!-- Preview en vivo del estilo activo -->
+    <!-- Preview en vivo del estilo activo (usa el color de Terminal) -->
     <div class="hover-live-preview">
       <div class="hover-live-preview-inner">
         <span class="hover-live-preview-label">Estilo activo: <strong>${DOCK_PREVIEW_STYLES[currentStyle]?.name || 'Blueprint'}</strong></span>
-        <div class="dock-preview visible" style="position: relative; opacity: 1; transform: none; pointer-events: none;">
+        <div class="dock-preview visible" style="position: relative; opacity: 1; transform: none; pointer-events: none; --app-accent: ${demoApp.accentColor}; --app-accent-glow: ${demoApp.accentColor}66;">
           <div class="dock-preview-header">
             <div class="dock-preview-meta">
-              <span class="dock-preview-title">Terminal</span>
-              <span class="dock-preview-sub">WezTerm Emulator</span>
+              <span class="dock-preview-title">${demoApp.title}</span>
+              <span class="dock-preview-sub">${demoApp.sub}</span>
             </div>
             <button class="dock-preview-close" type="button" aria-label="Cerrar ventana">
               <i data-lucide="x"></i>
             </button>
           </div>
           <div class="dock-preview-sketch">
-            <div class="dock-preview-sketch-bar app-tile-terminal">
+            <div class="dock-preview-sketch-bar ${demoApp.tileClass}">
               <span class="sketch-dot min"></span>
               <span class="sketch-dot max"></span>
               <span class="sketch-dot close"></span>
-              <span class="sketch-title">Terminal</span>
+              <span class="sketch-title">${demoApp.title}</span>
             </div>
             <div class="dock-preview-sketch-body">
               <span class="sketch-line accent w40"></span>
