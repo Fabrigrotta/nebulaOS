@@ -874,6 +874,463 @@ svg, [data-lucide] {
 .dock-style-card:hover { border-color: var(--accent); }
 .dock-style-card.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); font-weight: 700; color: #fff; }
 
+/* =====================================================
+   ★ APARIENCIA DEL HOVER — selector de estilo
+===================================================== */
+
+/* Preview en vivo (demo del estilo actual) */
+.hover-live-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(circle at center, color-mix(in srgb, var(--accent) 6%, transparent), transparent 70%),
+    rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  position: relative;
+  min-height: 200px;
+}
+
+/* Grid sutil de fondo del preview en vivo */
+.hover-live-preview::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0, transparent 19px, rgba(255,255,255,0.025) 19px, rgba(255,255,255,0.025) 20px),
+    repeating-linear-gradient(90deg, transparent 0, transparent 19px, rgba(255,255,255,0.025) 19px, rgba(255,255,255,0.025) 20px);
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* Contenedor de la card de demo */
+.hover-live-preview-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Etiqueta "Estilo activo: X" */
+.hover-live-preview-label {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-sub);
+  margin-bottom: 4px;
+}
+.hover-live-preview-label strong {
+  color: var(--accent);
+  text-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* Grid de cards seleccionables */
+.hover-styles-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+/* Card individual */
+.hover-style-card {
+  position: relative;
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.035);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+.hover-style-card:hover {
+  border-color: var(--accent);
+  background: rgba(255,255,255,0.06);
+  transform: translateY(-2px);
+}
+.hover-style-card.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+.hover-style-card.locked {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.hover-style-card.locked:hover {
+  transform: none;
+  border-color: rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.035);
+}
+
+.hover-style-card strong {
+  display: block;
+  font-size: 12px;
+  color: #fff;
+  font-weight: 700;
+}
+.hover-style-card small {
+  display: block;
+  font-size: 10px;
+  color: var(--text-sub);
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+/* Badge "PRÓXIMAMENTE" */
+.hover-style-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 2px 6px;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--accent-orange) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-orange) 55%, transparent);
+  color: var(--accent-orange);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+
+/* Mini-preview dentro de cada card (thumbnail estático del estilo) */
+.hover-style-thumb {
+  height: 44px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(255,255,255,0.08);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0,0,0,0.3);
+}
+.hover-style-thumb-bar {
+  height: 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+}
+.hover-style-thumb-bar .t-dot {
+  width: 3px; height: 3px; border-radius: 50%;
+  background: rgba(255,255,255,0.5);
+}
+.hover-style-thumb-bar .t-dot.red { background: #f38ba8; }
+.hover-style-thumb-bar .t-dot.orange { background: #fab387; }
+.hover-style-thumb-bar .t-dot.green { background: #a6e3a1; }
+.hover-style-thumb-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px 5px;
+}
+.hover-style-thumb-line {
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(255,255,255,0.18);
+}
+.hover-style-thumb-line.w40 { width: 40%; }
+.hover-style-thumb-line.w70 { width: 70%; }
+.hover-style-thumb-line.accent {
+  background: var(--accent);
+  box-shadow: 0 0 3px var(--accent-glow);
+}
+
+/* --- Variantes de thumbnail (una por estilo, sutil) --- */
+.hover-style-thumb.thumb-blueprint {
+  background-color: #0a0e18;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0, transparent 5px, color-mix(in srgb, var(--accent) 10%, transparent) 5px, color-mix(in srgb, var(--accent) 10%, transparent) 6px),
+    repeating-linear-gradient(90deg, transparent 0, transparent 5px, color-mix(in srgb, var(--accent) 10%, transparent) 5px, color-mix(in srgb, var(--accent) 10%, transparent) 6px);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  border-style: dashed;
+}
+.hover-style-thumb.thumb-blueprint .hover-style-thumb-bar { border-bottom: 1px dashed color-mix(in srgb, var(--accent) 40%, transparent); }
+.hover-style-thumb.thumb-blueprint .t-dot { border-radius: 0; }
+
+.hover-style-thumb.thumb-glass {
+  background: linear-gradient(135deg, rgba(180,190,254,0.18), rgba(120,130,200,0.08));
+  backdrop-filter: blur(6px);
+  border-color: rgba(255,255,255,0.2);
+}
+.hover-style-thumb.thumb-glass .hover-style-thumb-bar { background: rgba(180,190,254,0.2); }
+.hover-style-thumb.thumb-glass .hover-style-thumb-line { background: rgba(255,255,255,0.35); }
+
+.hover-style-thumb.thumb-minimal {
+  background: rgba(0,0,0,0.5);
+  border-color: rgba(255,255,255,0.12);
+}
+.hover-style-thumb.thumb-minimal .hover-style-thumb-bar {
+  background: transparent;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.hover-style-thumb.thumb-minimal .hover-style-thumb-line { background: rgba(255,255,255,0.28); }
+.hover-style-thumb.thumb-minimal .hover-style-thumb-line.accent {
+  width: 20%;
+  background: var(--accent);
+}
+
+.hover-style-thumb.thumb-compact {
+  background: rgba(0,0,0,0.45);
+  border-color: rgba(255,255,255,0.12);
+  flex-direction: row;
+  align-items: center;
+  padding: 4px 6px;
+  gap: 5px;
+}
+.hover-style-thumb.thumb-compact .hover-style-thumb-bar { display: none; }
+.hover-style-thumb.thumb-compact .hover-style-thumb-body {
+  flex-direction: row;
+  align-items: center;
+  padding: 0;
+  gap: 4px;
+}
+.hover-style-thumb.thumb-compact .hover-style-thumb-line { display: none; }
+.hover-style-thumb.thumb-compact::after {
+  content: "";
+  width: 16px; height: 16px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 40%, transparent);
+  border: 1px solid var(--accent);
+  flex-shrink: 0;
+}
+.hover-style-thumb.thumb-compact .hover-style-thumb-body::after {
+  content: "";
+  flex: 1;
+  height: 3px;
+  background: rgba(255,255,255,0.25);
+  border-radius: 2px;
+}
+
+/* =====================================================
+   ★ DOCK HOVER PREVIEW — VARIANTES DE ESTILO
+   (se activan según body.dock-preview-XXX)
+===================================================== */
+
+/* ---------- Base común (aplica a todos los estilos) ---------- */
+.dock-preview {
+  position: fixed;
+  z-index: 1400;
+  width: 240px;
+  padding: 12px;
+  color: var(--text-main);
+  font-family: "JetBrains Mono", "Inter", monospace;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.dock-preview.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Header + meta + botón cerrar (comunes) */
+.dock-preview-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 10px; padding-bottom: 8px;
+}
+.dock-preview-meta { display: flex; flex-direction: column; min-width: 0; flex: 1; gap: 2px; }
+.dock-preview-title {
+  font-size: 11px; font-weight: 800;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dock-preview-sub {
+  font-size: 9px; letter-spacing: 0.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dock-preview-close {
+  width: 22px; height: 22px;
+  background: transparent; cursor: pointer;
+  display: grid; place-items: center; flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+.dock-preview-close svg, .dock-preview-close i { width: 12px; height: 12px; }
+
+/* Boceto de ventana (común) */
+.dock-preview-sketch {
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column;
+  height: 110px;
+}
+.dock-preview-sketch-bar {
+  height: 20px; display: flex; align-items: center;
+  padding: 0 8px; gap: 5px; flex-shrink: 0;
+}
+.dock-preview-sketch-bar .sketch-dot {
+  width: 6px; height: 6px; flex-shrink: 0;
+}
+.dock-preview-sketch-bar .sketch-dot.min { background: var(--accent-orange); border-color: var(--accent-orange); }
+.dock-preview-sketch-bar .sketch-dot.max { background: var(--accent-green); border-color: var(--accent-green); }
+.dock-preview-sketch-bar .sketch-dot.close { background: var(--accent-red); border-color: var(--accent-red); }
+.dock-preview-sketch-bar .sketch-title {
+  margin-left: 8px; font-size: 8px; font-weight: 800;
+  letter-spacing: 2px; text-transform: uppercase;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dock-preview-sketch-body {
+  flex: 1; padding: 10px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.sketch-line { height: 4px; flex-shrink: 0; }
+.sketch-line.w40 { width: 40%; }
+.sketch-line.w60 { width: 60%; }
+.sketch-line.w75 { width: 75%; }
+.sketch-line.w90 { width: 90%; }
+.sketch-block { flex: 1; }
+
+/* Badges (comunes) */
+.dock-preview-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.dock-preview-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px; font-size: 9px; font-weight: 800;
+  letter-spacing: 1.5px; text-transform: uppercase;
+}
+.dock-preview-badge svg, .dock-preview-badge i { width: 10px; height: 10px; }
+.dock-preview-badge.minimized {
+  border-color: color-mix(in srgb, var(--accent-orange) 60%, transparent);
+  background: color-mix(in srgb, var(--accent-orange) 12%, transparent);
+  color: var(--accent-orange);
+}
+.dock-preview-badge.other-ws {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+
+/* ---------- ESTILO: BLUEPRINT (default) ---------- */
+body.dock-preview-blueprint .dock-preview,
+body:not([class*="dock-preview-"]) .dock-preview {
+  background-color: #0a0e18;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0px, transparent 11px, color-mix(in srgb, var(--accent) 8%, transparent) 11px, color-mix(in srgb, var(--accent) 8%, transparent) 12px),
+    repeating-linear-gradient(90deg, transparent 0px, transparent 11px, color-mix(in srgb, var(--accent) 8%, transparent) 11px, color-mix(in srgb, var(--accent) 8%, transparent) 12px),
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 12%, transparent), transparent 65%);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  box-shadow:
+    0 18px 45px rgba(0, 0, 0, 0.75),
+    0 0 22px color-mix(in srgb, var(--accent) 30%, transparent),
+    inset 0 0 20px color-mix(in srgb, var(--accent) 6%, transparent);
+}
+body.dock-preview-blueprint .dock-preview::before,
+body:not([class*="dock-preview-"]) .dock-preview::before {
+  content: ""; position: absolute; top: 0; left: 0;
+  width: 40px; height: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+body.dock-preview-blueprint .dock-preview::after,
+body:not([class*="dock-preview-"]) .dock-preview::after {
+  content: ""; position: absolute; bottom: -14px;
+  left: var(--tail-x, 50%); width: 1px; height: 14px;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--accent) 60%, transparent), transparent);
+  transform: translateX(-50%); pointer-events: none;
+}
+body.dock-preview-blueprint .dock-preview-header,
+body:not([class*="dock-preview-"]) .dock-preview-header {
+  border-bottom: 1px dashed color-mix(in srgb, var(--accent) 40%, transparent);
+}
+body.dock-preview-blueprint .dock-preview-title,
+body:not([class*="dock-preview-"]) .dock-preview-title {
+  color: var(--accent); letter-spacing: 2px; text-transform: uppercase;
+  text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+body.dock-preview-blueprint .dock-preview-sub,
+body:not([class*="dock-preview-"]) .dock-preview-sub {
+  color: color-mix(in srgb, var(--accent) 55%, var(--text-sub));
+}
+body.dock-preview-blueprint .dock-preview-close,
+body:not([class*="dock-preview-"]) .dock-preview-close {
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  color: var(--accent);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+body.dock-preview-blueprint .dock-preview-close:hover,
+body:not([class*="dock-preview-"]) .dock-preview-close:hover {
+  background: var(--accent-red); border-color: var(--accent-red); color: #0a0e18;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent-red) 60%, transparent);
+}
+body.dock-preview-blueprint .dock-preview-sketch,
+body:not([class*="dock-preview-"]) .dock-preview-sketch {
+  border: 1px dashed color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, #0a0e18 75%, transparent);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+body.dock-preview-blueprint .dock-preview-sketch-bar,
+body:not([class*="dock-preview-"]) .dock-preview-sketch-bar {
+  border-bottom: 1px dashed color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+body.dock-preview-blueprint .sketch-dot,
+body:not([class*="dock-preview-"]) .sketch-dot {
+  border-radius: 0; background: transparent;
+  border: 1px solid color-mix(in srgb, var(--accent) 70%, transparent);
+}
+body.dock-preview-blueprint .dock-preview-sketch-bar .sketch-title,
+body:not([class*="dock-preview-"]) .dock-preview-sketch-bar .sketch-title {
+  color: color-mix(in srgb, var(--accent) 80%, transparent);
+}
+body.dock-preview-blueprint .dock-preview-sketch-body,
+body:not([class*="dock-preview-"]) .dock-preview-sketch-body {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 3%, transparent), transparent),
+    repeating-linear-gradient(0deg, transparent 0, transparent 14px, color-mix(in srgb, var(--accent) 5%, transparent) 14px, color-mix(in srgb, var(--accent) 5%, transparent) 15px);
+}
+body.dock-preview-blueprint .sketch-line,
+body:not([class*="dock-preview-"]) .sketch-line {
+  border-radius: 0; background: var(--accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+body.dock-preview-blueprint .sketch-line.w40,
+body:not([class*="dock-preview-"]) .sketch-line.w40 { opacity: 0.75; }
+body.dock-preview-blueprint .sketch-line.w60,
+body:not([class*="dock-preview-"]) .sketch-line.w60 { opacity: 0.5; }
+body.dock-preview-blueprint .sketch-line.w75,
+body:not([class*="dock-preview-"]) .sketch-line.w75 { opacity: 0.35; }
+body.dock-preview-blueprint .sketch-line.w90,
+body:not([class*="dock-preview-"]) .sketch-line.w90 { opacity: 0.22; }
+body.dock-preview-blueprint .sketch-block,
+body:not([class*="dock-preview-"]) .sketch-block {
+  border-radius: 0;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent) 30%, transparent);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+body.dock-preview-blueprint .dock-preview-badge,
+body:not([class*="dock-preview-"]) .dock-preview-badge {
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+body.dock-preview-blueprint .dock-preview.is-minimized .dock-preview-sketch-body,
+body:not([class*="dock-preview-"]) .dock-preview.is-minimized .dock-preview-sketch-body { opacity: 0.4; }
+body.dock-preview-blueprint .dock-preview.is-minimized .dock-preview-sketch-bar,
+body:not([class*="dock-preview-"]) .dock-preview.is-minimized .dock-preview-sketch-bar { filter: grayscale(0.4) brightness(0.85); }
+
+/* En dock unified-bottom, la línea de guía apunta hacia arriba (solo blueprint) */
+body.dock-unified-bottom.dock-preview-blueprint .dock-preview::after,
+body.dock-unified-bottom:not([class*="dock-preview-"]) .dock-preview::after {
+  bottom: auto; top: -14px;
+  background: linear-gradient(to top, color-mix(in srgb, var(--accent) 60%, transparent), transparent);
+}
+
+/* ---------- Los estilos Glass, Minimal y Compacto se agregarán luego ---------- */
+/* Solo hacen falta: body.dock-preview-glass .dock-preview { ... } etc. */
+
 /* DOCK UNIFIED BOTTOM MODE */
 body.dock-unified-bottom #dock {
   left: 0; right: 0; bottom: 0; transform: none; width: 100%; border-radius: 0;
@@ -1125,4 +1582,5 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   .hud-telemetry-grid { grid-template-columns: 1fr; }
   .hud-bottom-bar { grid-template-columns: 1fr; }
   .designer-presets-grid { grid-template-columns: 1fr; }
+  .hover-styles-grid { grid-template-columns: 1fr; }
 }

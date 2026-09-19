@@ -88,6 +88,14 @@ const TRACKS = [
   { title: 'Cyberpunk Night City Beat', artist: 'Hyper Sound', art: './spotify/top 50.jpg', duration: 192 }
 ];
 
+/* ================= CATÁLOGO DE ESTILOS DE DOCK PREVIEW ================= */
+const DOCK_PREVIEW_STYLES = {
+  blueprint: { name: 'Blueprint', desc: 'Plano técnico / sci-fi con líneas de acento', available: true },
+  glass:     { name: 'Glass',     desc: 'Cristal translúcido y bordes suaves',        available: false },
+  minimal:   { name: 'Minimal',   desc: 'Limpio y directo, sin adornos',              available: false },
+  compact:   { name: 'Compacto',  desc: 'Solo lo esencial: ícono y datos',            available: false }
+};
+
 /* ================= VARIABLES GLOBALES DE ESTADO ================= */
 let openWindows = {};
 let zIndexCounter = 100;
@@ -136,10 +144,15 @@ let designerState = {
   panelAlpha: 0.72,
   blurAmount: 18,
   borderRadius: 14,
-  dockStyle: 'floating'
+  dockStyle: 'floating',
+  dockPreviewStyle: 'blueprint'
 };
 
 let desktopWidgets = [];
+
+/* ★ NUEVO: estado del Dock Hover Preview */
+let dockPreviewEl = null;
+let dockPreviewTimeout = null;
 
 const SETTINGS_STORAGE_KEY = 'nebula-os:settings';
 const WALLPAPER_STORAGE_KEY = 'nebula-os:wallpaper';
@@ -860,6 +873,27 @@ function setDockStyle(style) {
   renderSettingsApp();
 }
 
+/* ★ NUEVO: aplicar estilo del Dock Hover Preview */
+function applyDockPreviewStyle(styleId) {
+  const allStyles = Object.keys(DOCK_PREVIEW_STYLES);
+  allStyles.forEach(s => document.body.classList.remove(`dock-preview-${s}`));
+  document.body.classList.add(`dock-preview-${styleId}`);
+}
+
+function setDockPreviewStyle(styleId) {
+  const style = DOCK_PREVIEW_STYLES[styleId];
+  if (!style) return;
+  if (!style.available) {
+    showToast('Estilo no disponible', `"${style.name}" estará disponible próximamente.`, 'lock');
+    return;
+  }
+  designerState.dockPreviewStyle = styleId;
+  applyDockPreviewStyle(styleId);
+  saveDesignerState();
+  showToast('Apariencia del Hover', `Estilo "${style.name}" aplicado.`, 'layout');
+  renderSettingsApp();
+}
+
 function saveDesignerState() {
   try {
     localStorage.setItem(DESIGNER_STORAGE_KEY, JSON.stringify(designerState));
@@ -1353,6 +1387,11 @@ function loadPersistedState() {
       root.style.setProperty('--radius-md', `${designerState.borderRadius}px`);
       root.style.setProperty('--radius-lg', `${parseInt(designerState.borderRadius, 10) + 6}px`);
       document.body.classList.toggle('dock-unified-bottom', designerState.dockStyle === 'unified-bottom');
+      // ★ Aplicar estilo de Dock Hover Preview guardado
+      applyDockPreviewStyle(designerState.dockPreviewStyle || 'blueprint');
+    } else {
+      // ★ Primera vez: aplicar default
+      applyDockPreviewStyle('blueprint');
     }
 
     const savedWidgets = JSON.parse(localStorage.getItem(WIDGETS_STORAGE_KEY));
@@ -1420,6 +1459,7 @@ function switchWorkspace(num) {
   });
 
   if (!hasActiveInWorkspace) updateTopBar(null);
+  hideDockPreview(); // ★ limpiar preview al cambiar de workspace
   renderDock();
 }
 
@@ -1894,11 +1934,136 @@ function renderDock() {
     div.tabIndex = 0;
     div.setAttribute('role', 'button');
     div.title = APPS[id].title;
+    div.dataset.appId = id; // ★ para el preview
     div.innerHTML = `${getAppTileHTML(id)}<div class="dot"></div>`;
     div.onclick = () => openApp(id);
+
+    // ★ NUEVO: listeners para el Dock Hover Preview (solo si hay ventana)
+    if (win) {
+      div.addEventListener('mouseenter', () => showDockPreview(id, div));
+      div.addEventListener('mouseleave', () => hideDockPreview());
+    }
+
     dock.appendChild(div);
   });
   refreshIcons();
+}
+
+/* ================= ★ DOCK HOVER PREVIEW — BLUEPRINT ================= */
+function buildDockPreviewHTML(appId) {
+  const app = APPS[appId];
+  const win = openWindows[appId];
+  if (!app || !win) return '';
+
+  const isMinimized = win.classList.contains('minimized');
+  const isOtherWs = parseInt(win.dataset.ws) !== currentWorkspace;
+
+  const badges = [];
+  if (isMinimized) {
+    badges.push(`<span class="dock-preview-badge minimized"><i data-lucide="minus-circle"></i> MINIMIZED</span>`);
+  }
+  if (isOtherWs) {
+    badges.push(`<span class="dock-preview-badge other-ws"><i data-lucide="layers"></i> SPACE ${win.dataset.ws}</span>`);
+  }
+
+  return `
+    <div class="dock-preview-header">
+      <div class="dock-preview-meta">
+        <span class="dock-preview-title">${escapeHtml(app.title)}</span>
+        <span class="dock-preview-sub">${escapeHtml(app.sub)}</span>
+      </div>
+      <button class="dock-preview-close" type="button" title="Cerrar ventana" aria-label="Cerrar ventana">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <div class="dock-preview-sketch">
+      <div class="dock-preview-sketch-bar ${app.tileClass}">
+        <span class="sketch-dot min"></span>
+        <span class="sketch-dot max"></span>
+        <span class="sketch-dot close"></span>
+        <span class="sketch-title">${escapeHtml(app.title)}</span>
+      </div>
+      <div class="dock-preview-sketch-body">
+        <span class="sketch-line accent w40"></span>
+        <span class="sketch-line w90"></span>
+        <span class="sketch-line w75"></span>
+        <span class="sketch-line w60"></span>
+        <span class="sketch-block"></span>
+      </div>
+    </div>
+
+    ${badges.length ? `<div class="dock-preview-badges">${badges.join('')}</div>` : ''}
+  `;
+}
+
+function showDockPreview(appId, dockItemEl) {
+  clearTimeout(dockPreviewTimeout);
+  dockPreviewTimeout = setTimeout(() => {
+    // Si ya hay uno visible, lo sacamos
+    hideDockPreview(true);
+
+    const win = openWindows[appId];
+    if (!win) return;
+
+    const preview = document.createElement('div');
+    preview.className = 'dock-preview';
+    if (win.classList.contains('minimized')) preview.classList.add('is-minimized');
+    preview.dataset.appId = appId;
+    preview.innerHTML = buildDockPreviewHTML(appId);
+
+    document.body.appendChild(preview);
+
+    // Posicionar arriba del dock item (centrado)
+    const rect = dockItemEl.getBoundingClientRect();
+    const previewRect = preview.getBoundingClientRect();
+    let left = rect.left + rect.width / 2 - previewRect.width / 2;
+    left = Math.max(10, Math.min(window.innerWidth - previewRect.width - 10, left));
+    const top = rect.top - previewRect.height - 18;
+
+    preview.style.left = `${left}px`;
+    preview.style.top = `${top}px`;
+
+    // Tail apuntando al dock item
+    const tailX = (rect.left + rect.width / 2) - left;
+    preview.style.setProperty('--tail-x', `${tailX}px`);
+
+    // Click en el preview (fuera del botón cerrar) → enfocar ventana
+    preview.addEventListener('click', (e) => {
+      if (e.target.closest('.dock-preview-close')) return;
+      focusWindow(appId);
+      if (parseInt(win.dataset.ws) !== currentWorkspace) {
+        switchWorkspace(parseInt(win.dataset.ws));
+        focusWindow(appId);
+      }
+      hideDockPreview();
+    });
+
+    // Botón cerrar
+    preview.querySelector('.dock-preview-close')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeApp(appId);
+      hideDockPreview();
+    });
+
+    requestAnimationFrame(() => preview.classList.add('visible'));
+    refreshIcons();
+
+    dockPreviewEl = preview;
+  }, 180); // delay tipo Windows 11
+}
+
+function hideDockPreview(instant = false) {
+  clearTimeout(dockPreviewTimeout);
+  if (!dockPreviewEl) return;
+  const el = dockPreviewEl;
+  dockPreviewEl = null;
+  if (instant) {
+    el.remove();
+    return;
+  }
+  el.classList.remove('visible');
+  setTimeout(() => el.remove(), 180);
 }
 
 function updateTopBar(id) {
@@ -2025,6 +2190,7 @@ function closeApp(id) {
     activeAppId = null;
     updateTopBar(null);
     renderDock();
+    hideDockPreview(); // ★ limpiar preview al cerrar
   }
 }
 
@@ -2548,6 +2714,8 @@ function getAppContent(id) {
 }
 
 function getDesignerSettingsHTML() {
+  const currentStyle = designerState.dockPreviewStyle || 'blueprint';
+
   return `
     <div class="settings-heading">
       <div>
@@ -2655,6 +2823,72 @@ function getDesignerSettingsHTML() {
         <strong>Barra Unificada Inferior</strong>
         <small style="display:block; margin-top:3px; color:var(--text-sub);">Estilo Taskbar de Windows</small>
       </div>
+    </div>
+
+    <div class="settings-section-label">Apariencia del Hover</div>
+
+    <!-- Preview en vivo del estilo activo -->
+    <div class="hover-live-preview">
+      <div class="hover-live-preview-inner">
+        <span class="hover-live-preview-label">Estilo activo: <strong>${DOCK_PREVIEW_STYLES[currentStyle]?.name || 'Blueprint'}</strong></span>
+        <div class="dock-preview visible" style="position: relative; opacity: 1; transform: none; pointer-events: none;">
+          <div class="dock-preview-header">
+            <div class="dock-preview-meta">
+              <span class="dock-preview-title">Terminal</span>
+              <span class="dock-preview-sub">WezTerm Emulator</span>
+            </div>
+            <button class="dock-preview-close" type="button" aria-label="Cerrar ventana">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+          <div class="dock-preview-sketch">
+            <div class="dock-preview-sketch-bar app-tile-terminal">
+              <span class="sketch-dot min"></span>
+              <span class="sketch-dot max"></span>
+              <span class="sketch-dot close"></span>
+              <span class="sketch-title">Terminal</span>
+            </div>
+            <div class="dock-preview-sketch-body">
+              <span class="sketch-line accent w40"></span>
+              <span class="sketch-line w90"></span>
+              <span class="sketch-line w75"></span>
+              <span class="sketch-line w60"></span>
+              <span class="sketch-block"></span>
+            </div>
+          </div>
+          <div class="dock-preview-badges">
+            <span class="dock-preview-badge other-ws"><i data-lucide="layers"></i> SPACE 2</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Selector de cards -->
+    <div class="hover-styles-grid" style="margin-top:12px;">
+      ${Object.entries(DOCK_PREVIEW_STYLES).map(([styleId, style]) => {
+        const isSelected = styleId === currentStyle;
+        const isLocked = !style.available;
+        const thumbClass = `thumb-${styleId}`;
+        return `
+          <div class="hover-style-card ${isSelected ? 'selected' : ''} ${isLocked ? 'locked' : ''}"
+               onclick="${isLocked ? '' : `setDockPreviewStyle('${styleId}')`}">
+            ${isLocked ? `<span class="hover-style-badge">PRÓXIMAMENTE</span>` : ''}
+            <div class="hover-style-thumb ${thumbClass}">
+              <div class="hover-style-thumb-bar">
+                <span class="t-dot red"></span>
+                <span class="t-dot orange"></span>
+                <span class="t-dot green"></span>
+              </div>
+              <div class="hover-style-thumb-body">
+                <span class="hover-style-thumb-line accent w40"></span>
+                <span class="hover-style-thumb-line w70"></span>
+              </div>
+            </div>
+            <strong>${style.name}</strong>
+            <small>${style.desc}</small>
+          </div>
+        `;
+      }).join('')}
     </div>
   `;
 }
