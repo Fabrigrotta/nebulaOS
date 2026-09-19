@@ -90,11 +90,14 @@ const TRACKS = [
 
 /* ================= CATÁLOGO DE ESTILOS DE DOCK PREVIEW ================= */
 const DOCK_PREVIEW_STYLES = {
-  blueprint: { name: 'Blueprint',      desc: 'Plano técnico / sci-fi con líneas de acento',  available: true },
-  minimal:   { name: 'Minimal',        desc: 'Limpio y directo, sin adornos',                available: true },
-  brutalist: { name: 'Neo-Brutalism',  desc: 'Borde grueso y sombra dura estilo brutalista', available: true },
-  glass:     { name: 'Glass',          desc: 'Cristal translúcido y bordes suaves',          available: false },
-  compact:   { name: 'Compacto',       desc: 'Solo lo esencial: ícono y datos',              available: false }
+  blueprint: { name: 'Blueprint',      desc: 'Plano técnico / sci-fi con líneas de acento',     available: true },
+  minimal:   { name: 'Minimal',        desc: 'Limpio y directo, sin adornos',                   available: true },
+  brutalist: { name: 'Neo-Brutalism',  desc: 'Borde grueso y sombra dura estilo brutalista',    available: true },
+  hologram:  { name: 'Hologram',       desc: 'Cristal translúcido con neón y scanline animado', available: true },
+  crt:       { name: 'Terminal CRT',   desc: 'Monitor retro con scanlines y fósforo',           available: true },
+  arcade:    { name: 'Arcade',         desc: 'Pixelado retro estilo NES / arcade',              available: true },
+  glass:     { name: 'Glass',          desc: 'Cristal translúcido y bordes suaves',             available: false },
+  compact:   { name: 'Compacto',       desc: 'Solo lo esencial: ícono y datos',                 available: false }
 };
 
 /* ================= VARIABLES GLOBALES DE ESTADO ================= */
