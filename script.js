@@ -160,22 +160,24 @@ let dockPreviewTimeout = null;
 
 let windowManagerOpen = false;
 
-/* ★ Estado del drag & drop del WM (workspaces + trash) */
 let wmDragState = null;
 
-/* ★ Estado del context menu de las cards del WM */
 let wmCardContextMenuEl = null;
 let wmCardContextMenuWinId = null;
 
 let dockContextMenuEl = null;
 let dockContextMenuAppId = null;
 
-/* ★ Control de guardado debounced de la sesión */
 let sessionSaveTimeout = null;
 let isRestoringSession = false;
 
-/* ★ Variable de resize activo */
 let isResizing = false;
+
+const launcherState = {
+  query: '',
+  results: [],
+  selectedIndex: 0
+};
 
 const SETTINGS_STORAGE_KEY = 'nebula-os:settings';
 const WALLPAPER_STORAGE_KEY = 'nebula-os:wallpaper';
@@ -190,7 +192,6 @@ const BRIGHTNESS_STORAGE_KEY = 'nebula-os:brightness';
 const CALENDAR_NOTES_STORAGE_KEY = 'nebula-os:calendar-notes';
 const SESSION_STORAGE_KEY = 'nebula-os:session';
 
-/* ★ NUEVO: threshold para normalizar z-index de ventanas */
 const Z_INDEX_NORMALIZE_THRESHOLD = 800;
 const Z_INDEX_BASE = 100;
 
@@ -246,11 +247,8 @@ function getInstanceNumber(winId) {
 
 /* =====================================================
    ★ NORMALIZACIÓN DE Z-INDEX
-   Evita que el contador crezca infinitamente y que las
-   ventanas tapen overlays críticos (launcher, WM, toasts, boot).
 ===================================================== */
 function normalizeZIndexes() {
-  /* Ordenamos las ventanas abiertas por su z-index actual (ascendente) */
   const sorted = Object.keys(openWindows)
     .map(winId => {
       const entry = openWindows[winId];
@@ -263,14 +261,12 @@ function normalizeZIndexes() {
     .filter(item => item.win)
     .sort((a, b) => a.z - b.z);
 
-  /* Reindexamos desde Z_INDEX_BASE, preservando el orden relativo */
   zIndexCounter = Z_INDEX_BASE;
   sorted.forEach(item => {
     zIndexCounter++;
     item.win.style.zIndex = zIndexCounter;
   });
 
-  /* Guardamos el nuevo estado reindexado */
   scheduleSaveSession();
 }
 
@@ -428,9 +424,7 @@ function saveSessionState(immediate = false) {
       };
 
       localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionData));
-    } catch (e) {
-      /* Silencioso */
-    }
+    } catch (e) {}
   };
 
   if (immediate) {
@@ -552,7 +546,6 @@ function restoreSessionState() {
     if (windowManagerOpen) renderWindowManager();
     refreshIcons();
   } catch (e) {
-    /* Silencioso */
   } finally {
     isRestoringSession = false;
   }
@@ -2742,7 +2735,6 @@ function renderWindowManager() {
   const sectionTitle = document.getElementById('wm-section-title');
   if (!strip || !grid || !empty) return;
 
-  /* ============ 1) TIRA DE WORKSPACES ============ */
   strip.innerHTML = '';
 
   for (let ws = 1; ws <= TOTAL_WORKSPACES; ws++) {
@@ -2790,7 +2782,6 @@ function renderWindowManager() {
 
   setupWmDragAndDrop();
 
-  /* ============ 2) GRID DE VENTANAS DEL WORKSPACE ACTIVO ============ */
   const activeWsWinIds = getWindowsInWorkspace(currentWorkspace);
 
   if (sectionTitle) {
@@ -2930,7 +2921,7 @@ function focusFromWindowManager(winId) {
 }
 
 /* =====================================================
-   ★ WM TRASH ZONE — eliminar ventanas arrastrando
+   ★ WM TRASH ZONE
 ===================================================== */
 function setupWmTrashZone() {
   const trash = document.getElementById('wm-trash-zone');
@@ -2997,7 +2988,7 @@ function deleteWindowFromWm(winId) {
 }
 
 /* =====================================================
-   ★ WM CARD CONTEXT MENU — click derecho sobre cards del WM
+   ★ WM CARD CONTEXT MENU
 ===================================================== */
 function showWmCardContextMenu(winId, event) {
   const entry = openWindows[winId];
@@ -3308,7 +3299,7 @@ function cleanupWmDrag() {
 }
 
 /* =====================================================
-   ★ SETUP WINDOW RESIZE — 8 handles (N, S, E, W, NE, NW, SE, SW)
+   ★ SETUP WINDOW RESIZE
 ===================================================== */
 function setupWindowResize(win) {
   const MIN_W = 450;
@@ -3420,7 +3411,7 @@ function setupWindowResize(win) {
   });
 }
 
-/* ================= GESTIÓN DE VENTANAS (multi-instancia) ================= */
+/* ================= GESTIÓN DE VENTANAS ================= */
 function openApp(appId, forceNew = false, restoreData = null) {
   const app = APPS[appId];
   if (!app) return;
@@ -3603,14 +3594,10 @@ function focusWindow(winId) {
   win.classList.add('focused');
   win.classList.remove('minimized');
 
-  /* ★ NUEVO: Normalizamos z-index si el contador creció demasiado */
   if (zIndexCounter >= Z_INDEX_NORMALIZE_THRESHOLD) {
-    /* Normalizamos primero: reindexa todas las ventanas desde Z_INDEX_BASE
-       preservando el orden relativo, y deja zIndexCounter al máximo. */
     normalizeZIndexes();
   }
 
-  /* Ahora subimos la ventana activa al tope (zIndexCounter ya está actualizado) */
   win.style.zIndex = ++zIndexCounter;
 
   if (parseInt(win.dataset.ws) === currentWorkspace) {
@@ -4716,7 +4703,9 @@ function getSystemSettingsHTML() {
   `;
 }
 
-/* ================= LAUNCHER OVERLAY ================= */
+/* =====================================================
+   ★ LAUNCHER OVERLAY — Búsqueda global
+===================================================== */
 const launcherOverlay = document.getElementById('launcher-overlay');
 const launcherInput = document.getElementById('launcher-input');
 const launcherResults = document.getElementById('launcher-results');
@@ -4724,49 +4713,369 @@ const launcherResults = document.getElementById('launcher-results');
 function toggleLauncher() {
   if (!launcherOverlay) return;
   if (launcherOverlay.classList.contains('open')) {
-    launcherOverlay.classList.remove('open');
+    closeLauncher();
   } else {
-    launcherOverlay.classList.add('open');
-    if (launcherInput) {
-      launcherInput.value = '';
-      renderLauncherResults('');
-      setTimeout(() => launcherInput.focus(), 50);
-    }
+    openLauncher();
+  }
+}
+
+function openLauncher() {
+  if (!launcherOverlay) return;
+  launcherOverlay.classList.add('open');
+  launcherState.query = '';
+  launcherState.selectedIndex = 0;
+  if (launcherInput) {
+    launcherInput.value = '';
+    renderLauncherResults('');
+    setTimeout(() => launcherInput.focus(), 50);
   }
   refreshIcons();
 }
 
+function closeLauncher() {
+  if (!launcherOverlay) return;
+  launcherOverlay.classList.remove('open');
+  launcherState.query = '';
+  launcherState.results = [];
+  launcherState.selectedIndex = 0;
+}
+
 launcherOverlay?.addEventListener('mousedown', e => {
-  if (e.target === launcherOverlay) toggleLauncher();
-});
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && launcherOverlay?.classList.contains('open')) toggleLauncher();
-});
-launcherInput?.addEventListener('input', e => {
-  renderLauncherResults(e.target.value.toLowerCase());
+  if (e.target === launcherOverlay) closeLauncher();
 });
 
-function renderLauncherResults(query) {
-  if (!launcherResults) return;
-  launcherResults.innerHTML = '';
-  Object.keys(APPS).forEach(id => {
-    const app = APPS[id];
-    if (app.title.toLowerCase().includes(query) || app.sub.toLowerCase().includes(query)) {
-      const res = document.createElement('div');
-      res.className = 'result';
-      res.innerHTML = `
-        ${getAppTileHTML(id)}
-        <div class="meta"><div class="title">${app.title}</div><div class="sub">${app.sub}</div></div>
-      `;
-      res.onclick = (e) => {
-        const forceNew = e.ctrlKey || e.metaKey;
-        openApp(id, forceNew);
-        toggleLauncher();
-      };
-      launcherResults.appendChild(res);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && launcherOverlay?.classList.contains('open')) closeLauncher();
+});
+
+launcherInput?.addEventListener('input', e => {
+  launcherState.query = e.target.value;
+  launcherState.selectedIndex = 0;
+  renderLauncherResults(e.target.value);
+});
+
+launcherInput?.addEventListener('keydown', handleLauncherKeydown);
+
+function buildLauncherActions() {
+  return [
+    { id: 'action-gamemode', title: 'Activar / Desactivar Modo Juego', sub: 'Boost de CPU/GPU, libera RAM y activa HUD', icon: 'gamepad-2', category: 'Acción', keywords: ['modo juego', 'game mode', 'gamemode', 'boost', 'gamer'], run: () => toggleGameMode() },
+    { id: 'action-hud', title: 'Alternar Gaming HUD', sub: 'Overlay con telemetría de hardware (Alt+Z)', icon: 'activity', category: 'Acción', keywords: ['hud', 'overlay', 'telemetria', 'gaming', 'alt z'], run: () => toggleGamerOverlay() },
+    { id: 'action-wallpaper-next', title: 'Siguiente fondo de pantalla', sub: 'Rota al siguiente wallpaper disponible', icon: 'image', category: 'Acción', keywords: ['wallpaper', 'fondo', 'siguiente', 'rotar'], run: () => applyWallpaper((currentWallpaperIndex + 1) % WALLPAPERS.length) },
+    { id: 'action-ram-boost', title: 'Optimizar RAM', sub: 'Libera memoria y limpia cache', icon: 'sparkles', category: 'Acción', keywords: ['optimizar', 'ram', 'limpiar', 'memoria', 'boost'], run: () => simulateRamBoost() },
+    { id: 'action-clear-widgets', title: 'Limpiar widgets del escritorio', sub: 'Remueve todos los widgets flotantes', icon: 'trash-2', category: 'Acción', keywords: ['limpiar', 'widgets', 'escritorio', 'borrar'], run: () => clearDesktopWidgets() },
+    { id: 'action-close-all', title: 'Cerrar todas las ventanas', sub: 'Cierra todas las apps abiertas', icon: 'x-circle', category: 'Acción', keywords: ['cerrar', 'close', 'todas', 'ventanas', 'apps'], run: () => { Object.keys(openWindows).forEach(id => closeApp(id)); showToast('Ventanas cerradas', 'Se cerraron todas las apps abiertas.', 'x-circle'); } },
+    { id: 'action-profile-gamer', title: 'Perfil: Gamer', sub: 'Aplica tema Cyberpunk + Game Mode + telemetría', icon: 'gamepad-2', category: 'Perfil', keywords: ['perfil', 'gamer', 'profile'], run: () => switchProfile('gamer') },
+    { id: 'action-profile-streamer', title: 'Perfil: Streamer', sub: 'Aplica tema Synthwave + widget multimedia', icon: 'radio', category: 'Perfil', keywords: ['perfil', 'streamer', 'profile'], run: () => switchProfile('streamer') },
+    { id: 'action-profile-studio', title: 'Perfil: Estudio', sub: 'Aplica tema Catppuccin + workspace 1', icon: 'terminal', category: 'Perfil', keywords: ['perfil', 'estudio', 'studio', 'dev'], run: () => switchProfile('studio') },
+    { id: 'action-theme-cyberpunk', title: 'Tema: Cyberpunk Neón', sub: 'Paleta cyan/rosa con alto contraste', icon: 'palette', category: 'Tema', keywords: ['tema', 'cyberpunk', 'neon', 'theme'], run: () => applyThemePreset('cyberpunk') },
+    { id: 'action-theme-catppuccin', title: 'Tema: Minimal Catppuccin', sub: 'Paleta pastel suave y relajante', icon: 'palette', category: 'Tema', keywords: ['tema', 'catppuccin', 'minimal', 'theme'], run: () => applyThemePreset('catppuccin') },
+    { id: 'action-theme-synthwave', title: 'Tema: Retro Synthwave', sub: 'Magenta brillante, estética 80s', icon: 'palette', category: 'Tema', keywords: ['tema', 'synthwave', 'retro', 'theme'], run: () => applyThemePreset('synthwave') },
+    { id: 'action-theme-stealth', title: 'Tema: Dark Stealth', sub: 'Carbón táctico, esmeralda de bajo consumo', icon: 'palette', category: 'Tema', keywords: ['tema', 'stealth', 'oscuro', 'dark', 'theme'], run: () => applyThemePreset('stealth') },
+    { id: 'action-workspace-1', title: 'Ir al Space 1', sub: 'Cambiar al primer escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '1'], run: () => switchWorkspace(1) },
+    { id: 'action-workspace-2', title: 'Ir al Space 2', sub: 'Cambiar al segundo escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '2'], run: () => switchWorkspace(2) },
+    { id: 'action-workspace-3', title: 'Ir al Space 3', sub: 'Cambiar al tercer escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '3'], run: () => switchWorkspace(3) },
+    { id: 'action-workspace-4', title: 'Ir al Space 4', sub: 'Cambiar al cuarto escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '4'], run: () => switchWorkspace(4) },
+    { id: 'action-workspace-5', title: 'Ir al Space 5', sub: 'Cambiar al quinto escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '5'], run: () => switchWorkspace(5) },
+    { id: 'action-open-wm', title: 'Abrir Administrador de Escritorios', sub: 'Vista general de spaces y ventanas', icon: 'layout-grid', category: 'Acción', keywords: ['wm', 'window manager', 'administrador', 'escritorios'], run: () => openWindowManager() },
+    { id: 'action-open-settings-designer', title: 'Abrir Nebula Designer', sub: 'Personalizar colores, blur y bordes', icon: 'palette', category: 'Acción', keywords: ['designer', 'ajustes', 'settings', 'personalizar'], run: () => openSettingsTab('designer') }
+  ];
+}
+
+function buildLauncherCommands() {
+  return [
+    { id: 'cmd-help', title: '> help', sub: 'Ver todos los comandos disponibles', icon: 'help-circle', category: 'Comando', keywords: ['help', 'ayuda', 'comandos'], run: () => showToast('Comandos disponibles', '> gamemode on/off · > wallpaper 0-2 · > workspace 1-5 · > theme <nombre> · > optimize · > close-all', 'terminal') },
+    { id: 'cmd-optimize', title: '> optimize', sub: 'Libera RAM y limpia cache', icon: 'sparkles', category: 'Comando', keywords: ['optimize', 'optimizar', 'ram'], run: () => simulateRamBoost() },
+    { id: 'cmd-close-all', title: '> close-all', sub: 'Cierra todas las ventanas abiertas', icon: 'x-circle', category: 'Comando', keywords: ['close-all', 'cerrar todo'], run: () => { Object.keys(openWindows).forEach(id => closeApp(id)); showToast('Ventanas cerradas', 'Todas las apps fueron cerradas.', 'x-circle'); } },
+    { id: 'cmd-gamemode-on', title: '> gamemode on', sub: 'Activa Modo Juego', icon: 'gamepad-2', category: 'Comando', keywords: ['gamemode on', 'modo juego on'], run: () => toggleGameMode(true) },
+    { id: 'cmd-gamemode-off', title: '> gamemode off', sub: 'Desactiva Modo Juego', icon: 'gamepad-2', category: 'Comando', keywords: ['gamemode off', 'modo juego off'], run: () => toggleGameMode(false) },
+    { id: 'cmd-wallpaper-0', title: '> wallpaper 0', sub: 'Fondo Nebula', icon: 'image', category: 'Comando', keywords: ['wallpaper 0', 'fondo nebula'], run: () => applyWallpaper(0) },
+    { id: 'cmd-wallpaper-1', title: '> wallpaper 1', sub: 'Fondo Aurora', icon: 'image', category: 'Comando', keywords: ['wallpaper 1', 'fondo aurora'], run: () => applyWallpaper(1) },
+    { id: 'cmd-wallpaper-2', title: '> wallpaper 2', sub: 'Fondo Solar', icon: 'image', category: 'Comando', keywords: ['wallpaper 2', 'fondo solar'], run: () => applyWallpaper(2) },
+    { id: 'cmd-workspace-1', title: '> workspace 1', sub: 'Ir al Space 1', icon: 'layout-grid', category: 'Comando', keywords: ['workspace 1', 'space 1'], run: () => switchWorkspace(1) },
+    { id: 'cmd-workspace-2', title: '> workspace 2', sub: 'Ir al Space 2', icon: 'layout-grid', category: 'Comando', keywords: ['workspace 2', 'space 2'], run: () => switchWorkspace(2) },
+    { id: 'cmd-workspace-3', title: '> workspace 3', sub: 'Ir al Space 3', icon: 'layout-grid', category: 'Comando', keywords: ['workspace 3', 'space 3'], run: () => switchWorkspace(3) },
+    { id: 'cmd-workspace-4', title: '> workspace 4', sub: 'Ir al Space 4', icon: 'layout-grid', category: 'Comando', keywords: ['workspace 4', 'space 4'], run: () => switchWorkspace(4) },
+    { id: 'cmd-workspace-5', title: '> workspace 5', sub: 'Ir al Space 5', icon: 'layout-grid', category: 'Comando', keywords: ['workspace 5', 'space 5'], run: () => switchWorkspace(5) },
+    { id: 'cmd-theme-cyberpunk', title: '> theme cyberpunk', sub: 'Aplicar tema Cyberpunk Neón', icon: 'palette', category: 'Comando', keywords: ['theme cyberpunk', 'tema cyberpunk'], run: () => applyThemePreset('cyberpunk') },
+    { id: 'cmd-theme-catppuccin', title: '> theme catppuccin', sub: 'Aplicar tema Minimal Catppuccin', icon: 'palette', category: 'Comando', keywords: ['theme catppuccin', 'tema catppuccin'], run: () => applyThemePreset('catppuccin') },
+    { id: 'cmd-theme-synthwave', title: '> theme synthwave', sub: 'Aplicar tema Retro Synthwave', icon: 'palette', category: 'Comando', keywords: ['theme synthwave', 'tema synthwave'], run: () => applyThemePreset('synthwave') },
+    { id: 'cmd-theme-stealth', title: '> theme stealth', sub: 'Aplicar tema Dark Stealth', icon: 'palette', category: 'Comando', keywords: ['theme stealth', 'tema stealth'], run: () => applyThemePreset('stealth') }
+  ];
+}
+
+function searchFilesInSystem(query, folder = FILE_SYSTEM, trail = []) {
+  const results = [];
+  const q = query.toLowerCase();
+  const children = folder.children || [];
+
+  children.forEach(child => {
+    const pathHere = [...trail, child.label || child.name];
+    if (child.type === 'folder') {
+      if (child.name.toLowerCase().includes(q)) {
+        results.push({
+          id: 'file-' + pathHere.join('/'),
+          title: child.label || child.name,
+          sub: 'Carpeta · ' + pathHere.join(' / '),
+          icon: 'folder',
+          category: 'Archivo',
+          keywords: [child.name],
+          run: () => { openApp('files'); showToast('Archivo encontrado', `Carpeta en ${pathHere.join(' / ')}`, 'folder'); }
+        });
+      }
+      const sub = searchFilesInSystem(query, child, pathHere);
+      sub.forEach(r => results.push(r));
+    } else {
+      if (child.name.toLowerCase().includes(q)) {
+        results.push({
+          id: 'file-' + pathHere.join('/'),
+          title: child.name,
+          sub: (child.size || 'Archivo') + ' · ' + pathHere.join(' / '),
+          icon: child.type === 'image' ? 'image' : child.type === 'audio' ? 'music' : 'file-text',
+          category: 'Archivo',
+          keywords: [child.name],
+          run: () => {
+            openApp('files');
+            showToast('Archivo encontrado', `Abriendo ${child.name}`, 'folder');
+          }
+        });
+      }
     }
   });
+
+  return results;
+}
+
+function searchCalendarNotes(query) {
+  const q = query.toLowerCase();
+  const results = [];
+
+  Object.keys(calendarState.notes).forEach(key => {
+    const notes = calendarState.notes[key];
+    if (!Array.isArray(notes)) return;
+    notes.forEach((noteText, idx) => {
+      if (noteText.toLowerCase().includes(q)) {
+        const [y, m, d] = key.split('-').map(Number);
+        results.push({
+          id: 'note-' + key + '-' + idx,
+          title: noteText,
+          sub: `Nota del ${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`,
+          icon: 'notebook-pen',
+          category: 'Nota',
+          keywords: [noteText],
+          run: () => {
+            const cc = document.getElementById('control-center');
+            if (cc && cc.classList.contains('hidden')) {
+              cc.classList.remove('hidden');
+            }
+            calendarState.selectedDate = key;
+            const [yy, mm, dd] = key.split('-').map(Number);
+            selectCalendarDate(new Date(yy, mm - 1, dd));
+            renderNotesList();
+            showToast('Nota encontrada', `Del ${String(dd).padStart(2,'0')}/${String(mm).padStart(2,'0')}/${yy}`, 'notebook-pen');
+          }
+        });
+      }
+    });
+  });
+
+  return results;
+}
+
+function searchAppsAndActions(query) {
+  const q = query.toLowerCase().trim();
+  const results = [];
+
+  Object.keys(APPS).forEach(id => {
+    const app = APPS[id];
+    const haystack = (app.title + ' ' + app.sub + ' ' + id).toLowerCase();
+    if (!q || haystack.includes(q)) {
+      results.push({
+        id: 'app-' + id,
+        title: app.title,
+        sub: app.sub,
+        icon: app.icon,
+        image: app.image,
+        tileClass: app.tileClass,
+        category: 'App',
+        keywords: [app.title, app.sub, id],
+        run: () => openApp(id)
+      });
+    }
+  });
+
+  if (q) {
+    const actions = buildLauncherActions();
+    actions.forEach(action => {
+      const haystack = (action.title + ' ' + action.sub + ' ' + (action.keywords || []).join(' ')).toLowerCase();
+      if (haystack.includes(q)) {
+        results.push({
+          id: action.id,
+          title: action.title,
+          sub: action.sub,
+          icon: action.icon,
+          category: action.category,
+          keywords: action.keywords || [],
+          run: action.run
+        });
+      }
+    });
+  }
+
+  return results;
+}
+
+function renderLauncherResults(rawQuery) {
+  if (!launcherResults) return;
+  launcherResults.innerHTML = '';
+  launcherState.results = [];
+
+  const raw = (rawQuery || '').trim();
+  let mode = 'default';
+  let query = raw;
+
+  if (raw.startsWith('>')) {
+    mode = 'command';
+    query = raw.slice(1).trim();
+  } else if (raw.startsWith('?')) {
+    mode = 'files';
+    query = raw.slice(1).trim();
+  } else if (raw.startsWith('@')) {
+    mode = 'notes';
+    query = raw.slice(1).trim();
+  }
+
+  let items = [];
+
+  if (mode === 'command') {
+    const commands = buildLauncherCommands();
+    if (!query) {
+      items = commands;
+    } else {
+      items = commands.filter(c => {
+        const haystack = (c.title + ' ' + c.sub + ' ' + (c.keywords || []).join(' ')).toLowerCase();
+        return haystack.includes(query.toLowerCase());
+      });
+    }
+  } else if (mode === 'files') {
+    if (query) items = searchFilesInSystem(query).slice(0, 30);
+  } else if (mode === 'notes') {
+    if (query) items = searchCalendarNotes(query).slice(0, 20);
+  } else {
+    items = searchAppsAndActions(query);
+    const catWeight = { 'App': 0, 'Acción': 1, 'Perfil': 2, 'Tema': 3, 'Space': 4 };
+    items.sort((a, b) => {
+      const wa = catWeight[a.category] ?? 99;
+      const wb = catWeight[b.category] ?? 99;
+      if (wa !== wb) return wa - wb;
+      return a.title.localeCompare(b.title);
+    });
+  }
+
+  launcherState.results = items;
+  if (launcherState.selectedIndex >= items.length) {
+    launcherState.selectedIndex = Math.max(0, items.length - 1);
+  }
+
+  if (items.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'launcher-empty';
+    if (mode === 'files' && !query) {
+      empty.innerHTML = `<strong>Buscá en tu sistema</strong>Escribí algo después de <code>?</code> para buscar archivos, mods, música o fondos.`;
+    } else if (mode === 'notes' && !query) {
+      empty.innerHTML = `<strong>Buscá en tus notas</strong>Escribí algo después de <code>@</code> para buscar en los recordatorios del calendario.`;
+    } else if (mode === 'command' && !query) {
+      empty.innerHTML = `<strong>Comandos disponibles</strong>Escribí <code>&gt; help</code> para ver el listado completo.`;
+    } else {
+      empty.innerHTML = `<strong>Sin resultados</strong>No encontramos nada que coincida con "<em>${escapeHtml(raw)}</em>".`;
+    }
+    launcherResults.appendChild(empty);
+    launcherResults.appendChild(buildLauncherHint(mode));
+  } else {
+    items.forEach((item, index) => {
+      const res = document.createElement('div');
+      res.className = 'result' + (index === launcherState.selectedIndex ? ' selected' : '');
+      res.dataset.resultIndex = String(index);
+
+      const iconHTML = item.image
+        ? `<div class="app-tile ${item.tileClass || ''}"><img src="${item.image}" alt="${escapeHtml(item.title)}" class="app-tile-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" /><i data-lucide="${item.icon}" style="display:none;"></i></div>`
+        : `<div class="app-tile ${item.tileClass || ''}" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12);"><i data-lucide="${item.icon}"></i></div>`;
+
+      res.innerHTML = `
+        ${iconHTML}
+        <div class="meta">
+          <div class="title">${escapeHtml(item.title)}</div>
+          <div class="sub">${escapeHtml(item.sub)}</div>
+        </div>
+      `;
+
+      res.addEventListener('click', (e) => {
+        e.stopPropagation();
+        launcherState.selectedIndex = index;
+        executeLauncherItem(item);
+      });
+
+      res.addEventListener('mouseenter', () => {
+        launcherState.selectedIndex = index;
+        updateLauncherSelection();
+      });
+
+      launcherResults.appendChild(res);
+    });
+
+    launcherResults.appendChild(buildLauncherHint(mode));
+  }
+
   refreshIcons();
+
+  const selectedEl = launcherResults.querySelector(`.result[data-result-index="${launcherState.selectedIndex}"]`);
+  if (selectedEl) selectedEl.scrollIntoView({ block: 'nearest' });
+}
+
+function buildLauncherHint(mode) {
+  const hint = document.createElement('div');
+  hint.className = 'launcher-hint';
+  hint.innerHTML = `
+    <span class="launcher-hint-item${mode === 'command' ? ' active' : ''}"><kbd>&gt;</kbd><span class="hint-label">Comandos</span></span>
+    <span class="launcher-hint-item${mode === 'files' ? ' active' : ''}"><kbd>?</kbd><span class="hint-label">Archivos</span></span>
+    <span class="launcher-hint-item${mode === 'notes' ? ' active' : ''}"><kbd>@</kbd><span class="hint-label">Notas</span></span>
+  `;
+  return hint;
+}
+
+function updateLauncherSelection() {
+  if (!launcherResults) return;
+  launcherResults.querySelectorAll('.result').forEach(el => {
+    const idx = parseInt(el.dataset.resultIndex, 10);
+    el.classList.toggle('selected', idx === launcherState.selectedIndex);
+  });
+  const selectedEl = launcherResults.querySelector(`.result[data-result-index="${launcherState.selectedIndex}"]`);
+  if (selectedEl) selectedEl.scrollIntoView({ block: 'nearest' });
+}
+
+function executeLauncherItem(item) {
+  if (!item || typeof item.run !== 'function') return;
+  closeLauncher();
+  setTimeout(() => {
+    try { item.run(); } catch (e) {}
+  }, 80);
+}
+
+function handleLauncherKeydown(e) {
+  if (!launcherState.results || launcherState.results.length === 0) return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    launcherState.selectedIndex = (launcherState.selectedIndex + 1) % launcherState.results.length;
+    updateLauncherSelection();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    launcherState.selectedIndex = (launcherState.selectedIndex - 1 + launcherState.results.length) % launcherState.results.length;
+    updateLauncherSelection();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const item = launcherState.results[launcherState.selectedIndex];
+    if (item) executeLauncherItem(item);
+  }
 }
 
 function escapeHtml(value) {
@@ -4788,7 +5097,6 @@ function setupKeyboardAccessibility() {
   });
 }
 
-/* ================= BATERÍA (real o simulada) ================= */
 function updateBatteryUI(level, charging) {
   const item = document.getElementById('tray-battery-item');
   const icon = document.getElementById('tray-battery-icon');
