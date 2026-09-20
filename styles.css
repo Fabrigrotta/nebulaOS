@@ -1149,9 +1149,28 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
 .files-content-bar { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid rgba(255,255,255,0.06); }
 .files-content-bar strong { color: #fff; font-size: 11px; }
 .files-content-bar span { margin-right: auto; color: var(--text-sub); font-size: 10px; }
-.files-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 10px; padding: 12px; overflow-y: auto; flex: 1; min-height: 0; }
-.files-grid .explorer-item { max-width: 140px; justify-self: center; width: 100%; }
-.files-grid .explorer-item .file-visual { aspect-ratio: 1 / 1; height: auto; }
+.files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 120px);
+  gap: 10px;
+  padding: 12px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  justify-content: start;
+  align-content: start;
+}
+.files-grid .explorer-item {
+  width: 120px;
+  height: auto;
+  justify-self: stretch;
+  align-self: start;
+}
+.files-grid .explorer-item .file-visual {
+  aspect-ratio: 1 / 1;
+  height: auto;
+  width: 100%;
+}
 .explorer-item { color: inherit; font: inherit; text-align: center; cursor: pointer; padding: 8px; border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; background: rgba(255,255,255,0.025); transition: all .15s; display: flex; flex-direction: column; align-items: center; }
 .explorer-item:hover, .explorer-item:focus-visible { border-color: var(--accent); background: rgba(180,190,254,0.1); transform: translateY(-2px); outline: none; }
 .explorer-item .file-visual { display: grid; place-items: center; height: 65px; width: 100%; margin-bottom: 4px; }
@@ -1173,7 +1192,6 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
    ★ FILE EXPLORER REALISTA — selección, drag, context menu, modal
 ===================================================== */
 
-/* Botones nuevos de la toolbar */
 .files-toolbar-btn {
   display: inline-flex;
   align-items: center;
@@ -1208,7 +1226,6 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   pointer-events: none;
 }
 
-/* Estado seleccionado en items */
 .explorer-item.selected {
   background: color-mix(in srgb, var(--accent) 20%, rgba(255,255,255,0.04));
   border-color: var(--accent);
@@ -1216,7 +1233,6 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
 }
 .explorer-item.selected strong { color: var(--accent); }
 
-/* Carpeta como dropzone */
 .explorer-item.folder-drop {
   transition: all 0.15s ease;
 }
@@ -1234,7 +1250,6 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   border-style: dashed;
 }
 
-/* Breadcrumb "Inicio" como dropzone (mover a raíz) */
 .files-path.drop-target {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 14%, transparent);
@@ -1243,7 +1258,6 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   transition: all 0.15s ease;
 }
 
-/* Zona de drop vacía en el grid (para mover a la carpeta actual) */
 .files-grid.drag-over-empty {
   background: color-mix(in srgb, var(--accent) 4%, transparent);
   outline: 1px dashed color-mix(in srgb, var(--accent) 40%, transparent);
@@ -1251,7 +1265,6 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   border-radius: 8px;
 }
 
-/* Menú contextual del explorador */
 .fs-context-menu {
   position: fixed;
   z-index: 2750;
@@ -1353,7 +1366,6 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
 .fs-ctx-header .fs-ctx-header-title { color: #fff; font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fs-ctx-header .fs-ctx-header-sub { color: var(--text-sub); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Modal de renombrar */
 .fs-rename-modal {
   position: fixed;
   inset: 0;
@@ -1441,7 +1453,6 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
 }
 .fs-rename-btn.danger:hover { filter: brightness(1.1); }
 
-/* Mini modal de confirmación (eliminar múltiples) */
 .fs-confirm-msg {
   color: var(--text-sub);
   font-size: 12px;
@@ -1450,7 +1461,6 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
 }
 .fs-confirm-msg strong { color: #fff; }
 
-/* Contador de selección en la barra */
 .files-sel-counter {
   font-family: "JetBrains Mono", monospace;
   font-size: 10px;
@@ -1586,7 +1596,6 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   transform: rotate(90deg);
 }
 
-/* ★ Contenedor de paneles: ocupa todo el alto disponible */
 .window-tab-panels {
   flex: 1;
   position: relative;
@@ -1595,7 +1604,6 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   flex-direction: column;
 }
 
-/* ★ Cada panel: flex column, llena todo el alto */
 .window-tab-panel {
   position: absolute;
   inset: 0;
@@ -1615,12 +1623,8 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   min-height: 0;
 }
 
-/* Ajuste: cuando la ventana tiene tabs, el wcontent no aplica padding interno */
 .window.has-tabs .wcontent { padding: 0; }
 
-/* ★ Los hijos directos de un panel ocupan todo el alto del panel.
-   Esto hace que el fondo de .term-body o .files-preview cubra
-   TODA el área de la terminal, no solo el bloque de texto. */
 .window-tab-panel > * {
   flex: 1;
   min-height: 0;
@@ -1628,7 +1632,6 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   flex-direction: column;
 }
 
-/* ★ Asegura que el fondo de la terminal cubra todo el panel */
 .window-tab-panel > .term-body {
   flex: 1;
   min-height: 0;
@@ -2609,4 +2612,152 @@ body.no-animations .window {
   .dock-context-menu { min-width: 220px; }
   .wm-trash-zone { width: 160px; min-height: 90px; bottom: 14px; right: 14px; }
   .wm-trash-icon { width: 28px; height: 28px; }
+}
+
+/* =====================================================
+   ★ GAMING HUB WIDGET
+===================================================== */
+.gaming-hub-widget {
+  min-width: 360px;
+  max-width: 400px;
+  padding: 14px;
+}
+.gaming-hub-widget .widget-titlebar strong {
+  color: #00ffcc;
+  text-shadow: 0 0 8px rgba(0, 255, 204, 0.4);
+}
+.gaming-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.gaming-hub-tile {
+  background: linear-gradient(135deg, rgba(0, 255, 204, 0.06), rgba(0, 0, 0, 0.25));
+  border: 1px solid rgba(0, 255, 204, 0.18);
+  border-radius: 8px;
+  padding: 8px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+.gaming-hub-tile:hover {
+  border-color: rgba(0, 255, 204, 0.45);
+  box-shadow: 0 0 12px rgba(0, 255, 204, 0.15);
+}
+.gaming-hub-tile::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 2px;
+  background: linear-gradient(90deg, transparent, #00ffcc, transparent);
+  opacity: 0.5;
+}
+.gaming-hub-tile-label {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-sub);
+  margin-top: 2px;
+}
+.gaming-hub-tile-value {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 8px rgba(255,255,255,0.15);
+}
+.gaming-hub-tile-unit {
+  font-size: 9px;
+  color: var(--text-sub);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.gaming-hub-tile .tile-icon {
+  color: #00ffcc;
+  filter: drop-shadow(0 0 6px rgba(0, 255, 204, 0.5));
+}
+.gaming-hub-tile .tile-icon svg, .gaming-hub-tile .tile-icon i {
+  width: 16px; height: 16px;
+}
+
+.gaming-hub-tile.good .gaming-hub-tile-value { color: #a6e3a1; text-shadow: 0 0 10px rgba(166,227,161,0.4); }
+.gaming-hub-tile.warn .gaming-hub-tile-value { color: #fab387; text-shadow: 0 0 10px rgba(250,179,135,0.4); }
+.gaming-hub-tile.bad  .gaming-hub-tile-value { color: #f38ba8; text-shadow: 0 0 10px rgba(243,139,168,0.4); }
+
+.gaming-hub-tile-bar {
+  width: 100%;
+  height: 3px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.gaming-hub-tile-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #00ffcc, #a6e3a1);
+  transition: width 0.5s ease, background 0.3s ease;
+}
+.gaming-hub-tile-bar.warn > span { background: linear-gradient(90deg, #fab387, #ff9e00); }
+.gaming-hub-tile-bar.bad  > span { background: linear-gradient(90deg, #f38ba8, #ff2a6d); }
+
+.gaming-hub-ping-spark {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 18px;
+  width: 100%;
+  margin-top: 4px;
+}
+.gaming-hub-ping-spark .spark-bar {
+  flex: 1;
+  min-height: 2px;
+  background: rgba(0, 255, 204, 0.35);
+  border-radius: 1px;
+  transition: height 0.3s ease, background 0.3s ease;
+}
+.gaming-hub-ping-spark .spark-bar.high {
+  background: rgba(250, 179, 135, 0.7);
+}
+.gaming-hub-ping-spark .spark-bar.critical {
+  background: rgba(243, 139, 168, 0.85);
+}
+
+.gaming-hub-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.gaming-hub-footer-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-sub);
+}
+.gaming-hub-footer-label.active {
+  color: #00ffcc;
+  text-shadow: 0 0 8px rgba(0, 255, 204, 0.5);
+}
+.gaming-hub-footer-label svg, .gaming-hub-footer-label i {
+  width: 13px; height: 13px;
+}
+.gaming-hub-footer-label.active svg, .gaming-hub-footer-label.active i {
+  filter: drop-shadow(0 0 6px rgba(0, 255, 204, 0.7));
 }
