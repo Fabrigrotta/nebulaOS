@@ -16,6 +16,17 @@ const TOTAL_WORKSPACES = 5;
 
 const TABBED_APPS = new Set(['terminal', 'files']);
 
+/* Catálogo de widgets disponibles para el Designer */
+const WIDGET_CATALOG = {
+  'gaming-hub': {
+    id: 'gaming-hub',
+    name: 'Gaming Hub',
+    description: 'Monitor unificado de rendimiento: FPS, temperaturas, VRAM, ping y Modo Juego en un solo widget.',
+    icon: 'gamepad-2',
+    type: 'gaming-hub'
+  }
+};
+
 const WALLPAPERS = [
   { file: 'fondo principal.jpg', name: 'Nebula', accent: '#b4befe', text: '#cdd6f4', sub: '#bac2de', green: '#a6e3a1', panel: 'rgba(18,21,33,0.72)' },
   { file: 'fondo 2.jpg', name: 'Aurora', accent: '#89dceb', text: '#d9f4ff', sub: '#a9c6d3', green: '#a6e3a1', panel: 'rgba(11,31,39,0.75)' },
@@ -114,6 +125,9 @@ let fullscreenWindowId = null;
 const widgetStartedAt = Date.now();
 const calendarState = { date: new Date(), selectedDate: null, notes: {} };
 const systemMetrics = { ram: 38, cpu: 24, temp: 42, gpu: 62, vram: 4.8, fps: 144 };
+
+/* Historial de ping (últimos 10 valores, en ms) */
+const pingHistory = [23, 24, 22, 25, 23, 21, 24, 22, 23, 24];
 
 let gameModeActive = false;
 let currentProfile = 'gamer';
@@ -1025,6 +1039,7 @@ function toggleGameMode(explicitState = null) {
   } catch (e) {}
 
   updateHUDTelemetry();
+  updateGamingHubWidget();
   refreshIcons();
 }
 
@@ -1076,8 +1091,10 @@ function setupTelemetryLoop() {
       systemMetrics.fps = 120 + Math.floor(Math.random() * 20);
       systemMetrics.gpu = Math.max(20, Math.min(65, systemMetrics.gpu + Math.round((Math.random() - 0.5) * 8)));
     }
+    simulatePing();
     if (gamerOverlayVisible) updateHUDTelemetry();
     updateWidgetStats();
+    updateGamingHubWidget();
   }, 1200);
 }
 
@@ -1093,6 +1110,7 @@ function simulateRamBoost() {
   systemMetrics.ram = 17;
   updateMetrics();
   updateHUDTelemetry();
+  updateGamingHubWidget();
   showToast('Memoria Optimizada', `RAM liberada de ${previous}% a 17%. 4.8 GB liberados.`, 'sparkles');
 }
 
@@ -1270,7 +1288,8 @@ function addDesktopWidget(type, x = null, y = null) {
   const defaultPositions = {
     hardware: { x: window.innerWidth - 260, y: 60 },
     media:    { x: window.innerWidth - 260, y: 230 },
-    clock:    { x: 24, y: 60 }
+    clock:    { x: 24, y: 60 },
+    'gaming-hub': { x: window.innerWidth - 400, y: 60 }
   };
   const posX = x !== null ? x : (defaultPositions[type]?.x || 40);
   const posY = y !== null ? y : (defaultPositions[type]?.y || 90);
@@ -1280,6 +1299,22 @@ function addDesktopWidget(type, x = null, y = null) {
   renderDesktopWidgets();
   showToast('Widget Añadido', `Widget de ${type} colocado en el escritorio.`, 'plus');
   hideContextMenu();
+}
+
+/* Agrega el Gaming Hub desde el Designer */
+function addGamingHubWidget() {
+  addDesktopWidget('gaming-hub');
+  renderSettingsApp();
+}
+
+/* Quita el Gaming Hub desde el Designer */
+function removeGamingHubWidget() {
+  const existing = desktopWidgets.find(w => w.type === 'gaming-hub');
+  if (existing) {
+    removeDesktopWidget(existing.id);
+    showToast('Widget Removido', 'Gaming Hub retirado del escritorio.', 'trash-2');
+  }
+  renderSettingsApp();
 }
 
 function removeDesktopWidget(id) {
@@ -1317,6 +1352,7 @@ function renderDesktopWidgets() {
     let bodyHTML = '';
     let title = '';
     let iconName = 'activity';
+    let extraClass = '';
 
     if (widget.type === 'hardware') {
       title = 'TELEMETRÍA HARDWARE';
@@ -1356,7 +1392,14 @@ function renderDesktopWidgets() {
           <div class="clock-widget-date">${dateStr}</div>
         </div>
       `;
+    } else if (widget.type === 'gaming-hub') {
+      title = 'GAMING HUB';
+      iconName = 'gamepad-2';
+      extraClass = 'gaming-hub-widget';
+      bodyHTML = renderGamingHubWidgetHTML();
     }
+
+    el.className = `desktop-widget ${extraClass}`.trim();
 
     el.innerHTML = `
       <div class="widget-titlebar">
@@ -1600,11 +1643,9 @@ function startNovaVoiceInput() {
 }
 
 /* =====================================================
-   ★ FEATURE 5: SMART FILE EXPLORER — Sistema realista
-   con drag & drop, menú contextual, selección múltiple
+   ★ FEATURE 5: SMART FILE EXPLORER
 ===================================================== */
 
-/* ---- Estructura base del sistema de archivos (default) ---- */
 function getDefaultFileSystem() {
   return {
     name: 'Inicio', label: 'Inicio', type: 'folder', children: [
@@ -5797,6 +5838,47 @@ function getAppContent(id) {
   return `<div class="app-pad"><h2>${APPS[id].title}</h2><p>${APPS[id].sub}</p></div>`;
 }
 
+/* HTML de la sección de Widgets del Designer */
+function getWidgetsGalleryHTML() {
+  const hasGamingHub = desktopWidgets.some(w => w.type === 'gaming-hub');
+
+  return `
+    <div class="settings-section-label">Widgets de Escritorio</div>
+    <div class="widgets-gallery-grid">
+
+      <div class="widget-gallery-card ${hasGamingHub ? 'active' : ''}">
+        <div class="widget-gallery-preview">
+          <div class="widget-gallery-preview-inner">
+            <div class="widget-gallery-preview-tile"></div>
+            <div class="widget-gallery-preview-tile"></div>
+            <div class="widget-gallery-preview-tile"></div>
+            <div class="widget-gallery-preview-tile"></div>
+            <div class="widget-gallery-preview-tile"></div>
+            <div class="widget-gallery-preview-tile" style="grid-column: span 1;"></div>
+          </div>
+        </div>
+
+        <div class="widget-gallery-info">
+          <strong>${WIDGET_CATALOG['gaming-hub'].name}</strong>
+          <small>${WIDGET_CATALOG['gaming-hub'].description}</small>
+        </div>
+
+        <div class="widget-gallery-action">
+          <span class="widget-gallery-status">
+            <span class="status-dot"></span>
+            ${hasGamingHub ? 'Activo' : 'Inactivo'}
+          </span>
+          ${hasGamingHub
+            ? `<button class="widget-gallery-btn danger" type="button" onclick="removeGamingHubWidget()"><i data-lucide="trash-2"></i> Quitar</button>`
+            : `<button class="widget-gallery-btn" type="button" onclick="addGamingHubWidget()"><i data-lucide="plus"></i> Agregar</button>`
+          }
+        </div>
+      </div>
+
+    </div>
+  `;
+}
+
 function getDesignerSettingsHTML() {
   const currentStyle = designerState.dockPreviewStyle || 'blueprint';
   const demoApp = APPS['terminal'];
@@ -5973,6 +6055,8 @@ function getDesignerSettingsHTML() {
         `;
       }).join('')}
     </div>
+
+    ${getWidgetsGalleryHTML()}
   `;
 }
 
@@ -6536,4 +6620,176 @@ function startSimulatedBattery() {
     }
     update();
   }, 30000);
+}
+
+/* =====================================================
+   ★ GAMING HUB WIDGET — Lógica
+===================================================== */
+
+function simulatePing() {
+  const last = pingHistory[pingHistory.length - 1] || 23;
+  let next = last + (Math.random() - 0.5) * 6;
+  next = Math.max(8, Math.min(120, Math.round(next)));
+  pingHistory.push(next);
+  if (pingHistory.length > 10) pingHistory.shift();
+  return next;
+}
+
+function renderGamingHubWidgetHTML() {
+  const fps = systemMetrics.fps;
+  const gpu = systemMetrics.gpu;
+  const cpu = systemMetrics.cpu;
+  const vram = systemMetrics.vram;
+  const gpuTemp = Math.round(48 + systemMetrics.gpu * 0.15);
+  const cpuTemp = Math.round(35 + systemMetrics.cpu * 0.35);
+  const ping = pingHistory[pingHistory.length - 1] || 23;
+
+  const fpsClass = fps >= 120 ? 'good' : fps >= 60 ? 'warn' : 'bad';
+  const gpuTempClass = gpuTemp <= 65 ? 'good' : gpuTemp <= 80 ? 'warn' : 'bad';
+  const cpuTempClass = cpuTemp <= 60 ? 'good' : cpuTemp <= 75 ? 'warn' : 'bad';
+  const pingClass = ping <= 30 ? 'good' : ping <= 70 ? 'warn' : 'bad';
+
+  const fpsBarPct = Math.min(100, (fps / 144) * 100);
+  const gpuBarPct = Math.min(100, gpu);
+  const cpuBarPct = Math.min(100, cpu);
+  const vramPct = Math.min(100, (vram / 16) * 100);
+
+  const sparkBars = pingHistory.map(p => {
+    const h = Math.min(100, (p / 120) * 100);
+    const cls = p <= 30 ? '' : p <= 70 ? 'high' : 'critical';
+    return `<span class="spark-bar ${cls}" style="height:${Math.max(8, h)}%;"></span>`;
+  }).join('');
+
+  return `
+    <div class="gaming-hub-grid">
+      <div class="gaming-hub-tile ${fpsClass}">
+        <span class="tile-icon"><i data-lucide="gauge"></i></span>
+        <span class="gaming-hub-tile-value" id="gh-fps">${fps}</span>
+        <span class="gaming-hub-tile-label">FPS</span>
+        <div class="gaming-hub-tile-bar">
+          <span id="gh-fps-bar" style="width:${fpsBarPct}%;"></span>
+        </div>
+      </div>
+
+      <div class="gaming-hub-tile ${gpuTempClass}">
+        <span class="tile-icon"><i data-lucide="cpu"></i></span>
+        <span class="gaming-hub-tile-value" id="gh-gpu-temp">${gpuTemp}°</span>
+        <span class="gaming-hub-tile-label">GPU TEMP</span>
+        <div class="gaming-hub-tile-bar">
+          <span id="gh-gpu-bar" style="width:${gpuBarPct}%;"></span>
+        </div>
+      </div>
+
+      <div class="gaming-hub-tile ${cpuTempClass}">
+        <span class="tile-icon"><i data-lucide="hard-drive"></i></span>
+        <span class="gaming-hub-tile-value" id="gh-cpu-temp">${cpuTemp}°</span>
+        <span class="gaming-hub-tile-label">CPU TEMP</span>
+        <div class="gaming-hub-tile-bar">
+          <span id="gh-cpu-bar" style="width:${cpuBarPct}%;"></span>
+        </div>
+      </div>
+
+      <div class="gaming-hub-tile">
+        <span class="tile-icon"><i data-lucide="memory-stick"></i></span>
+        <span class="gaming-hub-tile-value" id="gh-vram">${vram.toFixed(1)}</span>
+        <span class="gaming-hub-tile-label">VRAM GB</span>
+        <div class="gaming-hub-tile-bar">
+          <span id="gh-vram-bar" style="width:${vramPct}%;"></span>
+        </div>
+      </div>
+
+      <div class="gaming-hub-tile ${pingClass}" style="grid-column: span 2;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="tile-icon"><i data-lucide="wifi"></i></span>
+          <span class="gaming-hub-tile-value" id="gh-ping">${ping}<span class="gaming-hub-tile-unit"> ms</span></span>
+        </div>
+        <span class="gaming-hub-tile-label">LATENCIA DE RED</span>
+        <div class="gaming-hub-ping-spark" id="gh-ping-spark">
+          ${sparkBars}
+        </div>
+      </div>
+    </div>
+
+    <div class="gaming-hub-footer">
+      <span class="gaming-hub-footer-label ${gameModeActive ? 'active' : ''}" id="gh-gamemode-label">
+        <i data-lucide="gamepad-2"></i> GAME MODE
+      </span>
+      <button class="quick-switch ${gameModeActive ? 'active' : ''}" onclick="toggleGameMode()" type="button" aria-label="Toggle Game Mode" style="padding:0; border:0; background:transparent;">
+        <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
+      </button>
+    </div>
+  `;
+}
+
+function updateGamingHubWidget() {
+  const widget = desktopWidgets.find(w => w.type === 'gaming-hub');
+  if (!widget) return;
+  const el = document.getElementById(widget.id);
+  if (!el) return;
+
+  const fps = systemMetrics.fps;
+  const gpu = systemMetrics.gpu;
+  const cpu = systemMetrics.cpu;
+  const vram = systemMetrics.vram;
+  const gpuTemp = Math.round(48 + systemMetrics.gpu * 0.15);
+  const cpuTemp = Math.round(35 + systemMetrics.cpu * 0.35);
+  const ping = pingHistory[pingHistory.length - 1] || 23;
+
+  const fpsEl = el.querySelector('#gh-fps');
+  const gpuTempEl = el.querySelector('#gh-gpu-temp');
+  const cpuTempEl = el.querySelector('#gh-cpu-temp');
+  const vramEl = el.querySelector('#gh-vram');
+  const pingEl = el.querySelector('#gh-ping');
+  const fpsBar = el.querySelector('#gh-fps-bar');
+  const gpuBar = el.querySelector('#gh-gpu-bar');
+  const cpuBar = el.querySelector('#gh-cpu-bar');
+  const vramBar = el.querySelector('#gh-vram-bar');
+  const pingSpark = el.querySelector('#gh-ping-spark');
+  const gmLabel = el.querySelector('#gh-gamemode-label');
+  const gmSwitch = el.querySelector('.gaming-hub-footer .quick-switch');
+
+  if (fpsEl) fpsEl.textContent = String(fps);
+  if (gpuTempEl) gpuTempEl.textContent = `${gpuTemp}°`;
+  if (cpuTempEl) cpuTempEl.textContent = `${cpuTemp}°`;
+  if (vramEl) vramEl.textContent = vram.toFixed(1);
+  if (pingEl) pingEl.innerHTML = `${ping}<span class="gaming-hub-tile-unit"> ms</span>`;
+  if (fpsBar) fpsBar.style.width = `${Math.min(100, (fps / 144) * 100)}%`;
+  if (gpuBar) gpuBar.style.width = `${Math.min(100, gpu)}%`;
+  if (cpuBar) cpuBar.style.width = `${Math.min(100, cpu)}%`;
+  if (vramBar) vramBar.style.width = `${Math.min(100, (vram / 16) * 100)}%`;
+
+  const fpsTile = fpsEl?.closest('.gaming-hub-tile');
+  if (fpsTile) {
+    fpsTile.classList.remove('good', 'warn', 'bad');
+    fpsTile.classList.add(fps >= 120 ? 'good' : fps >= 60 ? 'warn' : 'bad');
+  }
+  const gpuTile = gpuTempEl?.closest('.gaming-hub-tile');
+  if (gpuTile) {
+    gpuTile.classList.remove('good', 'warn', 'bad');
+    gpuTile.classList.add(gpuTemp <= 65 ? 'good' : gpuTemp <= 80 ? 'warn' : 'bad');
+  }
+  const cpuTile = cpuTempEl?.closest('.gaming-hub-tile');
+  if (cpuTile) {
+    cpuTile.classList.remove('good', 'warn', 'bad');
+    cpuTile.classList.add(cpuTemp <= 60 ? 'good' : cpuTemp <= 75 ? 'warn' : 'bad');
+  }
+  const pingTile = pingEl?.closest('.gaming-hub-tile');
+  if (pingTile) {
+    pingTile.classList.remove('good', 'warn', 'bad');
+    pingTile.classList.add(ping <= 30 ? 'good' : ping <= 70 ? 'warn' : 'bad');
+  }
+
+  if (pingSpark) {
+    const bars = pingHistory.map(p => {
+      const h = Math.min(100, (p / 120) * 100);
+      const cls = p <= 30 ? '' : p <= 70 ? 'high' : 'critical';
+      return `<span class="spark-bar ${cls}" style="height:${Math.max(8, h)}%;"></span>`;
+    }).join('');
+    pingSpark.innerHTML = bars;
+  }
+
+  if (gmLabel) gmLabel.classList.toggle('active', gameModeActive);
+  if (gmSwitch) gmSwitch.classList.toggle('active', gameModeActive);
+
+  refreshIcons();
 }

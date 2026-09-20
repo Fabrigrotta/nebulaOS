@@ -2612,6 +2612,7 @@ body.no-animations .window {
   .dock-context-menu { min-width: 220px; }
   .wm-trash-zone { width: 160px; min-height: 90px; bottom: 14px; right: 14px; }
   .wm-trash-icon { width: 28px; height: 28px; }
+  .widgets-gallery-grid { grid-template-columns: 1fr; }
 }
 
 /* =====================================================
@@ -2761,3 +2762,151 @@ body.no-animations .window {
 .gaming-hub-footer-label.active svg, .gaming-hub-footer-label.active i {
   filter: drop-shadow(0 0 6px rgba(0, 255, 204, 0.7));
 }
+
+/* =====================================================
+   ★ WIDGETS GALLERY (Nebula Designer)
+===================================================== */
+.widgets-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.widget-gallery-card {
+  position: relative;
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.03);
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.widget-gallery-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: rgba(255,255,255,0.05);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+}
+.widget-gallery-card.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  box-shadow: 0 0 18px var(--accent-glow), inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.widget-gallery-preview {
+  height: 110px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(0, 255, 204, 0.06), rgba(0, 0, 0, 0.4));
+  border: 1px solid rgba(0, 255, 204, 0.18);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.widget-gallery-preview::before {
+  content: "";
+  position: absolute; inset: 0;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0, transparent 12px, rgba(0,255,204,0.03) 12px, rgba(0,255,204,0.03) 13px),
+    repeating-linear-gradient(90deg, transparent 0, transparent 12px, rgba(0,255,204,0.03) 12px, rgba(0,255,204,0.03) 13px);
+  pointer-events: none;
+}
+.widget-gallery-preview-inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 8px;
+  width: 100%;
+}
+.widget-gallery-preview-tile {
+  height: 24px;
+  border-radius: 4px;
+  background: rgba(0, 255, 204, 0.1);
+  border: 1px solid rgba(0, 255, 204, 0.25);
+}
+
+.widget-gallery-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.widget-gallery-info strong {
+  font-size: 12px;
+  color: #fff;
+  font-weight: 700;
+}
+.widget-gallery-info small {
+  font-size: 10px;
+  color: var(--text-sub);
+  line-height: 1.35;
+}
+
+.widget-gallery-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+.widget-gallery-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text-sub);
+}
+.widget-gallery-card.active .widget-gallery-status {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+.widget-gallery-status .status-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.widget-gallery-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.widget-gallery-btn:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent);
+}
+.widget-gallery-btn.danger:hover {
+  background: color-mix(in srgb, var(--accent-red) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent-red) 50%, transparent);
+  color: var(--accent-red);
+}
+.widget-gallery-btn svg, .widget-gallery-btn i { width: 11px; height: 11px; }
