@@ -1586,6 +1586,7 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   transform: rotate(90deg);
 }
 
+/* ★ Contenedor de paneles: ocupa todo el alto disponible */
 .window-tab-panels {
   flex: 1;
   position: relative;
@@ -1593,6 +1594,8 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   display: flex;
   flex-direction: column;
 }
+
+/* ★ Cada panel: flex column, llena todo el alto */
 .window-tab-panel {
   position: absolute;
   inset: 0;
@@ -1608,11 +1611,30 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 /* Ajuste: cuando la ventana tiene tabs, el wcontent no aplica padding interno */
 .window.has-tabs .wcontent { padding: 0; }
-.window.has-tabs .window-tab-panel > * { flex: 1; min-height: 0; }
+
+/* ★ Los hijos directos de un panel ocupan todo el alto del panel.
+   Esto hace que el fondo de .term-body o .files-preview cubra
+   TODA el área de la terminal, no solo el bloque de texto. */
+.window-tab-panel > * {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ★ Asegura que el fondo de la terminal cubra todo el panel */
+.window-tab-panel > .term-body {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+}
 
 /* =====================================================
    ★ WINDOW ANIMATIONS — Apertura / Cierre / Minimize
