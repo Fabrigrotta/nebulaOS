@@ -105,8 +105,9 @@ const DOCK_PREVIEW_STYLES = {
 
 /* ================= VARIABLES GLOBALES DE ESTADO ================= */
 let openWindows = {};
+let appInstanceCounter = {};
 let zIndexCounter = 100;
-let activeAppId = null;
+let activeWinId = null;
 let currentWorkspace = 1;
 let currentWallpaperIndex = 0;
 let fullscreenWindowId = null;
@@ -134,7 +135,6 @@ let repeatEnabled = false;
 let editingNoteKey = null;
 let editingNoteIndex = null;
 
-/* Estado del reloj para detectar cambios */
 let lastClockSecond = null;
 let lastClockMinute = null;
 
@@ -157,15 +157,15 @@ let designerState = {
 
 let desktopWidgets = [];
 
-/* ★ Estado del Dock Hover Preview */
 let dockPreviewEl = null;
 let dockPreviewTimeout = null;
 
-/* ★ Estado del Window Manager / Administrador de Escritorios */
 let windowManagerOpen = false;
-
-/* ★ Estado del Drag & Drop entre workspaces */
 let wmDragState = null;
+
+/* ★ Estado del Dock Context Menu */
+let dockContextMenuEl = null;
+let dockContextMenuAppId = null;
 
 const SETTINGS_STORAGE_KEY = 'nebula-os:settings';
 const WALLPAPER_STORAGE_KEY = 'nebula-os:wallpaper';
@@ -186,6 +186,47 @@ function refreshIcons() {
   if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
     lucide.createIcons();
   }
+}
+
+/* ================= HELPERS DE INSTANCIAS ================= */
+function generateWinId(appId) {
+  if (!appInstanceCounter[appId]) appInstanceCounter[appId] = 0;
+  appInstanceCounter[appId]++;
+  return `${appId}-${appInstanceCounter[appId]}`;
+}
+
+function getInstancesOfApp(appId) {
+  return Object.keys(openWindows).filter(winId => openWindows[winId]?.appId === appId);
+}
+
+function getLastInstanceOfApp(appId) {
+  const ids = getInstancesOfApp(appId);
+  if (ids.length === 0) return null;
+  return ids.sort((a, b) => {
+    const na = parseInt(a.split('-').pop(), 10) || 0;
+    const nb = parseInt(b.split('-').pop(), 10) || 0;
+    return nb - na;
+  })[0];
+}
+
+function countInstancesByApp() {
+  const counts = {};
+  Object.values(openWindows).forEach(entry => {
+    if (!entry?.appId) return;
+    counts[entry.appId] = (counts[entry.appId] || 0) + 1;
+  });
+  return counts;
+}
+
+function getInstanceNumber(winId) {
+  if (!openWindows[winId]) return 1;
+  const appId = openWindows[winId].appId;
+  const ids = getInstancesOfApp(appId).sort((a, b) => {
+    const na = parseInt(a.split('-').pop(), 10) || 0;
+    const nb = parseInt(b.split('-').pop(), 10) || 0;
+    return na - nb;
+  });
+  return ids.indexOf(winId) + 1;
 }
 
 /* ================= SLIDERS: FILL DINÁMICO ================= */
@@ -377,6 +418,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const isCalendarClick = e.target.closest('.calendar-panel') || e.target.closest('#notes-list');
     const isHudClick = e.target.closest('#gamer-overlay');
     const isWMClick = e.target.closest('#window-manager-overlay');
+    const isDockCtxClick = e.target.closest('.dock-context-menu');
+
+    /* ★ Cerramos el menú contextual del dock si el click fue afuera */
+    if (!isDockCtxClick) {
+      hideDockContextMenu();
+    }
 
     if (!sysTrayBtn?.contains(e.target)
         && !clockCenter?.contains(e.target)
@@ -385,11 +432,19 @@ document.addEventListener('DOMContentLoaded', () => {
         && !isPlayerClick
         && !isCalendarClick
         && !isHudClick
-        && !isWMClick) {
+        && !isWMClick
+        && !isDockCtxClick) {
       closeControlCenter();
       closeQuickCenter();
     }
     hideContextMenu();
+  });
+
+  /* ★ Context menu del dock: cerramos con contextmenu en otro lado */
+  document.addEventListener('contextmenu', (e) => {
+    if (!e.target.closest('.dock-item')) {
+      hideDockContextMenu();
+    }
   });
 
   document.addEventListener('keydown', e => {
@@ -398,11 +453,19 @@ document.addEventListener('DOMContentLoaded', () => {
       closeQuickCenter();
       if (gamerOverlayVisible) toggleGamerOverlay();
       if (windowManagerOpen) closeWindowManager();
+      hideDockContextMenu();
     }
   });
 
+  /* ★ Cerrar menú contextual al hacer scroll/resize */
+  window.addEventListener('resize', hideDockContextMenu);
+  window.addEventListener('blur', hideDockContextMenu);
+  document.addEventListener('scroll', hideDockContextMenu, true);
+
   document.getElementById('screen').addEventListener('contextmenu', (e) => {
     if (e.target.closest('#context-menu') || e.target.closest('.window') || e.target.closest('.desktop-widget')) return;
+    /* ★ Si el click fue sobre el dock, el handler específico del dock se encarga */
+    if (e.target.closest('.dock-item')) return;
     e.preventDefault();
     showContextMenu(e.clientX, e.clientY);
   });
@@ -415,7 +478,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  /* ★ Click en el fondo oscuro del Window Manager cierra el overlay */
   const wmOverlay = document.getElementById('window-manager-overlay');
   if (wmOverlay) {
     wmOverlay.addEventListener('mousedown', (e) => {
@@ -427,7 +489,6 @@ document.addEventListener('DOMContentLoaded', () => {
 /* ================= SHORTCUTS GLOBALES ================= */
 function setupShortcuts() {
   document.addEventListener('keydown', (e) => {
-    /* Alt+Z / Win+G → Gaming Overlay */
     if ((e.altKey && (e.key === 'z' || e.key === 'Z' || e.key === 'g' || e.key === 'G')) ||
         (e.metaKey && (e.key === 'g' || e.key === 'G'))) {
       e.preventDefault();
@@ -584,7 +645,6 @@ function updatePlayerProgress() {
   const currentFormatted = formatTime(currentPlaybackTime);
   const totalFormatted = formatTime(track.duration);
 
-  /* Quick Center */
   const fill = document.getElementById('cc-progress-fill');
   const currentEl = document.getElementById('cc-time-current');
   const totalEl = document.getElementById('cc-time-total');
@@ -595,13 +655,11 @@ function updatePlayerProgress() {
   if (totalEl) totalEl.textContent = totalFormatted;
   if (dot) dot.classList.toggle('paused', !isPlaying);
 
-  /* HUD Overlay */
   const hudFill = document.getElementById('hud-progress-fill');
   const hudTime = document.getElementById('hud-progress-time');
   if (hudFill) hudFill.style.width = `${pct}%`;
   if (hudTime) hudTime.textContent = `${currentFormatted} / ${totalFormatted}`;
 
-  /* ★ Spotify App — barra de progreso */
   const spFill = document.getElementById('spot-progress-fill');
   const spCurrent = document.getElementById('spot-time-current');
   const spTotal = document.getElementById('spot-time-total');
@@ -666,12 +724,13 @@ function setupQuickCenterPlayer() {
   updatePlayerProgress();
 }
 
-/* Sincroniza el estado visual de shuffle/repeat del Spotify con el estado global */
 function syncSpotifyShuffleRepeatUI() {
-  const spShuffle = document.getElementById('spot-shuffle');
-  const spRepeat = document.getElementById('spot-repeat');
-  if (spShuffle) spShuffle.classList.toggle('active', shuffleEnabled);
-  if (spRepeat) spRepeat.classList.toggle('active', repeatEnabled);
+  document.querySelectorAll('#spot-shuffle').forEach(el => {
+    el.classList.toggle('active', shuffleEnabled);
+  });
+  document.querySelectorAll('#spot-repeat').forEach(el => {
+    el.classList.toggle('active', repeatEnabled);
+  });
 }
 
 /* ================= FEATURE 1: GAME MODE & GAMING OVERLAY ================= */
@@ -906,7 +965,6 @@ function setDockStyle(style) {
   renderSettingsApp();
 }
 
-/* ★ Aplicar estilo del Dock Hover Preview (con validación de ID) */
 function applyDockPreviewStyle(styleId) {
   const validId = (styleId && DOCK_PREVIEW_STYLES[styleId] && DOCK_PREVIEW_STYLES[styleId].available)
     ? styleId
@@ -1108,7 +1166,7 @@ function updateWidgetStats() {
 /* ================= FEATURE 4: GESTOR DE PERFILES ================= */
 function closeAllOpenApps() {
   const ids = Object.keys(openWindows);
-  ids.forEach(id => closeApp(id));
+  ids.forEach(winId => closeApp(winId));
 }
 
 function switchProfile(profileId) {
@@ -1327,7 +1385,6 @@ const FILE_SYSTEM = {
 function toggleMediaPlayback() {
   isPlaying = !isPlaying;
 
-  /* Botones del sistema (Quick Center / HUD / Widgets) */
   const playBtn = document.getElementById('media-toggle');
   const hudPlayBtn = document.getElementById('hud-play-btn');
   const ccPlayBtn = document.getElementById('cc-play-btn');
@@ -1337,9 +1394,9 @@ function toggleMediaPlayback() {
   if (hudPlayBtn) hudPlayBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
   if (ccPlayBtn) ccPlayBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
 
-  /* ★ Botón del Spotify App */
-  const spPlayBtn = document.getElementById('spot-play-btn');
-  if (spPlayBtn) spPlayBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
+  document.querySelectorAll('#spot-play-btn').forEach(btn => {
+    btn.innerHTML = `<i data-lucide="${iconName}"></i>`;
+  });
 
   updatePlayerProgress();
   renderDesktopWidgets();
@@ -1363,29 +1420,27 @@ function previousTrack() {
 function updateMediaUI() {
   const track = TRACKS[currentTrackIndex];
 
-  /* Artwork — Quick Center, HUD, Widget, Spotify app */
-  ['cc-media-art', 'hud-media-art', 'w-media-art', 'spot-player-cover'].forEach(id => {
+  ['cc-media-art', 'hud-media-art', 'w-media-art'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.src = track.art;
   });
+  document.querySelectorAll('#spot-player-cover').forEach(el => el.src = track.art);
 
-  /* Título */
-  ['cc-media-title', 'hud-media-title', 'w-media-title', 'spot-player-title'].forEach(id => {
+  ['cc-media-title', 'hud-media-title', 'w-media-title'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = track.title;
   });
+  document.querySelectorAll('#spot-player-title').forEach(el => el.textContent = track.title);
 
-  /* Artista */
-  ['cc-media-artist', 'hud-media-artist', 'w-media-artist', 'spot-player-artist'].forEach(id => {
+  ['cc-media-artist', 'hud-media-artist', 'w-media-artist'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = track.artist;
   });
+  document.querySelectorAll('#spot-player-artist').forEach(el => el.textContent = track.artist);
 
-  /* Total time */
   const totalEl = document.getElementById('cc-time-total');
   if (totalEl) totalEl.textContent = formatTime(track.duration);
 
-  /* ★ Cards del Spotify: marcar la activa */
   document.querySelectorAll('.spot-card[data-track-index]').forEach(card => {
     const idx = parseInt(card.dataset.trackIndex, 10);
     card.classList.toggle('playing', idx === currentTrackIndex);
@@ -1402,12 +1457,12 @@ function setSystemVolume(val) {
   if (volNum) volNum.textContent = `${val}%`;
   if (qVolVal) qVolVal.textContent = `${val}%`;
 
-  /* ★ Sincronizar slider del Spotify */
-  const spVol = document.getElementById('spot-volume-slider');
-  if (spVol && Number(spVol.value) !== Number(val)) {
-    spVol.value = val;
-    syncSliderFill(spVol);
-  }
+  document.querySelectorAll('#spot-volume-slider').forEach(spVol => {
+    if (Number(spVol.value) !== Number(val)) {
+      spVol.value = val;
+      syncSliderFill(spVol);
+    }
+  });
 }
 
 /* ================= SISTEMA DE NOTIFICACIONES TOAST ================= */
@@ -1510,7 +1565,9 @@ function switchWorkspace(num) {
   });
 
   let hasActiveInWorkspace = false;
-  Object.values(openWindows).forEach(win => {
+  Object.values(openWindows).forEach(entry => {
+    const win = entry?.win;
+    if (!win) return;
     if (parseInt(win.dataset.ws) === currentWorkspace) {
       if (!win.classList.contains('minimized')) {
         win.style.display = 'flex';
@@ -1525,30 +1582,26 @@ function switchWorkspace(num) {
   hideDockPreview();
   renderDock();
 
-  /* ★ Si el WM está abierto, re-renderizamos para actualizar la tira y el grid */
   if (windowManagerOpen) renderWindowManager();
 }
 
-/* ★ Helper: mueve una ventana a otro workspace */
-function moveWindowToWorkspace(appId, targetWs) {
-  const win = openWindows[appId];
-  if (!win) return false;
+function moveWindowToWorkspace(winId, targetWs) {
+  const entry = openWindows[winId];
+  if (!entry?.win) return false;
+  const win = entry.win;
 
   const currentWs = parseInt(win.dataset.ws, 10);
   if (currentWs === targetWs) return false;
 
-  /* Actualizamos el workspace de la ventana */
   win.dataset.ws = String(targetWs);
 
-  /* Si la movemos fuera del workspace actual, la ocultamos */
   if (targetWs !== currentWorkspace) {
     win.style.display = 'none';
-    if (activeAppId === appId) {
-      activeAppId = null;
+    if (activeWinId === winId) {
+      activeWinId = null;
       updateTopBar(null);
     }
   } else {
-    /* Si la traemos al workspace actual, la mostramos */
     if (!win.classList.contains('minimized')) {
       win.style.display = 'flex';
     }
@@ -1557,9 +1610,10 @@ function moveWindowToWorkspace(appId, targetWs) {
   renderDock();
   if (windowManagerOpen) renderWindowManager();
 
+  const appTitle = APPS[entry.appId]?.title || entry.appId;
   showToast(
     'Ventana movida',
-    `${APPS[appId]?.title || appId} → Space ${targetWs}`,
+    `${appTitle} → Space ${targetWs}`,
     'move'
   );
 
@@ -2015,11 +2069,176 @@ function getAppTileHTML(appId) {
   return `<div class="app-tile ${app.tileClass}" title="${app.title}"><i data-lucide="${app.icon}"></i></div>`;
 }
 
+/* =====================================================
+   ★ DOCK CONTEXT MENU (click derecho sobre apps del dock)
+===================================================== */
+
+/**
+ * Muestra el menú contextual sobre un ícono del dock.
+ * @param {string} appId
+ * @param {MouseEvent} event  Evento de contextmenu, para saber la posición y el target
+ */
+function showDockContextMenu(appId, event) {
+  const app = APPS[appId];
+  if (!app) return;
+
+  /* Cerramos cualquier menú anterior */
+  hideDockContextMenu();
+
+  const instances = getInstancesOfApp(appId);
+  const count = instances.length;
+  const isRunning = count > 0;
+
+  /* Creamos el contenedor del menú */
+  const menu = document.createElement('div');
+  menu.className = 'dock-context-menu';
+  menu.dataset.appId = appId;
+
+  /* ---- Header con ícono + nombre ---- */
+  const iconHTML = app.image
+    ? `<img src="${app.image}" alt="${escapeHtml(app.title)}" onerror="this.style.display='none'; this.parentElement.innerHTML='<i data-lucide=\\'${app.icon}\\'></i>';" />`
+    : `<i data-lucide="${app.icon}"></i>`;
+
+  let html = `
+    <div class="dock-context-header">
+      <div class="app-icon-wrapper">${iconHTML}</div>
+      <div class="app-meta">
+        <span class="app-title">${escapeHtml(app.title)}</span>
+        <span class="app-sub">${isRunning ? `${count} ${count === 1 ? 'instancia abierta' : 'instancias abiertas'}` : 'Sin abrir'}</span>
+      </div>
+    </div>
+  `;
+
+  /* ---- Opción: Abrir nueva instancia ---- */
+  html += `
+    <button class="dock-context-item" data-action="open-new" type="button">
+      <span class="dc-icon"><i data-lucide="plus-square"></i></span>
+      <span class="dc-label">Abrir nueva ${escapeHtml(app.title)}</span>
+      <span class="dc-shortcut">Ctrl+Click</span>
+    </button>
+  `;
+
+  /* ---- Opción: Enfocar última instancia (solo si está corriendo) ---- */
+  if (isRunning) {
+    html += `
+      <button class="dock-context-item" data-action="focus" type="button">
+        <span class="dc-icon"><i data-lucide="focus"></i></span>
+        <span class="dc-label">Enfocar ${escapeHtml(app.title)}</span>
+      </button>
+    `;
+  }
+
+  /* ---- Separador + Cerrar (solo si está corriendo) ---- */
+  if (isRunning) {
+    html += `<div class="dock-context-separator"></div>`;
+    html += `
+      <button class="dock-context-item danger" data-action="close-all" type="button">
+        <span class="dc-icon"><i data-lucide="x-circle"></i></span>
+        <span class="dc-label">${count > 1 ? `Cerrar todas las instancias` : `Cerrar ${escapeHtml(app.title)}`}</span>
+        <span class="dc-count">${count}</span>
+      </button>
+    `;
+  }
+
+  menu.innerHTML = html;
+
+  /* Lo agregamos al body para medirlo y posicionarlo */
+  document.body.appendChild(menu);
+  dockContextMenuEl = menu;
+  dockContextMenuAppId = appId;
+
+  /* Refrescamos iconos */
+  refreshIcons();
+
+  /* ---- Posicionamiento ---- */
+  const menuRect = menu.getBoundingClientRect();
+  const margin = 10;
+  const anchorRect = event.currentTarget
+    ? event.currentTarget.getBoundingClientRect()
+    : { left: event.clientX, right: event.clientX, top: event.clientY, bottom: event.clientY };
+
+  /* Por defecto: centrado arriba del dock item */
+  let left = anchorRect.left + (anchorRect.right - anchorRect.left) / 2 - menuRect.width / 2;
+  let top = anchorRect.top - menuRect.height - 12;
+
+  /* Si no entra arriba, lo ponemos debajo */
+  if (top < margin) {
+    top = anchorRect.bottom + 12;
+  }
+
+  /* Clamp horizontal */
+  left = Math.max(margin, Math.min(window.innerWidth - menuRect.width - margin, left));
+  top = Math.max(margin, Math.min(window.innerHeight - menuRect.height - margin, top));
+
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+
+  /* ---- Listeners de las opciones ---- */
+  menu.querySelectorAll('.dock-context-item[data-action]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const action = btn.dataset.action;
+      handleDockContextAction(action, appId);
+    });
+  });
+
+  /* ---- Apertura con animación ---- */
+  requestAnimationFrame(() => {
+    menu.classList.add('open');
+  });
+
+  refreshIcons();
+}
+
+/**
+ * Maneja una acción elegida del menú contextual del dock.
+ */
+function handleDockContextAction(action, appId) {
+  switch (action) {
+    case 'open-new': {
+      openApp(appId, true);
+      break;
+    }
+    case 'focus': {
+      const lastId = getLastInstanceOfApp(appId);
+      if (lastId) {
+        const w = openWindows[lastId]?.win;
+        if (w && parseInt(w.dataset.ws, 10) !== currentWorkspace) {
+          switchWorkspace(parseInt(w.dataset.ws, 10));
+        }
+        focusWindow(lastId);
+      }
+      break;
+    }
+    case 'close-all': {
+      const ids = getInstancesOfApp(appId);
+      ids.forEach(winId => closeApp(winId));
+      break;
+    }
+  }
+  hideDockContextMenu();
+}
+
+/**
+ * Cierra el menú contextual del dock si está abierto.
+ */
+function hideDockContextMenu() {
+  if (dockContextMenuEl) {
+    const el = dockContextMenuEl;
+    el.classList.remove('open');
+    setTimeout(() => el.remove(), 160);
+    dockContextMenuEl = null;
+    dockContextMenuAppId = null;
+  }
+}
+
+/* ================= DOCK (adaptado a multi-instancia + context menu) ================= */
 function renderDock() {
   const dock = document.getElementById('dock');
   if (!dock) return;
   dock.innerHTML = '';
   
+  /* Launcher button */
   const lBtn = document.createElement('div');
   lBtn.className = 'dock-item dock-launcher-btn';
   lBtn.tabIndex = 0;
@@ -2029,20 +2248,67 @@ function renderDock() {
   lBtn.onclick = toggleLauncher;
   dock.appendChild(lBtn);
 
+  /* Apps del dock */
   DOCK_APPS.forEach(id => {
+    const instances = getInstancesOfApp(id);
+    const count = instances.length;
+
     const div = document.createElement('div');
-    const win = openWindows[id];
-    const isCurrentWorkspace = win && parseInt(win.dataset.ws) === currentWorkspace;
-    div.className = `dock-item ${win ? 'running' : ''} ${win && !isCurrentWorkspace ? 'other-workspace' : ''}`;
+    const isRunning = count > 0;
+    const lastWinId = isRunning ? getLastInstanceOfApp(id) : null;
+    const lastWin = lastWinId ? openWindows[lastWinId].win : null;
+    const isCurrentWorkspace = lastWin && parseInt(lastWin.dataset.ws) === currentWorkspace;
+
+    div.className = `dock-item ${isRunning ? 'running' : ''} ${isRunning && !isCurrentWorkspace ? 'other-workspace' : ''}`;
     div.tabIndex = 0;
     div.setAttribute('role', 'button');
-    div.title = APPS[id].title;
+    div.title = count > 1
+      ? `${APPS[id].title} · ${count} instancias (Clic normal: enfocar · Ctrl+Clic: nueva · Clic derecho: menú)`
+      : `${APPS[id].title} (Ctrl+Clic: nueva instancia · Clic derecho: menú)`;
     div.dataset.appId = id;
     div.innerHTML = `${getAppTileHTML(id)}<div class="dot"></div>`;
-    div.onclick = () => openApp(id);
 
-    if (win) {
-      div.addEventListener('mouseenter', () => showDockPreview(id, div));
+    if (count > 1) {
+      const badge = document.createElement('span');
+      badge.className = 'dock-item-instance-badge';
+      badge.textContent = String(count);
+      div.appendChild(badge);
+    }
+
+    /* Click normal vs Ctrl+Click vs Click medio */
+    div.onclick = (e) => {
+      const forceNew = e.ctrlKey || e.metaKey || e.button === 1;
+      if (forceNew) {
+        e.preventDefault();
+        openApp(id, true);
+      } else {
+        openApp(id);
+      }
+    };
+    div.onauxclick = (e) => {
+      if (e.button === 1) {
+        e.preventDefault();
+        openApp(id, true);
+      }
+    };
+    div.onmousedown = (e) => {
+      if (e.button === 1) e.preventDefault();
+    };
+
+    /* ★ Click derecho: menú contextual del dock */
+    div.oncontextmenu = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showDockContextMenu(id, e);
+    };
+
+    /* Hover preview solo si hay instancias */
+    if (isRunning) {
+      div.addEventListener('mouseenter', () => {
+        /* Si el menú contextual de este mismo app está abierto, no mostramos preview */
+        if (dockContextMenuAppId === id) return;
+        showDockPreview(id, div);
+      });
       div.addEventListener('mouseleave', () => hideDockPreview());
     }
 
@@ -2051,21 +2317,22 @@ function renderDock() {
   refreshIcons();
 }
 
-/* ================= DOCK HOVER PREVIEW — multi-estilo ================= */
+/* ================= DOCK HOVER PREVIEW — multi-estilo (multi-instancia) ================= */
 function buildDockPreviewHTML(appId) {
   const app = APPS[appId];
-  const win = openWindows[appId];
-  if (!app || !win) return '';
+  const instances = getInstancesOfApp(appId);
+  if (!app || instances.length === 0) return '';
 
-  const isMinimized = win.classList.contains('minimized');
-  const isOtherWs = parseInt(win.dataset.ws) !== currentWorkspace;
+  const lastWinId = getLastInstanceOfApp(appId);
+  const lastWin = openWindows[lastWinId]?.win;
+  const isMinimized = lastWin?.classList.contains('minimized') ?? false;
 
   const badges = [];
+  if (instances.length > 1) {
+    badges.push(`<span class="dock-preview-badge instance"><i data-lucide="layers"></i> ${instances.length} INSTANCIAS</span>`);
+  }
   if (isMinimized) {
     badges.push(`<span class="dock-preview-badge minimized"><i data-lucide="minus-circle"></i> MINIMIZED</span>`);
-  }
-  if (isOtherWs) {
-    badges.push(`<span class="dock-preview-badge other-ws"><i data-lucide="layers"></i> SPACE ${win.dataset.ws}</span>`);
   }
 
   return `
@@ -2074,7 +2341,7 @@ function buildDockPreviewHTML(appId) {
         <span class="dock-preview-title">${escapeHtml(app.title)}</span>
         <span class="dock-preview-sub">${escapeHtml(app.sub)}</span>
       </div>
-      <button class="dock-preview-close" type="button" title="Cerrar ventana" aria-label="Cerrar ventana">
+      <button class="dock-preview-close" type="button" title="Cerrar todas las instancias" aria-label="Cerrar todas las instancias">
         <i data-lucide="x"></i>
       </button>
     </div>
@@ -2104,13 +2371,17 @@ function showDockPreview(appId, dockItemEl) {
   dockPreviewTimeout = setTimeout(() => {
     hideDockPreview(true);
 
-    const win = openWindows[appId];
-    if (!win) return;
+    const instances = getInstancesOfApp(appId);
+    if (instances.length === 0) return;
 
     const app = APPS[appId];
     const preview = document.createElement('div');
     preview.className = 'dock-preview';
-    if (win.classList.contains('minimized')) preview.classList.add('is-minimized');
+
+    const lastWinId = getLastInstanceOfApp(appId);
+    const lastWin = openWindows[lastWinId]?.win;
+    if (lastWin?.classList.contains('minimized')) preview.classList.add('is-minimized');
+
     preview.dataset.appId = appId;
     preview.innerHTML = buildDockPreviewHTML(appId);
 
@@ -2135,17 +2406,21 @@ function showDockPreview(appId, dockItemEl) {
 
     preview.addEventListener('click', (e) => {
       if (e.target.closest('.dock-preview-close')) return;
-      focusWindow(appId);
-      if (parseInt(win.dataset.ws) !== currentWorkspace) {
-        switchWorkspace(parseInt(win.dataset.ws));
-        focusWindow(appId);
+      const lastId = getLastInstanceOfApp(appId);
+      if (lastId) {
+        focusWindow(lastId);
+        const w = openWindows[lastId]?.win;
+        if (w && parseInt(w.dataset.ws) !== currentWorkspace) {
+          switchWorkspace(parseInt(w.dataset.ws));
+          focusWindow(lastId);
+        }
       }
       hideDockPreview();
     });
 
     preview.querySelector('.dock-preview-close')?.addEventListener('click', (e) => {
       e.stopPropagation();
-      closeApp(appId);
+      getInstancesOfApp(appId).forEach(winId => closeApp(winId));
       hideDockPreview();
     });
 
@@ -2169,11 +2444,21 @@ function hideDockPreview(instant = false) {
   setTimeout(() => el.remove(), 180);
 }
 
-function updateTopBar(id) {
+function updateTopBar(winId) {
   const appNameSpan = document.getElementById('active-app-name');
   if (!appNameSpan) return;
-  if (id && APPS[id]) {
-    appNameSpan.textContent = APPS[id].title;
+
+  if (winId && openWindows[winId]) {
+    const appId = openWindows[winId].appId;
+    const instances = getInstancesOfApp(appId);
+    const baseTitle = APPS[appId]?.title || appId;
+
+    if (instances.length > 1) {
+      const instNum = getInstanceNumber(winId);
+      appNameSpan.textContent = `${baseTitle} · #${instNum}`;
+    } else {
+      appNameSpan.textContent = baseTitle;
+    }
   } else {
     appNameSpan.textContent = 'Escritorio';
   }
@@ -2199,11 +2484,11 @@ function openWindowManager() {
   overlay.classList.add('open');
   overlay.setAttribute('aria-hidden', 'false');
 
-  /* Cerramos otros paneles para que no queden superpuestos */
   closeQuickCenter();
   closeControlCenter();
   hideDockPreview();
   hideContextMenu();
+  hideDockContextMenu();
 
   refreshIcons();
 }
@@ -2212,7 +2497,6 @@ function closeWindowManager() {
   const overlay = document.getElementById('window-manager-overlay');
   if (!overlay) return;
 
-  /* Limpiamos estado de drag si quedó abierto */
   cleanupWmDrag();
 
   windowManagerOpen = false;
@@ -2220,37 +2504,35 @@ function closeWindowManager() {
   overlay.setAttribute('aria-hidden', 'true');
 }
 
-/* ★ Helper: devuelve todas las ventanas abiertas en un workspace */
 function getWindowsInWorkspace(wsNum) {
-  return Object.keys(openWindows).filter(appId => {
-    const win = openWindows[appId];
+  return Object.keys(openWindows).filter(winId => {
+    const entry = openWindows[winId];
+    const win = entry?.win;
     return win && parseInt(win.dataset.ws, 10) === wsNum;
   });
 }
 
-/* ★ Helper: devuelve el HTML de una mini-ventana (para la tira de workspaces) */
-function buildMiniWindowHTML(appId) {
-  const app = APPS[appId];
-  const win = openWindows[appId];
-  if (!app || !win) return '';
+function buildMiniWindowHTML(winId) {
+  const entry = openWindows[winId];
+  const win = entry?.win;
+  const app = APPS[entry?.appId];
+  if (!entry || !win || !app) return '';
 
-  const isFocused = appId === activeAppId;
+  const isFocused = winId === activeWinId;
   const iconHTML = app.image
     ? `<img src="${app.image}" alt="${escapeHtml(app.title)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" /><i data-lucide="${app.icon}" style="display:none;"></i>`
     : `<i data-lucide="${app.icon}"></i>`;
 
-  /* ★ Agregamos data-app-id y draggable="true" para el drag & drop */
   return `
     <div class="wm-mini-window ${isFocused ? 'focused' : ''}"
          title="${escapeHtml(app.title)} · Arrastrá para mover de Space"
-         data-app-id="${appId}"
+         data-win-id="${winId}"
          draggable="true">
       ${iconHTML}
     </div>
   `;
 }
 
-/* ★ Render principal del Administrador de Escritorios */
 function renderWindowManager() {
   const strip = document.getElementById('wm-workspaces-strip');
   const grid = document.getElementById('wm-grid');
@@ -2267,7 +2549,6 @@ function renderWindowManager() {
     const isActive = ws === currentWorkspace;
     const isEmpty = winsInWs.length === 0;
 
-    /* Mini-ventanas (máximo 6 para que no se desborde) */
     const visibleWins = winsInWs.slice(0, 6);
     const miniWindowsHTML = visibleWins.map(buildMiniWindowHTML).join('');
 
@@ -2295,11 +2576,9 @@ function renderWindowManager() {
     strip.appendChild(card);
   }
 
-  /* Listeners de la tira: click → cambiar de workspace (solo si no venimos de un drag) */
   strip.querySelectorAll('.wm-workspace-card[data-wm-ws]').forEach(card => {
     card.addEventListener('click', (e) => {
       e.stopPropagation();
-      /* Si acabamos de soltar un drag, ignoramos este click fantasma */
       if (wmDragState && wmDragState.justDropped) return;
       const ws = parseInt(card.dataset.wmWs, 10);
       if (Number.isNaN(ws)) return;
@@ -2308,21 +2587,18 @@ function renderWindowManager() {
     });
   });
 
-  /* ★ Configuramos drop zones + drag start en las mini-ventanas */
   setupWmDragAndDrop();
 
   /* ============ 2) GRID DE VENTANAS DEL WORKSPACE ACTIVO ============ */
-  const activeWsWindows = getWindowsInWorkspace(currentWorkspace);
+  const activeWsWinIds = getWindowsInWorkspace(currentWorkspace);
 
-  /* Section heading */
   if (sectionTitle) {
     sectionTitle.textContent = `Ventanas del Space ${currentWorkspace}`;
   }
 
-  /* Subtítulo del header */
   if (subtitle) {
     const totalWins = Object.keys(openWindows).length;
-    const winsCount = activeWsWindows.length;
+    const winsCount = activeWsWinIds.length;
     if (totalWins === 0) {
       subtitle.textContent = 'Sin ventanas abiertas en todo el sistema';
     } else if (winsCount === 0) {
@@ -2332,8 +2608,7 @@ function renderWindowManager() {
     }
   }
 
-  /* Empty state */
-  if (activeWsWindows.length === 0) {
+  if (activeWsWinIds.length === 0) {
     grid.innerHTML = '';
     grid.hidden = true;
     empty.hidden = false;
@@ -2344,16 +2619,23 @@ function renderWindowManager() {
   grid.hidden = false;
   empty.hidden = true;
 
-  /* Render de cards de ventanas (solo del workspace activo) */
-  grid.innerHTML = activeWsWindows.map((appId, i) => {
-    const win = openWindows[appId];
-    const app = APPS[appId];
-    if (!win || !app) return '';
+  grid.innerHTML = activeWsWinIds.map((winId, i) => {
+    const entry = openWindows[winId];
+    const win = entry?.win;
+    const app = APPS[entry?.appId];
+    if (!entry || !win || !app) return '';
 
-    const isFocused = appId === activeAppId;
+    const isFocused = winId === activeWinId;
     const isMinimized = win.classList.contains('minimized');
 
+    const instances = getInstancesOfApp(entry.appId);
+    const hasMultiple = instances.length > 1;
+    const instNumber = hasMultiple ? getInstanceNumber(winId) : 1;
+
     const badges = [];
+    if (hasMultiple) {
+      badges.push(`<span class="wm-badge instance" style="--app-accent: ${app.accentColor || 'var(--accent)'}">#${instNumber} / ${instances.length}</span>`);
+    }
     if (isMinimized) {
       badges.push(`<span class="wm-badge minimized"><i data-lucide="minus-circle"></i> Minimizada</span>`);
     }
@@ -2362,20 +2644,22 @@ function renderWindowManager() {
       ? `<img src="${app.image}" alt="${escapeHtml(app.title)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';" /><i data-lucide="${app.icon}" style="display:none;"></i>`
       : `<i data-lucide="${app.icon}"></i>`;
 
+    const titleText = hasMultiple ? `${app.title} · #${instNumber}` : app.title;
+
     return `
       <button
         class="wm-card ${isFocused ? 'is-focused' : ''} ${isMinimized ? 'is-minimized' : ''}"
         type="button"
-        data-wm-app="${appId}"
-        style="animation-delay: ${i * 30}ms;"
-        title="Enfocar ${escapeHtml(app.title)}"
+        data-wm-win="${winId}"
+        style="animation-delay: ${i * 30}ms; --app-accent: ${app.accentColor || 'var(--accent)'};"
+        title="Enfocar ${escapeHtml(titleText)}"
       >
         ${badges.length ? `<div class="wm-card-badges">${badges.join('')}</div>` : ''}
 
         <div class="wm-card-header">
           <div class="wm-card-icon">${iconHTML}</div>
           <div class="wm-card-meta">
-            <span class="wm-card-title">${escapeHtml(app.title)}</span>
+            <span class="wm-card-title">${escapeHtml(titleText)}</span>
             <span class="wm-card-sub">${escapeHtml(app.sub)}</span>
           </div>
         </div>
@@ -2399,79 +2683,68 @@ function renderWindowManager() {
     `;
   }).join('');
 
-  /* Listeners de cards de ventanas */
-  grid.querySelectorAll('.wm-card[data-wm-app]').forEach(card => {
+  grid.querySelectorAll('.wm-card[data-wm-win]').forEach(card => {
     card.addEventListener('click', () => {
-      const appId = card.dataset.wmApp;
-      focusFromWindowManager(appId);
+      const winId = card.dataset.wmWin;
+      focusFromWindowManager(winId);
     });
   });
 
   refreshIcons();
 }
 
-function focusFromWindowManager(appId) {
-  if (!appId || !openWindows[appId]) {
+function focusFromWindowManager(winId) {
+  if (!winId || !openWindows[winId]) {
     closeWindowManager();
     return;
   }
 
-  const win = openWindows[appId];
+  const win = openWindows[winId].win;
   const winWs = parseInt(win.dataset.ws, 10);
 
-  /* Si la ventana está en otro workspace, cambiamos primero */
   if (winWs !== currentWorkspace) {
     switchWorkspace(winWs);
   }
 
-  /* Si está minimizada, la restauramos */
   if (win.classList.contains('minimized')) {
     win.classList.remove('minimized');
     win.style.display = 'flex';
   }
 
-  /* Enfocamos */
-  focusWindow(appId);
+  focusWindow(winId);
 
-  /* Cerramos el WM */
   closeWindowManager();
 }
 
 /* =====================================================
    DRAG & DROP: mover ventanas entre workspaces
 ===================================================== */
-
-/* ★ Configura drag start en mini-ventanas y drop zones en las cards de workspace */
 function setupWmDragAndDrop() {
   const strip = document.getElementById('wm-workspaces-strip');
   if (!strip) return;
 
-  /* --- Mini-ventanas: drag start --- */
-  strip.querySelectorAll('.wm-mini-window[data-app-id]').forEach(mini => {
+  strip.querySelectorAll('.wm-mini-window[data-win-id]').forEach(mini => {
     mini.addEventListener('dragstart', (e) => {
-      const appId = mini.dataset.appId;
-      if (!appId || !openWindows[appId]) {
+      const winId = mini.dataset.winId;
+      if (!winId || !openWindows[winId]) {
         e.preventDefault();
         return;
       }
 
-      const sourceWs = parseInt(openWindows[appId].dataset.ws, 10);
+      const sourceWs = parseInt(openWindows[winId].win.dataset.ws, 10);
 
       wmDragState = {
-        appId,
+        winId,
         sourceWs,
         justDropped: false
       };
 
-      /* Feedback visual */
       mini.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', appId);
+      e.dataTransfer.setData('text/plain', winId);
 
-      /* Cursor custom opcional — usamos uno simple */
       try { e.dataTransfer.setDragImage(mini, mini.offsetWidth / 2, mini.offsetHeight / 2); } catch (_) {}
 
-      /* Marcamos la tira en "modo drag" para resaltar drop zones */
       strip.classList.add('wm-dragging');
     });
 
@@ -2479,12 +2752,10 @@ function setupWmDragAndDrop() {
       mini.classList.remove('dragging');
       strip.classList.remove('wm-dragging');
 
-      /* Removemos highlights de drop zones */
       strip.querySelectorAll('.wm-workspace-card').forEach(c => {
         c.classList.remove('drag-over', 'drag-invalid');
       });
 
-      /* Pequeño delay para que el click fantasma no dispare el cambio de workspace */
       if (wmDragState) {
         wmDragState.justDropped = true;
         setTimeout(() => {
@@ -2492,19 +2763,16 @@ function setupWmDragAndDrop() {
         }, 120);
       }
 
-      /* Limpieza suave */
       setTimeout(cleanupWmDrag, 200);
     });
   });
 
-  /* --- Workspace cards: drop zones --- */
   strip.querySelectorAll('.wm-workspace-card[data-wm-ws]').forEach(card => {
     const targetWs = parseInt(card.dataset.wmWs, 10);
 
     card.addEventListener('dragover', (e) => {
       if (!wmDragState) return;
 
-      /* Ignoramos drag sobre el mismo workspace */
       if (wmDragState.sourceWs === targetWs) {
         e.dataTransfer.dropEffect = 'none';
         card.classList.add('drag-invalid');
@@ -2517,7 +2785,6 @@ function setupWmDragAndDrop() {
     });
 
     card.addEventListener('dragleave', (e) => {
-      /* Solo quitamos si salimos de la card completamente */
       if (!card.contains(e.relatedTarget)) {
         card.classList.remove('drag-over', 'drag-invalid');
       }
@@ -2529,19 +2796,16 @@ function setupWmDragAndDrop() {
 
       if (!wmDragState) return;
 
-      const { appId, sourceWs } = wmDragState;
+      const { winId, sourceWs } = wmDragState;
       if (sourceWs === targetWs) return;
 
-      /* Movemos la ventana al workspace destino */
-      moveWindowToWorkspace(appId, targetWs);
+      moveWindowToWorkspace(winId, targetWs);
 
-      /* Marcamos justDropped para evitar el click fantasma */
       wmDragState.justDropped = true;
     });
   });
 }
 
-/* ★ Limpieza del estado de drag */
 function cleanupWmDrag() {
   wmDragState = null;
   const strip = document.getElementById('wm-workspaces-strip');
@@ -2556,30 +2820,45 @@ function cleanupWmDrag() {
   }
 }
 
-/* ================= GESTIÓN DE VENTANAS ================= */
-function openApp(id) {
-  if (openWindows[id]) {
-    if (parseInt(openWindows[id].dataset.ws) !== currentWorkspace) {
-      switchWorkspace(parseInt(openWindows[id].dataset.ws));
+/* ================= GESTIÓN DE VENTANAS (multi-instancia) ================= */
+function openApp(appId, forceNew = false) {
+  const app = APPS[appId];
+  if (!app) return;
+
+  const instances = getInstancesOfApp(appId);
+
+  if (!forceNew && instances.length > 0) {
+    const lastWinId = getLastInstanceOfApp(appId);
+    if (lastWinId) {
+      const lastWin = openWindows[lastWinId].win;
+      if (parseInt(lastWin.dataset.ws) !== currentWorkspace) {
+        switchWorkspace(parseInt(lastWin.dataset.ws));
+      }
+      focusWindow(lastWinId);
+      return;
     }
-    focusWindow(id);
-    return;
   }
-  
-  const app = APPS[id];
+
+  const winId = generateWinId(appId);
   const win = document.createElement('div');
   win.className = 'window focused';
-  win.id = `win-${id}`;
-  win.dataset.ws = currentWorkspace; 
-  
+  win.id = `win-${winId}`;
+  win.dataset.ws = currentWorkspace;
+  win.dataset.appId = appId;
+  win.dataset.winId = winId;
+
   const top = 65 + Math.random() * 25;
   const left = 100 + Math.random() * 50;
   win.style.top = top + 'px';
   win.style.left = left + 'px';
-  
-  win.style.width = id === 'music' ? '980px' : id === 'settings' ? '780px' : '680px';
-  win.style.height = id === 'music' ? '640px' : id === 'settings' ? '540px' : '480px';
+
+  win.style.width = appId === 'music' ? '980px' : appId === 'settings' ? '780px' : '680px';
+  win.style.height = appId === 'music' ? '640px' : appId === 'settings' ? '540px' : '480px';
   win.style.zIndex = ++zIndexCounter;
+
+  const totalInstances = instances.length + 1;
+  const newInstNumber = getInstanceNumber(winId);
+  const titleWithInstance = totalInstances > 1 ? `${app.title} · #${newInstNumber}` : app.title;
 
   win.innerHTML = `
     <div class="titlebar">
@@ -2587,35 +2866,35 @@ function openApp(id) {
         <span class="win-icon">
           ${app.image ? `<img src="${app.image}" alt="${app.title}" class="win-icon-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';" /><i data-lucide="${app.icon}" style="display:none;"></i>` : `<i data-lucide="${app.icon}"></i>`}
         </span>
-        <strong>${app.title}</strong>
+        <strong>${escapeHtml(titleWithInstance)}</strong>
         <small>${app.sub}</small>
       </div>
       <div class="wbtns">
-        <button class="min" onclick="minimizeApp('${id}')" title="Minimizar"></button>
-        <button class="max" onclick="maximizeApp('${id}')" title="Maximizar"></button>
-        <button class="close" onclick="closeApp('${id}')" title="Cerrar"></button>
+        <button class="min" onclick="minimizeApp('${winId}')" title="Minimizar"></button>
+        <button class="max" onclick="maximizeApp('${winId}')" title="Maximizar"></button>
+        <button class="close" onclick="closeApp('${winId}')" title="Cerrar"></button>
       </div>
     </div>
     <div class="wcontent">
-      ${getAppContent(id)}
+      ${getAppContent(appId)}
     </div>
   `;
 
-  win.addEventListener('mousedown', () => focusWindow(id));
+  win.addEventListener('mousedown', () => focusWindow(winId));
   document.getElementById('windows-container').appendChild(win);
-  
-  if (id === 'terminal') setupTerminal(win);
-  if (id === 'nova') setupNovaAI(win);
-  if (id === 'files') setupFiles(win);
-  if (id === 'settings') renderSettingsApp();
-  if (id === 'music') setupSpotifyApp(win);
-  
-  openWindows[id] = win;
-  focusWindow(id);
+
+  if (appId === 'terminal') setupTerminal(win);
+  if (appId === 'nova') setupNovaAI(win);
+  if (appId === 'files') setupFiles(win);
+  if (appId === 'settings') renderSettingsApp();
+  if (appId === 'music') setupSpotifyApp(win);
+
+  openWindows[winId] = { appId, win };
+  focusWindow(winId);
   renderDock();
   syncAllSliders();
   refreshIcons();
-  
+
   const titlebar = win.querySelector('.titlebar');
   function getPointerPosition(e) {
     const point = e.touches ? e.touches[0] : e;
@@ -2623,7 +2902,7 @@ function openApp(id) {
   }
 
   function startDrag(e) {
-    if(e.target.tagName === 'BUTTON' || e.target.closest('.wbtns')) return;
+    if (e.target.tagName === 'BUTTON' || e.target.closest('.wbtns')) return;
     if (e.type === 'touchstart') e.preventDefault();
 
     const start = getPointerPosition(e);
@@ -2631,7 +2910,7 @@ function openApp(id) {
     const ol = win.offsetLeft, ot = win.offsetTop;
     const moveEvent = e.type === 'touchstart' ? 'touchmove' : 'mousemove';
     const endEvent = e.type === 'touchstart' ? 'touchend' : 'mouseup';
-    
+
     function move(ev) {
       if (moveEvent === 'touchmove') ev.preventDefault();
       const point = getPointerPosition(ev);
@@ -2648,50 +2927,84 @@ function openApp(id) {
 
   titlebar.addEventListener('mousedown', startDrag);
   titlebar.addEventListener('touchstart', startDrag, { passive: false });
+
+  if (totalInstances > 1) {
+    showToast(
+      `${app.title} · Instancia #${newInstNumber}`,
+      `Abriendo nueva ventana de ${app.title}.`,
+      'plus'
+    );
+  }
 }
 
-function focusWindow(id) {
-  activeAppId = id;
-  Object.values(openWindows).forEach(w => w.classList.remove('focused'));
-  if (openWindows[id]) {
-    openWindows[id].classList.add('focused');
-    openWindows[id].classList.remove('minimized');
-    openWindows[id].style.zIndex = ++zIndexCounter;
-    if (parseInt(openWindows[id].dataset.ws) === currentWorkspace) {
-      openWindows[id].style.display = 'flex'; 
-    }
-  }
-  updateTopBar(id);
+function focusWindow(winId) {
+  if (!openWindows[winId]) return;
 
-  /* ★ Si el WM está abierto, re-renderizamos para actualizar la card "focused" */
+  activeWinId = winId;
+  Object.values(openWindows).forEach(entry => {
+    entry.win.classList.remove('focused');
+  });
+
+  const win = openWindows[winId].win;
+  win.classList.add('focused');
+  win.classList.remove('minimized');
+  win.style.zIndex = ++zIndexCounter;
+
+  if (parseInt(win.dataset.ws) === currentWorkspace) {
+    win.style.display = 'flex';
+  }
+
+  updateTopBar(winId);
+
   if (windowManagerOpen) renderWindowManager();
 }
 
-function closeApp(id) {
-  if (openWindows[id]) {
-    openWindows[id].remove();
-    delete openWindows[id];
-    activeAppId = null;
-    updateTopBar(null);
-    renderDock();
-    hideDockPreview();
+function closeApp(winId) {
+  const entry = openWindows[winId];
+  if (!entry) return;
 
-    /* Si el WM está abierto, lo re-renderizamos */
-    if (windowManagerOpen) renderWindowManager();
+  const appId = entry.appId;
+
+  entry.win.remove();
+  delete openWindows[winId];
+
+  if (activeWinId === winId) {
+    activeWinId = null;
+    updateTopBar(null);
   }
+
+  const remaining = getInstancesOfApp(appId);
+  remaining.forEach(id => {
+    const w = openWindows[id]?.win;
+    if (!w) return;
+
+    const wApp = APPS[appId];
+    const newNum = getInstanceNumber(id);
+    const titleEl = w.querySelector('.window-identity strong');
+    if (titleEl && wApp) {
+      titleEl.textContent = remaining.length > 1 ? `${wApp.title} · #${newNum}` : wApp.title;
+    }
+  });
+
+  renderDock();
+  hideDockPreview();
+
+  if (windowManagerOpen) renderWindowManager();
 }
 
-function maximizeApp(id) {
-  const win = openWindows[id];
+function maximizeApp(winId) {
+  const entry = openWindows[winId];
+  const win = entry?.win;
   if (!win) return;
+
   if (win.classList.contains('maximized')) {
-    restoreWindow(id);
+    restoreWindow(winId);
   } else {
     win.dataset.oldW = win.style.width;
     win.dataset.oldH = win.style.height;
     win.dataset.oldT = win.style.top;
     win.dataset.oldL = win.style.left;
-    
+
     win.classList.add('maximized');
     win.style.width = '100vw';
     win.style.height = 'calc(100vh - 46px)';
@@ -2701,9 +3014,11 @@ function maximizeApp(id) {
   }
 }
 
-function restoreWindow(id) {
-  const win = openWindows[id];
+function restoreWindow(winId) {
+  const entry = openWindows[winId];
+  const win = entry?.win;
   if (!win) return;
+
   win.classList.remove('maximized');
   win.style.width = win.dataset.oldW;
   win.style.height = win.dataset.oldH;
@@ -2712,16 +3027,19 @@ function restoreWindow(id) {
   win.style.borderRadius = "var(--radius-md)";
 }
 
-function minimizeApp(id) {
-  if (openWindows[id]) {
-    openWindows[id].classList.add('minimized');
-    openWindows[id].style.display = 'none';
-    activeAppId = null;
-    updateTopBar(null);
+function minimizeApp(winId) {
+  const entry = openWindows[winId];
+  if (!entry?.win) return;
 
-    /* Si el WM está abierto, lo re-renderizamos */
-    if (windowManagerOpen) renderWindowManager();
+  entry.win.classList.add('minimized');
+  entry.win.style.display = 'none';
+
+  if (activeWinId === winId) {
+    activeWinId = null;
+    updateTopBar(null);
   }
+
+  if (windowManagerOpen) renderWindowManager();
 }
 
 /* ================= SETUP NOVA AI ================= */
@@ -2842,7 +3160,7 @@ function setupFiles(win) {
           <strong style="color:#fff; font-size:12px;"><i data-lucide="file-text" style="width:14px; height:14px; color:var(--accent);"></i> ${escapeHtml(item.name)}</strong>
           <small style="display:block; color:var(--text-sub); font-size:10px;">${escapeHtml(item.size)} · Solo lectura</small>
           <div style="margin-top:6px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-sub); background:rgba(0,0,0,0.3); padding:6px; border-radius:4px; max-height:80px; overflow:hidden;">
-            // Nebula OS File Descriptor\n// Archivo listo para ejecución y lectura
+            // Nebula OS File Descriptor\\n// Archivo listo para ejecución y lectura
           </div>
         </div>
       `;
@@ -2991,11 +3309,10 @@ function setupTerminal(win) {
   input.focus();
 }
 
-/* ================= SETUP SPOTIFY APP ================= */
+/* ================= SETUP SPOTIFY APP (multi-instancia) ================= */
 function setupSpotifyApp(win) {
   if (!win) return;
 
-  /* Cards de playlists / canciones */
   win.querySelectorAll('.spot-card[data-track-index]').forEach(card => {
     card.addEventListener('click', () => {
       const idx = parseInt(card.dataset.trackIndex, 10);
@@ -3008,32 +3325,30 @@ function setupSpotifyApp(win) {
       updateMediaUI();
       updatePlayerBackground();
       updatePlayerProgress();
-      /* Refrescar los íconos de play/pause */
       const iconName = isPlaying ? 'pause' : 'play';
-      ['media-toggle', 'hud-play-btn', 'cc-play-btn', 'spot-play-btn'].forEach(id => {
+      ['media-toggle', 'hud-play-btn', 'cc-play-btn'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.innerHTML = `<i data-lucide="${iconName}"></i>`;
+      });
+      document.querySelectorAll('#spot-play-btn').forEach(btn => {
+        btn.innerHTML = `<i data-lucide="${iconName}"></i>`;
       });
       refreshIcons();
     });
   });
 
-  /* Play / Pause */
   const spPlay = win.querySelector('#spot-play-btn');
   if (spPlay) spPlay.addEventListener('click', () => toggleMediaPlayback());
 
-  /* Next / Prev */
   const spNext = win.querySelector('#spot-next-btn');
   if (spNext) spNext.addEventListener('click', () => nextTrack());
 
   const spPrev = win.querySelector('#spot-prev-btn');
   if (spPrev) spPrev.addEventListener('click', () => previousTrack());
 
-  /* Shuffle / Repeat */
   const spShuffle = win.querySelector('#spot-shuffle');
   if (spShuffle) spShuffle.addEventListener('click', () => {
     shuffleEnabled = !shuffleEnabled;
-    spShuffle.classList.toggle('active', shuffleEnabled);
     syncSpotifyShuffleRepeatUI();
 
     const ccShuffle = document.getElementById('cc-shuffle');
@@ -3043,20 +3358,17 @@ function setupSpotifyApp(win) {
   const spRepeat = win.querySelector('#spot-repeat');
   if (spRepeat) spRepeat.addEventListener('click', () => {
     repeatEnabled = !repeatEnabled;
-    spRepeat.classList.toggle('active', repeatEnabled);
     syncSpotifyShuffleRepeatUI();
 
     const ccRepeat = document.getElementById('cc-repeat');
     if (ccRepeat) ccRepeat.classList.toggle('active', repeatEnabled);
   });
 
-  /* Like (solo visual) */
   const spLike = win.querySelector('#spot-like-btn');
   if (spLike) spLike.addEventListener('click', () => {
     spLike.classList.toggle('liked');
   });
 
-  /* Volume slider */
   const spVol = win.querySelector('#spot-volume-slider');
   if (spVol) {
     spVol.value = systemVolume;
@@ -3066,7 +3378,6 @@ function setupSpotifyApp(win) {
     });
   }
 
-  /* Progress bar — click para simular seek */
   const spProgress = win.querySelector('#spot-progress-track');
   if (spProgress) {
     spProgress.addEventListener('click', (e) => {
@@ -3079,17 +3390,12 @@ function setupSpotifyApp(win) {
     });
   }
 
-  /* Sincronizar la UI del player con el estado global actual */
   syncSpotifyShuffleRepeatUI();
-
-  /* Marcar la card activa */
   updateMediaUI();
 
-  /* Actualizar el ícono de play/pause según estado actual */
   const iconName = isPlaying ? 'pause' : 'play';
   if (spPlay) spPlay.innerHTML = `<i data-lucide="${iconName}"></i>`;
 
-  /* Aplicar fill a sliders */
   setTimeout(syncAllSliders, 0);
 
   refreshIcons();
@@ -3097,11 +3403,14 @@ function setupSpotifyApp(win) {
 
 /* ================= RENDERIZADO DE NEBULA DESIGNER & AJUSTES ================= */
 function renderSettingsApp() {
-  const win = openWindows['settings'];
-  if (!win) return;
-  const content = win.querySelector('.wcontent');
-  if (!content) return;
-  content.innerHTML = getAppContent('settings');
+  const settingsWinIds = getInstancesOfApp('settings');
+  settingsWinIds.forEach(winId => {
+    const win = openWindows[winId]?.win;
+    if (!win) return;
+    const content = win.querySelector('.wcontent');
+    if (!content) return;
+    content.innerHTML = getAppContent('settings');
+  });
   refreshIcons();
   setTimeout(syncAllSliders, 0);
 }
@@ -3232,7 +3541,6 @@ function getAppContent(id) {
 
     return `
       <div class="spot-app">
-        <!-- ============ TOPBAR ============ -->
         <div class="spot-topbar">
           <div class="spot-topbar-nav">
             <button class="spot-nav-arrow" type="button" disabled aria-label="Atrás"><i data-lucide="chevron-left"></i></button>
@@ -3249,7 +3557,6 @@ function getAppContent(id) {
           </div>
         </div>
 
-        <!-- ============ SIDEBAR ============ -->
         <aside class="spot-sidebar">
           <div class="spot-sidebar-header">
             <strong><i data-lucide="library"></i> Tu biblioteca</strong>
@@ -3312,28 +3619,24 @@ function getAppContent(id) {
           </div>
         </aside>
 
-        <!-- ============ MAIN ============ -->
         <main class="spot-main">
-          <!-- Hero -->
           <div class="spot-hero">
             <div class="spot-hero-info">
               <div class="spot-hero-kicker">Playlist destacada</div>
               <h1>Música para programar</h1>
-              <button class="spot-hero-btn" type="button" onclick="currentTrackIndex=0; currentPlaybackTime=0; if(!isPlaying){isPlaying=true;} updateMediaUI(); updatePlayerBackground(); updatePlayerProgress(); const iconName = isPlaying ? 'pause' : 'play'; ['media-toggle','hud-play-btn','cc-play-btn','spot-play-btn'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = '<i data-lucide=\\'' + iconName + '\\'></i>'; }); refreshIcons();">
+              <button class="spot-hero-btn" type="button" onclick="currentTrackIndex=0; currentPlaybackTime=0; if(!isPlaying){isPlaying=true;} updateMediaUI(); updatePlayerBackground(); updatePlayerProgress(); const iconName = isPlaying ? 'pause' : 'play'; ['media-toggle','hud-play-btn','cc-play-btn'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = '<i data-lucide=\\'' + iconName + '\\'></i>'; }); document.querySelectorAll('#spot-play-btn').forEach(btn => btn.innerHTML = '<i data-lucide=\\'' + iconName + '\\'></i>'); refreshIcons();">
                 <i data-lucide="play"></i> Escuchar ahora
               </button>
             </div>
             <img class="spot-hero-cover" src="./spotify/top 50.jpg" alt="Playlist destacada">
           </div>
 
-          <!-- Filtros -->
           <div class="spot-main-chips">
             <button class="spot-main-chip active" type="button">Todo</button>
             <button class="spot-main-chip" type="button">Música</button>
             <button class="spot-main-chip" type="button">Podcasts</button>
           </div>
 
-          <!-- Grid de tracks -->
           <div class="spot-section-title">Tus canciones</div>
           <div class="spot-grid">
             ${TRACKS.map((t, i) => `
@@ -3347,7 +3650,6 @@ function getAppContent(id) {
             `).join('')}
           </div>
 
-          <!-- Segunda fila de descubrimiento -->
           <div class="spot-section-title">Descubrí algo nuevo</div>
           <div class="spot-grid">
             <button class="spot-card" type="button" data-track-index="2">
@@ -3374,9 +3676,7 @@ function getAppContent(id) {
           </div>
         </main>
 
-        <!-- ============ PLAYER BAR ============ -->
         <div class="spot-player">
-          <!-- Izquierda: cover + info + like -->
           <div class="spot-player-left">
             <img src="${track.art}" alt="${escapeHtml(track.title)}" id="spot-player-cover">
             <div class="spot-player-track">
@@ -3388,7 +3688,6 @@ function getAppContent(id) {
             </button>
           </div>
 
-          <!-- Centro: controles + progreso -->
           <div class="spot-player-center">
             <div class="spot-player-controls">
               <button class="spot-ctrl ${shuffleEnabled ? 'active' : ''}" type="button" id="spot-shuffle" title="Aleatorio">
@@ -3417,7 +3716,6 @@ function getAppContent(id) {
             </div>
           </div>
 
-          <!-- Derecha: extras + volumen -->
           <div class="spot-player-right">
             <button class="spot-extra-btn" type="button" title="Letra"><i data-lucide="mic-2"></i></button>
             <button class="spot-extra-btn" type="button" title="Cola de reproducción"><i data-lucide="list-music"></i></button>
@@ -3787,8 +4085,9 @@ function renderLauncherResults(query) {
         ${getAppTileHTML(id)}
         <div class="meta"><div class="title">${app.title}</div><div class="sub">${app.sub}</div></div>
       `;
-      res.onclick = () => {
-        openApp(id);
+      res.onclick = (e) => {
+        const forceNew = e.ctrlKey || e.metaKey;
+        openApp(id, forceNew);
         toggleLauncher();
       };
       launcherResults.appendChild(res);
