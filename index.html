@@ -40,13 +40,11 @@
         <button onclick="switchWorkspace(5)" title="Espacio 5"></button>
       </div>
 
-      <!-- PERFIL ACTUAL BADGE -->
       <div class="topbar-profile-pill" id="topbar-profile-pill" title="Perfil activo. Clic para cambiar perfil" role="button" tabindex="0">
         <span class="profile-icon" id="topbar-profile-icon"><i data-lucide="gamepad-2"></i></span>
         <span class="profile-name" id="topbar-profile-name">Gamer</span>
       </div>
 
-      <!-- MODO JUEGO BADGE -->
       <div class="topbar-gamemode-badge" id="topbar-gamemode-badge" title="Modo Juego (Clic para alternar)" role="button" tabindex="0" onclick="toggleGameMode()">
         <span class="gamemode-dot"></span>
         <span>GAME MODE</span>
@@ -55,7 +53,6 @@
       <span class="active-app" id="active-app-name">Escritorio</span>
     </div>
     
-    <!-- RELOJ CENTRAL CON SEGUNDOS -->
     <div class="waybar-module center" id="clock-center" tabindex="0" role="button" aria-label="Abrir calendario y centro de control">
       <span id="clock">
         <span class="clock-time" id="clock-time">00:00:00</span>
@@ -64,7 +61,6 @@
       </span>
     </div>
     
-    <!-- Botón de Bandeja de Sistema -->
     <div class="waybar-module right" id="sys-tray-btn">
       <div class="sys-tray">
         <div class="item hud-btn" id="tray-hud-toggle" title="Gaming Overlay HUD (Alt+Z / Win+G)">
@@ -125,7 +121,6 @@
       <span>Estado, recursos y reproducción</span>
     </div>
 
-    <!-- CONECTIVIDAD: WIFI Y BLUETOOTH (ARRIBA DE TODO) -->
     <div class="quick-connectivity-row">
       <button class="quick-switch active" id="wifi-toggle" type="button" aria-pressed="true" onclick="toggleWifi()">
         <div class="switch-meta">
@@ -144,7 +139,6 @@
       </button>
     </div>
 
-    <!-- SWITCHES RÁPIDOS CON ESTILO PILL MODERNO -->
     <div class="quick-switches-grid">
       <button class="quick-switch" id="gamemode-toggle" type="button" aria-pressed="false" onclick="toggleGameMode()">
         <div class="switch-meta">
@@ -179,7 +173,6 @@
       </button>
     </div>
 
-    <!-- SELECTOR DE PERFILES EN QUICK CENTER -->
     <div class="quick-profiles-row">
       <span class="quick-sublabel">Perfil:</span>
       <div class="profile-mini-chips">
@@ -189,7 +182,6 @@
       </div>
     </div>
 
-    <!-- SLIDERS CON ICONOGRAFÍA VECTORIAL LIMPIA -->
     <div class="cc-sliders">
       <div class="slider-row">
         <i data-lucide="volume-2" class="slider-icon"></i>
@@ -215,7 +207,6 @@
       </div>
     </div>
 
-    <!-- REPRODUCTOR TIPO SPOTIFY CON FONDO BLUR (REDISEÑO) -->
     <div class="cc-media advanced-media" id="cc-spotify-player">
       <div class="cc-media-bg" id="cc-media-bg"></div>
 
@@ -247,7 +238,6 @@
   <!-- GAMING OVERLAY (HUD FLOTANTE TRANSLÚCIDO) -->
   <div id="gamer-overlay" class="gamer-overlay hidden" aria-label="Nebula Gaming Overlay">
     <div class="hud-container glass-panel">
-      <!-- HUD HEADER (con botones Captura / Optimizar / Modo Juego) -->
       <div class="hud-header">
         <div class="hud-title">
           <span class="hud-badge"><i data-lucide="activity"></i> NEBULA HUD</span>
@@ -265,9 +255,7 @@
         </div>
       </div>
 
-      <!-- TELEMETRÍA EN VIVO -->
       <div class="hud-telemetry-grid">
-        <!-- FPS CARD -->
         <div class="hud-card hud-fps-card">
           <div class="hud-card-header"><i data-lucide="gauge"></i> FPS TIEMPO REAL</div>
           <div class="hud-fps-val" id="hud-fps">144</div>
@@ -275,7 +263,6 @@
           <div class="hud-fps-bar"><div class="hud-fps-fill" id="hud-fps-fill"></div></div>
         </div>
 
-        <!-- GPU MONITOR -->
         <div class="hud-card">
           <div class="hud-card-header"><i data-lucide="cpu"></i> GPU (RTX 4080 SUPRIM)</div>
           <div class="hud-stat-row">
@@ -293,7 +280,6 @@
           </div>
         </div>
 
-        <!-- CPU MONITOR -->
         <div class="hud-card">
           <div class="hud-card-header"><i data-lucide="hard-drive"></i> CPU (Ryzen 9 7950X)</div>
           <div class="hud-stat-row">
@@ -312,7 +298,6 @@
         </div>
       </div>
 
-      <!-- HUD CONTROLES RÁPIDOS DE AUDIO Y SPOTIFY (CON FONDO BLUR) -->
       <div class="hud-bottom-bar" id="hud-bottom-bar">
         <div class="hud-media-bg" id="hud-media-bg"></div>
 
@@ -329,7 +314,6 @@
           </div>
         </div>
 
-        <!-- PROGRESO DE LA CANCIÓN (reemplaza al volumen) -->
         <div class="hud-progress-block">
           <div class="hud-progress-label">
             <i data-lucide="music"></i>
@@ -389,6 +373,15 @@
         <i data-lucide="layout-grid"></i>
         <strong>No hay ventanas abiertas</strong>
         <span>Abrí una app desde el dock o el lanzador para verla acá.</span>
+      </div>
+
+      <!-- ★ PAPELERA DE VENTANAS (visible solo al arrastrar) -->
+      <div class="wm-trash-zone" id="wm-trash-zone" aria-label="Papelera de ventanas">
+        <div class="wm-trash-inner">
+          <i data-lucide="trash-2" class="wm-trash-icon"></i>
+          <strong class="wm-trash-title">Soltá para eliminar</strong>
+          <small class="wm-trash-sub">La ventana se cerrará permanentemente</small>
+        </div>
       </div>
     </div>
   </div>

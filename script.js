@@ -12,7 +12,6 @@ const APPS = {
 
 const DOCK_APPS = ['browser', 'terminal', 'nova', 'files', 'vscode', 'music', 'games', 'settings'];
 
-/* ★ Cantidad total de workspaces disponibles */
 const TOTAL_WORKSPACES = 5;
 
 const WALLPAPERS = [
@@ -91,7 +90,6 @@ const TRACKS = [
   { title: 'Cyberpunk Night City Beat', artist: 'Hyper Sound', album: 'Synthwave Mix', art: './spotify/top 50.jpg', duration: 192 }
 ];
 
-/* ================= CATÁLOGO DE ESTILOS DE DOCK PREVIEW ================= */
 const DOCK_PREVIEW_STYLES = {
   blueprint: { name: 'Blueprint',        desc: 'Plano técnico / sci-fi con líneas de acento',       available: true },
   minimal:   { name: 'Minimal',          desc: 'Limpio y directo, sin adornos',                     available: true },
@@ -161,9 +159,14 @@ let dockPreviewEl = null;
 let dockPreviewTimeout = null;
 
 let windowManagerOpen = false;
+
+/* ★ Estado del drag & drop del WM (workspaces + trash) */
 let wmDragState = null;
 
-/* ★ Estado del Dock Context Menu */
+/* ★ Estado del context menu de las cards del WM */
+let wmCardContextMenuEl = null;
+let wmCardContextMenuWinId = null;
+
 let dockContextMenuEl = null;
 let dockContextMenuAppId = null;
 
@@ -419,11 +422,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const isHudClick = e.target.closest('#gamer-overlay');
     const isWMClick = e.target.closest('#window-manager-overlay');
     const isDockCtxClick = e.target.closest('.dock-context-menu');
+    const isWmCardCtxClick = e.target.closest('.wm-card-context-menu');
 
-    /* ★ Cerramos el menú contextual del dock si el click fue afuera */
-    if (!isDockCtxClick) {
-      hideDockContextMenu();
-    }
+    if (!isDockCtxClick) hideDockContextMenu();
+    if (!isWmCardCtxClick) hideWmCardContextMenu();
 
     if (!sysTrayBtn?.contains(e.target)
         && !clockCenter?.contains(e.target)
@@ -433,18 +435,17 @@ document.addEventListener('DOMContentLoaded', () => {
         && !isCalendarClick
         && !isHudClick
         && !isWMClick
-        && !isDockCtxClick) {
+        && !isDockCtxClick
+        && !isWmCardCtxClick) {
       closeControlCenter();
       closeQuickCenter();
     }
     hideContextMenu();
   });
 
-  /* ★ Context menu del dock: cerramos con contextmenu en otro lado */
   document.addEventListener('contextmenu', (e) => {
-    if (!e.target.closest('.dock-item')) {
-      hideDockContextMenu();
-    }
+    if (!e.target.closest('.dock-item')) hideDockContextMenu();
+    if (!e.target.closest('.wm-card')) hideWmCardContextMenu();
   });
 
   document.addEventListener('keydown', e => {
@@ -454,18 +455,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (gamerOverlayVisible) toggleGamerOverlay();
       if (windowManagerOpen) closeWindowManager();
       hideDockContextMenu();
+      hideWmCardContextMenu();
     }
   });
 
-  /* ★ Cerrar menú contextual al hacer scroll/resize */
-  window.addEventListener('resize', hideDockContextMenu);
-  window.addEventListener('blur', hideDockContextMenu);
-  document.addEventListener('scroll', hideDockContextMenu, true);
+  window.addEventListener('resize', () => { hideDockContextMenu(); hideWmCardContextMenu(); });
+  window.addEventListener('blur', () => { hideDockContextMenu(); hideWmCardContextMenu(); });
+  document.addEventListener('scroll', () => { hideDockContextMenu(); hideWmCardContextMenu(); }, true);
 
   document.getElementById('screen').addEventListener('contextmenu', (e) => {
     if (e.target.closest('#context-menu') || e.target.closest('.window') || e.target.closest('.desktop-widget')) return;
-    /* ★ Si el click fue sobre el dock, el handler específico del dock se encarga */
     if (e.target.closest('.dock-item')) return;
+    if (e.target.closest('#window-manager-overlay')) return;
     e.preventDefault();
     showContextMenu(e.clientX, e.clientY);
   });
@@ -484,6 +485,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target === wmOverlay) closeWindowManager();
     });
   }
+
+  /* ★ Inicializamos la trash zone del WM */
+  setupWmTrashZone();
 });
 
 /* ================= SHORTCUTS GLOBALES ================= */
@@ -2070,31 +2074,22 @@ function getAppTileHTML(appId) {
 }
 
 /* =====================================================
-   ★ DOCK CONTEXT MENU (click derecho sobre apps del dock)
+   ★ DOCK CONTEXT MENU
 ===================================================== */
-
-/**
- * Muestra el menú contextual sobre un ícono del dock.
- * @param {string} appId
- * @param {MouseEvent} event  Evento de contextmenu, para saber la posición y el target
- */
 function showDockContextMenu(appId, event) {
   const app = APPS[appId];
   if (!app) return;
 
-  /* Cerramos cualquier menú anterior */
   hideDockContextMenu();
 
   const instances = getInstancesOfApp(appId);
   const count = instances.length;
   const isRunning = count > 0;
 
-  /* Creamos el contenedor del menú */
   const menu = document.createElement('div');
   menu.className = 'dock-context-menu';
   menu.dataset.appId = appId;
 
-  /* ---- Header con ícono + nombre ---- */
   const iconHTML = app.image
     ? `<img src="${app.image}" alt="${escapeHtml(app.title)}" onerror="this.style.display='none'; this.parentElement.innerHTML='<i data-lucide=\\'${app.icon}\\'></i>';" />`
     : `<i data-lucide="${app.icon}"></i>`;
@@ -2109,7 +2104,6 @@ function showDockContextMenu(appId, event) {
     </div>
   `;
 
-  /* ---- Opción: Abrir nueva instancia ---- */
   html += `
     <button class="dock-context-item" data-action="open-new" type="button">
       <span class="dc-icon"><i data-lucide="plus-square"></i></span>
@@ -2118,7 +2112,6 @@ function showDockContextMenu(appId, event) {
     </button>
   `;
 
-  /* ---- Opción: Enfocar última instancia (solo si está corriendo) ---- */
   if (isRunning) {
     html += `
       <button class="dock-context-item" data-action="focus" type="button">
@@ -2128,7 +2121,6 @@ function showDockContextMenu(appId, event) {
     `;
   }
 
-  /* ---- Separador + Cerrar (solo si está corriendo) ---- */
   if (isRunning) {
     html += `<div class="dock-context-separator"></div>`;
     html += `
@@ -2142,38 +2134,31 @@ function showDockContextMenu(appId, event) {
 
   menu.innerHTML = html;
 
-  /* Lo agregamos al body para medirlo y posicionarlo */
   document.body.appendChild(menu);
   dockContextMenuEl = menu;
   dockContextMenuAppId = appId;
 
-  /* Refrescamos iconos */
   refreshIcons();
 
-  /* ---- Posicionamiento ---- */
   const menuRect = menu.getBoundingClientRect();
   const margin = 10;
   const anchorRect = event.currentTarget
     ? event.currentTarget.getBoundingClientRect()
     : { left: event.clientX, right: event.clientX, top: event.clientY, bottom: event.clientY };
 
-  /* Por defecto: centrado arriba del dock item */
   let left = anchorRect.left + (anchorRect.right - anchorRect.left) / 2 - menuRect.width / 2;
   let top = anchorRect.top - menuRect.height - 12;
 
-  /* Si no entra arriba, lo ponemos debajo */
   if (top < margin) {
     top = anchorRect.bottom + 12;
   }
 
-  /* Clamp horizontal */
   left = Math.max(margin, Math.min(window.innerWidth - menuRect.width - margin, left));
   top = Math.max(margin, Math.min(window.innerHeight - menuRect.height - margin, top));
 
   menu.style.left = `${left}px`;
   menu.style.top = `${top}px`;
 
-  /* ---- Listeners de las opciones ---- */
   menu.querySelectorAll('.dock-context-item[data-action]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -2182,7 +2167,6 @@ function showDockContextMenu(appId, event) {
     });
   });
 
-  /* ---- Apertura con animación ---- */
   requestAnimationFrame(() => {
     menu.classList.add('open');
   });
@@ -2190,9 +2174,6 @@ function showDockContextMenu(appId, event) {
   refreshIcons();
 }
 
-/**
- * Maneja una acción elegida del menú contextual del dock.
- */
 function handleDockContextAction(action, appId) {
   switch (action) {
     case 'open-new': {
@@ -2219,9 +2200,6 @@ function handleDockContextAction(action, appId) {
   hideDockContextMenu();
 }
 
-/**
- * Cierra el menú contextual del dock si está abierto.
- */
 function hideDockContextMenu() {
   if (dockContextMenuEl) {
     const el = dockContextMenuEl;
@@ -2232,13 +2210,12 @@ function hideDockContextMenu() {
   }
 }
 
-/* ================= DOCK (adaptado a multi-instancia + context menu) ================= */
+/* ================= DOCK ================= */
 function renderDock() {
   const dock = document.getElementById('dock');
   if (!dock) return;
   dock.innerHTML = '';
   
-  /* Launcher button */
   const lBtn = document.createElement('div');
   lBtn.className = 'dock-item dock-launcher-btn';
   lBtn.tabIndex = 0;
@@ -2248,7 +2225,6 @@ function renderDock() {
   lBtn.onclick = toggleLauncher;
   dock.appendChild(lBtn);
 
-  /* Apps del dock */
   DOCK_APPS.forEach(id => {
     const instances = getInstancesOfApp(id);
     const count = instances.length;
@@ -2275,7 +2251,6 @@ function renderDock() {
       div.appendChild(badge);
     }
 
-    /* Click normal vs Ctrl+Click vs Click medio */
     div.onclick = (e) => {
       const forceNew = e.ctrlKey || e.metaKey || e.button === 1;
       if (forceNew) {
@@ -2295,17 +2270,14 @@ function renderDock() {
       if (e.button === 1) e.preventDefault();
     };
 
-    /* ★ Click derecho: menú contextual del dock */
     div.oncontextmenu = (e) => {
       e.preventDefault();
       e.stopPropagation();
       showDockContextMenu(id, e);
     };
 
-    /* Hover preview solo si hay instancias */
     if (isRunning) {
       div.addEventListener('mouseenter', () => {
-        /* Si el menú contextual de este mismo app está abierto, no mostramos preview */
         if (dockContextMenuAppId === id) return;
         showDockPreview(id, div);
       });
@@ -2317,7 +2289,7 @@ function renderDock() {
   refreshIcons();
 }
 
-/* ================= DOCK HOVER PREVIEW — multi-estilo (multi-instancia) ================= */
+/* ================= DOCK HOVER PREVIEW ================= */
 function buildDockPreviewHTML(appId) {
   const app = APPS[appId];
   const instances = getInstancesOfApp(appId);
@@ -2489,6 +2461,7 @@ function openWindowManager() {
   hideDockPreview();
   hideContextMenu();
   hideDockContextMenu();
+  hideWmCardContextMenu();
 
   refreshIcons();
 }
@@ -2498,10 +2471,12 @@ function closeWindowManager() {
   if (!overlay) return;
 
   cleanupWmDrag();
+  hideWmCardContextMenu();
 
   windowManagerOpen = false;
   overlay.classList.remove('open');
   overlay.setAttribute('aria-hidden', 'true');
+  overlay.classList.remove('wm-drag-active');
 }
 
 function getWindowsInWorkspace(wsNum) {
@@ -2608,16 +2583,21 @@ function renderWindowManager() {
     }
   }
 
+  /* ★ FIX: ocultar explícitamente el empty cuando hay ventanas */
   if (activeWsWinIds.length === 0) {
     grid.innerHTML = '';
     grid.hidden = true;
+    grid.style.display = 'none';
     empty.hidden = false;
+    empty.style.display = '';
     refreshIcons();
     return;
   }
 
   grid.hidden = false;
+  grid.style.display = '';
   empty.hidden = true;
+  empty.style.display = 'none';
 
   grid.innerHTML = activeWsWinIds.map((winId, i) => {
     const entry = openWindows[winId];
@@ -2684,9 +2664,19 @@ function renderWindowManager() {
   }).join('');
 
   grid.querySelectorAll('.wm-card[data-wm-win]').forEach(card => {
-    card.addEventListener('click', () => {
-      const winId = card.dataset.wmWin;
+    const winId = card.dataset.wmWin;
+
+    /* Click izquierdo: enfocar (solo si no estamos arrastrando) */
+    card.addEventListener('click', (e) => {
+      if (wmDragState) return;
       focusFromWindowManager(winId);
+    });
+
+    /* ★ Click derecho: menú contextual de la card */
+    card.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showWmCardContextMenu(winId, e);
     });
   });
 
@@ -2717,7 +2707,296 @@ function focusFromWindowManager(winId) {
 }
 
 /* =====================================================
-   DRAG & DROP: mover ventanas entre workspaces
+   ★ WM TRASH ZONE — eliminar ventanas arrastrando
+===================================================== */
+function setupWmTrashZone() {
+  const trash = document.getElementById('wm-trash-zone');
+  if (!trash) return;
+
+  /* La trash recibe el drop y elimina la ventana */
+  trash.addEventListener('dragover', (e) => {
+    if (!wmDragState) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    trash.classList.add('drag-over');
+  });
+
+  trash.addEventListener('dragleave', (e) => {
+    if (!trash.contains(e.relatedTarget)) {
+      trash.classList.remove('drag-over');
+    }
+  });
+
+  trash.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    trash.classList.remove('drag-over');
+
+    if (!wmDragState) return;
+
+    const { winId } = wmDragState;
+    if (!winId || !openWindows[winId]) return;
+
+    /* Ejecutamos la eliminación con animación */
+    deleteWindowFromWm(winId);
+
+    /* Marcamos como "justDropped" para que no se disparen los handlers de las cards */
+    wmDragState.justDropped = true;
+  });
+}
+
+/* ★ Muestra la trash y cambia el estado visual del WM */
+function setWmDragActive(active) {
+  const overlay = document.getElementById('window-manager-overlay');
+  const strip = document.getElementById('wm-workspaces-strip');
+  if (!overlay) return;
+
+  overlay.classList.toggle('wm-drag-active', active);
+  if (strip) strip.classList.toggle('wm-dragging', active);
+}
+
+/* ★ Elimina una ventana con animación de "trash" */
+function deleteWindowFromWm(winId) {
+  const entry = openWindows[winId];
+  if (!entry?.win) return;
+
+  const win = entry.win;
+  const appTitle = APPS[entry.appId]?.title || entry.appId;
+
+  /* Buscamos la card correspondiente en el grid */
+  const card = document.querySelector(`.wm-card[data-wm-win="${winId}"]`);
+  if (card) {
+    card.classList.add('deleting');
+  }
+
+  /* Esperamos el final de la animación y cerramos la ventana */
+  setTimeout(() => {
+    closeApp(winId);
+    showToast(
+      'Ventana eliminada',
+      `${appTitle} fue cerrada.`,
+      'trash-2'
+    );
+  }, 320);
+}
+
+/* =====================================================
+   ★ WM CARD CONTEXT MENU — click derecho sobre cards del WM
+===================================================== */
+function showWmCardContextMenu(winId, event) {
+  const entry = openWindows[winId];
+  if (!entry?.win) return;
+
+  const app = APPS[entry.appId];
+  if (!app) return;
+
+  hideWmCardContextMenu();
+
+  const win = entry.win;
+  const isMinimized = win.classList.contains('minimized');
+  const winWs = parseInt(win.dataset.ws, 10);
+  const instances = getInstancesOfApp(entry.appId);
+  const hasMultiple = instances.length > 1;
+  const instNumber = hasMultiple ? getInstanceNumber(winId) : 1;
+
+  /* Creamos el menú */
+  const menu = document.createElement('div');
+  menu.className = 'wm-card-context-menu';
+  menu.dataset.winId = winId;
+
+  /* Header */
+  const iconHTML = app.image
+    ? `<img src="${app.image}" alt="${escapeHtml(app.title)}" onerror="this.style.display='none'; this.parentElement.innerHTML='<i data-lucide=\\'${app.icon}\\'></i>';" />`
+    : `<i data-lucide="${app.icon}"></i>`;
+
+  const displayTitle = hasMultiple ? `${app.title} · #${instNumber}` : app.title;
+
+  let html = `
+    <div class="wm-ctx-header">
+      <div class="wm-ctx-icon">${iconHTML}</div>
+      <div class="wm-ctx-meta">
+        <span class="wm-ctx-title">${escapeHtml(displayTitle)}</span>
+        <span class="wm-ctx-sub">Space ${winWs}${isMinimized ? ' · Minimizada' : ''}</span>
+      </div>
+    </div>
+  `;
+
+  /* Opción: Enfocar */
+  html += `
+    <button class="wm-ctx-item" data-action="focus" type="button">
+      <span class="wm-ctx-icon-left"><i data-lucide="focus"></i></span>
+      <span class="wm-ctx-label">Enfocar ventana</span>
+    </button>
+  `;
+
+  /* Opción: Minimizar / Restaurar */
+  if (isMinimized) {
+    html += `
+      <button class="wm-ctx-item" data-action="restore" type="button">
+        <span class="wm-ctx-icon-left"><i data-lucide="maximize-2"></i></span>
+        <span class="wm-ctx-label">Restaurar ventana</span>
+      </button>
+    `;
+  } else {
+    html += `
+      <button class="wm-ctx-item" data-action="minimize" type="button">
+        <span class="wm-ctx-icon-left"><i data-lucide="minus-circle"></i></span>
+        <span class="wm-ctx-label">Minimizar ventana</span>
+      </button>
+    `;
+  }
+
+  /* Opción: Nueva instancia de la misma app */
+  html += `
+    <button class="wm-ctx-item" data-action="new-instance" type="button">
+      <span class="wm-ctx-icon-left"><i data-lucide="plus-square"></i></span>
+      <span class="wm-ctx-label">Abrir nueva ${escapeHtml(app.title)}</span>
+      <span class="wm-ctx-shortcut">Ctrl+Clic</span>
+    </button>
+  `;
+
+  /* Separador + Mover a Space */
+  html += `<div class="wm-ctx-separator"></div>`;
+  html += `<span class="wm-ctx-section-label">Mover a otro Space</span>`;
+
+  for (let ws = 1; ws <= TOTAL_WORKSPACES; ws++) {
+    if (ws === winWs) continue;
+    const countInWs = getWindowsInWorkspace(ws).length;
+    html += `
+      <button class="wm-ctx-space-item" data-action="move-ws" data-target-ws="${ws}" type="button">
+        <span class="wm-ctx-space-num">${ws}</span>
+        <span class="wm-ctx-space-label">Space ${ws}</span>
+        <span class="wm-ctx-space-count">${countInWs} ${countInWs === 1 ? 'app' : 'apps'}</span>
+      </button>
+    `;
+  }
+
+  /* Separador + Cerrar */
+  html += `<div class="wm-ctx-separator"></div>`;
+  html += `
+    <button class="wm-ctx-item danger" data-action="close" type="button">
+      <span class="wm-ctx-icon-left"><i data-lucide="x-circle"></i></span>
+      <span class="wm-ctx-label">Cerrar ventana</span>
+    </button>
+  `;
+
+  menu.innerHTML = html;
+
+  /* Lo agregamos al body para medirlo */
+  document.body.appendChild(menu);
+  wmCardContextMenuEl = menu;
+  wmCardContextMenuWinId = winId;
+
+  refreshIcons();
+
+  /* Posicionamiento */
+  const menuRect = menu.getBoundingClientRect();
+  const margin = 10;
+
+  let left = event.clientX;
+  let top = event.clientY;
+
+  /* Si se sale por la derecha */
+  if (left + menuRect.width + margin > window.innerWidth) {
+    left = window.innerWidth - menuRect.width - margin;
+  }
+
+  /* Si se sale por abajo */
+  if (top + menuRect.height + margin > window.innerHeight) {
+    top = window.innerHeight - menuRect.height - margin;
+  }
+
+  left = Math.max(margin, left);
+  top = Math.max(margin, top);
+
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+
+  /* Listeners de las opciones */
+  menu.querySelectorAll('.wm-ctx-item[data-action]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const action = btn.dataset.action;
+      handleWmCardAction(action, winId, btn);
+    });
+  });
+
+  /* Los spaces también son clickeables */
+  menu.querySelectorAll('.wm-ctx-space-item[data-target-ws]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const targetWs = parseInt(btn.dataset.targetWs, 10);
+      if (Number.isNaN(targetWs)) return;
+      handleWmCardAction('move-ws', winId, btn, targetWs);
+    });
+  });
+
+  requestAnimationFrame(() => menu.classList.add('open'));
+  refreshIcons();
+}
+
+function handleWmCardAction(action, winId, btnEl, targetWs = null) {
+  const entry = openWindows[winId];
+  if (!entry?.win) {
+    hideWmCardContextMenu();
+    return;
+  }
+
+  switch (action) {
+    case 'focus': {
+      focusFromWindowManager(winId);
+      break;
+    }
+
+    case 'minimize': {
+      minimizeApp(winId);
+      /* No cerramos el WM, seguimos dentro */
+      if (windowManagerOpen) renderWindowManager();
+      break;
+    }
+
+    case 'restore': {
+      entry.win.classList.remove('minimized');
+      entry.win.style.display = 'flex';
+      focusWindow(winId);
+      if (windowManagerOpen) renderWindowManager();
+      break;
+    }
+
+    case 'new-instance': {
+      const appId = entry.appId;
+      openApp(appId, true);
+      if (windowManagerOpen) renderWindowManager();
+      break;
+    }
+
+    case 'move-ws': {
+      if (targetWs === null || Number.isNaN(targetWs)) break;
+      moveWindowToWorkspace(winId, targetWs);
+      break;
+    }
+
+    case 'close': {
+      deleteWindowFromWm(winId);
+      break;
+    }
+  }
+
+  hideWmCardContextMenu();
+}
+
+function hideWmCardContextMenu() {
+  if (wmCardContextMenuEl) {
+    const el = wmCardContextMenuEl;
+    el.classList.remove('open');
+    setTimeout(() => el.remove(), 160);
+    wmCardContextMenuEl = null;
+    wmCardContextMenuWinId = null;
+  }
+}
+
+/* =====================================================
+   DRAG & DROP: mover ventanas entre workspaces + trash
 ===================================================== */
 function setupWmDragAndDrop() {
   const strip = document.getElementById('wm-workspaces-strip');
@@ -2745,16 +3024,21 @@ function setupWmDragAndDrop() {
 
       try { e.dataTransfer.setDragImage(mini, mini.offsetWidth / 2, mini.offsetHeight / 2); } catch (_) {}
 
-      strip.classList.add('wm-dragging');
+      /* ★ Activamos el estado de drag en el WM (muestra la trash, etc.) */
+      setWmDragActive(true);
     });
 
     mini.addEventListener('dragend', () => {
       mini.classList.remove('dragging');
-      strip.classList.remove('wm-dragging');
+      setWmDragActive(false);
 
       strip.querySelectorAll('.wm-workspace-card').forEach(c => {
         c.classList.remove('drag-over', 'drag-invalid');
       });
+
+      /* Removemos el estado hover de la trash */
+      const trash = document.getElementById('wm-trash-zone');
+      if (trash) trash.classList.remove('drag-over');
 
       if (wmDragState) {
         wmDragState.justDropped = true;
@@ -2818,6 +3102,9 @@ function cleanupWmDrag() {
       m.classList.remove('dragging');
     });
   }
+  const trash = document.getElementById('wm-trash-zone');
+  if (trash) trash.classList.remove('drag-over');
+  setWmDragActive(false);
 }
 
 /* ================= GESTIÓN DE VENTANAS (multi-instancia) ================= */
@@ -3309,7 +3596,7 @@ function setupTerminal(win) {
   input.focus();
 }
 
-/* ================= SETUP SPOTIFY APP (multi-instancia) ================= */
+/* ================= SETUP SPOTIFY APP ================= */
 function setupSpotifyApp(win) {
   if (!win) return;
 

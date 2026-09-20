@@ -48,6 +48,9 @@ body.game-mode-active .topbar-gamemode-badge {
   display: flex !important;
 }
 
+/* ★ Fix global para [hidden] (soluciona bugs de display:flex pisando hidden) */
+[hidden] { display: none !important; }
+
 * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
 html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-dark); color: var(--text-main); }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -162,7 +165,7 @@ svg, [data-lucide] {
 .sys-tray .item { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; font-family: "JetBrains Mono", monospace; transition: color 0.25s ease, opacity 0.25s ease; }
 .sys-tray .item svg, .sys-tray .item i { transition: color 0.25s ease, opacity 0.25s ease; }
 
-/* ================= HUD TOGGLE BADGE (nuevo estilo pill cyan) ================= */
+/* ================= HUD TOGGLE BADGE ================= */
 #tray-hud-toggle {
   padding: 3px 10px 3px 8px;
   border-radius: 999px;
@@ -391,7 +394,7 @@ svg, [data-lucide] {
 .hud-shortcut-hint { font-size: 11px; color: var(--text-sub); }
 .hud-shortcut-hint kbd { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-family: "JetBrains Mono", monospace; color: #00ffcc; border: 1px solid rgba(255,255,255,0.12); }
 
-/* ================= HUD TOOL BUTTONS (BASE GLOBAL — reutilizable) ================= */
+/* ================= HUD TOOL BUTTONS ================= */
 .hud-tool-btn {
   display: inline-flex;
   align-items: center;
@@ -553,7 +556,7 @@ svg, [data-lucide] {
 .settings-status span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
 .settings-section-label { margin: 16px 0 8px; color: var(--text-sub); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; }
 
-/* Ajuste especial para que los toggles dentro de Ajustes (Gaming) queden alineados */
+/* Ajustes alineados dentro de Ajustes */
 .designer-control-item > .quick-switch {
   flex-shrink: 0;
   padding: 0;
@@ -594,7 +597,8 @@ svg, [data-lucide] {
 .dock-style-card:hover { border-color: var(--accent); }
 .dock-style-card.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); font-weight: 700; color: #fff; }
 
-/* =====================================================   APARIENCIA DEL HOVER — selector de estilo
+/* =====================================================
+   APARIENCIA DEL HOVER — selector de estilo
 ===================================================== */
 .hover-live-preview {
   display: flex; align-items: center; justify-content: center;
@@ -655,7 +659,6 @@ svg, [data-lucide] {
 .hover-style-thumb.thumb-brutalist .hover-style-thumb-line { background: var(--accent); border-radius: 0; height: 3px; }
 .hover-style-thumb.thumb-brutalist .hover-style-thumb-line.w70 { background: rgba(255,255,255,0.3); }
 
-/* Thumbs: CRT, Glitch, Neumorph */
 .hover-style-thumb.thumb-crt {
   background: repeating-linear-gradient(0deg, rgba(0,0,0,0.9) 0, rgba(0,0,0,0.9) 2px, rgba(20,20,20,0.9) 2px, rgba(20,20,20,0.9) 3px), #000;
   border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
@@ -748,7 +751,6 @@ svg, [data-lucide] {
 .dock-preview-badge.minimized { border-color: color-mix(in srgb, var(--accent-orange) 60%, transparent); background: color-mix(in srgb, var(--accent-orange) 12%, transparent); color: var(--accent-orange); }
 .dock-preview-badge.other-ws { border-color: color-mix(in srgb, var(--accent) 60%, transparent); background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
 
-/* ★ Badge de instancias múltiples (dock preview + WM card) */
 .dock-preview-badge.instance {
   border-color: color-mix(in srgb, var(--app-accent, var(--accent)) 60%, transparent);
   background: color-mix(in srgb, var(--app-accent, var(--accent)) 14%, transparent);
@@ -958,7 +960,7 @@ body.dock-preview-glitch .dock-preview-badge.minimized { border-color: #ff007f; 
 body.dock-preview-glitch .dock-preview-badge.other-ws { border-color: #00ffcc; color: #00ffcc; text-shadow: 0 0 6px #00ffcc; }
 body.dock-preview-glitch .dock-preview.is-minimized .dock-preview-sketch-body { opacity: 0.4; }
 
-/* ---------- NEUMORPH (nuevo) ---------- */
+/* ---------- NEUMORPH ---------- */
 body.dock-preview-neumorph .dock-preview {
   background: #1a1d2a;
   border: 0;
@@ -1286,6 +1288,7 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
 }
 #window-manager-overlay.open { opacity: 1; visibility: visible; pointer-events: auto; }
 .wm-container {
+  position: relative; /* ★ para posicionar la papelera dentro */
   width: min(880px, 100%); height: auto; max-height: calc(100vh - 64px);
   display: flex; flex-direction: column; gap: 14px;
   background: rgba(10, 13, 22, 0.48);
@@ -1389,6 +1392,401 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
 .wm-empty strong { color: #fff; font-size: 13px; font-weight: 700; }
 .wm-empty span { font-size: 10px; max-width: 280px; line-height: 1.5; }
 
+/* =====================================================
+   ★ WM TRASH ZONE (papelera para eliminar ventanas)
+===================================================== */
+.wm-trash-zone {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 200px;
+  min-height: 110px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 2px dashed color-mix(in srgb, var(--accent-red) 50%, transparent);
+  background: color-mix(in srgb, var(--accent-red) 6%, rgba(10, 12, 20, 0.75));
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.65),
+    0 0 24px color-mix(in srgb, var(--accent-red) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  opacity: 0;
+  transform: translateY(20px) scale(0.92);
+  pointer-events: none;
+  transition:
+    opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.22s ease,
+    background 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+/* ★ Visible cuando el WM está en modo drag */
+#window-manager-overlay.wm-drag-active .wm-trash-zone {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.wm-trash-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.wm-trash-icon {
+  width: 34px;
+  height: 34px;
+  color: color-mix(in srgb, var(--accent-red) 85%, transparent);
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent-red) 40%, transparent));
+  transition: transform 0.22s ease, color 0.22s ease, filter 0.22s ease;
+}
+
+.wm-trash-title {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent-red) 90%, #fff 10%);
+  transition: color 0.22s ease, text-shadow 0.22s ease;
+}
+
+.wm-trash-sub {
+  font-family: "Inter", sans-serif;
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-sub);
+  line-height: 1.3;
+  transition: color 0.22s ease;
+}
+
+/* ★ Estado: hover del drag sobre la papelera */
+.wm-trash-zone.drag-over {
+  border-style: solid;
+  border-color: var(--accent-red);
+  background: color-mix(in srgb, var(--accent-red) 22%, rgba(10, 12, 20, 0.85));
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.7),
+    0 0 40px color-mix(in srgb, var(--accent-red) 60%, transparent),
+    inset 0 0 24px color-mix(in srgb, var(--accent-red) 18%, transparent);
+  transform: translateY(0) scale(1.06);
+  animation: wm-trash-pulse 1s ease-in-out infinite;
+}
+
+.wm-trash-zone.drag-over .wm-trash-icon {
+  color: #fff;
+  filter: drop-shadow(0 0 16px var(--accent-red));
+  transform: scale(1.15);
+}
+
+.wm-trash-zone.drag-over .wm-trash-title {
+  color: #fff;
+  text-shadow: 0 0 12px color-mix(in srgb, var(--accent-red) 80%, transparent);
+}
+
+.wm-trash-zone.drag-over .wm-trash-sub {
+  color: color-mix(in srgb, var(--accent-red) 70%, #fff 30%);
+}
+
+@keyframes wm-trash-pulse {
+  0%, 100% {
+    box-shadow:
+      0 20px 50px rgba(0, 0, 0, 0.7),
+      0 0 30px color-mix(in srgb, var(--accent-red) 50%, transparent),
+      inset 0 0 24px color-mix(in srgb, var(--accent-red) 15%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 20px 50px rgba(0, 0, 0, 0.7),
+      0 0 50px color-mix(in srgb, var(--accent-red) 75%, transparent),
+      inset 0 0 32px color-mix(in srgb, var(--accent-red) 25%, transparent);
+  }
+}
+
+/* ★ Card que se está "tirando a la basura" (mientras se arrastra) */
+.wm-card.trashing {
+  opacity: 0.3;
+  transform: scale(0.92) rotate(-2deg);
+  filter: grayscale(0.5) blur(1px);
+  pointer-events: none;
+}
+
+/* ★ Animación de eliminación (shrink + fade) */
+.wm-card.deleting {
+  animation: wm-card-delete 0.35s cubic-bezier(0.5, 0, 0.75, 0) forwards;
+  pointer-events: none;
+  z-index: 20;
+}
+
+@keyframes wm-card-delete {
+  0% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    filter: grayscale(0) blur(0);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.85) rotate(-3deg);
+    filter: grayscale(0.4) blur(0.5px);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.4) rotate(-8deg) translateY(30px);
+    filter: grayscale(0.8) blur(4px);
+  }
+}
+
+/* =====================================================
+   ★ WM CARD CONTEXT MENU (click derecho sobre cards)
+===================================================== */
+.wm-card-context-menu {
+  position: fixed;
+  z-index: 2700;
+  min-width: 230px;
+  max-width: 280px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(13, 16, 26, 0.96);
+  backdrop-filter: blur(22px) saturate(1.6);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.75),
+    0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent),
+    0 0 24px color-mix(in srgb, var(--accent) 14%, transparent);
+  opacity: 0;
+  transform: translateY(6px) scale(0.96);
+  transform-origin: top left;
+  pointer-events: none;
+  transition:
+    opacity 0.16s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.wm-card-context-menu.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.wm-ctx-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.wm-ctx-header .wm-ctx-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.3);
+}
+.wm-ctx-header .wm-ctx-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 3px;
+}
+.wm-ctx-header .wm-ctx-icon svg,
+.wm-ctx-header .wm-ctx-icon i {
+  width: 15px;
+  height: 15px;
+  color: var(--accent);
+}
+.wm-ctx-header .wm-ctx-meta {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.wm-ctx-header .wm-ctx-title {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wm-ctx-header .wm-ctx-sub {
+  color: var(--text-sub);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wm-ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  border: 0;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+}
+.wm-ctx-item:hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: #fff;
+}
+.wm-ctx-item:hover .wm-ctx-icon-left {
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+.wm-ctx-item .wm-ctx-icon-left {
+  width: 15px;
+  height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-sub);
+  flex-shrink: 0;
+  transition: color 0.15s ease, filter 0.15s ease;
+}
+.wm-ctx-item .wm-ctx-icon-left svg,
+.wm-ctx-item .wm-ctx-icon-left i {
+  width: 14px;
+  height: 14px;
+}
+.wm-ctx-item .wm-ctx-label {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wm-ctx-item .wm-ctx-shortcut {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  color: var(--text-sub);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.wm-ctx-item .wm-ctx-tag {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  padding: 1px 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.wm-ctx-item.danger:hover {
+  background: color-mix(in srgb, var(--accent-red) 22%, transparent);
+  color: #fff;
+}
+.wm-ctx-item.danger:hover .wm-ctx-icon-left {
+  color: var(--accent-red);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent-red) 60%, transparent));
+}
+
+.wm-ctx-separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.wm-ctx-section-label {
+  display: block;
+  padding: 6px 10px 4px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-sub);
+  opacity: 0.7;
+}
+
+.wm-ctx-space-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  color: var(--text-main);
+  font-size: 11px;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.15s ease;
+}
+.wm-ctx-space-item:hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: #fff;
+}
+.wm-ctx-space-item.current {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-weight: 700;
+  pointer-events: none;
+}
+.wm-ctx-space-item .wm-ctx-space-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.wm-ctx-space-item.current .wm-ctx-space-num {
+  background: var(--accent);
+  color: #0d0f17;
+  border-color: var(--accent);
+}
+.wm-ctx-space-item .wm-ctx-space-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wm-ctx-space-item .wm-ctx-space-count {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  color: var(--text-sub);
+}
+
 /* ================= STATIC PREVIEWS ================= */
 .steam-preview, .firefox-preview, .vscode-preview { width: 100%; height: 100%; overflow: auto; background: #0c1017; }
 .steam-preview img, .firefox-preview img, .vscode-preview img { display: block; width: 100%; min-height: 100%; object-fit: cover; }
@@ -1452,9 +1850,7 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
 .context-item:hover .c-icon { color: #0d0f17; }
 .context-separator { height: 1px; margin: 4px 2px; background: rgba(255,255,255,0.08); }
 
-/* =====================================================
-   ★ DOCK CONTEXT MENU (click derecho sobre apps del dock)
-===================================================== */
+/* ================= DOCK CONTEXT MENU ================= */
 .dock-context-menu {
   position: fixed;
   z-index: 1500;
@@ -1474,166 +1870,28 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   transform: translateY(6px) scale(0.96);
   transform-origin: top center;
   pointer-events: none;
-  transition: opacity 0.16s cubic-bezier(0.22, 1, 0.36, 1),
-              transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 0.16s cubic-bezier(0.22, 1, 0.36, 1), transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
 }
-
-.dock-context-menu.open {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  pointer-events: auto;
-}
-
-/* Header con nombre + subtítulo de la app */
-.dock-context-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px 10px;
-  margin-bottom: 4px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-.dock-context-header .app-icon-wrapper {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.3);
-}
-.dock-context-header .app-icon-wrapper img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  padding: 3px;
-}
-.dock-context-header .app-icon-wrapper svg,
-.dock-context-header .app-icon-wrapper i {
-  width: 16px;
-  height: 16px;
-  color: var(--accent);
-}
-.dock-context-header .app-meta {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.dock-context-header .app-title {
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.dock-context-header .app-sub {
-  color: var(--text-sub);
-  font-size: 10px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Items del menú */
-.dock-context-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  color: var(--text-main);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-  border: 0;
-  background: transparent;
-  width: 100%;
-  text-align: left;
-  font-family: inherit;
-}
-.dock-context-item:hover {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  color: #fff;
-}
-.dock-context-item:hover .dc-icon {
-  color: var(--accent);
-  filter: drop-shadow(0 0 6px var(--accent-glow));
-}
-.dock-context-item .dc-icon {
-  width: 16px;
-  height: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-sub);
-  flex-shrink: 0;
-  transition: color 0.15s ease, filter 0.15s ease;
-}
-.dock-context-item .dc-icon svg,
-.dock-context-item .dc-icon i {
-  width: 15px;
-  height: 15px;
-}
-.dock-context-item .dc-label {
-  min-width: 0;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.dock-context-item .dc-shortcut {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 9px;
-  color: var(--text-sub);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 1px 6px;
-  border-radius: 4px;
-  flex-shrink: 0;
-  letter-spacing: 0.3px;
-}
-.dock-context-item .dc-count {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 10px;
-  font-weight: 800;
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  padding: 1px 7px;
-  border-radius: 999px;
-  flex-shrink: 0;
-  letter-spacing: 0.3px;
-}
-
-/* Item de cierre: rojo al hover */
-.dock-context-item.danger:hover {
-  background: color-mix(in srgb, var(--accent-red) 22%, transparent);
-  color: #fff;
-}
-.dock-context-item.danger:hover .dc-icon {
-  color: var(--accent-red);
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent-red) 60%, transparent));
-}
-
-/* Separador */
-.dock-context-separator {
-  height: 1px;
-  margin: 4px 6px;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-/* Item disabled (por si necesitamos en el futuro) */
-.dock-context-item.disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  pointer-events: none;
-}
+.dock-context-menu.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+.dock-context-header { display: flex; align-items: center; gap: 10px; padding: 8px 10px 10px; margin-bottom: 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.dock-context-header .app-icon-wrapper { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(0, 0, 0, 0.3); }
+.dock-context-header .app-icon-wrapper img { width: 100%; height: 100%; object-fit: contain; padding: 3px; }
+.dock-context-header .app-icon-wrapper svg, .dock-context-header .app-icon-wrapper i { width: 16px; height: 16px; color: var(--accent); }
+.dock-context-header .app-meta { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.dock-context-header .app-title { color: #fff; font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dock-context-header .app-sub { color: var(--text-sub); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dock-context-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: var(--text-main); font-size: 12px; font-weight: 500; cursor: pointer; transition: background 0.15s ease, color 0.15s ease; border: 0; background: transparent; width: 100%; text-align: left; font-family: inherit; }
+.dock-context-item:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); color: #fff; }
+.dock-context-item:hover .dc-icon { color: var(--accent); filter: drop-shadow(0 0 6px var(--accent-glow)); }
+.dock-context-item .dc-icon { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-sub); flex-shrink: 0; transition: color 0.15s ease, filter 0.15s ease; }
+.dock-context-item .dc-icon svg, .dock-context-item .dc-icon i { width: 15px; height: 15px; }
+.dock-context-item .dc-label { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dock-context-item .dc-shortcut { font-family: "JetBrains Mono", monospace; font-size: 9px; color: var(--text-sub); background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.08); padding: 1px 6px; border-radius: 4px; flex-shrink: 0; letter-spacing: 0.3px; }
+.dock-context-item .dc-count { font-family: "JetBrains Mono", monospace; font-size: 10px; font-weight: 800; color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); padding: 1px 7px; border-radius: 999px; flex-shrink: 0; letter-spacing: 0.3px; }
+.dock-context-item.danger:hover { background: color-mix(in srgb, var(--accent-red) 22%, transparent); color: #fff; }
+.dock-context-item.danger:hover .dc-icon { color: var(--accent-red); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent-red) 60%, transparent)); }
+.dock-context-separator { height: 1px; margin: 4px 6px; background: rgba(255, 255, 255, 0.08); }
+.dock-context-item.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 
 /* ================= WALLPAPER TRANSITION ================= */
 #screen::before { position: absolute; inset: 0; z-index: 0; content: ""; pointer-events: none; background-image: var(--wallpaper-old); background-position: center; background-size: cover; opacity: 0; }
@@ -1655,4 +1913,6 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   .wm-workspace-card { min-width: 110px; }
   .wm-mini-window { width: 22px; height: 15px; }
   .dock-context-menu { min-width: 220px; }
+  .wm-trash-zone { width: 160px; min-height: 90px; bottom: 14px; right: 14px; }
+  .wm-trash-icon { width: 28px; height: 28px; }
 }
