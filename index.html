@@ -412,14 +412,8 @@
       <span class="c-icon"><i data-lucide="image"></i></span> Siguiente fondo de pantalla
     </div>
     <div class="context-separator"></div>
-    <div class="context-item" tabindex="0" role="button" onclick="addDesktopWidget('hardware')">
-      <span class="c-icon"><i data-lucide="cpu"></i></span> Añadir Widget: Telemetría Hardware
-    </div>
     <div class="context-item" tabindex="0" role="button" onclick="addWeatherWidget()">
       <span class="c-icon"><i data-lucide="cloud-sun"></i></span> Añadir Widget: Clima
-    </div>
-    <div class="context-item" tabindex="0" role="button" onclick="addDesktopWidget('media')">
-      <span class="c-icon"><i data-lucide="music"></i></span> Añadir Widget: Reproductor Multimedia
     </div>
     <div class="context-item" tabindex="0" role="button" onclick="addDesktopWidget('clock')">
       <span class="c-icon"><i data-lucide="clock"></i></span> Añadir Widget: Reloj Digital Flotante
@@ -437,6 +431,8 @@
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 </div>
 
+<!-- Luxon: manejo de zonas horarias para el widget de clima -->
+<script src="https://cdn.jsdelivr.net/npm/luxon@3.5.0/build/global/luxon.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

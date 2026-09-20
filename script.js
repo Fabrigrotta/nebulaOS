@@ -28,41 +28,69 @@ const WIDGET_CATALOG = {
   'weather': {
     id: 'weather',
     name: 'Clima',
-    description: 'Widget meteorológico con ciudad rotativa, condición actual y pronóstico de 3 días.',
+    description: 'Widget meteorológico con datos reales de Open-Meteo, selector de ciudad y pronóstico de 3 días.',
     icon: 'cloud-sun',
     type: 'weather'
   }
 };
 
-/* Ciudades y condiciones para el widget de clima */
+/* =====================================================
+   CIUDADES DISPONIBLES PARA EL WIDGET DE CLIMA
+   Coordenadas + zona horaria IANA para datos reales
+===================================================== */
 const WEATHER_CITIES = [
-  { name: 'Buenos Aires', baseTemp: 27, offset: -3, offsetMax: 3 },
-  { name: 'Tokio',        baseTemp: 19, offset: -2, offsetMax: 2 },
-  { name: 'Nueva York',   baseTemp: 14, offset: -4, offsetMax: 4 },
-  { name: 'Madrid',       baseTemp: 22, offset: -3, offsetMax: 3 },
-  { name: 'Reikiavik',    baseTemp: 4,  offset: -2, offsetMax: 2 }
+  { id: 'rosario',     name: 'Rosario',     region: 'Santa Fe, Argentina',  lat: -32.9468, lon: -60.6393, timezone: 'America/Argentina/Cordoba' },
+  { id: 'buenos-aires',name: 'Buenos Aires',region: 'Argentina',            lat: -34.6037, lon: -58.3816, timezone: 'America/Argentina/Buenos_Aires' },
+  { id: 'cordoba-ar',  name: 'Córdoba',     region: 'Argentina',            lat: -31.4201, lon: -64.1888, timezone: 'America/Argentina/Cordoba' },
+  { id: 'tokio',       name: 'Tokio',       region: 'Japón',                lat: 35.6762,  lon: 139.6503, timezone: 'Asia/Tokyo' },
+  { id: 'nueva-york',  name: 'Nueva York',  region: 'EE.UU.',               lat: 40.7128,  lon: -74.0060, timezone: 'America/New_York' },
+  { id: 'madrid',      name: 'Madrid',      region: 'España',               lat: 40.4168,  lon: -3.7038,  timezone: 'Europe/Madrid' },
+  { id: 'reikiavik',   name: 'Reikiavik',   region: 'Islandia',             lat: 64.1466,  lon: -21.9426, timezone: 'Atlantic/Reykjavik' }
 ];
 
-const WEATHER_CONDITIONS = [
-  { id: 'sunny',    label: 'Soleado',              icon: 'sun',            weight: 3, tempMod: 2 },
-  { id: 'cloud-sun',label: 'Parcialmente nublado', icon: 'cloud-sun',      weight: 3, tempMod: 0 },
-  { id: 'cloudy',   label: 'Nublado',              icon: 'cloud',          weight: 2, tempMod: -1 },
-  { id: 'rain',     label: 'Lluvia ligera',        icon: 'cloud-rain',     weight: 2, tempMod: -2 },
-  { id: 'storm',    label: 'Tormenta',             icon: 'cloud-lightning',weight: 1, tempMod: -3 },
-  { id: 'snow',     label: 'Nieve',                icon: 'snowflake',      weight: 1, tempMod: -5 }
-];
+const DEFAULT_WEATHER_CITY_ID = 'rosario';
 
-const WEATHER_CONDITION_COLORS = {
-  'sunny':          '#fab387',
-  'cloud-sun':      '#f9e2af',
-  'cloudy':         '#94a3b8',
-  'rain':           '#38bdf8',
-  'storm':          '#cba6f7',
-  'snow':           '#a5f3fc'
+/* Mapeo de WMO Weather Codes (Open-Meteo) a íconos Lucide + label + color */
+const WMO_CODE_MAP = {
+  0:  { icon: 'sun',                label: 'Despejado',              color: '#fab387' },
+  1:  { icon: 'sun',                label: 'Mayormente despejado',   color: '#f9e2af' },
+  2:  { icon: 'cloud-sun',          label: 'Parcialmente nublado',   color: '#f9e2af' },
+  3:  { icon: 'cloud',              label: 'Nublado',                color: '#94a3b8' },
+  45: { icon: 'cloud-fog',          label: 'Niebla',                 color: '#94a3b8' },
+  48: { icon: 'cloud-fog',          label: 'Niebla con escarcha',    color: '#94a3b8' },
+  51: { icon: 'cloud-drizzle',      label: 'Llovizna ligera',        color: '#38bdf8' },
+  53: { icon: 'cloud-drizzle',      label: 'Llovizna moderada',      color: '#38bdf8' },
+  55: { icon: 'cloud-drizzle',      label: 'Llovizna densa',         color: '#38bdf8' },
+  56: { icon: 'cloud-drizzle',      label: 'Llovizna helada',        color: '#a5f3fc' },
+  57: { icon: 'cloud-drizzle',      label: 'Llovizna helada densa',  color: '#a5f3fc' },
+  61: { icon: 'cloud-rain',         label: 'Lluvia ligera',          color: '#38bdf8' },
+  63: { icon: 'cloud-rain',         label: 'Lluvia moderada',        color: '#38bdf8' },
+  65: { icon: 'cloud-rain',         label: 'Lluvia intensa',         color: '#3a86ff' },
+  66: { icon: 'cloud-rain',         label: 'Lluvia helada',          color: '#a5f3fc' },
+  67: { icon: 'cloud-rain',         label: 'Lluvia helada intensa',  color: '#a5f3fc' },
+  71: { icon: 'snowflake',          label: 'Nieve ligera',           color: '#a5f3fc' },
+  73: { icon: 'snowflake',          label: 'Nieve moderada',         color: '#a5f3fc' },
+  75: { icon: 'snowflake',          label: 'Nieve intensa',          color: '#a5f3fc' },
+  77: { icon: 'snowflake',          label: 'Granos de nieve',        color: '#a5f3fc' },
+  80: { icon: 'cloud-rain-wind',    label: 'Chaparrones ligeros',    color: '#38bdf8' },
+  81: { icon: 'cloud-rain-wind',    label: 'Chaparrones moderados',  color: '#38bdf8' },
+  82: { icon: 'cloud-rain-wind',    label: 'Chaparrones violentos',  color: '#3a86ff' },
+  85: { icon: 'snowflake',          label: 'Chaparrones de nieve',   color: '#a5f3fc' },
+  86: { icon: 'snowflake',          label: 'Nevadas fuertes',        color: '#a5f3fc' },
+  95: { icon: 'cloud-lightning',    label: 'Tormenta',               color: '#cba6f7' },
+  96: { icon: 'cloud-lightning',    label: 'Tormenta con granizo',   color: '#cba6f7' },
+  99: { icon: 'cloud-lightning',    label: 'Tormenta fuerte granizo',color: '#cba6f7' }
 };
 
-const WEATHER_CITY_ROTATION_MS = 12000;
-const WEATHER_CONDITION_ROTATION_MS = 20000;
+/* Configuración del widget de clima */
+const WEATHER_FETCH_INTERVAL_MS = 15 * 60 * 1000; // 15 min
+const WEATHER_CACHE_STALE_MS = 15 * 60 * 1000;
+
+/* Caché en memoria: { [cityId]: { data, fetchedAt } } */
+const weatherCache = {};
+
+/* Timers activos por widget */
+const weatherWidgetTimers = new WeakMap();
 
 const WALLPAPERS = [
   { file: 'fondo principal.jpg', name: 'Nebula', accent: '#b4befe', text: '#cdd6f4', sub: '#bac2de', green: '#a6e3a1', panel: 'rgba(18,21,33,0.72)' },
@@ -163,17 +191,7 @@ const widgetStartedAt = Date.now();
 const calendarState = { date: new Date(), selectedDate: null, notes: {} };
 const systemMetrics = { ram: 38, cpu: 24, temp: 42, gpu: 62, vram: 4.8, fps: 144 };
 
-/* Historial de ping (últimos 10 valores, en ms) */
 const pingHistory = [23, 24, 22, 25, 23, 21, 24, 22, 23, 24];
-
-/* Estado del clima para el widget meteorológico */
-const weatherState = {
-  condition: WEATHER_CONDITIONS[1],
-  temp: 27,
-  forecast: [],
-  lastCityRotation: Date.now(),
-  lastConditionRotation: Date.now()
-};
 
 let gameModeActive = false;
 let currentProfile = 'gamer';
@@ -662,7 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupKeyboardAccessibility();
   setupAdvancedWidget();
   setupTelemetryLoop();
-  setupWeatherLoop();
+  setupWeatherAutoRefresh();
   setupShortcuts();
   renderDesktopWidgets();
   renderConnectivityState();
@@ -729,10 +747,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const isWmCardCtxClick = e.target.closest('.wm-card-context-menu');
     const isFsCtxClick = e.target.closest('.fs-context-menu');
     const isFsRenameClick = e.target.closest('.fs-rename-modal');
+    const isCitySelectorClick = e.target.closest('.weather-city-selector');
 
     if (!isDockCtxClick) hideDockContextMenu();
     if (!isWmCardCtxClick) hideWmCardContextMenu();
     if (!isFsCtxClick) hideFsContextMenu();
+    if (!isCitySelectorClick) closeAllCityDropdowns();
 
     if (!sysTrayBtn?.contains(e.target)
         && !clockCenter?.contains(e.target)
@@ -745,7 +765,8 @@ document.addEventListener('DOMContentLoaded', () => {
         && !isDockCtxClick
         && !isWmCardCtxClick
         && !isFsCtxClick
-        && !isFsRenameClick) {
+        && !isFsRenameClick
+        && !isCitySelectorClick) {
       closeControlCenter();
       closeQuickCenter();
     }
@@ -767,12 +788,13 @@ document.addEventListener('DOMContentLoaded', () => {
       hideWmCardContextMenu();
       hideFsContextMenu();
       closeFsRenameModal();
+      closeAllCityDropdowns();
     }
   });
 
-  window.addEventListener('resize', () => { hideDockContextMenu(); hideWmCardContextMenu(); hideFsContextMenu(); });
-  window.addEventListener('blur', () => { hideDockContextMenu(); hideWmCardContextMenu(); hideFsContextMenu(); });
-  document.addEventListener('scroll', () => { hideDockContextMenu(); hideWmCardContextMenu(); hideFsContextMenu(); }, true);
+  window.addEventListener('resize', () => { hideDockContextMenu(); hideWmCardContextMenu(); hideFsContextMenu(); closeAllCityDropdowns(); });
+  window.addEventListener('blur', () => { hideDockContextMenu(); hideWmCardContextMenu(); hideFsContextMenu(); closeAllCityDropdowns(); });
+  document.addEventListener('scroll', () => { hideDockContextMenu(); hideWmCardContextMenu(); hideFsContextMenu(); closeAllCityDropdowns(); }, true);
 
   document.getElementById('screen').addEventListener('contextmenu', (e) => {
     if (e.target.closest('#context-menu') || e.target.closest('.window') || e.target.closest('.desktop-widget')) return;
@@ -1142,7 +1164,6 @@ function setupTelemetryLoop() {
     if (gamerOverlayVisible) updateHUDTelemetry();
     updateWidgetStats();
     updateGamingHubWidget();
-    updateAllWeatherWidgets();
   }, 1200);
 }
 
@@ -1324,7 +1345,9 @@ function saveDesignerState() {
   } catch (e) {}
 }
 
-/* ================= WIDGETS FLOTANTES DE ESCRITORIO ================= */
+/* =====================================================
+   ★ WIDGETS FLOTANTES DE ESCRITORIO
+===================================================== */
 function addDesktopWidget(type, x = null, y = null) {
   const allowsMultiple = type === 'weather';
 
@@ -1338,11 +1361,9 @@ function addDesktopWidget(type, x = null, y = null) {
 
   const id = 'widget-' + type + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
   const defaultPositions = {
-    hardware:     { x: window.innerWidth - 260, y: 60 },
-    media:        { x: window.innerWidth - 260, y: 230 },
     clock:        { x: 24, y: 60 },
     'gaming-hub': { x: window.innerWidth - 400, y: 60 },
-    weather:      { x: 24, y: 60 }
+    weather:      { x: window.innerWidth - 280, y: 60 }
   };
 
   const offsetIndex = allowsMultiple ? desktopWidgets.filter(w => w.type === type).length : 0;
@@ -1355,98 +1376,178 @@ function addDesktopWidget(type, x = null, y = null) {
   const widgetData = { id, type, x: posX, y: posY };
 
   if (type === 'weather') {
-    const city = WEATHER_CITIES[Math.floor(Math.random() * WEATHER_CITIES.length)];
-    const condition = pickRandomCondition();
-    widgetData.city = city.name;
-    widgetData.condition = condition.id;
-    widgetData.temp = city.baseTemp + condition.tempMod;
-    widgetData.forecast = generateForecast(widgetData.temp);
+    widgetData.cityId = DEFAULT_WEATHER_CITY_ID;
   }
 
   desktopWidgets.push(widgetData);
   saveDesktopWidgets();
   renderDesktopWidgets();
 
-  const label = type === 'weather' ? 'Clima' : type;
+  const label = type === 'weather' ? 'Clima' : type === 'clock' ? 'Reloj' : type;
   showToast('Widget Añadido', `Widget de ${label} colocado en el escritorio.`, 'plus');
   hideContextMenu();
 }
 
-/* ================= WEATHER WIDGET HELPERS ================= */
-function pickRandomCondition() {
-  const totalWeight = WEATHER_CONDITIONS.reduce((sum, c) => sum + c.weight, 0);
-  let roll = Math.random() * totalWeight;
-  for (const condition of WEATHER_CONDITIONS) {
-    roll -= condition.weight;
-    if (roll <= 0) return condition;
+/* =====================================================
+   ★ WEATHER WIDGET — Clima real con Open-Meteo + Luxon
+===================================================== */
+
+function getCityById(cityId) {
+  return WEATHER_CITIES.find(c => c.id === cityId) || WEATHER_CITIES[0];
+}
+
+function getWmoInfo(code, isDay = 1) {
+  const base = WMO_CODE_MAP[code] || { icon: 'cloud', label: 'Desconocido', color: '#94a3b8' };
+  // Si es de noche y está despejado, usar luna
+  if (isDay === 0 && (code === 0 || code === 1)) {
+    return { icon: 'moon', label: base.label, color: '#cba6f7' };
   }
-  return WEATHER_CONDITIONS[0];
+  if (isDay === 0 && code === 2) {
+    return { icon: 'cloud-moon', label: base.label, color: '#cba6f7' };
+  }
+  return base;
 }
 
-function getWeatherIcon(conditionId) {
-  const condition = WEATHER_CONDITIONS.find(c => c.id === conditionId);
-  return condition ? condition.icon : 'cloud';
-}
+async function fetchWeatherForCity(cityId, { force = false } = {}) {
+  const city = getCityById(cityId);
+  const now = Date.now();
+  const cached = weatherCache[cityId];
 
-function getWeatherLabel(conditionId) {
-  const condition = WEATHER_CONDITIONS.find(c => c.id === conditionId);
-  return condition ? condition.label : 'Nublado';
-}
+  if (!force && cached && (now - cached.fetchedAt) < WEATHER_CACHE_STALE_MS) {
+    return { ok: true, data: cached.data, fromCache: true };
+  }
 
-function getWeatherColor(conditionId) {
-  return WEATHER_CONDITION_COLORS[conditionId] || '#94a3b8';
-}
-
-function generateForecast(baseTemp) {
-  const days = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-  const today = new Date().getDay();
-  const startIdx = (today + 1) % 7;
-  const forecast = [];
-
-  for (let i = 0; i < 3; i++) {
-    const dayName = days[(startIdx + i) % 7];
-    const condition = pickRandomCondition();
-    const dayBase = baseTemp + condition.tempMod + (Math.round((Math.random() - 0.5) * 6));
-    const max = Math.round(dayBase + 3 + Math.random() * 2);
-    const min = Math.round(dayBase - 4 - Math.random() * 2);
-    forecast.push({
-      day: dayName,
-      condition: condition.id,
-      max,
-      min
+  try {
+    const params = new URLSearchParams({
+      latitude: city.lat,
+      longitude: city.lon,
+      current: 'temperature_2m,weather_code,is_day',
+      daily: 'temperature_2m_max,temperature_2m_min,weather_code',
+      timezone: 'auto',
+      forecast_days: '4'
     });
-  }
+    const url = `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
 
-  return forecast;
+    const current = json.current || {};
+    const daily = json.daily || {};
+
+    const dailyDates = daily.time || [];
+    const dailyMax = daily.temperature_2m_max || [];
+    const dailyMin = daily.temperature_2m_min || [];
+    const dailyCode = daily.weather_code || [];
+
+    // Los primeros 3 días del forecast (el día 0 es hoy, lo salteamos)
+    const forecast = [];
+    for (let i = 1; i < Math.min(4, dailyDates.length); i++) {
+      forecast.push({
+        date: dailyDates[i],
+        max: Math.round(dailyMax[i]),
+        min: Math.round(dailyMin[i]),
+        code: dailyCode[i]
+      });
+    }
+
+    const data = {
+      temp: Math.round(current.temperature_2m),
+      code: current.weather_code ?? 0,
+      isDay: current.is_day ?? 1,
+      forecast,
+      fetchedAt: now,
+      cityId: city.id,
+      timezone: city.timezone
+    };
+
+    weatherCache[cityId] = { data, fetchedAt: now };
+    return { ok: true, data, fromCache: false };
+  } catch (err) {
+    // Fallback: si hay caché vieja, usarla
+    if (cached) {
+      return { ok: true, data: cached.data, fromCache: true, stale: true };
+    }
+    return { ok: false, error: err };
+  }
 }
 
-function formatWeatherDate() {
+function formatWeatherDateForCity(city) {
+  if (typeof luxon !== 'undefined' && luxon.DateTime) {
+    try {
+      const dt = luxon.DateTime.now().setZone(city.timezone);
+      const shortDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+      const shortMonths = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+      // luxon usa weekday 1=lunes ... 7=domingo
+      const dayIdx = dt.weekday === 7 ? 0 : dt.weekday;
+      return `${shortDays[dayIdx]} ${dt.day} de ${shortMonths[dt.month - 1]}`;
+    } catch (e) {
+      // fallback a fecha local
+    }
+  }
+  // Fallback: fecha local del navegador
   const now = new Date();
   const shortDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
   const shortMonths = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
   return `${shortDays[now.getDay()]} ${now.getDate()} de ${shortMonths[now.getMonth()]}`;
 }
 
-function renderWeatherWidgetHTML(widget) {
-  const conditionId = widget.condition || 'cloud-sun';
-  const iconName = getWeatherIcon(conditionId);
-  const color = getWeatherColor(conditionId);
-  const temp = Math.round(widget.temp);
-  const label = getWeatherLabel(conditionId);
-  const forecast = widget.forecast || generateForecast(temp);
-  const cityName = widget.city || 'Buenos Aires';
-  const dateStr = formatWeatherDate();
-  const high = forecast.length ? forecast[0].max : Math.round(temp + 3);
-  const low = forecast.length ? forecast[0].min : Math.round(temp - 4);
+function getCityTimeForHeader(city) {
+  if (typeof luxon !== 'undefined' && luxon.DateTime) {
+    try {
+      const dt = luxon.DateTime.now().setZone(city.timezone);
+      return dt.toFormat('HH:mm');
+    } catch (e) {}
+  }
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+}
 
-  const forecastHTML = forecast.map(day => {
-    const dayIcon = getWeatherIcon(day.condition);
-    const dayColor = getWeatherColor(day.condition);
+function getForecastDayName(dateStr) {
+  // dateStr viene como "2025-09-22" (ISO date de Open-Meteo)
+  const date = new Date(dateStr + 'T12:00:00Z');
+  const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  return days[date.getUTCDay()];
+}
+
+function renderWeatherWidgetHTML(widget, weatherData = null) {
+  const city = getCityById(widget.cityId || DEFAULT_WEATHER_CITY_ID);
+  const data = weatherData || weatherCache[widget.cityId]?.data || null;
+
+  const dateStr = formatWeatherDateForCity(city);
+  const timeStr = getCityTimeForHeader(city);
+
+  let iconName, label, color, temp;
+  let high = '—', low = '—';
+  let forecast = [];
+  let offline = false;
+
+  if (data) {
+    const info = getWmoInfo(data.code, data.isDay);
+    iconName = info.icon;
+    label = info.label;
+    color = info.color;
+    temp = data.temp;
+    forecast = data.forecast || [];
+    if (forecast.length > 0) {
+      high = forecast[0].max;
+      low = forecast[0].min;
+    }
+  } else {
+    iconName = 'cloud-off';
+    label = 'Sin conexión';
+    color = '#6b7280';
+    temp = '—';
+    offline = true;
+  }
+
+  const forecastHTML = forecast.length ? forecast.map(day => {
+    const info = getWmoInfo(day.code, 1);
+    const dayName = getForecastDayName(day.date);
     return `
       <div class="weather-forecast-day">
-        <span class="weather-forecast-name">${day.day}</span>
-        <span class="weather-forecast-icon" style="color: ${dayColor};">
-          <i data-lucide="${dayIcon}"></i>
+        <span class="weather-forecast-name">${dayName}</span>
+        <span class="weather-forecast-icon" style="color: ${info.color};">
+          <i data-lucide="${info.icon}"></i>
         </span>
         <span class="weather-forecast-temps">
           <strong>${day.max}°</strong>
@@ -1454,16 +1555,23 @@ function renderWeatherWidgetHTML(widget) {
         </span>
       </div>
     `;
-  }).join('');
+  }).join('') : `
+    <div class="weather-forecast-empty">Sin datos de pronóstico</div>
+  `;
 
   return `
     <div class="weather-body">
       <div class="weather-header">
-        <span class="weather-date">${dateStr}</span>
-        <span class="weather-city">${cityName}</span>
+        <span class="weather-date">${dateStr} · ${timeStr}</span>
+        <div class="weather-city-selector" data-widget-id="${widget.id}">
+          <button class="weather-city-btn" type="button" data-city-toggle>
+            <span class="weather-city-name">${city.name}</span>
+            <i data-lucide="chevron-down" class="weather-city-chevron"></i>
+          </button>
+        </div>
       </div>
 
-      <div class="weather-main">
+      <div class="weather-main${offline ? ' offline' : ''}">
         <div class="weather-icon-wrap" style="color: ${color};">
           <i data-lucide="${iconName}"></i>
         </div>
@@ -1485,139 +1593,155 @@ function renderWeatherWidgetHTML(widget) {
   `;
 }
 
-function updateWeatherWidget(widgetId) {
+function buildCitySelectorHTML(widgetId, activeCityId) {
+  return WEATHER_CITIES.map(city => `
+    <button class="weather-city-option ${city.id === activeCityId ? 'active' : ''}"
+            type="button"
+            data-city-option="${city.id}"
+            data-widget-target="${widgetId}">
+      <span class="weather-city-option-name">${city.name}</span>
+      <span class="weather-city-option-region">${city.region}</span>
+      ${city.id === activeCityId ? '<i data-lucide="check" class="weather-city-option-check"></i>' : ''}
+    </button>
+  `).join('');
+}
+
+function closeAllCityDropdowns() {
+  document.querySelectorAll('.weather-city-dropdown.open').forEach(d => {
+    d.classList.remove('open');
+    setTimeout(() => d.remove(), 180);
+  });
+}
+
+function openCityDropdown(widgetId, anchorEl) {
+  closeAllCityDropdowns();
   const widget = desktopWidgets.find(w => w.id === widgetId);
-  if (!widget || widget.type !== 'weather') return;
+  if (!widget) return;
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'weather-city-dropdown';
+  dropdown.dataset.widgetId = widgetId;
+  dropdown.innerHTML = `
+    <div class="weather-city-dropdown-header">
+      <i data-lucide="map-pin"></i>
+      <span>Elegir ciudad</span>
+    </div>
+    <div class="weather-city-dropdown-list">
+      ${buildCitySelectorHTML(widgetId, widget.cityId || DEFAULT_WEATHER_CITY_ID)}
+    </div>
+  `;
+  document.body.appendChild(dropdown);
+
+  const rect = anchorEl.getBoundingClientRect();
+  const ddRect = dropdown.getBoundingClientRect();
+  let left = rect.left;
+  let top = rect.bottom + 6;
+
+  // Ajustar si se sale de pantalla
+  if (left + ddRect.width + 10 > window.innerWidth) {
+    left = window.innerWidth - ddRect.width - 10;
+  }
+  if (top + ddRect.height + 10 > window.innerHeight) {
+    top = rect.top - ddRect.height - 6;
+  }
+  left = Math.max(10, left);
+  top = Math.max(10, top);
+
+  dropdown.style.left = `${left}px`;
+  dropdown.style.top = `${top}px`;
+
+  dropdown.querySelectorAll('[data-city-option]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const cityId = btn.dataset.cityOption;
+      selectCityForWidget(widgetId, cityId);
+      closeAllCityDropdowns();
+    });
+  });
+
+  requestAnimationFrame(() => dropdown.classList.add('open'));
+  refreshIcons();
+}
+
+async function selectCityForWidget(widgetId, cityId) {
+  const widget = desktopWidgets.find(w => w.id === widgetId);
+  if (!widget) return;
+  if (widget.cityId === cityId) return;
+
+  widget.cityId = cityId;
+  saveDesktopWidgets();
 
   const el = document.getElementById(widgetId);
   if (!el) return;
 
-  const city = WEATHER_CITIES.find(c => c.name === widget.city) || WEATHER_CITIES[0];
-
-  // Rotación de ciudad
-  const now = Date.now();
-  if (now - weatherState.lastCityRotation > WEATHER_CITY_ROTATION_MS) {
-    weatherState.lastCityRotation = now;
-    const nextIdx = (WEATHER_CITIES.findIndex(c => c.name === widget.city) + 1) % WEATHER_CITIES.length;
-    const nextCity = WEATHER_CITIES[nextIdx];
-    widget.city = nextCity.name;
-    const newCondition = pickRandomCondition();
-    widget.condition = newCondition.id;
-    widget.temp = nextCity.baseTemp + newCondition.tempMod;
-    widget.forecast = generateForecast(widget.temp);
-
-    // Re-render completo para esta instancia
-    const titlebar = el.querySelector('.widget-titlebar');
-    const closeBtn = titlebar ? titlebar.querySelector('.widget-close-btn') : null;
-    const titleEl = titlebar ? titlebar.querySelector('strong') : null;
-
-    const body = el.querySelector('.weather-body');
-    if (body) {
-      body.outerHTML = renderWeatherWidgetHTML(widget);
-    } else {
-      // fallback: re-render completo
-      renderDesktopWidgets();
-      return;
-    }
-
-    if (titleEl) {
-      titleEl.innerHTML = `<i data-lucide="cloud-sun"></i> CLIMA`;
-    }
-    if (closeBtn) {
-      closeBtn.setAttribute('onclick', `removeDesktopWidget('${widget.id}')`);
-    }
-
-    refreshIcons();
-    saveDesktopWidgets();
-    return;
-  }
-
-  // Rotación de condición (sin cambiar ciudad)
-  if (now - weatherState.lastConditionRotation > WEATHER_CONDITION_ROTATION_MS) {
-    weatherState.lastConditionRotation = now;
-    const newCondition = pickRandomCondition();
-    widget.condition = newCondition.id;
-    widget.temp = city.baseTemp + newCondition.tempMod + Math.round((Math.random() - 0.5) * 2);
-    saveDesktopWidgets();
-  }
-
-  // Tick suave de temperatura
-  if (Math.random() < 0.5) {
-    widget.temp = Math.round((widget.temp + (Math.random() - 0.5) * 1) * 10) / 10;
-  }
-
-  // Actualizar solo los valores visibles, sin re-render completo
-  const tempEl = el.querySelector('.weather-temp');
-  const condEl = el.querySelector('.weather-cond');
-  const iconWrap = el.querySelector('.weather-icon-wrap');
-  const cityEl = el.querySelector('.weather-city');
-  const dateEl = el.querySelector('.weather-date');
-  const minmaxEl = el.querySelector('.weather-minmax');
-  const forecastEl = el.querySelector('.weather-forecast');
-
-  const conditionId = widget.condition || 'cloud-sun';
-  const tempRounded = Math.round(widget.temp);
-  const color = getWeatherColor(conditionId);
-  const iconName = getWeatherIcon(conditionId);
-
-  if (dateEl) dateEl.textContent = formatWeatherDate();
-  if (cityEl) cityEl.textContent = widget.city;
-  if (tempEl) tempEl.innerHTML = `${tempRounded}<span class="weather-temp-unit">°</span>`;
-  if (condEl) condEl.textContent = getWeatherLabel(conditionId);
-  if (iconWrap) {
-    iconWrap.style.color = color;
-    const iconEl = iconWrap.querySelector('i, svg');
-    if (iconEl) {
-      iconEl.outerHTML = `<i data-lucide="${iconName}"></i>`;
+  // Mostrar estado "cargando"
+  const body = el.querySelector('.weather-body');
+  if (body) {
+    const iconWrap = body.querySelector('.weather-icon-wrap');
+    if (iconWrap) {
+      iconWrap.innerHTML = '<i data-lucide="loader-circle" class="weather-spinner"></i>';
+      iconWrap.style.color = 'var(--accent)';
     }
   }
-  if (minmaxEl && widget.forecast && widget.forecast.length) {
-    minmaxEl.innerHTML = `
-      <span class="weather-minmax-item">H: <strong>${widget.forecast[0].max}°</strong></span>
-      <span class="weather-minmax-item">L: <strong>${widget.forecast[0].min}°</strong></span>
-    `;
+  refreshIcons();
+
+  // Fetch datos de la nueva ciudad
+  const result = await fetchWeatherForCity(cityId, { force: false });
+  const data = result.ok ? result.data : null;
+
+  // Re-render del widget entero (para reflejar nueva ciudad + fecha/hora + datos)
+  const titlebar = el.querySelector('.widget-titlebar');
+  const body2 = el.querySelector('.weather-body');
+  if (body2) {
+    body2.outerHTML = renderWeatherWidgetHTML(widget, data);
   }
-  if (forecastEl && widget.forecast) {
-    forecastEl.innerHTML = widget.forecast.map(day => {
-      const dayIcon = getWeatherIcon(day.condition);
-      const dayColor = getWeatherColor(day.condition);
-      return `
-        <div class="weather-forecast-day">
-          <span class="weather-forecast-name">${day.day}</span>
-          <span class="weather-forecast-icon" style="color: ${dayColor};">
-            <i data-lucide="${dayIcon}"></i>
-          </span>
-          <span class="weather-forecast-temps">
-            <strong>${day.max}°</strong>
-            <small>${day.min}°</small>
-          </span>
-        </div>
-      `;
-    }).join('');
+
+  if (titlebar) {
+    const strong = titlebar.querySelector('strong');
+    if (strong) strong.innerHTML = `<i data-lucide="cloud-sun"></i> CLIMA`;
   }
 
   refreshIcons();
+  attachWeatherWidgetListeners(widget.id);
 }
 
-function updateAllWeatherWidgets() {
-  desktopWidgets.forEach(widget => {
-    if (widget.type === 'weather') {
-      updateWeatherWidget(widget.id);
-    }
-  });
-}
-
-function setupWeatherLoop() {
-  // Inicializa el primer forecast si no existe
-  if (!weatherState.forecast.length) {
-    weatherState.forecast = generateForecast(weatherState.temp);
-  }
-
-  // Loop de "vida" del clima: se ejecuta más seguido que el telemetry loop
-  // para que los widgets se sientan vivos
+function setupWeatherAutoRefresh() {
+  // Refresco global cada 15 min: recorre todos los widgets de clima y fuerza fetch
   setInterval(() => {
-    updateAllWeatherWidgets();
-  }, 3000);
+    desktopWidgets.filter(w => w.type === 'weather').forEach(async (widget) => {
+      const result = await fetchWeatherForCity(widget.cityId, { force: true });
+      if (!result.ok) return;
+      const el = document.getElementById(widget.id);
+      if (!el) return;
+      const body = el.querySelector('.weather-body');
+      if (body) {
+        body.outerHTML = renderWeatherWidgetHTML(widget, result.data);
+        refreshIcons();
+        attachWeatherWidgetListeners(widget.id);
+      }
+    });
+  }, WEATHER_FETCH_INTERVAL_MS);
+}
+
+function attachWeatherWidgetListeners(widgetId) {
+  const el = document.getElementById(widgetId);
+  if (!el) return;
+
+  const selector = el.querySelector('.weather-city-selector');
+  if (!selector || selector.dataset.bound === '1') return;
+  selector.dataset.bound = '1';
+
+  const btn = selector.querySelector('[data-city-toggle]');
+  if (btn) {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (document.querySelector('.weather-city-dropdown.open')?.dataset.widgetId === widgetId) {
+        closeAllCityDropdowns();
+      } else {
+        openCityDropdown(widgetId, btn);
+      }
+    });
+  }
 }
 
 function addWeatherWidget(x = null, y = null) {
@@ -1681,6 +1805,10 @@ function renderDesktopWidgets() {
   if (!layer) return;
   layer.innerHTML = '';
 
+  // Filtrar widgets válidos (por si quedaron fantasmas de versiones viejas)
+  const validTypes = new Set(['clock', 'weather', 'gaming-hub']);
+  desktopWidgets = desktopWidgets.filter(w => validTypes.has(w.type));
+
   desktopWidgets.forEach(widget => {
     const el = document.createElement('div');
     el.className = 'desktop-widget';
@@ -1693,32 +1821,7 @@ function renderDesktopWidgets() {
     let iconName = 'activity';
     let extraClass = '';
 
-    if (widget.type === 'hardware') {
-      title = 'TELEMETRÍA HARDWARE';
-      iconName = 'cpu';
-      bodyHTML = `
-        <div class="hw-widget-grid">
-          <div class="hw-item"><span>FPS</span><strong id="w-fps">${systemMetrics.fps}</strong></div>
-          <div class="hw-item"><span>GPU</span><strong id="w-gpu">${systemMetrics.gpu}%</strong></div>
-          <div class="hw-item"><span>CPU</span><strong id="w-cpu">${systemMetrics.cpu}%</strong></div>
-          <div class="hw-item"><span>RAM</span><strong id="w-ram">${systemMetrics.ram}%</strong></div>
-        </div>
-      `;
-    } else if (widget.type === 'media') {
-      title = 'REPRODUCTOR';
-      iconName = 'music';
-      const track = TRACKS[currentTrackIndex];
-      bodyHTML = `
-        <div class="media-widget-body">
-          <img src="${track.art}" alt="Art" id="w-media-art">
-          <div class="media-widget-info">
-            <strong id="w-media-title">${track.title}</strong>
-            <small id="w-media-artist">${track.artist}</small>
-          </div>
-          <button class="media-toggle" onclick="toggleMediaPlayback()" type="button"><i data-lucide="${isPlaying ? 'pause' : 'play'}"></i></button>
-        </div>
-      `;
-    } else if (widget.type === 'clock') {
+    if (widget.type === 'clock') {
       title = 'RELOJ DIGITAL';
       iconName = 'clock';
       const now = new Date();
@@ -1740,7 +1843,24 @@ function renderDesktopWidgets() {
       title = 'CLIMA';
       iconName = 'cloud-sun';
       extraClass = 'weather-widget';
-      bodyHTML = renderWeatherWidgetHTML(widget);
+      // Render inicial: si hay caché, la usamos. Si no, mostramos estado de carga y disparamos fetch.
+      const cached = weatherCache[widget.cityId]?.data;
+      bodyHTML = renderWeatherWidgetHTML(widget, cached);
+
+      // Si no hay caché ni datos frescos, disparamos fetch asíncrono
+      if (!cached) {
+        fetchWeatherForCity(widget.cityId, { force: false }).then(result => {
+          if (!result.ok) return;
+          const el2 = document.getElementById(widget.id);
+          if (!el2) return;
+          const body2 = el2.querySelector('.weather-body');
+          if (body2) {
+            body2.outerHTML = renderWeatherWidgetHTML(widget, result.data);
+            refreshIcons();
+            attachWeatherWidgetListeners(widget.id);
+          }
+        });
+      }
     }
 
     el.className = `desktop-widget ${extraClass}`.trim();
@@ -1755,6 +1875,10 @@ function renderDesktopWidgets() {
 
     setupDraggableWidget(el, widget);
     layer.appendChild(el);
+
+    if (widget.type === 'weather') {
+      attachWeatherWidgetListeners(widget.id);
+    }
   });
   refreshIcons();
 }
@@ -1765,6 +1889,7 @@ function setupDraggableWidget(el, widgetData) {
 
   titlebar.addEventListener('mousedown', (e) => {
     if (e.target.closest('.widget-close-btn')) return;
+    if (e.target.closest('.weather-city-selector')) return;
     const startX = e.clientX;
     const startY = e.clientY;
     const initialLeft = el.offsetLeft;
@@ -1793,15 +1918,7 @@ function setupDraggableWidget(el, widgetData) {
 }
 
 function updateWidgetStats() {
-  const fps = document.getElementById('w-fps');
-  const gpu = document.getElementById('w-gpu');
-  const cpu = document.getElementById('w-cpu');
-  const ram = document.getElementById('w-ram');
-  if (fps) fps.textContent = String(systemMetrics.fps);
-  if (gpu) gpu.textContent = `${systemMetrics.gpu}%`;
-  if (cpu) cpu.textContent = `${systemMetrics.cpu}%`;
-  if (ram) ram.textContent = `${systemMetrics.ram}%`;
-
+  // Actualiza el reloj digital si existe
   const clockTime = document.getElementById('w-clock-time');
   if (clockTime) {
     const now = new Date();
@@ -1840,11 +1957,9 @@ function switchProfile(profileId) {
   if (profileId === 'gamer') {
     applyThemePreset('cyberpunk');
     toggleGameMode(true);
-    addDesktopWidget('hardware', window.innerWidth - 260, 60);
   } else if (profileId === 'streamer') {
     applyThemePreset('synthwave');
     toggleGameMode(false);
-    addDesktopWidget('media', window.innerWidth - 260, 60);
   } else if (profileId === 'studio') {
     applyThemePreset('catppuccin');
     toggleGameMode(false);
@@ -1919,6 +2034,10 @@ function parseAndExecuteNovaAction(query) {
     openApp('settings');
     actionTaken = 'Abriendo Nebula Designer';
     replyText = 'Abriendo el panel de Ajustes y personalización.';
+  } else if (q.includes('clima') || q.includes('tiempo') || q.includes('temperatura')) {
+    addWeatherWidget();
+    actionTaken = 'Widget de Clima añadido';
+    replyText = 'Añadí el widget de clima. Podés cambiar la ciudad desde el selector dentro del widget.';
   } else if (q.includes('cyberpunk 2077') || q.includes('fps') || q.includes('consejos') || q.includes('juego') || q.includes('gamer')) {
     replyText = 'Para maximizar tus FPS y estabilidad en juegos exigentes te recomiendo:\n\n• Activar Modo Juego (fija frecuencia CPU en 4.95 GHz y libera RAM).\n• Habilitar el Gaming HUD (Alt+Z) para monitoreo de temperaturas.\n• Usar tema Cyberpunk de bajo consumo de sombreado.';
     actionBtnHTML = `<button class="nova-action-btn" type="button" onclick="applyGamerOptimization()"><i data-lucide="zap"></i> Aplicar Optimización Gamer (1-Clic)</button>`;
@@ -1935,7 +2054,6 @@ function applyGamerOptimization() {
   toggleGameMode(true);
   applyThemePreset('cyberpunk');
   simulateRamBoost();
-  addDesktopWidget('hardware', window.innerWidth - 260, 60);
   showToast('Optimización Gamer Lista', 'CPU Turbo activado, RAM purgada y HUD listo para jugar.', 'zap');
 }
 
@@ -3122,7 +3240,6 @@ function toggleMediaPlayback() {
   });
 
   updatePlayerProgress();
-  renderDesktopWidgets();
   refreshIcons();
 }
 
@@ -3236,7 +3353,26 @@ function loadPersistedState() {
     }
 
     const savedWidgets = JSON.parse(localStorage.getItem(WIDGETS_STORAGE_KEY));
-    if (Array.isArray(savedWidgets)) desktopWidgets = savedWidgets;
+    if (Array.isArray(savedWidgets)) {
+      // Filtrar widgets válidos y migrar weather viejos (que tenían city/condition/temp/forecast)
+      const validTypes = new Set(['clock', 'weather', 'gaming-hub']);
+      desktopWidgets = savedWidgets
+        .filter(w => w && typeof w === 'object' && validTypes.has(w.type))
+        .map(w => {
+          if (w.type === 'weather') {
+            // Si tiene cityId, respetarlo. Si no, usar el default.
+            const cityId = w.cityId || DEFAULT_WEATHER_CITY_ID;
+            return {
+              id: w.id || ('widget-weather-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)),
+              type: 'weather',
+              x: typeof w.x === 'number' ? w.x : window.innerWidth - 280,
+              y: typeof w.y === 'number' ? w.y : 60,
+              cityId
+            };
+          }
+          return w;
+        });
+    }
 
     const wpIndex = Number.parseInt(localStorage.getItem(WALLPAPER_STORAGE_KEY), 10);
     if (Number.isInteger(wpIndex) && WALLPAPERS[wpIndex]) currentWallpaperIndex = wpIndex;
@@ -4924,8 +5060,7 @@ function getWindowTabsState(win) {
     windowTabsState.set(win, {
       tabs: [],
       activeTabId: null,
-      counter: 0
-    });
+      counter: 0    });
   }
   return windowTabsState.get(win);
 }
@@ -5875,7 +6010,7 @@ function getAppContent(id) {
             <button type="button" data-nova-prompt="Activa el modo juego"><i data-lucide="gamepad-2"></i> Modo Juego</button>
             <button type="button" data-nova-prompt="Optimiza el sistema"><i data-lucide="sparkles"></i> Limpiar RAM</button>
             <button type="button" data-nova-prompt="Pon música"><i data-lucide="music"></i> Poner música</button>
-            <button type="button" data-nova-prompt="¿Cómo optimizo Cyberpunk 2077?"><i data-lucide="zap"></i> Tips de Rendimiento</button>
+            <button type="button" data-nova-prompt="Añadí un widget de clima"><i data-lucide="cloud-sun"></i> Widget de Clima</button>
           </div>
         </div>
         <form class="nova-form">
@@ -6614,7 +6749,7 @@ function buildLauncherActions() {
     { id: 'action-hud', title: 'Alternar Gaming HUD', sub: 'Overlay con telemetría de hardware (Alt+Z)', icon: 'activity', category: 'Acción', keywords: ['hud', 'overlay', 'telemetria', 'gaming', 'alt z'], run: () => toggleGamerOverlay() },
     { id: 'action-wallpaper-next', title: 'Siguiente fondo de pantalla', sub: 'Rota al siguiente wallpaper disponible', icon: 'image', category: 'Acción', keywords: ['wallpaper', 'fondo', 'siguiente', 'rotar'], run: () => applyWallpaper((currentWallpaperIndex + 1) % WALLPAPERS.length) },
     { id: 'action-ram-boost', title: 'Optimizar RAM', sub: 'Libera memoria y limpia cache', icon: 'sparkles', category: 'Acción', keywords: ['optimizar', 'ram', 'limpiar', 'memoria', 'boost'], run: () => simulateRamBoost() },
-    { id: 'action-weather-widget', title: 'Añadir Widget de Clima', sub: 'Widget meteorológico con ciudad rotativa', icon: 'cloud-sun', category: 'Acción', keywords: ['clima', 'weather', 'widget', 'tiempo'], run: () => addWeatherWidget() },
+    { id: 'action-weather-widget', title: 'Añadir Widget de Clima', sub: 'Widget meteorológico con datos reales (Open-Meteo)', icon: 'cloud-sun', category: 'Acción', keywords: ['clima', 'weather', 'widget', 'tiempo', 'temperatura'], run: () => addWeatherWidget() },
     { id: 'action-clear-widgets', title: 'Limpiar widgets del escritorio', sub: 'Remueve todos los widgets flotantes', icon: 'trash-2', category: 'Acción', keywords: ['limpiar', 'widgets', 'escritorio', 'borrar'], run: () => clearDesktopWidgets() },
     { id: 'action-close-all', title: 'Cerrar todas las ventanas', sub: 'Cierra todas las apps abiertas', icon: 'x-circle', category: 'Acción', keywords: ['cerrar', 'close', 'todas', 'ventanas', 'apps'], run: () => { Object.keys(openWindows).forEach(id => closeApp(id)); showToast('Ventanas cerradas', 'Se cerraron todas las apps abiertas.', 'x-circle'); } },
     { id: 'action-profile-gamer', title: 'Perfil: Gamer', sub: 'Aplica tema Cyberpunk + Game Mode + telemetría', icon: 'gamepad-2', category: 'Perfil', keywords: ['perfil', 'gamer', 'profile'], run: () => switchProfile('gamer') },

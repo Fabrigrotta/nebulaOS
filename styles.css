@@ -477,15 +477,6 @@ svg, [data-lucide] {
 .widget-close-btn { border: 0; background: transparent; color: var(--text-sub); cursor: pointer; display: grid; place-items: center; }
 .widget-close-btn svg, .widget-close-btn i { width: 13px; height: 13px; }
 .widget-close-btn:hover { color: #f38ba8; }
-.hw-widget-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.hw-item { background: rgba(255,255,255,0.04); padding: 7px; border-radius: 6px; text-align: center; }
-.hw-item span { display: block; font-size: 9px; color: var(--text-sub); font-weight: 600; }
-.hw-item strong { display: block; font-size: 13px; color: #fff; font-family: "JetBrains Mono", monospace; margin-top: 2px; }
-.media-widget-body { display: flex; align-items: center; gap: 10px; }
-.media-widget-body img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; }
-.media-widget-info { min-width: 0; flex: 1; }
-.media-widget-info strong { display: block; font-size: 11px; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.media-widget-info small { color: var(--text-sub); font-size: 10px; }
 .clock-widget-body { text-align: center; padding: 4px 0; }
 .clock-widget-big { font-size: 34px; font-weight: 800; font-family: "JetBrains Mono", monospace; color: #fff; line-height: 1; text-shadow: 0 0 15px var(--accent-glow); }
 .clock-widget-date { font-size: 11px; color: var(--accent); margin-top: 5px; font-weight: 600; text-transform: capitalize; }
@@ -2596,12 +2587,12 @@ body.no-animations .window {
 @keyframes wallpaper-crossfade { from { opacity: 1; } to { opacity: 0; } }
 
 /* =====================================================
-   ★ WEATHER WIDGET — Clima con ciudad rotativa
+   ★ WEATHER WIDGET — Clima real con selector de ciudad
 ===================================================== */
 
 .weather-widget {
-  min-width: 230px;
-  max-width: 260px;
+  min-width: 240px;
+  max-width: 280px;
   padding: 12px 14px 14px;
   background:
     linear-gradient(155deg,
@@ -2629,11 +2620,12 @@ body.no-animations .window {
 
 .weather-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
   padding-bottom: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  min-height: 24px;
 }
 
 .weather-date {
@@ -2641,23 +2633,184 @@ body.no-animations .window {
   font-weight: 600;
   color: var(--text-sub);
   letter-spacing: 0.2px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.weather-city {
+/* ===== Selector de ciudad (botón) ===== */
+.weather-city-selector {
+  position: relative;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.weather-city-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
+  font-family: inherit;
   font-size: 10px;
   font-weight: 800;
-  color: var(--accent);
+  letter-spacing: 0.6px;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
-  text-shadow: 0 0 6px color-mix(in srgb, var(--accent-glow) 60%, transparent);
-  transition: color 0.3s ease, text-shadow 0.3s ease;
-  text-align: right;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.weather-city-btn:hover {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  transform: translateY(-1px);
+}
+
+.weather-city-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 55%;
+  text-shadow: 0 0 6px color-mix(in srgb, var(--accent-glow) 60%, transparent);
 }
 
+.weather-city-chevron {
+  width: 11px !important;
+  height: 11px !important;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.weather-city-selector.open .weather-city-chevron {
+  transform: rotate(180deg);
+}
+
+/* ===== Dropdown de ciudades (flotante) ===== */
+.weather-city-dropdown {
+  position: fixed;
+  z-index: 1600;
+  min-width: 220px;
+  max-width: 260px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(13, 16, 26, 0.96);
+  backdrop-filter: blur(22px) saturate(1.6);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.75),
+    0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent),
+    0 0 24px color-mix(in srgb, var(--accent) 14%, transparent);
+  opacity: 0;
+  transform: translateY(6px) scale(0.96);
+  transform-origin: top left;
+  pointer-events: none;
+  transition:
+    opacity 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.weather-city-dropdown.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.weather-city-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--accent);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  text-shadow: 0 0 6px color-mix(in srgb, var(--accent-glow) 60%, transparent);
+}
+.weather-city-dropdown-header svg,
+.weather-city-dropdown-header i {
+  width: 13px !important;
+  height: 13px !important;
+}
+
+.weather-city-dropdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 2px;
+}
+.weather-city-dropdown-list::-webkit-scrollbar { width: 4px; }
+.weather-city-dropdown-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
+
+.weather-city-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-main);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  width: 100%;
+}
+
+.weather-city-option:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.weather-city-option.active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.weather-city-option-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.1;
+}
+.weather-city-option.active .weather-city-option-name {
+  color: var(--accent);
+  text-shadow: 0 0 6px color-mix(in srgb, var(--accent-glow) 60%, transparent);
+}
+
+.weather-city-option-region {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-sub);
+  letter-spacing: 0.2px;
+}
+
+.weather-city-option-check {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  width: 14px !important;
+  height: 14px !important;
+  color: var(--accent);
+  transform: translateY(-50%);
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+
+/* ===== Cuerpo principal del clima ===== */
 .weather-main {
   display: flex;
   align-items: center;
@@ -2699,6 +2852,15 @@ body.no-animations .window {
   50% { transform: scale(1.06); }
 }
 
+.weather-spinner {
+  animation: weather-spinner-rotate 1s linear infinite !important;
+}
+
+@keyframes weather-spinner-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .weather-info {
   min-width: 0;
   flex: 1;
@@ -2736,6 +2898,14 @@ body.no-animations .window {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.weather-main.offline .weather-temp {
+  color: var(--text-sub);
+  text-shadow: none;
+}
+.weather-main.offline .weather-icon-wrap {
+  opacity: 0.55;
 }
 
 .weather-minmax {
@@ -2827,6 +2997,16 @@ body.no-animations .window {
   color: var(--text-sub);
 }
 
+.weather-forecast-empty {
+  grid-column: 1 / -1;
+  padding: 10px 6px;
+  text-align: center;
+  color: var(--text-sub);
+  font-size: 10px;
+  font-style: italic;
+  opacity: 0.7;
+}
+
 /* =====================================================
    ★ WEATHER PREVIEW EN GALERÍA DEL DESIGNER
 ===================================================== */
@@ -2915,10 +3095,11 @@ body.no-animations .window {
   .wm-trash-zone { width: 160px; min-height: 90px; bottom: 14px; right: 14px; }
   .wm-trash-icon { width: 28px; height: 28px; }
   .widgets-gallery-grid { grid-template-columns: 1fr; }
-  .weather-widget { min-width: 200px; max-width: 220px; }
+  .weather-widget { min-width: 200px; max-width: 230px; }
   .weather-icon-wrap { width: 48px; height: 48px; }
   .weather-icon-wrap svg, .weather-icon-wrap i { width: 28px !important; height: 28px !important; }
   .weather-temp { font-size: 36px; }
+  .weather-city-dropdown { min-width: 200px; max-width: 220px; }
 }
 
 /* =====================================================
