@@ -164,6 +164,9 @@ let dockPreviewTimeout = null;
 /* ★ Estado del Window Manager / Administrador de Escritorios */
 let windowManagerOpen = false;
 
+/* ★ Estado del Drag & Drop entre workspaces */
+let wmDragState = null;
+
 const SETTINGS_STORAGE_KEY = 'nebula-os:settings';
 const WALLPAPER_STORAGE_KEY = 'nebula-os:wallpaper';
 const GAMEMODE_STORAGE_KEY = 'nebula-os:gamemode';
@@ -1526,6 +1529,43 @@ function switchWorkspace(num) {
   if (windowManagerOpen) renderWindowManager();
 }
 
+/* ★ Helper: mueve una ventana a otro workspace */
+function moveWindowToWorkspace(appId, targetWs) {
+  const win = openWindows[appId];
+  if (!win) return false;
+
+  const currentWs = parseInt(win.dataset.ws, 10);
+  if (currentWs === targetWs) return false;
+
+  /* Actualizamos el workspace de la ventana */
+  win.dataset.ws = String(targetWs);
+
+  /* Si la movemos fuera del workspace actual, la ocultamos */
+  if (targetWs !== currentWorkspace) {
+    win.style.display = 'none';
+    if (activeAppId === appId) {
+      activeAppId = null;
+      updateTopBar(null);
+    }
+  } else {
+    /* Si la traemos al workspace actual, la mostramos */
+    if (!win.classList.contains('minimized')) {
+      win.style.display = 'flex';
+    }
+  }
+
+  renderDock();
+  if (windowManagerOpen) renderWindowManager();
+
+  showToast(
+    'Ventana movida',
+    `${APPS[appId]?.title || appId} → Space ${targetWs}`,
+    'move'
+  );
+
+  return true;
+}
+
 /* ================= SLIDERS FUNCIONALES ================= */
 function setupSliders() {
   const initSlider = (id, callback) => {
@@ -2172,6 +2212,9 @@ function closeWindowManager() {
   const overlay = document.getElementById('window-manager-overlay');
   if (!overlay) return;
 
+  /* Limpiamos estado de drag si quedó abierto */
+  cleanupWmDrag();
+
   windowManagerOpen = false;
   overlay.classList.remove('open');
   overlay.setAttribute('aria-hidden', 'true');
@@ -2196,8 +2239,12 @@ function buildMiniWindowHTML(appId) {
     ? `<img src="${app.image}" alt="${escapeHtml(app.title)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" /><i data-lucide="${app.icon}" style="display:none;"></i>`
     : `<i data-lucide="${app.icon}"></i>`;
 
+  /* ★ Agregamos data-app-id y draggable="true" para el drag & drop */
   return `
-    <div class="wm-mini-window ${isFocused ? 'focused' : ''}" title="${escapeHtml(app.title)}">
+    <div class="wm-mini-window ${isFocused ? 'focused' : ''}"
+         title="${escapeHtml(app.title)} · Arrastrá para mover de Space"
+         data-app-id="${appId}"
+         draggable="true">
       ${iconHTML}
     </div>
   `;
@@ -2248,17 +2295,21 @@ function renderWindowManager() {
     strip.appendChild(card);
   }
 
-  /* Listeners de la tira: click → cambiar de workspace */
+  /* Listeners de la tira: click → cambiar de workspace (solo si no venimos de un drag) */
   strip.querySelectorAll('.wm-workspace-card[data-wm-ws]').forEach(card => {
     card.addEventListener('click', (e) => {
       e.stopPropagation();
+      /* Si acabamos de soltar un drag, ignoramos este click fantasma */
+      if (wmDragState && wmDragState.justDropped) return;
       const ws = parseInt(card.dataset.wmWs, 10);
       if (Number.isNaN(ws)) return;
       if (ws === currentWorkspace) return;
       switchWorkspace(ws);
-      /* switchWorkspace ya re-renderiza el WM si está abierto */
     });
   });
+
+  /* ★ Configuramos drop zones + drag start en las mini-ventanas */
+  setupWmDragAndDrop();
 
   /* ============ 2) GRID DE VENTANAS DEL WORKSPACE ACTIVO ============ */
   const activeWsWindows = getWindowsInWorkspace(currentWorkspace);
@@ -2384,6 +2435,125 @@ function focusFromWindowManager(appId) {
 
   /* Cerramos el WM */
   closeWindowManager();
+}
+
+/* =====================================================
+   DRAG & DROP: mover ventanas entre workspaces
+===================================================== */
+
+/* ★ Configura drag start en mini-ventanas y drop zones en las cards de workspace */
+function setupWmDragAndDrop() {
+  const strip = document.getElementById('wm-workspaces-strip');
+  if (!strip) return;
+
+  /* --- Mini-ventanas: drag start --- */
+  strip.querySelectorAll('.wm-mini-window[data-app-id]').forEach(mini => {
+    mini.addEventListener('dragstart', (e) => {
+      const appId = mini.dataset.appId;
+      if (!appId || !openWindows[appId]) {
+        e.preventDefault();
+        return;
+      }
+
+      const sourceWs = parseInt(openWindows[appId].dataset.ws, 10);
+
+      wmDragState = {
+        appId,
+        sourceWs,
+        justDropped: false
+      };
+
+      /* Feedback visual */
+      mini.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', appId);
+
+      /* Cursor custom opcional — usamos uno simple */
+      try { e.dataTransfer.setDragImage(mini, mini.offsetWidth / 2, mini.offsetHeight / 2); } catch (_) {}
+
+      /* Marcamos la tira en "modo drag" para resaltar drop zones */
+      strip.classList.add('wm-dragging');
+    });
+
+    mini.addEventListener('dragend', () => {
+      mini.classList.remove('dragging');
+      strip.classList.remove('wm-dragging');
+
+      /* Removemos highlights de drop zones */
+      strip.querySelectorAll('.wm-workspace-card').forEach(c => {
+        c.classList.remove('drag-over', 'drag-invalid');
+      });
+
+      /* Pequeño delay para que el click fantasma no dispare el cambio de workspace */
+      if (wmDragState) {
+        wmDragState.justDropped = true;
+        setTimeout(() => {
+          if (wmDragState) wmDragState.justDropped = false;
+        }, 120);
+      }
+
+      /* Limpieza suave */
+      setTimeout(cleanupWmDrag, 200);
+    });
+  });
+
+  /* --- Workspace cards: drop zones --- */
+  strip.querySelectorAll('.wm-workspace-card[data-wm-ws]').forEach(card => {
+    const targetWs = parseInt(card.dataset.wmWs, 10);
+
+    card.addEventListener('dragover', (e) => {
+      if (!wmDragState) return;
+
+      /* Ignoramos drag sobre el mismo workspace */
+      if (wmDragState.sourceWs === targetWs) {
+        e.dataTransfer.dropEffect = 'none';
+        card.classList.add('drag-invalid');
+        return;
+      }
+
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      card.classList.add('drag-over');
+    });
+
+    card.addEventListener('dragleave', (e) => {
+      /* Solo quitamos si salimos de la card completamente */
+      if (!card.contains(e.relatedTarget)) {
+        card.classList.remove('drag-over', 'drag-invalid');
+      }
+    });
+
+    card.addEventListener('drop', (e) => {
+      e.preventDefault();
+      card.classList.remove('drag-over', 'drag-invalid');
+
+      if (!wmDragState) return;
+
+      const { appId, sourceWs } = wmDragState;
+      if (sourceWs === targetWs) return;
+
+      /* Movemos la ventana al workspace destino */
+      moveWindowToWorkspace(appId, targetWs);
+
+      /* Marcamos justDropped para evitar el click fantasma */
+      wmDragState.justDropped = true;
+    });
+  });
+}
+
+/* ★ Limpieza del estado de drag */
+function cleanupWmDrag() {
+  wmDragState = null;
+  const strip = document.getElementById('wm-workspaces-strip');
+  if (strip) {
+    strip.classList.remove('wm-dragging');
+    strip.querySelectorAll('.wm-workspace-card').forEach(c => {
+      c.classList.remove('drag-over', 'drag-invalid');
+    });
+    strip.querySelectorAll('.wm-mini-window').forEach(m => {
+      m.classList.remove('dragging');
+    });
+  }
 }
 
 /* ================= GESTIÓN DE VENTANAS ================= */
