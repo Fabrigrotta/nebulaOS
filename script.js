@@ -179,6 +179,12 @@ const launcherState = {
   selectedIndex: 0
 };
 
+/* ★ Estado del File Explorer (context menu, modal, selección) */
+let fsContextMenuEl = null;
+let fsRenameModalEl = null;
+let fsRenameTarget = null;
+let fsRenameCallback = null;
+
 const SETTINGS_STORAGE_KEY = 'nebula-os:settings';
 const WALLPAPER_STORAGE_KEY = 'nebula-os:wallpaper';
 const GAMEMODE_STORAGE_KEY = 'nebula-os:gamemode';
@@ -191,6 +197,7 @@ const DND_STORAGE_KEY = 'nebula-os:dnd';
 const BRIGHTNESS_STORAGE_KEY = 'nebula-os:brightness';
 const CALENDAR_NOTES_STORAGE_KEY = 'nebula-os:calendar-notes';
 const SESSION_STORAGE_KEY = 'nebula-os:session';
+const FILESYSTEM_STORAGE_KEY = 'nebula-os:filesystem';
 
 const Z_INDEX_NORMALIZE_THRESHOLD = 800;
 const Z_INDEX_BASE = 100;
@@ -633,9 +640,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const isWMClick = e.target.closest('#window-manager-overlay');
     const isDockCtxClick = e.target.closest('.dock-context-menu');
     const isWmCardCtxClick = e.target.closest('.wm-card-context-menu');
+    const isFsCtxClick = e.target.closest('.fs-context-menu');
+    const isFsRenameClick = e.target.closest('.fs-rename-modal');
 
     if (!isDockCtxClick) hideDockContextMenu();
     if (!isWmCardCtxClick) hideWmCardContextMenu();
+    if (!isFsCtxClick) hideFsContextMenu();
 
     if (!sysTrayBtn?.contains(e.target)
         && !clockCenter?.contains(e.target)
@@ -646,7 +656,9 @@ document.addEventListener('DOMContentLoaded', () => {
         && !isHudClick
         && !isWMClick
         && !isDockCtxClick
-        && !isWmCardCtxClick) {
+        && !isWmCardCtxClick
+        && !isFsCtxClick
+        && !isFsRenameClick) {
       closeControlCenter();
       closeQuickCenter();
     }
@@ -666,12 +678,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (windowManagerOpen) closeWindowManager();
       hideDockContextMenu();
       hideWmCardContextMenu();
+      hideFsContextMenu();
+      closeFsRenameModal();
     }
   });
 
-  window.addEventListener('resize', () => { hideDockContextMenu(); hideWmCardContextMenu(); });
-  window.addEventListener('blur', () => { hideDockContextMenu(); hideWmCardContextMenu(); });
-  document.addEventListener('scroll', () => { hideDockContextMenu(); hideWmCardContextMenu(); }, true);
+  window.addEventListener('resize', () => { hideDockContextMenu(); hideWmCardContextMenu(); hideFsContextMenu(); });
+  window.addEventListener('blur', () => { hideDockContextMenu(); hideWmCardContextMenu(); hideFsContextMenu(); });
+  document.addEventListener('scroll', () => { hideDockContextMenu(); hideWmCardContextMenu(); hideFsContextMenu(); }, true);
 
   document.getElementById('screen').addEventListener('contextmenu', (e) => {
     if (e.target.closest('#context-menu') || e.target.closest('.window') || e.target.closest('.desktop-widget')) return;
@@ -1559,46 +1573,1127 @@ function startNovaVoiceInput() {
   recognition.start();
 }
 
-/* ================= FEATURE 5: SMART FILE EXPLORER ================= */
-const FILE_SYSTEM = {
-  name: 'Inicio', label: 'Inicio', type: 'folder', children: [
-    {
-      name: 'capturas', label: 'Capturas de Juegos', type: 'folder', children: [
-        { name: 'cyberpunk_night_city_4k.jpg', type: 'image', path: './fondos/fondo principal.jpg', size: 'JPG · 3840x2160 · 144 FPS Capture' },
-        { name: 'elden_ring_boss_victory.jpg', type: 'image', path: './fondos/fondo 2.jpg', size: 'JPG · 2560x1440 · HDR On' },
-        { name: 'valorant_ace_round.jpg', type: 'image', path: './fondos/fondo 3.jpg', size: 'JPG · 1920x1080 · Clip' }
-      ]
-    },
-    {
-      name: 'mods', label: 'MODs & Configs', type: 'folder', children: [
-        { name: 'cyberpunk_ultra_textures.pak', type: 'text', path: './message.txt', size: 'PAK · Mod gráfico 4K' },
-        { name: 'elden_ring_ultrawide_fov.zip', type: 'text', path: './message.txt', size: 'ZIP · Patch 21:9 support' },
-        { name: 'reshade_cinematic_preset.ini', type: 'text', path: './styles.css', size: 'INI · Preset de post-procesado' }
-      ]
-    },
-    {
-      name: 'juegos', label: 'Juegos & ISOs', type: 'folder', children: [
-        { name: 'Cyberpunk_2077.exe', type: 'image', path: './steam/image.png', size: 'EXE · Acceso directo' },
-        { name: 'Hollow_Knight_Silksong.iso', type: 'image', path: './steam/image.png', size: 'ISO · Imagen de disco' },
-        { name: 'Doom_Eternal_Ultra.exe', type: 'image', path: './steam/image.png', size: 'EXE · Lanzador Vulkan' }
-      ]
-    },
-    {
-      name: 'musica', label: 'Música & Audio', type: 'folder', children: [
-        { name: 'Gustavo_Cerati_Bocanada.mp3', type: 'audio', path: './spotify/tapa album 2.jpg', size: 'MP3 · 320 kbps · Bocanada' },
-        { name: 'Nirvana_Smells_Like_Teen_Spirit.mp3', type: 'audio', path: './spotify/tapa album 1.jpg', size: 'MP3 · 320 kbps · Nevermind' },
-        { name: 'Synthwave_Chill_Night.flac', type: 'audio', path: './spotify/top 50.jpg', size: 'FLAC · 24-bit · Lossless' }
-      ]
-    },
-    { name: 'fondos', label: 'Fondos', type: 'folder', children: WALLPAPERS.map(w => ({ name: w.file, type: 'image', path: `./fondos/${w.file}`, size: 'JPG · Fondo HD' })) },
-    { name: 'imagenes', label: 'Imágenes', type: 'folder', children: ['archivos.png', 'Ajustes.png', 'Home.png', 'Lupa.png', 'Play.png', 'Senial.png', 'Steam.png', 'VSC.png'].map(name => ({ name, type: 'image', path: `./imagenes/${name}`, size: 'PNG · Icono UI' })) },
-    { name: 'spotify', label: 'Spotify', type: 'folder', children: ['tapa album 1.jpg', 'top 50.jpg', 'tapa album 2.jpg', 'album 3.jpg'].map(name => ({ name, type: 'image', path: `./spotify/${name}`, size: 'JPG · Portada Álbum' })) },
-    { name: 'vsc', label: 'Proyectos Dev', type: 'folder', children: [{ name: 'vscimg.png', type: 'image', path: './vsc/vscimg.png', size: 'PNG · Workspace' }] },
-    { name: 'index.html', type: 'text', path: './index.html', size: 'HTML · Estructura Nebula OS' },
-    { name: 'styles.css', type: 'text', path: './styles.css', size: 'CSS · Estilos y Variables' },
-    { name: 'script.js', type: 'text', path: './script.js', size: 'JS · Núcleo del sistema' }
-  ]
-};
+/* =====================================================
+   ★ FEATURE 5: SMART FILE EXPLORER — Sistema realista
+   con drag & drop, menú contextual, selección múltiple
+===================================================== */
+
+/* ---- Estructura base del sistema de archivos (default) ---- */
+function getDefaultFileSystem() {
+  return {
+    name: 'Inicio', label: 'Inicio', type: 'folder', children: [
+      {
+        name: 'capturas', label: 'Capturas de Juegos', type: 'folder', children: [
+          { name: 'cyberpunk_night_city_4k.jpg', type: 'image', path: './fondos/fondo principal.jpg', size: 'JPG · 3840x2160 · 144 FPS Capture' },
+          { name: 'elden_ring_boss_victory.jpg', type: 'image', path: './fondos/fondo 2.jpg', size: 'JPG · 2560x1440 · HDR On' },
+          { name: 'valorant_ace_round.jpg', type: 'image', path: './fondos/fondo 3.jpg', size: 'JPG · 1920x1080 · Clip' }
+        ]
+      },
+      {
+        name: 'mods', label: 'MODs & Configs', type: 'folder', children: [
+          { name: 'cyberpunk_ultra_textures.pak', type: 'text', path: './message.txt', size: 'PAK · Mod gráfico 4K' },
+          { name: 'elden_ring_ultrawide_fov.zip', type: 'text', path: './message.txt', size: 'ZIP · Patch 21:9 support' },
+          { name: 'reshade_cinematic_preset.ini', type: 'text', path: './styles.css', size: 'INI · Preset de post-procesado' }
+        ]
+      },
+      {
+        name: 'juegos', label: 'Juegos & ISOs', type: 'folder', children: [
+          { name: 'Cyberpunk_2077.exe', type: 'image', path: './steam/image.png', size: 'EXE · Acceso directo' },
+          { name: 'Hollow_Knight_Silksong.iso', type: 'image', path: './steam/image.png', size: 'ISO · Imagen de disco' },
+          { name: 'Doom_Eternal_Ultra.exe', type: 'image', path: './steam/image.png', size: 'EXE · Lanzador Vulkan' }
+        ]
+      },
+      {
+        name: 'musica', label: 'Música & Audio', type: 'folder', children: [
+          { name: 'Gustavo_Cerati_Bocanada.mp3', type: 'audio', path: './spotify/tapa album 2.jpg', size: 'MP3 · 320 kbps · Bocanada' },
+          { name: 'Nirvana_Smells_Like_Teen_Spirit.mp3', type: 'audio', path: './spotify/tapa album 1.jpg', size: 'MP3 · 320 kbps · Nevermind' },
+          { name: 'Synthwave_Chill_Night.flac', type: 'audio', path: './spotify/top 50.jpg', size: 'FLAC · 24-bit · Lossless' }
+        ]
+      },
+      { name: 'fondos', label: 'Fondos', type: 'folder', children: WALLPAPERS.map(w => ({ name: w.file, type: 'image', path: `./fondos/${w.file}`, size: 'JPG · Fondo HD' })) },
+      { name: 'imagenes', label: 'Imágenes', type: 'folder', children: ['archivos.png', 'Ajustes.png', 'Home.png', 'Lupa.png', 'Play.png', 'Senial.png', 'Steam.png', 'VSC.png'].map(name => ({ name, type: 'image', path: `./imagenes/${name}`, size: 'PNG · Icono UI' })) },
+      { name: 'spotify', label: 'Spotify', type: 'folder', children: ['tapa album 1.jpg', 'top 50.jpg', 'tapa album 2.jpg', 'album 3.jpg'].map(name => ({ name, type: 'image', path: `./spotify/${name}`, size: 'JPG · Portada Álbum' })) },
+      { name: 'vsc', label: 'Proyectos Dev', type: 'folder', children: [{ name: 'vscimg.png', type: 'image', path: './vsc/vscimg.png', size: 'PNG · Workspace' }] },
+      { name: 'index.html', type: 'text', path: './index.html', size: 'HTML · Estructura Nebula OS' },
+      { name: 'styles.css', type: 'text', path: './styles.css', size: 'CSS · Estilos y Variables' },
+      { name: 'script.js', type: 'text', path: './script.js', size: 'JS · Núcleo del sistema' }
+    ]
+  };
+}
+
+/* ---- Persistencia del file system ---- */
+function loadFileSystem() {
+  try {
+    const raw = localStorage.getItem(FILESYSTEM_STORAGE_KEY);
+    if (!raw) return getDefaultFileSystem();
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.children)) {
+      return getDefaultFileSystem();
+    }
+    return parsed;
+  } catch (e) {
+    return getDefaultFileSystem();
+  }
+}
+
+function saveFileSystem(fs) {
+  try {
+    localStorage.setItem(FILESYSTEM_STORAGE_KEY, JSON.stringify(fs));
+  } catch (e) {}
+}
+
+function resetFileSystem() {
+  try {
+    localStorage.removeItem(FILESYSTEM_STORAGE_KEY);
+  } catch (e) {}
+}
+
+/* ---- FILE_SYSTEM global (mutación en runtime) ---- */
+let FILE_SYSTEM = loadFileSystem();
+
+/* ---- Helpers del FS (búsqueda, mutación) ---- */
+function fsFindFolder(name, folder = FILE_SYSTEM) {
+  if (folder.name === name) return folder;
+  for (const child of folder.children || []) {
+    if (child.type === 'folder') {
+      const result = fsFindFolder(name, child);
+      if (result) return result;
+    }
+  }
+  return null;
+}
+
+function fsFindParent(targetItem, folder = FILE_SYSTEM) {
+  if (!folder.children) return null;
+  for (const child of folder.children) {
+    if (child === targetItem) return folder;
+    if (child.type === 'folder') {
+      const result = fsFindParent(targetItem, child);
+      if (result) return result;
+    }
+  }
+  return null;
+}
+
+function fsFindItemByName(name, folder = FILE_SYSTEM) {
+  for (const child of folder.children || []) {
+    if (child.name === name) return child;
+    if (child.type === 'folder') {
+      const result = fsFindItemByName(name, child);
+      if (result) return result;
+    }
+  }
+  return null;
+}
+
+function fsGenerateUniqueName(baseName, folder) {
+  if (!folder.children) return baseName;
+  const existing = new Set(folder.children.map(c => c.name));
+  if (!existing.has(baseName)) return baseName;
+  const dotIdx = baseName.lastIndexOf('.');
+  const stem = dotIdx > 0 ? baseName.slice(0, dotIdx) : baseName;
+  const ext = dotIdx > 0 ? baseName.slice(dotIdx) : '';
+  let n = 2;
+  while (existing.has(`${stem} (${n})${ext}`)) n++;
+  return `${stem} (${n})${ext}`;
+}
+
+function fsAddItem(parentFolder, newItem) {
+  if (!parentFolder.children) parentFolder.children = [];
+  parentFolder.children.push(newItem);
+  saveFileSystem(FILE_SYSTEM);
+}
+
+function fsRemoveItem(item) {
+  const parent = fsFindParent(item);
+  if (!parent || !parent.children) return false;
+  const idx = parent.children.indexOf(item);
+  if (idx === -1) return false;
+  parent.children.splice(idx, 1);
+  saveFileSystem(FILE_SYSTEM);
+  return true;
+}
+
+/* ★ FIX: fsRenameItem actualiza name Y label, valida vacío/duplicado */
+function fsRenameItem(item, newName) {
+  if (!newName || !newName.trim()) {
+    showToast('Nombre vacío', 'Escribí un nombre válido.', 'alert-circle');
+    return false;
+  }
+  const parent = fsFindParent(item);
+  if (!parent) {
+    showToast('Error', 'No se encontró el elemento padre.', 'alert-circle');
+    return false;
+  }
+  const clean = newName.trim();
+  if (parent.children.some(c => c !== item && c.name === clean)) {
+    showToast('Nombre duplicado', `Ya existe "${clean}" en esta carpeta.`, 'alert-circle');
+    return false;
+  }
+
+  item.name = clean;
+  if (Object.prototype.hasOwnProperty.call(item, 'label')) {
+    item.label = clean;
+  }
+
+  saveFileSystem(FILE_SYSTEM);
+  return true;
+}
+
+function fsMoveItem(item, targetFolder) {
+  if (!item || !targetFolder || item === targetFolder) return false;
+  if (targetFolder.type !== 'folder') return false;
+
+  const parent = fsFindParent(item);
+  if (!parent) return false;
+  if (parent === targetFolder) return false;
+
+  if (item.type === 'folder') {
+    let cursor = targetFolder;
+    while (cursor) {
+      if (cursor === item) return false;
+      cursor = fsFindParent(cursor);
+    }
+  }
+
+  parent.children = parent.children.filter(c => c !== item);
+  if (!targetFolder.children) targetFolder.children = [];
+  targetFolder.children.push(item);
+  saveFileSystem(FILE_SYSTEM);
+  return true;
+}
+
+/* ---- Estado por ventana del explorador ---- */
+const fsWindowStates = new WeakMap();
+
+function getFsState(win) {
+  if (!fsWindowStates.has(win)) {
+    fsWindowStates.set(win, {
+      current: FILE_SYSTEM,
+      trail: [FILE_SYSTEM],
+      history: [],
+      future: [],
+      query: '',
+      selected: new Set(),
+      lastClickedIndex: -1,
+      visibleItems: []
+    });
+  }
+  return fsWindowStates.get(win);
+}
+
+/* ★ FIX: Modal con onclick (no acumula listeners) y stopPropagation en keydown */
+function ensureFsRenameModal() {
+  if (fsRenameModalEl) return fsRenameModalEl;
+  const modal = document.createElement('div');
+  modal.className = 'fs-rename-modal';
+  modal.innerHTML = `
+    <div class="fs-rename-dialog">
+      <div class="fs-rename-header">
+        <div class="fs-rename-icon"><i data-lucide="pencil"></i></div>
+        <div>
+          <strong id="fs-rename-title">Renombrar</strong>
+          <small id="fs-rename-sub">Escribí el nuevo nombre</small>
+        </div>
+      </div>
+      <input class="fs-rename-input" id="fs-rename-input" type="text" maxlength="120" autocomplete="off">
+      <div class="fs-rename-actions">
+        <button class="fs-rename-btn" id="fs-rename-cancel" type="button">Cancelar</button>
+        <button class="fs-rename-btn primary" id="fs-rename-confirm" type="button">Confirmar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  fsRenameModalEl = modal;
+
+  const input = modal.querySelector('#fs-rename-input');
+  const cancel = modal.querySelector('#fs-rename-cancel');
+  const confirm = modal.querySelector('#fs-rename-confirm');
+
+  cancel.onclick = () => closeFsRenameModal();
+
+  modal.onmousedown = (e) => {
+    if (e.target === modal) closeFsRenameModal();
+  };
+
+  confirm.onclick = () => {
+    const value = input.value.trim();
+    const cb = fsRenameCallback;
+    if (typeof cb === 'function') {
+      const ok = cb(value);
+      if (ok !== false) closeFsRenameModal();
+    } else {
+      closeFsRenameModal();
+    }
+  };
+
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      confirm.click();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeFsRenameModal();
+    }
+  });
+  input.addEventListener('keyup', (e) => e.stopPropagation());
+  input.addEventListener('keypress', (e) => e.stopPropagation());
+
+  refreshIcons();
+  return modal;
+}
+
+function openFsRenameModal(opts) {
+  const { title = 'Renombrar', sub = 'Escribí el nuevo nombre', initial = '', onConfirm } = opts || {};
+  const modal = ensureFsRenameModal();
+  modal.querySelector('#fs-rename-title').textContent = title;
+  modal.querySelector('#fs-rename-sub').textContent = sub;
+  const input = modal.querySelector('#fs-rename-input');
+  input.value = initial;
+  fsRenameCallback = onConfirm;
+
+  modal.classList.add('open');
+  setTimeout(() => {
+    input.focus();
+    input.select();
+  }, 60);
+}
+
+function closeFsRenameModal() {
+  if (fsRenameModalEl) fsRenameModalEl.classList.remove('open');
+  fsRenameCallback = null;
+}
+
+/* ---- Menú contextual del explorador ---- */
+function ensureFsContextMenu() {
+  if (fsContextMenuEl) return fsContextMenuEl;
+  const el = document.createElement('div');
+  el.className = 'fs-context-menu';
+  document.body.appendChild(el);
+  fsContextMenuEl = el;
+  return el;
+}
+
+function hideFsContextMenu() {
+  if (fsContextMenuEl) {
+    fsContextMenuEl.classList.remove('open');
+    setTimeout(() => {
+      if (fsContextMenuEl) fsContextMenuEl.innerHTML = '';
+    }, 160);
+  }
+}
+
+function showFsContextMenu(ev, state, targetItem, win) {
+  ev.preventDefault();
+  ev.stopPropagation();
+
+  const menu = ensureFsContextMenu();
+  menu.innerHTML = '';
+
+  const isMulti = state.selected.size > 1;
+  const itemsCount = state.selected.size;
+
+  if (targetItem && !isMulti) {
+    const icon = targetItem.type === 'folder' ? 'folder' : targetItem.type === 'image' ? 'image' : targetItem.type === 'audio' ? 'music' : 'file-text';
+    const header = document.createElement('div');
+    header.className = 'fs-ctx-header';
+    header.innerHTML = `
+      <div class="fs-ctx-header-icon">
+        ${targetItem.type === 'image' && targetItem.path ? `<img src="${escapeHtml(targetItem.path)}" alt="" onerror="this.style.display='none';this.parentElement.innerHTML='<i data-lucide=\\'${icon}\\'></i>';" />` : `<i data-lucide="${icon}"></i>`}
+      </div>
+      <div class="fs-ctx-header-meta">
+        <div class="fs-ctx-header-title">${escapeHtml(targetItem.label || targetItem.name)}</div>
+        <div class="fs-ctx-header-sub">${targetItem.type === 'folder' ? 'Carpeta' : (targetItem.size || 'Archivo')}</div>
+      </div>
+    `;
+    menu.appendChild(header);
+  }
+
+  const appendItem = (opts) => {
+    const btn = document.createElement('button');
+    btn.className = 'fs-ctx-item' + (opts.danger ? ' danger' : '');
+    btn.type = 'button';
+    btn.innerHTML = `
+      <span class="fs-ctx-icon"><i data-lucide="${opts.icon}"></i></span>
+      <span class="fs-ctx-label">${escapeHtml(opts.label)}</span>
+      ${opts.shortcut ? `<span class="fs-ctx-shortcut">${escapeHtml(opts.shortcut)}</span>` : ''}
+    `;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hideFsContextMenu();
+      opts.action();
+    });
+    menu.appendChild(btn);
+  };
+
+  const appendSep = () => {
+    const sep = document.createElement('div');
+    sep.className = 'fs-ctx-sep';
+    menu.appendChild(sep);
+  };
+
+  if (targetItem && !isMulti) {
+    if (targetItem.type === 'folder') {
+      appendItem({
+        icon: 'folder-open',
+        label: 'Abrir carpeta',
+        action: () => fsOpenFolder(win, state, targetItem)
+      });
+    } else if (targetItem.type === 'image') {
+      appendItem({
+        icon: 'image',
+        label: 'Establecer como fondo',
+        action: () => setCustomWallpaperFromFile(targetItem.path)
+      });
+    } else if (targetItem.type === 'audio') {
+      appendItem({
+        icon: 'play',
+        label: 'Reproducir',
+        action: () => toggleMediaPlayback()
+      });
+    }
+
+    appendItem({
+      icon: 'pencil',
+      label: 'Renombrar',
+      shortcut: 'F2',
+      action: () => fsPromptRename(win, state, targetItem)
+    });
+
+    appendSep();
+  }
+
+  const moveLabel = isMulti ? `Mover ${itemsCount} elementos a...` : 'Mover a...';
+  appendItem({
+    icon: 'folder-input',
+    label: moveLabel,
+    action: () => fsPromptMove(win, state, isMulti ? Array.from(state.selected) : [targetItem])
+  });
+
+  if (targetItem && !isMulti) {
+    appendItem({
+      icon: 'check-square',
+      label: 'Seleccionar',
+      action: () => {
+        state.selected.clear();
+        state.selected.add(targetItem);
+        fsRefresh(win, state);
+      }
+    });
+  }
+
+  if (itemsCount > 0) {
+    appendSep();
+    appendItem({
+      icon: 'trash-2',
+      label: isMulti ? `Eliminar ${itemsCount} elementos` : 'Eliminar',
+      shortcut: 'Supr',
+      danger: true,
+      action: () => fsDeleteSelection(win, state)
+    });
+  }
+
+  appendSep();
+  appendItem({
+    icon: 'folder-plus',
+    label: 'Nueva carpeta aquí',
+    action: () => fsCreateFolder(win, state)
+  });
+  appendItem({
+    icon: 'file-plus',
+    label: 'Nuevo archivo de texto',
+    action: () => fsCreateFile(win, state)
+  });
+
+  menu.classList.add('open');
+  refreshIcons();
+
+  const rect = menu.getBoundingClientRect();
+  const margin = 10;
+  let left = ev.clientX;
+  let top = ev.clientY;
+  if (left + rect.width + margin > window.innerWidth) left = window.innerWidth - rect.width - margin;
+  if (top + rect.height + margin > window.innerHeight) top = window.innerHeight - rect.height - margin;
+  left = Math.max(margin, left);
+  top = Math.max(margin, top);
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+}
+
+/* ---- Acciones del explorador ---- */
+function fsOpenFolder(win, state, folder) {
+  state.history.push(state.current);
+  state.future = [];
+  state.current = folder;
+  state.trail = [FILE_SYSTEM, ...fsBuildTrail(folder)];
+  state.query = '';
+  state.selected.clear();
+  const search = win.querySelector('[data-files-search]');
+  if (search) search.value = '';
+  fsRefresh(win, state);
+}
+
+function fsBuildTrail(folder) {
+  const path = [];
+  let cursor = folder;
+  while (cursor && cursor !== FILE_SYSTEM) {
+    path.unshift(cursor);
+    cursor = fsFindParent(cursor);
+  }
+  return path;
+}
+
+function fsPromptRename(win, state, item) {
+  openFsRenameModal({
+    title: 'Renombrar',
+    sub: item.type === 'folder' ? 'Carpeta' : 'Archivo',
+    initial: item.name,
+    onConfirm: (value) => {
+      if (!value) return false;
+      const ok = fsRenameItem(item, value);
+      if (ok) {
+        showToast('Renombrado', `"${item.name}" actualizado.`, 'pencil');
+        fsRefresh(win, state);
+      }
+      return ok;
+    }
+  });
+}
+
+function fsPromptMove(win, state, items) {
+  const folders = [];
+  const collectFolders = (folder, depth = 0) => {
+    if (folder !== FILE_SYSTEM) folders.push({ folder, depth });
+    (folder.children || []).forEach(child => {
+      if (child.type === 'folder') collectFolders(child, depth + 1);
+    });
+  };
+  collectFolders(FILE_SYSTEM);
+
+  if (folders.length === 0) {
+    showToast('Sin carpetas', 'No hay carpetas destino disponibles.', 'folder');
+    return;
+  }
+
+  const menu = document.createElement('div');
+  menu.className = 'fs-context-menu';
+  menu.style.position = 'fixed';
+  document.body.appendChild(menu);
+
+  const header = document.createElement('div');
+  header.className = 'fs-ctx-header';
+  header.innerHTML = `
+    <div class="fs-ctx-header-icon"><i data-lucide="folder-input"></i></div>
+    <div class="fs-ctx-header-meta">
+      <div class="fs-ctx-header-title">Mover a...</div>
+      <div class="fs-ctx-header-sub">${items.length} elemento${items.length === 1 ? '' : 's'}</div>
+    </div>
+  `;
+  menu.appendChild(header);
+
+  folders.forEach(({ folder, depth }) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'fs-ctx-item';
+    btn.innerHTML = `
+      <span class="fs-ctx-icon"><i data-lucide="folder"></i></span>
+      <span class="fs-ctx-label" style="padding-left:${depth * 10}px;">${escapeHtml(folder.label || folder.name)}</span>
+    `;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      let moved = 0;
+      items.forEach(item => {
+        if (fsMoveItem(item, folder)) moved++;
+      });
+      hideAllFsMoveMenus();
+      if (moved > 0) {
+        showToast('Movido', `${moved} elemento${moved === 1 ? '' : 's'} → ${folder.label || folder.name}`, 'folder-input');
+        state.selected.clear();
+        fsRefresh(win, state);
+      }
+    });
+    menu.appendChild(btn);
+  });
+
+  const closeHandler = (e) => {
+    if (!menu.contains(e.target)) {
+      hideAllFsMoveMenus();
+      document.removeEventListener('mousedown', closeHandler);
+    }
+  };
+  setTimeout(() => document.addEventListener('mousedown', closeHandler), 50);
+
+  const rect = menu.getBoundingClientRect();
+  const margin = 10;
+  let left = window.innerWidth - rect.width - margin - 20;
+  let top = 80;
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+  menu.style.zIndex = '2760';
+  menu.classList.add('open');
+  refreshIcons();
+}
+
+function hideAllFsMoveMenus() {
+  document.querySelectorAll('.fs-context-menu').forEach(el => {
+    if (el === fsContextMenuEl) {
+      el.classList.remove('open');
+      setTimeout(() => { if (el) el.innerHTML = ''; }, 160);
+    } else {
+      el.remove();
+    }
+  });
+}
+
+function fsDeleteSelection(win, state) {
+  const items = Array.from(state.selected);
+  if (items.length === 0) return;
+
+  items.forEach(item => fsRemoveItem(item));
+  state.selected.clear();
+
+  showToast('Eliminado', `${items.length} elemento${items.length === 1 ? '' : 's'} eliminado${items.length === 1 ? '' : 's'}.`, 'trash-2');
+  fsRefresh(win, state);
+}
+
+function fsCreateFolder(win, state) {
+  const parent = state.current;
+  const baseName = 'Nueva carpeta';
+  const unique = fsGenerateUniqueName(baseName, parent);
+  fsAddItem(parent, { name: unique, label: unique, type: 'folder', children: [] });
+  showToast('Carpeta creada', `"${unique}" creada.`, 'folder-plus');
+  fsRefresh(win, state);
+}
+
+function fsCreateFile(win, state) {
+  const parent = state.current;
+  const baseName = 'Nuevo archivo.txt';
+  const unique = fsGenerateUniqueName(baseName, parent);
+  fsAddItem(parent, { name: unique, type: 'text', path: './message.txt', size: 'TXT · Documento' });
+  showToast('Archivo creado', `"${unique}" creado.`, 'file-plus');
+  fsRefresh(win, state);
+}
+
+/* ---- Render principal del explorador ---- */
+function fsRefresh(win, state) {
+  const explorer = win.querySelector('.files-preview');
+  if (!explorer) return;
+
+  const grid = explorer.querySelector('.files-grid');
+  const titleEl = explorer.querySelector('[data-files-title]');
+  const pathEl = explorer.querySelector('[data-files-path]');
+  const preview = explorer.querySelector('[data-files-preview]');
+  const toolbar = explorer.querySelector('.files-toolbar');
+  if (!grid) return;
+
+  const q = (state.query || '').toLowerCase();
+  const items = (state.current.children || []).filter(item =>
+    !q || item.name.toLowerCase().includes(q) || (item.label || '').toLowerCase().includes(q)
+  );
+  state.visibleItems = items;
+
+  if (titleEl) titleEl.textContent = state.current.label || state.current.name;
+  if (pathEl) {
+    const trailNames = [FILE_SYSTEM.label || FILE_SYSTEM.name, ...state.trail.slice(1).map(f => f.label || f.name)];
+    pathEl.textContent = trailNames.join(' / ');
+  }
+
+  let counter = toolbar?.querySelector('.files-sel-counter');
+  if (!counter && toolbar) {
+    counter = document.createElement('span');
+    counter.className = 'files-sel-counter';
+    toolbar.appendChild(counter);
+  }
+  if (counter) {
+    if (state.selected.size > 0) {
+      counter.textContent = `${state.selected.size} sel.`;
+      counter.style.display = '';
+    } else {
+      counter.style.display = 'none';
+    }
+  }
+
+  let delBtn = toolbar?.querySelector('[data-files-delete]');
+  if (delBtn) delBtn.disabled = state.selected.size === 0;
+
+  grid.innerHTML = items.length ? items.map((item, idx) => {
+    const isFolder = item.type === 'folder';
+    const isSelected = state.selected.has(item);
+    const iconName = isFolder ? 'folder' : item.type === 'image' ? 'image' : item.type === 'audio' ? 'music' : 'file-text';
+    return `
+      <button class="explorer-item ${isFolder ? 'folder-drop' : ''} ${isSelected ? 'selected' : ''}"
+              type="button"
+              data-fs-item-index="${idx}"
+              draggable="true">
+        <span class="file-visual">
+          ${item.type === 'image' && item.path ? `<img src="${escapeHtml(item.path)}" alt="" onerror="this.style.display='none';this.parentElement.innerHTML='<span class=&quot;file-type-icon&quot;><i data-lucide=&quot;${iconName}&quot;></i></span>';refreshIcons();" />` : `<span class="file-type-icon"><i data-lucide="${iconName}"></i></span>`}
+        </span>
+        <strong>${escapeHtml(item.label || item.name)}</strong>
+        <small>${isFolder ? `${(item.children || []).length} elementos` : escapeHtml((item.size || 'Archivo').split(' · ')[0])}</small>
+      </button>
+    `;
+  }).join('') : '<div class="files-no-results" style="grid-column: 1/-1; padding: 20px; text-align: center; color: var(--text-sub); font-size: 11px;">No hay elementos que coincidan.</div>';
+
+  refreshIcons();
+  fsBindGridEvents(win, state);
+
+  if (preview && state.selected.size !== 1) {
+    preview.innerHTML = '<div class="files-empty-preview" style="color: var(--text-sub); font-size: 11px;">Seleccioná un archivo para previsualización interactiva rápida.</div>';
+  }
+}
+
+function fsBindGridEvents(win, state) {
+  const explorer = win.querySelector('.files-preview');
+  if (!explorer) return;
+  const grid = explorer.querySelector('.files-grid');
+  if (!grid) return;
+
+  grid.querySelectorAll('.explorer-item').forEach(el => {
+    const idx = parseInt(el.dataset.fsItemIndex, 10);
+    const item = state.visibleItems[idx];
+    if (!item) return;
+
+    el.addEventListener('dragstart', (e) => {
+      if (!state.selected.has(item)) {
+        state.selected.clear();
+        state.selected.add(item);
+      }
+      const draggingItems = Array.from(state.selected);
+
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('application/x-nebula-fs-items', JSON.stringify(draggingItems.map(i => i.name)));
+
+      el.classList.add('dragging');
+      grid.querySelectorAll('.explorer-item').forEach(otherEl => {
+        const otherIdx = parseInt(otherEl.dataset.fsItemIndex, 10);
+        const otherItem = state.visibleItems[otherIdx];
+        if (otherItem && state.selected.has(otherItem)) otherEl.classList.add('dragging');
+      });
+
+      try {
+        e.dataTransfer.setDragImage(el, el.offsetWidth / 2, el.offsetHeight / 2);
+      } catch (_) {}
+
+      fsRefresh(win, state);
+    });
+
+    el.addEventListener('dragend', () => {
+      grid.querySelectorAll('.explorer-item').forEach(x => x.classList.remove('dragging'));
+      grid.querySelectorAll('.explorer-item').forEach(x => x.classList.remove('drag-over'));
+    });
+
+    if (item.type === 'folder') {
+      el.addEventListener('dragover', (e) => {
+        if (!e.dataTransfer.types.includes('application/x-nebula-fs-items')) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        el.classList.add('drag-over');
+      });
+
+      el.addEventListener('dragleave', (e) => {
+        if (!el.contains(e.relatedTarget)) {
+          el.classList.remove('drag-over');
+        }
+      });
+
+      el.addEventListener('drop', (e) => {
+        e.preventDefault();
+        el.classList.remove('drag-over');
+        fsHandleDrop(win, state, e, item);
+      });
+    }
+
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (e.shiftKey && state.lastClickedIndex !== -1) {
+        const from = Math.min(state.lastClickedIndex, idx);
+        const to = Math.max(state.lastClickedIndex, idx);
+        for (let i = from; i <= to; i++) {
+          if (state.visibleItems[i]) state.selected.add(state.visibleItems[i]);
+        }
+      } else if (e.ctrlKey || e.metaKey) {
+        if (state.selected.has(item)) state.selected.delete(item);
+        else state.selected.add(item);
+        state.lastClickedIndex = idx;
+      } else {
+        state.selected.clear();
+        state.selected.add(item);
+        state.lastClickedIndex = idx;
+      }
+      fsRefresh(win, state);
+      fsUpdatePreview(win, state);
+    });
+
+    el.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      if (item.type === 'folder') {
+        fsOpenFolder(win, state, item);
+      } else {
+        fsUpdatePreview(win, state);
+      }
+    });
+
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!state.selected.has(item)) {
+        state.selected.clear();
+        state.selected.add(item);
+        fsRefresh(win, state);
+      }
+      showFsContextMenu(e, state, item, win);
+    });
+  });
+
+  grid.addEventListener('click', (e) => {
+    if (e.target === grid || e.target.classList.contains('files-no-results')) {
+      state.selected.clear();
+      state.lastClickedIndex = -1;
+      fsRefresh(win, state);
+      const preview = explorer.querySelector('[data-files-preview]');
+      if (preview) preview.innerHTML = '<div class="files-empty-preview" style="color: var(--text-sub); font-size: 11px;">Seleccioná un archivo para previsualización interactiva rápida.</div>';
+    }
+  });
+
+  grid.addEventListener('contextmenu', (e) => {
+    if (e.target.closest('.explorer-item')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    state.selected.clear();
+    fsRefresh(win, state);
+    showFsContextMenu(e, state, null, win);
+  });
+
+  grid.addEventListener('dragover', (e) => {
+    if (!e.dataTransfer.types.includes('application/x-nebula-fs-items')) return;
+    if (e.target.closest('.explorer-item')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    grid.classList.add('drag-over-empty');
+  });
+  grid.addEventListener('dragleave', (e) => {
+    if (!grid.contains(e.relatedTarget)) {
+      grid.classList.remove('drag-over-empty');
+    }
+  });
+  grid.addEventListener('drop', (e) => {
+    if (!e.dataTransfer.types.includes('application/x-nebula-fs-items')) return;
+    if (e.target.closest('.explorer-item')) return;
+    e.preventDefault();
+    grid.classList.remove('drag-over-empty');
+    fsHandleDropToCurrent(win, state, e);
+  });
+
+  const pathEl = explorer.querySelector('[data-files-path]');
+  if (pathEl) {
+    pathEl.addEventListener('dragover', (e) => {
+      if (!e.dataTransfer.types.includes('application/x-nebula-fs-items')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      pathEl.classList.add('drop-target');
+    });
+    pathEl.addEventListener('dragleave', () => {
+      pathEl.classList.remove('drop-target');
+    });
+    pathEl.addEventListener('drop', (e) => {
+      e.preventDefault();
+      pathEl.classList.remove('drop-target');
+      fsHandleDropToFolder(win, state, e, FILE_SYSTEM);
+    });
+  }
+}
+
+function fsHandleDrop(win, state, e, targetFolder) {
+  fsHandleDropToFolder(win, state, e, targetFolder);
+}
+
+function fsHandleDropToCurrent(win, state, e) {
+  fsHandleDropToFolder(win, state, e, state.current);
+}
+
+function fsHandleDropToFolder(win, state, e, targetFolder) {
+  let names = [];
+  try {
+    names = JSON.parse(e.dataTransfer.getData('application/x-nebula-fs-items') || '[]');
+  } catch (_) {}
+
+  if (!Array.isArray(names) || names.length === 0) {
+    names = Array.from(state.selected).map(i => i.name);
+  }
+
+  let moved = 0;
+  let failed = 0;
+
+  names.forEach(name => {
+    const item = fsFindItemByName(name);
+    if (!item) { failed++; return; }
+    if (item === targetFolder) { failed++; return; }
+    if (item.type === 'folder') {
+      let cursor = targetFolder;
+      while (cursor) {
+        if (cursor === item) { failed++; return; }
+        cursor = fsFindParent(cursor);
+      }
+    }
+    if (fsMoveItem(item, targetFolder)) moved++;
+    else failed++;
+  });
+
+  if (moved > 0) {
+    showToast('Movido', `${moved} elemento${moved === 1 ? '' : 's'} → ${targetFolder.label || targetFolder.name}${failed ? ` (${failed} fallaron)` : ''}`, 'folder-input');
+  } else if (failed > 0) {
+    showToast('No se pudo mover', 'El destino no es válido o ya contiene esos elementos.', 'alert-circle');
+  }
+
+  state.selected.clear();
+  fsRefresh(win, state);
+}
+
+function fsUpdatePreview(win, state) {
+  const explorer = win.querySelector('.files-preview');
+  if (!explorer) return;
+  const preview = explorer.querySelector('[data-files-preview]');
+  if (!preview) return;
+
+  const items = Array.from(state.selected);
+  if (items.length === 0) {
+    preview.innerHTML = '<div class="files-empty-preview" style="color: var(--text-sub); font-size: 11px;">Seleccioná un archivo para previsualización interactiva rápida.</div>';
+    return;
+  }
+  if (items.length > 1) {
+    preview.innerHTML = `
+      <div style="color: var(--text-sub); font-size: 11px;">
+        <strong style="color:#fff; font-size:12px; display:block; margin-bottom:4px;">${items.length} elementos seleccionados</strong>
+        Usá <kbd style="font-family:'JetBrains Mono',monospace; font-size:10px; background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:4px; color:var(--accent);">Supr</kbd> para eliminar o <kbd style="font-family:'JetBrains Mono',monospace; font-size:10px; background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:4px; color:var(--accent);">click derecho</kbd> para más acciones.
+      </div>
+    `;
+    return;
+  }
+
+  const item = items[0];
+  if (item.type === 'image') {
+    preview.innerHTML = `
+      <div style="display:flex; gap:12px; align-items:center;">
+        <img src="${escapeHtml(item.path || '')}" alt="${escapeHtml(item.name)}" style="width:75px; height:60px; border-radius:6px; object-fit:cover;">
+        <div>
+          <strong style="color:#fff; font-size:12px;">${escapeHtml(item.name)}</strong>
+          <small style="display:block; color:var(--text-sub); font-size:10px;">${escapeHtml(item.size || '')}</small>
+          ${item.path ? `<button class="preview-set-wall-btn" type="button" onclick="setCustomWallpaperFromFile('${item.path.replace(/'/g, "\\'")}')"><i data-lucide="image"></i> Establecer de fondo</button>` : ''}
+        </div>
+      </div>
+    `;
+  } else if (item.type === 'audio') {
+    preview.innerHTML = `
+      <div>
+        <strong style="color:#fff; font-size:12px;"><i data-lucide="music" style="width:14px; height:14px; color:var(--accent);"></i> ${escapeHtml(item.name)}</strong>
+        <small style="display:block; color:var(--text-sub); font-size:10px;">${escapeHtml(item.size || '')}</small>
+        <div class="preview-audio-player">
+          <button class="preview-play-btn" type="button" onclick="toggleMediaPlayback()"><i data-lucide="play"></i></button>
+          <div class="preview-audio-wave">
+            <span style="height:40%;"></span><span style="height:80%;"></span><span style="height:60%;"></span>
+            <span style="height:100%;"></span><span style="height:50%;"></span><span style="height:70%;"></span>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (item.type === 'folder') {
+    preview.innerHTML = `
+      <div>
+        <strong style="color:#fff; font-size:12px;"><i data-lucide="folder" style="width:14px; height:14px; color:var(--accent);"></i> ${escapeHtml(item.label || item.name)}</strong>
+        <small style="display:block; color:var(--text-sub); font-size:10px;">Carpeta · ${(item.children || []).length} elementos</small>
+      </div>
+    `;
+  } else {
+    preview.innerHTML = `
+      <div>
+        <strong style="color:#fff; font-size:12px;"><i data-lucide="file-text" style="width:14px; height:14px; color:var(--accent);"></i> ${escapeHtml(item.name)}</strong>
+        <small style="display:block; color:var(--text-sub); font-size:10px;">${escapeHtml(item.size || '')} · Solo lectura</small>
+        <div style="margin-top:6px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-sub); background:rgba(0,0,0,0.3); padding:6px; border-radius:4px; max-height:80px; overflow:hidden;">
+          // Nebula OS File Descriptor\\n// Archivo listo para ejecución y lectura
+        </div>
+      </div>
+    `;
+  }
+  refreshIcons();
+}
+
+function setupFiles(win) {
+  const explorer = win.querySelector('.files-preview');
+  if (!explorer) return;
+
+  if (!FILE_SYSTEM || typeof FILE_SYSTEM !== 'object' || !Array.isArray(FILE_SYSTEM.children)) {
+    FILE_SYSTEM = getDefaultFileSystem();
+  }
+
+  const state = getFsState(win);
+  state.current = FILE_SYSTEM;
+  state.trail = [FILE_SYSTEM];
+  state.selected = new Set();
+
+  const grid = explorer.querySelector('.files-grid');
+  const search = explorer.querySelector('[data-files-search]');
+  const back = explorer.querySelector('[data-files-back]');
+  const forward = explorer.querySelector('[data-files-forward]');
+
+  const toolbar = explorer.querySelector('.files-toolbar');
+  if (toolbar && !toolbar.querySelector('[data-files-toolbar-extras]')) {
+    const extras = document.createElement('div');
+    extras.setAttribute('data-files-toolbar-extras', '');
+    extras.style.display = 'flex';
+    extras.style.gap = '6px';
+    extras.style.marginLeft = 'auto';
+    extras.innerHTML = `
+      <button class="files-toolbar-btn" type="button" data-files-newfolder title="Nueva carpeta (Ctrl+Shift+N)">
+        <i data-lucide="folder-plus"></i> Nueva carpeta
+      </button>
+      <button class="files-toolbar-btn danger" type="button" data-files-delete title="Eliminar seleccionados (Supr)" disabled>
+        <i data-lucide="trash-2"></i> Eliminar
+      </button>
+    `;
+    const searchEl = toolbar.querySelector('.files-search');
+    if (searchEl) toolbar.insertBefore(extras, searchEl);
+    else toolbar.appendChild(extras);
+
+    if (searchEl) searchEl.style.marginLeft = '8px';
+
+    extras.querySelector('[data-files-newfolder]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fsCreateFolder(win, state);
+    });
+    extras.querySelector('[data-files-delete]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fsDeleteSelection(win, state);
+    });
+  }
+
+  if (search) {
+    search.addEventListener('input', () => {
+      state.query = search.value.trim().toLowerCase();
+      fsRefresh(win, state);
+    });
+  }
+
+  if (back) {
+    back.addEventListener('click', () => {
+      if (state.history.length === 0) return;
+      const prev = state.history.pop();
+      state.future.unshift(state.current);
+      state.current = prev;
+      state.trail = [FILE_SYSTEM, ...fsBuildTrail(prev)];
+      state.query = '';
+      if (search) search.value = '';
+      state.selected.clear();
+      fsRefresh(win, state);
+    });
+  }
+  if (forward) {
+    forward.addEventListener('click', () => {
+      if (state.future.length === 0) return;
+      const next = state.future.shift();
+      state.history.push(state.current);
+      state.current = next;
+      state.trail = [FILE_SYSTEM, ...fsBuildTrail(next)];
+      state.query = '';
+      if (search) search.value = '';
+      state.selected.clear();
+      fsRefresh(win, state);
+    });
+  }
+
+  explorer.querySelectorAll('[data-files-location]').forEach(button => {
+    button.addEventListener('click', () => {
+      const folder = fsFindFolder(button.dataset.filesLocation);
+      if (!folder) return;
+      explorer.querySelectorAll('[data-files-location]').forEach(b => b.classList.remove('active'));
+      button.classList.add('active');
+      state.history.push(state.current);
+      state.future = [];
+      state.current = folder;
+      state.trail = [FILE_SYSTEM, ...fsBuildTrail(folder)];
+      state.query = '';
+      if (search) search.value = '';
+      state.selected.clear();
+      fsRefresh(win, state);
+    });
+  });
+
+  win.addEventListener('keydown', (e) => {
+    const tag = document.activeElement?.tagName?.toLowerCase();
+    const isInput = tag === 'input' || tag === 'textarea';
+    /* Ignoramos si el foco está dentro del modal de renombrar */
+    if (e.target.closest('.fs-rename-modal')) return;
+
+    if (e.key === 'F2' && state.selected.size === 1) {
+      e.preventDefault();
+      const item = Array.from(state.selected)[0];
+      fsPromptRename(win, state, item);
+    } else if (e.key === 'Delete' && state.selected.size > 0 && !isInput) {
+      e.preventDefault();
+      fsDeleteSelection(win, state);
+    } else if (e.key === 'a' && (e.ctrlKey || e.metaKey) && !isInput) {
+      e.preventDefault();
+      state.visibleItems.forEach(item => state.selected.add(item));
+      fsRefresh(win, state);
+    } else if (e.key === 'n' && e.shiftKey && (e.ctrlKey || e.metaKey) && !isInput) {
+      e.preventDefault();
+      fsCreateFolder(win, state);
+    }
+  });
+
+  fsRefresh(win, state);
+}
+
+/* ---- Búsqueda del launcher (prefijo ?) ---- */
+function searchFilesInSystem(query, folder = FILE_SYSTEM, trail = []) {
+  const results = [];
+  const q = (query || '').toLowerCase();
+  const children = folder.children || [];
+
+  children.forEach(child => {
+    const pathHere = [...trail, child.label || child.name];
+    if (child.type === 'folder') {
+      if (child.name.toLowerCase().includes(q)) {
+        results.push({
+          id: 'file-' + pathHere.join('/'),
+          title: child.label || child.name,
+          sub: 'Carpeta · ' + pathHere.join(' / '),
+          icon: 'folder',
+          category: 'Archivo',
+          keywords: [child.name],
+          run: () => { openApp('files'); showToast('Archivo encontrado', `Carpeta en ${pathHere.join(' / ')}`, 'folder'); }
+        });
+      }
+      const sub = searchFilesInSystem(query, child, pathHere);
+      sub.forEach(r => results.push(r));
+    } else {
+      if (child.name.toLowerCase().includes(q)) {
+        results.push({
+          id: 'file-' + pathHere.join('/'),
+          title: child.name,
+          sub: (child.size || 'Archivo') + ' · ' + pathHere.join(' / '),
+          icon: child.type === 'image' ? 'image' : child.type === 'audio' ? 'music' : 'file-text',
+          category: 'Archivo',
+          keywords: [child.name],
+          run: () => {
+            openApp('files');
+            showToast('Archivo encontrado', `Abriendo ${child.name}`, 'folder');
+          }
+        });
+      }
+    }
+  });
+
+  return results;
+}
+
+function setCustomWallpaperFromFile(imgPath) {
+  const screen = document.getElementById('screen');
+  if (screen) {
+    screen.style.backgroundImage = `linear-gradient(rgba(8, 9, 17, 0.42), rgba(8, 9, 17, 0.58)), url("${imgPath}")`;
+    showToast('Fondo Actualizado', 'Nueva imagen establecida como fondo de pantalla.', 'image');
+  }
+}
 
 /* ================= CONTROL MULTIMEDIA ================= */
 function toggleMediaPlayback() {
@@ -3755,149 +4850,6 @@ function setupNovaAI(win) {
   refreshIcons();
 }
 
-/* ================= SETUP SMART FILES ================= */
-function findFolder(name, folder = FILE_SYSTEM) {
-  if (folder.name === name) return folder;
-  for (const child of folder.children || []) {
-    if (child.type === 'folder') {
-      const result = findFolder(name, child);
-      if (result) return result;
-    }
-  }
-  return null;
-}
-
-function setupFiles(win) {
-  const explorer = win.querySelector('.files-preview');
-  if (!explorer) return;
-  const state = { current: FILE_SYSTEM, trail: [FILE_SYSTEM], history: [], future: [], query: '', view: 'grid' };
-  const grid = explorer.querySelector('.files-grid');
-  const title = explorer.querySelector('[data-files-title]');
-  const path = explorer.querySelector('[data-files-path]');
-  const preview = explorer.querySelector('[data-files-preview]');
-  const search = explorer.querySelector('[data-files-search]');
-  const back = explorer.querySelector('[data-files-back]');
-  const forward = explorer.querySelector('[data-files-forward]');
-
-  const iconNameFor = item => item.type === 'folder' ? 'folder' : item.type === 'image' ? 'image' : item.type === 'audio' ? 'music' : 'file-code-2';
-
-  const visibleItems = () => (state.current.children || []).filter(item => item.name.toLowerCase().includes(state.query));
-
-  const setPreview = item => {
-    if (!item) {
-      preview.innerHTML = '<div class="files-empty-preview">Seleccioná un archivo para previsualización interactiva rápida.</div>';
-      return;
-    }
-    
-    if (item.type === 'image') {
-      preview.innerHTML = `
-        <div style="display:flex; gap:12px; align-items:center;">
-          <img src="${item.path}" alt="${escapeHtml(item.name)}" style="width:75px; height:60px; border-radius:6px; object-fit:cover;">
-          <div>
-            <strong style="color:#fff; font-size:12px;">${escapeHtml(item.name)}</strong>
-            <small style="display:block; color:var(--text-sub); font-size:10px;">${escapeHtml(item.size)}</small>
-            <button class="preview-set-wall-btn" type="button" onclick="setCustomWallpaperFromFile('${item.path}')"><i data-lucide="image"></i> Establecer de fondo</button>
-          </div>
-        </div>
-      `;
-    } else if (item.type === 'audio') {
-      preview.innerHTML = `
-        <div>
-          <strong style="color:#fff; font-size:12px;"><i data-lucide="music" style="width:14px; height:14px; color:var(--accent);"></i> ${escapeHtml(item.name)}</strong>
-          <small style="display:block; color:var(--text-sub); font-size:10px;">${escapeHtml(item.size)}</small>
-          <div class="preview-audio-player">
-            <button class="preview-play-btn" type="button" onclick="toggleMediaPlayback()"><i data-lucide="play"></i></button>
-            <div class="preview-audio-wave">
-              <span style="height:40%;"></span><span style="height:80%;"></span><span style="height:60%;"></span>
-              <span style="height:100%;"></span><span style="height:50%;"></span><span style="height:70%;"></span>
-            </div>
-          </div>
-        </div>
-      `;
-    } else {
-      preview.innerHTML = `
-        <div>
-          <strong style="color:#fff; font-size:12px;"><i data-lucide="file-text" style="width:14px; height:14px; color:var(--accent);"></i> ${escapeHtml(item.name)}</strong>
-          <small style="display:block; color:var(--text-sub); font-size:10px;">${escapeHtml(item.size)} · Solo lectura</small>
-          <div style="margin-top:6px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-sub); background:rgba(0,0,0,0.3); padding:6px; border-radius:4px; max-height:80px; overflow:hidden;">
-            // Nebula OS File Descriptor\\n// Archivo listo para ejecución y lectura
-          </div>
-        </div>
-      `;
-    }
-    refreshIcons();
-  };
-
-  const render = () => {
-    const items = visibleItems();
-    if (title) title.textContent = state.current.label || state.current.name;
-    if (path) path.textContent = `Inicio / ${state.trail.slice(1).map(folder => folder.label || folder.name).join(' / ') || 'Escritorio'}`;
-    
-    grid.innerHTML = items.length ? items.map(item => `
-      <button class="explorer-item" type="button" data-file-name="${escapeHtml(item.name)}">
-        <span class="file-visual">
-          ${item.type === 'image' ? `<img src="${item.path}" alt="">` : `<span class="file-type-icon"><i data-lucide="${iconNameFor(item)}"></i></span>`}
-        </span>
-        <strong>${escapeHtml(item.label || item.name)}</strong>
-        <small>${item.type === 'folder' ? `${item.children.length} elementos` : escapeHtml(item.size.split(' · ')[0])}</small>
-      </button>
-    `).join('') : '<div class="files-no-results">No hay elementos que coincidan.</div>';
-    
-    if (back) back.disabled = state.history.length === 0;
-    if (forward) forward.disabled = state.future.length === 0;
-    refreshIcons();
-  };
-
-  const goTo = (folder, record = true) => {
-    if (record) { state.history.push(state.current); state.future = []; }
-    state.current = folder;
-    const index = state.trail.indexOf(folder);
-    state.trail = index >= 0 ? state.trail.slice(0, index + 1) : [...state.trail, folder];
-    state.query = '';
-    if (search) search.value = '';
-    setPreview(null);
-    render();
-  };
-
-  grid.addEventListener('click', event => {
-    const itemElement = event.target.closest('[data-file-name]');
-    if (itemElement) {
-      const found = (state.current.children || []).find(item => item.name === itemElement.dataset.fileName);
-      setPreview(found);
-    }
-  });
-
-  grid.addEventListener('dblclick', event => {
-    const itemElement = event.target.closest('[data-file-name]');
-    if (!itemElement) return;
-    const item = (state.current.children || []).find(entry => entry.name === itemElement.dataset.fileName);
-    if (item?.type === 'folder') goTo(item);
-  });
-
-  if (search) search.addEventListener('input', () => { state.query = search.value.trim().toLowerCase(); render(); });
-  if (back) back.onclick = () => { const previous = state.history.pop(); state.future.unshift(state.current); goTo(previous, false); };
-  if (forward) forward.onclick = () => { const next = state.future.shift(); state.history.push(state.current); goTo(next, false); };
-
-  explorer.querySelectorAll('[data-files-location]').forEach(button => {
-    button.onclick = () => {
-      explorer.querySelectorAll('[data-files-location]').forEach(b => b.classList.remove('active'));
-      button.classList.add('active');
-      const folder = findFolder(button.dataset.filesLocation);
-      if (folder) goTo(folder);
-    };
-  });
-
-  render();
-}
-
-function setCustomWallpaperFromFile(imgPath) {
-  const screen = document.getElementById('screen');
-  if (screen) {
-    screen.style.backgroundImage = `linear-gradient(rgba(8, 9, 17, 0.42), rgba(8, 9, 17, 0.58)), url("${imgPath}")`;
-    showToast('Fondo Actualizado', 'Nueva imagen establecida como fondo de pantalla.', 'image');
-  }
-}
-
 /* ================= SETUP TERMINAL ================= */
 function setupTerminal(win) {
   const history = win.querySelector('.term-history');
@@ -4803,48 +5755,6 @@ function buildLauncherCommands() {
   ];
 }
 
-function searchFilesInSystem(query, folder = FILE_SYSTEM, trail = []) {
-  const results = [];
-  const q = query.toLowerCase();
-  const children = folder.children || [];
-
-  children.forEach(child => {
-    const pathHere = [...trail, child.label || child.name];
-    if (child.type === 'folder') {
-      if (child.name.toLowerCase().includes(q)) {
-        results.push({
-          id: 'file-' + pathHere.join('/'),
-          title: child.label || child.name,
-          sub: 'Carpeta · ' + pathHere.join(' / '),
-          icon: 'folder',
-          category: 'Archivo',
-          keywords: [child.name],
-          run: () => { openApp('files'); showToast('Archivo encontrado', `Carpeta en ${pathHere.join(' / ')}`, 'folder'); }
-        });
-      }
-      const sub = searchFilesInSystem(query, child, pathHere);
-      sub.forEach(r => results.push(r));
-    } else {
-      if (child.name.toLowerCase().includes(q)) {
-        results.push({
-          id: 'file-' + pathHere.join('/'),
-          title: child.name,
-          sub: (child.size || 'Archivo') + ' · ' + pathHere.join(' / '),
-          icon: child.type === 'image' ? 'image' : child.type === 'audio' ? 'music' : 'file-text',
-          category: 'Archivo',
-          keywords: [child.name],
-          run: () => {
-            openApp('files');
-            showToast('Archivo encontrado', `Abriendo ${child.name}`, 'folder');
-          }
-        });
-      }
-    }
-  });
-
-  return results;
-}
-
 function searchCalendarNotes(query) {
   const q = query.toLowerCase();
   const results = [];
@@ -5087,8 +5997,15 @@ function handleImageError(e) {
   e.target.classList.add('img-broken');
 }
 
+/* ★ FIX: setupKeyboardAccessibility ignora eventos del modal de renombrar y de inputs */
 function setupKeyboardAccessibility() {
   document.addEventListener('keydown', e => {
+    /* Ignoramos si el foco está dentro del modal de renombrar */
+    if (e.target.closest('.fs-rename-modal')) return;
+    /* Ignoramos si el foco está dentro de un input o textarea */
+    const tag = e.target?.tagName?.toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return;
+
     if (!['Enter', ' '].includes(e.key)) return;
     const target = e.target.closest('[role="button"][tabindex="0"]');
     if (!target) return;
@@ -5097,6 +6014,7 @@ function setupKeyboardAccessibility() {
   });
 }
 
+/* ================= BATERÍA (real o simulada) ================= */
 function updateBatteryUI(level, charging) {
   const item = document.getElementById('tray-battery-item');
   const icon = document.getElementById('tray-battery-icon');
