@@ -12,6 +12,9 @@ const APPS = {
 
 const DOCK_APPS = ['browser', 'terminal', 'nova', 'files', 'vscode', 'music', 'games', 'settings'];
 
+/* ★ Cantidad total de workspaces disponibles */
+const TOTAL_WORKSPACES = 5;
+
 const WALLPAPERS = [
   { file: 'fondo principal.jpg', name: 'Nebula', accent: '#b4befe', text: '#cdd6f4', sub: '#bac2de', green: '#a6e3a1', panel: 'rgba(18,21,33,0.72)' },
   { file: 'fondo 2.jpg', name: 'Aurora', accent: '#89dceb', text: '#d9f4ff', sub: '#a9c6d3', green: '#a6e3a1', panel: 'rgba(11,31,39,0.75)' },
@@ -157,6 +160,9 @@ let desktopWidgets = [];
 /* ★ Estado del Dock Hover Preview */
 let dockPreviewEl = null;
 let dockPreviewTimeout = null;
+
+/* ★ Estado del Window Manager / Administrador de Escritorios */
+let windowManagerOpen = false;
 
 const SETTINGS_STORAGE_KEY = 'nebula-os:settings';
 const WALLPAPER_STORAGE_KEY = 'nebula-os:wallpaper';
@@ -367,6 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const isPlayerClick = e.target.closest('#cc-spotify-player');
     const isCalendarClick = e.target.closest('.calendar-panel') || e.target.closest('#notes-list');
     const isHudClick = e.target.closest('#gamer-overlay');
+    const isWMClick = e.target.closest('#window-manager-overlay');
 
     if (!sysTrayBtn?.contains(e.target)
         && !clockCenter?.contains(e.target)
@@ -374,7 +381,8 @@ document.addEventListener('DOMContentLoaded', () => {
         && !quickCenter?.contains(e.target)
         && !isPlayerClick
         && !isCalendarClick
-        && !isHudClick) {
+        && !isHudClick
+        && !isWMClick) {
       closeControlCenter();
       closeQuickCenter();
     }
@@ -386,6 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
       closeControlCenter();
       closeQuickCenter();
       if (gamerOverlayVisible) toggleGamerOverlay();
+      if (windowManagerOpen) closeWindowManager();
     }
   });
 
@@ -402,11 +411,20 @@ document.addEventListener('DOMContentLoaded', () => {
       restoreWindow(id);
     }
   });
+
+  /* ★ Click en el fondo oscuro del Window Manager cierra el overlay */
+  const wmOverlay = document.getElementById('window-manager-overlay');
+  if (wmOverlay) {
+    wmOverlay.addEventListener('mousedown', (e) => {
+      if (e.target === wmOverlay) closeWindowManager();
+    });
+  }
 });
 
 /* ================= SHORTCUTS GLOBALES ================= */
 function setupShortcuts() {
   document.addEventListener('keydown', (e) => {
+    /* Alt+Z / Win+G → Gaming Overlay */
     if ((e.altKey && (e.key === 'z' || e.key === 'Z' || e.key === 'g' || e.key === 'G')) ||
         (e.metaKey && (e.key === 'g' || e.key === 'G'))) {
       e.preventDefault();
@@ -1112,8 +1130,6 @@ function switchProfile(profileId) {
     chip.classList.toggle('active', chip.dataset.profile === profileId);
   });
 
-  /* ★ Los perfiles ya NO abren apps automáticamente.
-        Solo configuran tema, game mode, workspace y widgets. */
   if (profileId === 'gamer') {
     applyThemePreset('cyberpunk');
     toggleGameMode(true);
@@ -1505,6 +1521,9 @@ function switchWorkspace(num) {
   if (!hasActiveInWorkspace) updateTopBar(null);
   hideDockPreview();
   renderDock();
+
+  /* ★ Si el WM está abierto, re-renderizamos para actualizar la tira y el grid */
+  if (windowManagerOpen) renderWindowManager();
 }
 
 /* ================= SLIDERS FUNCIONALES ================= */
@@ -2120,6 +2139,253 @@ function updateTopBar(id) {
   }
 }
 
+/* =====================================================
+   WINDOW MANAGER — Administrador de Escritorios
+===================================================== */
+function toggleWindowManager() {
+  if (windowManagerOpen) {
+    closeWindowManager();
+  } else {
+    openWindowManager();
+  }
+}
+
+function openWindowManager() {
+  const overlay = document.getElementById('window-manager-overlay');
+  if (!overlay) return;
+
+  windowManagerOpen = true;
+  renderWindowManager();
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+
+  /* Cerramos otros paneles para que no queden superpuestos */
+  closeQuickCenter();
+  closeControlCenter();
+  hideDockPreview();
+  hideContextMenu();
+
+  refreshIcons();
+}
+
+function closeWindowManager() {
+  const overlay = document.getElementById('window-manager-overlay');
+  if (!overlay) return;
+
+  windowManagerOpen = false;
+  overlay.classList.remove('open');
+  overlay.setAttribute('aria-hidden', 'true');
+}
+
+/* ★ Helper: devuelve todas las ventanas abiertas en un workspace */
+function getWindowsInWorkspace(wsNum) {
+  return Object.keys(openWindows).filter(appId => {
+    const win = openWindows[appId];
+    return win && parseInt(win.dataset.ws, 10) === wsNum;
+  });
+}
+
+/* ★ Helper: devuelve el HTML de una mini-ventana (para la tira de workspaces) */
+function buildMiniWindowHTML(appId) {
+  const app = APPS[appId];
+  const win = openWindows[appId];
+  if (!app || !win) return '';
+
+  const isFocused = appId === activeAppId;
+  const iconHTML = app.image
+    ? `<img src="${app.image}" alt="${escapeHtml(app.title)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" /><i data-lucide="${app.icon}" style="display:none;"></i>`
+    : `<i data-lucide="${app.icon}"></i>`;
+
+  return `
+    <div class="wm-mini-window ${isFocused ? 'focused' : ''}" title="${escapeHtml(app.title)}">
+      ${iconHTML}
+    </div>
+  `;
+}
+
+/* ★ Render principal del Administrador de Escritorios */
+function renderWindowManager() {
+  const strip = document.getElementById('wm-workspaces-strip');
+  const grid = document.getElementById('wm-grid');
+  const empty = document.getElementById('wm-empty');
+  const subtitle = document.getElementById('wm-subtitle');
+  const sectionTitle = document.getElementById('wm-section-title');
+  if (!strip || !grid || !empty) return;
+
+  /* ============ 1) TIRA DE WORKSPACES ============ */
+  strip.innerHTML = '';
+
+  for (let ws = 1; ws <= TOTAL_WORKSPACES; ws++) {
+    const winsInWs = getWindowsInWorkspace(ws);
+    const isActive = ws === currentWorkspace;
+    const isEmpty = winsInWs.length === 0;
+
+    /* Mini-ventanas (máximo 6 para que no se desborde) */
+    const visibleWins = winsInWs.slice(0, 6);
+    const miniWindowsHTML = visibleWins.map(buildMiniWindowHTML).join('');
+
+    const previewContent = isEmpty
+      ? `<span class="wm-workspace-empty-hint">Vacío</span>`
+      : `<div class="wm-mini-windows">${miniWindowsHTML}</div>`;
+
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = `wm-workspace-card ${isActive ? 'active' : ''} ${isEmpty ? 'empty' : ''}`;
+    card.dataset.wmWs = String(ws);
+    card.title = `Ir al Space ${ws}`;
+    card.innerHTML = `
+      <div class="wm-workspace-label">
+        <span style="display:flex; align-items:center; gap:6px;">
+          <span class="ws-num">${ws}</span>
+          <span>Space ${ws}</span>
+        </span>
+        <span class="ws-count">${winsInWs.length} ${winsInWs.length === 1 ? 'app' : 'apps'}</span>
+      </div>
+      <div class="wm-workspace-preview">
+        ${previewContent}
+      </div>
+    `;
+    strip.appendChild(card);
+  }
+
+  /* Listeners de la tira: click → cambiar de workspace */
+  strip.querySelectorAll('.wm-workspace-card[data-wm-ws]').forEach(card => {
+    card.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const ws = parseInt(card.dataset.wmWs, 10);
+      if (Number.isNaN(ws)) return;
+      if (ws === currentWorkspace) return;
+      switchWorkspace(ws);
+      /* switchWorkspace ya re-renderiza el WM si está abierto */
+    });
+  });
+
+  /* ============ 2) GRID DE VENTANAS DEL WORKSPACE ACTIVO ============ */
+  const activeWsWindows = getWindowsInWorkspace(currentWorkspace);
+
+  /* Section heading */
+  if (sectionTitle) {
+    sectionTitle.textContent = `Ventanas del Space ${currentWorkspace}`;
+  }
+
+  /* Subtítulo del header */
+  if (subtitle) {
+    const totalWins = Object.keys(openWindows).length;
+    const winsCount = activeWsWindows.length;
+    if (totalWins === 0) {
+      subtitle.textContent = 'Sin ventanas abiertas en todo el sistema';
+    } else if (winsCount === 0) {
+      subtitle.textContent = `Space ${currentWorkspace} sin ventanas · ${totalWins} ${totalWins === 1 ? 'ventana abierta' : 'ventanas abiertas'} en otros spaces`;
+    } else {
+      subtitle.textContent = `${winsCount} ${winsCount === 1 ? 'ventana' : 'ventanas'} en este space · ${totalWins} en total`;
+    }
+  }
+
+  /* Empty state */
+  if (activeWsWindows.length === 0) {
+    grid.innerHTML = '';
+    grid.hidden = true;
+    empty.hidden = false;
+    refreshIcons();
+    return;
+  }
+
+  grid.hidden = false;
+  empty.hidden = true;
+
+  /* Render de cards de ventanas (solo del workspace activo) */
+  grid.innerHTML = activeWsWindows.map((appId, i) => {
+    const win = openWindows[appId];
+    const app = APPS[appId];
+    if (!win || !app) return '';
+
+    const isFocused = appId === activeAppId;
+    const isMinimized = win.classList.contains('minimized');
+
+    const badges = [];
+    if (isMinimized) {
+      badges.push(`<span class="wm-badge minimized"><i data-lucide="minus-circle"></i> Minimizada</span>`);
+    }
+
+    const iconHTML = app.image
+      ? `<img src="${app.image}" alt="${escapeHtml(app.title)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';" /><i data-lucide="${app.icon}" style="display:none;"></i>`
+      : `<i data-lucide="${app.icon}"></i>`;
+
+    return `
+      <button
+        class="wm-card ${isFocused ? 'is-focused' : ''} ${isMinimized ? 'is-minimized' : ''}"
+        type="button"
+        data-wm-app="${appId}"
+        style="animation-delay: ${i * 30}ms;"
+        title="Enfocar ${escapeHtml(app.title)}"
+      >
+        ${badges.length ? `<div class="wm-card-badges">${badges.join('')}</div>` : ''}
+
+        <div class="wm-card-header">
+          <div class="wm-card-icon">${iconHTML}</div>
+          <div class="wm-card-meta">
+            <span class="wm-card-title">${escapeHtml(app.title)}</span>
+            <span class="wm-card-sub">${escapeHtml(app.sub)}</span>
+          </div>
+        </div>
+
+        <div class="wm-card-preview">
+          <div class="wm-preview-bar ${app.tileClass}">
+            <span class="wm-dot min"></span>
+            <span class="wm-dot max"></span>
+            <span class="wm-dot close"></span>
+            <span class="wm-preview-title">${escapeHtml(app.title)}</span>
+          </div>
+          <div class="wm-preview-body">
+            <span class="wm-preview-line accent"></span>
+            <span class="wm-preview-line w90"></span>
+            <span class="wm-preview-line w75"></span>
+            <span class="wm-preview-line w60"></span>
+            <span class="wm-preview-block"></span>
+          </div>
+        </div>
+      </button>
+    `;
+  }).join('');
+
+  /* Listeners de cards de ventanas */
+  grid.querySelectorAll('.wm-card[data-wm-app]').forEach(card => {
+    card.addEventListener('click', () => {
+      const appId = card.dataset.wmApp;
+      focusFromWindowManager(appId);
+    });
+  });
+
+  refreshIcons();
+}
+
+function focusFromWindowManager(appId) {
+  if (!appId || !openWindows[appId]) {
+    closeWindowManager();
+    return;
+  }
+
+  const win = openWindows[appId];
+  const winWs = parseInt(win.dataset.ws, 10);
+
+  /* Si la ventana está en otro workspace, cambiamos primero */
+  if (winWs !== currentWorkspace) {
+    switchWorkspace(winWs);
+  }
+
+  /* Si está minimizada, la restauramos */
+  if (win.classList.contains('minimized')) {
+    win.classList.remove('minimized');
+    win.style.display = 'flex';
+  }
+
+  /* Enfocamos */
+  focusWindow(appId);
+
+  /* Cerramos el WM */
+  closeWindowManager();
+}
+
 /* ================= GESTIÓN DE VENTANAS ================= */
 function openApp(id) {
   if (openWindows[id]) {
@@ -2226,6 +2492,9 @@ function focusWindow(id) {
     }
   }
   updateTopBar(id);
+
+  /* ★ Si el WM está abierto, re-renderizamos para actualizar la card "focused" */
+  if (windowManagerOpen) renderWindowManager();
 }
 
 function closeApp(id) {
@@ -2236,6 +2505,9 @@ function closeApp(id) {
     updateTopBar(null);
     renderDock();
     hideDockPreview();
+
+    /* Si el WM está abierto, lo re-renderizamos */
+    if (windowManagerOpen) renderWindowManager();
   }
 }
 
@@ -2276,6 +2548,9 @@ function minimizeApp(id) {
     openWindows[id].style.display = 'none';
     activeAppId = null;
     updateTopBar(null);
+
+    /* Si el WM está abierto, lo re-renderizamos */
+    if (windowManagerOpen) renderWindowManager();
   }
 }
 
