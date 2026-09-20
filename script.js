@@ -1112,22 +1112,20 @@ function switchProfile(profileId) {
     chip.classList.toggle('active', chip.dataset.profile === profileId);
   });
 
+  /* ★ Los perfiles ya NO abren apps automáticamente.
+        Solo configuran tema, game mode, workspace y widgets. */
   if (profileId === 'gamer') {
     applyThemePreset('cyberpunk');
     toggleGameMode(true);
     addDesktopWidget('hardware', window.innerWidth - 260, 60);
-    openApp('games');
   } else if (profileId === 'streamer') {
     applyThemePreset('synthwave');
     toggleGameMode(false);
     addDesktopWidget('media', window.innerWidth - 260, 60);
-    openApp('music');
   } else if (profileId === 'studio') {
     applyThemePreset('catppuccin');
     toggleGameMode(false);
     switchWorkspace(1);
-    openApp('vscode');
-    openApp('terminal');
   }
 
   try {
