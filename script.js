@@ -170,11 +170,11 @@ let wmCardContextMenuWinId = null;
 let dockContextMenuEl = null;
 let dockContextMenuAppId = null;
 
-/* ★ NUEVO: control de guardado debounced de la sesión */
+/* ★ Control de guardado debounced de la sesión */
 let sessionSaveTimeout = null;
 let isRestoringSession = false;
 
-/* ★ NUEVO: variable de resize activo */
+/* ★ Variable de resize activo */
 let isResizing = false;
 
 const SETTINGS_STORAGE_KEY = 'nebula-os:settings';
@@ -188,8 +188,11 @@ const BT_STORAGE_KEY = 'nebula-os:bluetooth';
 const DND_STORAGE_KEY = 'nebula-os:dnd';
 const BRIGHTNESS_STORAGE_KEY = 'nebula-os:brightness';
 const CALENDAR_NOTES_STORAGE_KEY = 'nebula-os:calendar-notes';
-/* ★ NUEVO: clave para la sesión de ventanas */
 const SESSION_STORAGE_KEY = 'nebula-os:session';
+
+/* ★ NUEVO: threshold para normalizar z-index de ventanas */
+const Z_INDEX_NORMALIZE_THRESHOLD = 800;
+const Z_INDEX_BASE = 100;
 
 let settingsState = { animations: true, transparency: true, activeSettingsTab: 'designer' };
 
@@ -239,6 +242,36 @@ function getInstanceNumber(winId) {
     return na - nb;
   });
   return ids.indexOf(winId) + 1;
+}
+
+/* =====================================================
+   ★ NORMALIZACIÓN DE Z-INDEX
+   Evita que el contador crezca infinitamente y que las
+   ventanas tapen overlays críticos (launcher, WM, toasts, boot).
+===================================================== */
+function normalizeZIndexes() {
+  /* Ordenamos las ventanas abiertas por su z-index actual (ascendente) */
+  const sorted = Object.keys(openWindows)
+    .map(winId => {
+      const entry = openWindows[winId];
+      return {
+        winId,
+        win: entry?.win,
+        z: parseInt(entry?.win?.style.zIndex, 10) || Z_INDEX_BASE
+      };
+    })
+    .filter(item => item.win)
+    .sort((a, b) => a.z - b.z);
+
+  /* Reindexamos desde Z_INDEX_BASE, preservando el orden relativo */
+  zIndexCounter = Z_INDEX_BASE;
+  sorted.forEach(item => {
+    zIndexCounter++;
+    item.win.style.zIndex = zIndexCounter;
+  });
+
+  /* Guardamos el nuevo estado reindexado */
+  scheduleSaveSession();
 }
 
 /* ================= SLIDERS: FILL DINÁMICO ================= */
@@ -3280,7 +3313,7 @@ function cleanupWmDrag() {
 function setupWindowResize(win) {
   const MIN_W = 450;
   const MIN_H = 350;
-  const TOP_MIN = 46; /* topbar offset mínimo */
+  const TOP_MIN = 46;
 
   const dirs = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
   const cursorMap = {
@@ -3301,15 +3334,12 @@ function setupWindowResize(win) {
     const dir = handle.dataset.dir;
 
     const onStart = (e) => {
-      /* No redimensionar si está maximizada */
       if (win.classList.contains('maximized')) return;
-      /* No redimensionar con click derecho o middle */
       if (e.type === 'mousedown' && e.button !== 0) return;
 
       e.preventDefault();
       e.stopPropagation();
 
-      /* ★ Foco inmediato al hacer resize */
       const winId = win.dataset.winId;
       if (winId) focusWindow(winId);
 
@@ -3378,7 +3408,6 @@ function setupWindowResize(win) {
         win.classList.remove('resizing');
         document.body.classList.remove('window-resizing');
         document.body.style.removeProperty('--resize-cursor');
-        /* ★ Guardado inmediato al terminar el resize */
         saveSessionState(true);
       }
 
@@ -3502,7 +3531,6 @@ function openApp(appId, forceNew = false, restoreData = null) {
   if (appId === 'settings') renderSettingsApp();
   if (appId === 'music') setupSpotifyApp(win);
 
-  /* ★ Setupeamos los handles de resize */
   setupWindowResize(win);
 
   if (!isRestoring) {
@@ -3574,6 +3602,15 @@ function focusWindow(winId) {
   const win = openWindows[winId].win;
   win.classList.add('focused');
   win.classList.remove('minimized');
+
+  /* ★ NUEVO: Normalizamos z-index si el contador creció demasiado */
+  if (zIndexCounter >= Z_INDEX_NORMALIZE_THRESHOLD) {
+    /* Normalizamos primero: reindexa todas las ventanas desde Z_INDEX_BASE
+       preservando el orden relativo, y deja zIndexCounter al máximo. */
+    normalizeZIndexes();
+  }
+
+  /* Ahora subimos la ventana activa al tope (zIndexCounter ya está actualizado) */
   win.style.zIndex = ++zIndexCounter;
 
   if (parseInt(win.dataset.ws) === currentWorkspace) {
