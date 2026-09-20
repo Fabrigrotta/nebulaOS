@@ -1713,7 +1713,6 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
 
 /* =====================================================
    WINDOW MANAGER — Administrador de Escritorios
-   ✅ Achicado + más transparente (Tanda A)
 ===================================================== */
 #window-manager-overlay {
   position: fixed;
@@ -1738,7 +1737,6 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   pointer-events: auto;
 }
 
-/* ✅ Container más chico y más transparente */
 .wm-container {
   width: min(880px, 100%);
   height: auto;
@@ -1841,7 +1839,7 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   transform: rotate(90deg);
 }
 
-/* ---------- TIRA DE WORKSPACES (achicada) ---------- */
+/* ---------- TIRA DE WORKSPACES ---------- */
 .wm-workspaces-strip {
   display: flex;
   gap: 8px;
@@ -1849,12 +1847,20 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   padding: 2px 2px 6px;
   flex-shrink: 0;
   scrollbar-width: thin;
+  transition: all 0.2s ease;
 }
 .wm-workspaces-strip::-webkit-scrollbar { height: 5px; }
 .wm-workspaces-strip::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 10px; }
 .wm-workspaces-strip::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-/* Card de workspace — más chica */
+/* ★ Cuando hay un drag activo, resaltamos la tira */
+.wm-workspaces-strip.wm-dragging {
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+  border-radius: 12px;
+  padding: 6px 4px 8px;
+}
+
+/* Card de workspace */
 .wm-workspace-card {
   position: relative;
   flex: 1 1 130px;
@@ -1891,7 +1897,56 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   background: rgba(0, 0, 0, 0.2);
 }
 
-/* Etiqueta del workspace — más chica */
+/* ★ Estado: DROP ZONE VÁLIDA (arrastrando sobre otro space) */
+.wm-workspace-card.drag-over {
+  border-color: var(--accent);
+  border-style: dashed;
+  border-width: 2px;
+  background: color-mix(in srgb, var(--accent) 12%, rgba(10, 12, 20, 0.5));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent),
+    0 0 24px var(--accent-glow),
+    inset 0 0 24px color-mix(in srgb, var(--accent) 10%, transparent);
+  transform: translateY(-3px) scale(1.02);
+  animation: wm-dropzone-pulse 1.2s ease-in-out infinite;
+}
+.wm-workspace-card.drag-over .wm-workspace-label {
+  color: var(--accent);
+  text-shadow: 0 0 8px var(--accent-glow);
+}
+@keyframes wm-dropzone-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent), 0 0 18px var(--accent-glow), inset 0 0 18px color-mix(in srgb, var(--accent) 8%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 32%, transparent), 0 0 30px var(--accent-glow), inset 0 0 28px color-mix(in srgb, var(--accent) 14%, transparent); }
+}
+
+/* ★ Estado: DROP ZONE INVÁLIDA (arrastrando sobre el mismo space) */
+.wm-workspace-card.drag-invalid {
+  border-color: color-mix(in srgb, var(--accent-red) 55%, transparent);
+  border-style: dashed;
+  background: color-mix(in srgb, var(--accent-red) 6%, rgba(10, 12, 20, 0.5));
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+.wm-workspace-card.drag-invalid::before {
+  content: "Mismo Space";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 10;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent-red);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--accent-red) 60%, transparent);
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Etiqueta del workspace */
 .wm-workspace-label {
   display: flex;
   align-items: center;
@@ -1966,7 +2021,7 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   opacity: 0.7;
 }
 
-/* Mini-rects de ventanas — más chicos */
+/* Mini-rects de ventanas */
 .wm-mini-windows {
   position: relative;
   z-index: 1;
@@ -1991,24 +2046,43 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   overflow: hidden;
   padding: 2px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease, border-color 0.18s ease;
   position: relative;
   cursor: grab;
+  /* ★ Necesario para que Firefox permita drag & drop custom */
+  -moz-user-select: none;
+  user-select: none;
+}
+.wm-mini-window:hover {
+  transform: scale(1.12);
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6), 0 0 10px var(--accent-glow);
+  z-index: 3;
 }
 .wm-mini-window:active { cursor: grabbing; }
-.wm-workspace-card:hover .wm-mini-window {
-  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.6);
+
+/* ★ Estado: DRAG EN CURSO (el elemento que estamos arrastrando) */
+.wm-mini-window.dragging {
+  opacity: 0.35;
+  transform: scale(0.92);
+  border-color: var(--accent);
+  border-style: dashed;
+  box-shadow: 0 0 12px var(--accent-glow);
 }
+
 .wm-mini-window img {
   width: 100%;
   height: 100%;
   object-fit: contain;
   border-radius: 2px;
+  pointer-events: none;
+  -webkit-user-drag: none;
 }
 .wm-mini-window i, .wm-mini-window svg {
   width: 11px;
   height: 11px;
   color: #fff;
+  pointer-events: none;
 }
 .wm-mini-window.focused {
   border-color: var(--accent);
@@ -2062,7 +2136,7 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   box-shadow: 0 0 8px var(--accent-glow);
 }
 
-/* ---------- GRID DE VENTANAS (más chico, con max-height) ---------- */
+/* ---------- GRID DE VENTANAS ---------- */
 .wm-grid {
   flex: 1;
   min-height: 0;
@@ -2078,7 +2152,7 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
 .wm-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
 .wm-grid::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-/* ---------- CARD (thumbnail de ventana) — más chica ---------- */
+/* ---------- CARD (thumbnail de ventana) ---------- */
 .wm-card {
   position: relative;
   display: flex;
@@ -2122,7 +2196,7 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* Card header: ícono + título — más chico */
+/* Card header: ícono + título */
 .wm-card-header {
   display: flex;
   align-items: center;
@@ -2289,7 +2363,7 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   color: var(--accent);
 }
 
-/* ---------- EMPTY STATE (más chico) ---------- */
+/* ---------- EMPTY STATE ---------- */
 .wm-empty {
   flex: 1;
   min-height: 0;
