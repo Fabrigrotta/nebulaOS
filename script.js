@@ -14,7 +14,6 @@ const DOCK_APPS = ['browser', 'terminal', 'nova', 'files', 'vscode', 'music', 'g
 
 const TOTAL_WORKSPACES = 5;
 
-/* Apps que soportan pestañas internas */
 const TABBED_APPS = new Set(['terminal', 'files']);
 
 const WALLPAPERS = [
@@ -176,10 +175,7 @@ let isRestoringSession = false;
 
 let isResizing = false;
 
-/* ★ Estado de tabs por ventana */
 const windowTabsState = new WeakMap();
-
-/* ★ Estado de cada panel de terminal / files (por panel, no por ventana) */
 const terminalPanelStates = new WeakMap();
 const filesPanelStates = new WeakMap();
 
@@ -210,6 +206,13 @@ const FILESYSTEM_STORAGE_KEY = 'nebula-os:filesystem';
 
 const Z_INDEX_NORMALIZE_THRESHOLD = 800;
 const Z_INDEX_BASE = 100;
+
+const ANIM_OPEN_MS = 340;
+const ANIM_CLOSE_MS = 220;
+const ANIM_MIN_MS = 300;
+const ANIM_RESTORE_MS = 360;
+
+const pendingClose = new Set();
 
 let settingsState = { animations: true, transparency: true, activeSettingsTab: 'designer' };
 
@@ -1644,7 +1647,6 @@ function getDefaultFileSystem() {
   };
 }
 
-/* ---- Persistencia del file system ---- */
 function loadFileSystem() {
   try {
     const raw = localStorage.getItem(FILESYSTEM_STORAGE_KEY);
@@ -1671,10 +1673,8 @@ function resetFileSystem() {
   } catch (e) {}
 }
 
-/* ---- FILE_SYSTEM global (mutación en runtime) ---- */
 let FILE_SYSTEM = loadFileSystem();
 
-/* ---- Helpers del FS (búsqueda, mutación) ---- */
 function fsFindFolder(name, folder = FILE_SYSTEM) {
   if (folder.name === name) return folder;
   for (const child of folder.children || []) {
@@ -1785,7 +1785,6 @@ function fsMoveItem(item, targetFolder) {
   return true;
 }
 
-/* ---- Estado por PANEL del explorador (multi-tab) ---- */
 function getFsPanelState(panel) {
   if (!filesPanelStates.has(panel)) {
     filesPanelStates.set(panel, {
@@ -1884,7 +1883,6 @@ function closeFsRenameModal() {
   fsRenameCallback = null;
 }
 
-/* ---- Menú contextual del explorador ---- */
 function ensureFsContextMenu() {
   if (fsContextMenuEl) return fsContextMenuEl;
   const el = document.createElement('div');
@@ -2042,7 +2040,6 @@ function showFsContextMenu(ev, panel, targetItem, win) {
   menu.style.top = `${top}px`;
 }
 
-/* ---- Acciones del explorador ---- */
 function fsOpenFolder(panel, folder) {
   const state = getFsPanelState(panel);
   state.history.push(state.current);
@@ -2201,7 +2198,6 @@ function fsCreateFile(panel) {
   fsRefresh(panel);
 }
 
-/* ---- Render principal del explorador (por panel) ---- */
 function fsRefresh(panel) {
   if (!panel) return;
   const state = getFsPanelState(panel);
@@ -4650,7 +4646,6 @@ function renderWindowTabs(winId) {
   const panelsWrap = win.querySelector('.window-tab-panels');
   if (!tabsBar || !panelsWrap) return;
 
-  /* Render tabs bar */
   tabsBar.innerHTML = state.tabs.map(tab => {
     const isActive = tab.id === state.activeTabId;
     const icon = appId === 'terminal' ? 'terminal' : 'folder';
@@ -4669,7 +4664,6 @@ function renderWindowTabs(winId) {
     </button>
   `;
 
-  /* Render panels — preservamos los existentes y creamos los que falten */
   state.tabs.forEach(tab => {
     let panel = panelsWrap.querySelector(`.window-tab-panel[data-tab-id="${tab.id}"]`);
     if (!panel) {
@@ -4678,7 +4672,6 @@ function renderWindowTabs(winId) {
       panel = wrap.firstElementChild;
       panelsWrap.appendChild(panel);
 
-      /* Setup específico según app */
       if (appId === 'terminal') {
         setupTerminalPanel(panel);
       } else if (appId === 'files') {
@@ -4688,7 +4681,6 @@ function renderWindowTabs(winId) {
     panel.classList.toggle('active', tab.id === state.activeTabId);
   });
 
-  /* Remover paneles huérfanos (de tabs cerradas) */
   panelsWrap.querySelectorAll('.window-tab-panel').forEach(panel => {
     const tabId = panel.dataset.tabId;
     if (!state.tabs.some(t => t.id === tabId)) {
@@ -4696,17 +4688,11 @@ function renderWindowTabs(winId) {
     }
   });
 
-  /* Bind events */
   tabsBar.querySelectorAll('.window-tab').forEach(tabEl => {
     const tabId = tabEl.dataset.tabId;
     tabEl.addEventListener('click', (e) => {
       if (e.target.closest('.window-tab-close')) return;
       switchWindowTab(winId, tabId);
-    });
-    tabEl.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      /* Middle-click para cerrar */
     });
     tabEl.addEventListener('auxclick', (e) => {
       if (e.button === 1) {
@@ -4755,9 +4741,8 @@ function updateWindowTitleForTabs(winId) {
     const state = getWindowTabsState(win);
     const activeTab = state.tabs.find(t => t.id === state.activeTabId);
     if (activeTab && state.tabs.length > 1) {
-      titleEl.textContent = `${baseTitle} · ${activeTab.label} (${state.tabs.findIndex(t => t.id === state.activeTabId) + 1}/${state.tabs.length})`;
-    } else if (activeTab) {
-      titleEl.textContent = baseTitle;
+      const idx = state.tabs.findIndex(t => t.id === state.activeTabId) + 1;
+      titleEl.textContent = `${baseTitle} · ${activeTab.label} (${idx}/${state.tabs.length})`;
     } else {
       titleEl.textContent = baseTitle;
     }
@@ -4819,6 +4804,48 @@ function switchWindowTab(winId, tabId) {
   state.activeTabId = tabId;
   renderWindowTabs(winId);
   saveSessionState(true);
+}
+
+/* =====================================================
+   ★ ANIMACIONES DE VENTANAS — helpers
+===================================================== */
+
+function prefersReducedMotion() {
+  return !settingsState.animations || document.body.classList.contains('no-animations');
+}
+
+function runWindowAnimation(win, className, durationMs, onEnd) {
+  if (!win) {
+    if (typeof onEnd === 'function') onEnd();
+    return;
+  }
+
+  if (prefersReducedMotion()) {
+    win.classList.add(className);
+    if (typeof onEnd === 'function') onEnd();
+    return;
+  }
+
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    win.removeEventListener('animationend', onAnimEnd);
+    clearTimeout(safety);
+    if (typeof onEnd === 'function') onEnd();
+  };
+
+  const onAnimEnd = (e) => {
+    if (e.target !== win) return;
+    if (e.animationName && !e.animationName.startsWith('window-')) return;
+    finish();
+  };
+
+  win.addEventListener('animationend', onAnimEnd);
+  const safety = setTimeout(finish, durationMs + 80);
+
+  void win.offsetWidth;
+  win.classList.add(className);
 }
 
 /* ================= GESTIÓN DE VENTANAS ================= */
@@ -4904,7 +4931,6 @@ function openApp(appId, forceNew = false, restoreData = null) {
   const newInstNumber = getInstanceNumber(winId);
   const titleWithInstance = totalInstances > 1 ? `${app.title} · #${newInstNumber}` : app.title;
 
-  /* Contenido principal de la ventana */
   let contentHTML = '';
   if (supportsTabs) {
     contentHTML = `
@@ -4940,9 +4966,14 @@ function openApp(appId, forceNew = false, restoreData = null) {
 
   openWindows[winId] = { appId, win };
 
-  /* Setup según app */
+  if (!isRestoring) {
+    win.style.animationDelay = '0ms';
+    runWindowAnimation(win, 'opening', ANIM_OPEN_MS, () => {
+      win.classList.remove('opening');
+    });
+  }
+
   if (supportsTabs) {
-    /* Restaurar tabs guardadas o crear la primera */
     const state = getWindowTabsState(win);
     if (isRestoring && restoreData.tabs && Array.isArray(restoreData.tabs.tabs) && restoreData.tabs.tabs.length > 0) {
       state.tabs = restoreData.tabs.tabs.map(t => ({
@@ -4962,7 +4993,6 @@ function openApp(appId, forceNew = false, restoreData = null) {
 
     renderWindowTabs(winId);
   } else {
-    /* Apps no-tabbed: setup normal */
     if (appId === 'nova') setupNovaAI(win);
     if (appId === 'settings') renderSettingsApp();
     if (appId === 'music') setupSpotifyApp(win);
@@ -5037,8 +5067,20 @@ function focusWindow(winId) {
   });
 
   const win = openWindows[winId].win;
+  const wasMinimized = win.classList.contains('minimized');
+
   win.classList.add('focused');
-  win.classList.remove('minimized');
+
+  if (wasMinimized) {
+    win.classList.remove('minimized');
+    win.style.display = 'flex';
+
+    if (!prefersReducedMotion()) {
+      runWindowAnimation(win, 'restoring', ANIM_RESTORE_MS, () => {
+        win.classList.remove('restoring');
+      });
+    }
+  }
 
   if (zIndexCounter >= Z_INDEX_NORMALIZE_THRESHOLD) {
     normalizeZIndexes();
@@ -5061,35 +5103,52 @@ function closeApp(winId) {
   const entry = openWindows[winId];
   if (!entry) return;
 
+  if (pendingClose.has(winId)) return;
+  pendingClose.add(winId);
+
+  const win = entry.win;
   const appId = entry.appId;
 
-  entry.win.remove();
-  delete openWindows[winId];
+  const finalize = () => {
+    pendingClose.delete(winId);
 
-  if (activeWinId === winId) {
-    activeWinId = null;
-    updateTopBar(null);
-  }
+    if (!openWindows[winId]) return;
 
-  const remaining = getInstancesOfApp(appId);
-  remaining.forEach(id => {
-    const w = openWindows[id]?.win;
-    if (!w) return;
+    win.remove();
+    delete openWindows[winId];
 
-    const wApp = APPS[appId];
-    const newNum = getInstanceNumber(id);
-    const titleEl = w.querySelector('.window-identity strong');
-    if (titleEl && wApp) {
-      titleEl.textContent = remaining.length > 1 ? `${wApp.title} · #${newNum}` : wApp.title;
+    if (activeWinId === winId) {
+      activeWinId = null;
+      updateTopBar(null);
     }
-  });
 
-  renderDock();
-  hideDockPreview();
+    const remaining = getInstancesOfApp(appId);
+    remaining.forEach(id => {
+      const w = openWindows[id]?.win;
+      if (!w) return;
 
-  if (windowManagerOpen) renderWindowManager();
+      const wApp = APPS[appId];
+      const newNum = getInstanceNumber(id);
+      const titleEl = w.querySelector('.window-identity strong');
+      if (titleEl && wApp) {
+        titleEl.textContent = remaining.length > 1 ? `${wApp.title} · #${newNum}` : wApp.title;
+      }
+    });
 
-  saveSessionState(true);
+    renderDock();
+    hideDockPreview();
+
+    if (windowManagerOpen) renderWindowManager();
+
+    saveSessionState(true);
+  };
+
+  if (prefersReducedMotion()) {
+    finalize();
+  } else {
+    win.classList.remove('focused');
+    runWindowAnimation(win, 'closing', ANIM_CLOSE_MS, finalize);
+  }
 }
 
 function maximizeApp(winId) {
@@ -5135,17 +5194,34 @@ function minimizeApp(winId) {
   const entry = openWindows[winId];
   if (!entry?.win) return;
 
-  entry.win.classList.add('minimized');
-  entry.win.style.display = 'none';
+  const win = entry.win;
+  if (win.classList.contains('minimized')) return;
 
-  if (activeWinId === winId) {
-    activeWinId = null;
-    updateTopBar(null);
+  const finalize = () => {
+    if (!openWindows[winId]) return;
+
+    win.classList.add('minimized');
+    win.style.display = 'none';
+
+    if (activeWinId === winId) {
+      activeWinId = null;
+      updateTopBar(null);
+    }
+
+    if (windowManagerOpen) renderWindowManager();
+
+    saveSessionState(true);
+  };
+
+  if (prefersReducedMotion()) {
+    finalize();
+    return;
   }
 
-  if (windowManagerOpen) renderWindowManager();
-
-  saveSessionState(true);
+  runWindowAnimation(win, 'minimizing', ANIM_MIN_MS, () => {
+    win.classList.remove('minimizing');
+    finalize();
+  });
 }
 
 /* ================= SETUP NOVA AI ================= */
@@ -5274,7 +5350,6 @@ function setupTerminalPanel(panel) {
     input.focus();
   });
 
-  /* Escribimos un banner inicial */
   appendLine('Nebula OS Terminal (WezTerm Emulator)');
   appendLine('Escribí "help" para ver comandos disponibles.');
   appendLine('');
@@ -5428,7 +5503,6 @@ function getAppContent(id) {
   }
 
   if (id === 'files') {
-    /* Este HTML se usa solo cuando NO es tabbed (fallback). */
     return `
       <div class="files-preview">
         <div class="files-toolbar">
@@ -5706,7 +5780,6 @@ function getAppContent(id) {
   }
 
   if (id === 'terminal') {
-    /* Fallback para terminal no-tabbed (no debería pasar, ya que terminal es tabbed) */
     return `
     <div class="term-body">
       <div class="prompt">

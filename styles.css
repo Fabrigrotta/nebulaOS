@@ -1614,6 +1614,133 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
 .window.has-tabs .wcontent { padding: 0; }
 .window.has-tabs .window-tab-panel > * { flex: 1; min-height: 0; }
 
+/* =====================================================
+   ★ WINDOW ANIMATIONS — Apertura / Cierre / Minimize
+===================================================== */
+
+.window {
+  transform-origin: center center;
+  will-change: transform, opacity, filter;
+}
+
+.reduce-motion .window,
+body.no-animations .window {
+  animation: none !important;
+  transition: none !important;
+}
+
+@keyframes window-open {
+  0% {
+    opacity: 0;
+    transform: scale(0.86) translateY(14px);
+    filter: blur(8px);
+  }
+  55% {
+    opacity: 1;
+    filter: blur(0.5px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+}
+
+.window.opening {
+  animation: window-open 0.34s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+
+@keyframes window-close {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.84) translateY(10px);
+    filter: blur(8px);
+  }
+}
+
+.window.closing {
+  animation: window-close 0.22s cubic-bezier(0.55, 0, 1, 0.45) both;
+  pointer-events: none;
+}
+
+@keyframes window-minimize {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.35) translateY(60vh);
+    filter: blur(10px);
+  }
+}
+
+.window.minimizing {
+  animation: window-minimize 0.3s cubic-bezier(0.55, 0, 1, 0.45) both;
+  pointer-events: none;
+  transform-origin: center bottom;
+}
+
+@keyframes window-restore {
+  0% {
+    opacity: 0;
+    transform: scale(0.35) translateY(60vh);
+    filter: blur(10px);
+  }
+  60% {
+    opacity: 1;
+    filter: blur(0.5px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+}
+
+.window.restoring {
+  animation: window-restore 0.36s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+
+.window:not(.resizing):not(.opening):not(.closing):not(.minimizing):not(.restoring) {
+  transition:
+    border-color 0.2s,
+    width 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    top 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    left 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.window.focused {
+  transform: scale(1);
+}
+.window:not(.focused) {
+  transform: scale(0.998);
+  transition: transform 0.25s ease, border-color 0.2s;
+}
+.window.opening,
+.window.closing,
+.window.minimizing,
+.window.restoring,
+.window.resizing,
+.window.maximized {
+  transform: none;
+}
+
+.window-tab-panel {
+  transition: opacity 0.18s ease, visibility 0.18s ease;
+}
+.window-tab-panel:not(.active) {
+  opacity: 0;
+}
+
 .spot-app {
   display: grid;
   grid-template-columns: 240px 1fr;
