@@ -170,6 +170,13 @@ let wmCardContextMenuWinId = null;
 let dockContextMenuEl = null;
 let dockContextMenuAppId = null;
 
+/* ★ NUEVO: control de guardado debounced de la sesión */
+let sessionSaveTimeout = null;
+let isRestoringSession = false;
+
+/* ★ NUEVO: variable de resize activo */
+let isResizing = false;
+
 const SETTINGS_STORAGE_KEY = 'nebula-os:settings';
 const WALLPAPER_STORAGE_KEY = 'nebula-os:wallpaper';
 const GAMEMODE_STORAGE_KEY = 'nebula-os:gamemode';
@@ -181,6 +188,8 @@ const BT_STORAGE_KEY = 'nebula-os:bluetooth';
 const DND_STORAGE_KEY = 'nebula-os:dnd';
 const BRIGHTNESS_STORAGE_KEY = 'nebula-os:brightness';
 const CALENDAR_NOTES_STORAGE_KEY = 'nebula-os:calendar-notes';
+/* ★ NUEVO: clave para la sesión de ventanas */
+const SESSION_STORAGE_KEY = 'nebula-os:session';
 
 let settingsState = { animations: true, transparency: true, activeSettingsTab: 'designer' };
 
@@ -341,6 +350,181 @@ function migrateNotesFormat(notes) {
   return migrated;
 }
 
+/* =====================================================
+   ★ PERSISTENCIA DE SESIÓN DE VENTANAS
+===================================================== */
+
+function saveSessionState(immediate = false) {
+  if (isRestoringSession || isResizing) return;
+
+  const doSave = () => {
+    try {
+      const windowsData = {};
+      Object.keys(openWindows).forEach(winId => {
+        const entry = openWindows[winId];
+        const win = entry?.win;
+        if (!entry || !win) return;
+
+        const isMaximized = win.classList.contains('maximized');
+        const isMinimized = win.classList.contains('minimized');
+
+        windowsData[winId] = {
+          appId: entry.appId,
+          ws: parseInt(win.dataset.ws, 10) || 1,
+          top: win.style.top || '',
+          left: win.style.left || '',
+          width: win.style.width || '',
+          height: win.style.height || '',
+          zIndex: parseInt(win.style.zIndex, 10) || 100,
+          minimized: isMinimized,
+          maximized: isMaximized,
+          oldW: win.dataset.oldW || '',
+          oldH: win.dataset.oldH || '',
+          oldT: win.dataset.oldT || '',
+          oldL: win.dataset.oldL || ''
+        };
+      });
+
+      const sessionData = {
+        v: 1,
+        windows: windowsData,
+        activeWinId: activeWinId,
+        currentWorkspace: currentWorkspace,
+        zIndexCounter: zIndexCounter,
+        appInstanceCounter: appInstanceCounter
+      };
+
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionData));
+    } catch (e) {
+      /* Silencioso */
+    }
+  };
+
+  if (immediate) {
+    if (sessionSaveTimeout) {
+      clearTimeout(sessionSaveTimeout);
+      sessionSaveTimeout = null;
+    }
+    doSave();
+  } else {
+    if (sessionSaveTimeout) clearTimeout(sessionSaveTimeout);
+    sessionSaveTimeout = setTimeout(() => {
+      sessionSaveTimeout = null;
+      doSave();
+    }, 300);
+  }
+}
+
+function scheduleSaveSession() {
+  saveSessionState(false);
+}
+
+function restoreSessionState() {
+  let sessionData = null;
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return;
+    sessionData = JSON.parse(raw);
+  } catch (e) {
+    return;
+  }
+
+  if (!sessionData || typeof sessionData !== 'object') return;
+  if (!sessionData.windows || typeof sessionData.windows !== 'object') return;
+
+  const winIds = Object.keys(sessionData.windows);
+  if (winIds.length === 0) {
+    if (typeof sessionData.currentWorkspace === 'number' &&
+        sessionData.currentWorkspace >= 1 &&
+        sessionData.currentWorkspace <= TOTAL_WORKSPACES) {
+      currentWorkspace = sessionData.currentWorkspace;
+    }
+    return;
+  }
+
+  isRestoringSession = true;
+
+  try {
+    if (sessionData.appInstanceCounter && typeof sessionData.appInstanceCounter === 'object') {
+      appInstanceCounter = { ...sessionData.appInstanceCounter };
+    }
+    if (typeof sessionData.zIndexCounter === 'number' && sessionData.zIndexCounter > 100) {
+      zIndexCounter = sessionData.zIndexCounter;
+    }
+    if (typeof sessionData.currentWorkspace === 'number' &&
+        sessionData.currentWorkspace >= 1 &&
+        sessionData.currentWorkspace <= TOTAL_WORKSPACES) {
+      currentWorkspace = sessionData.currentWorkspace;
+    }
+
+    const sortedEntries = winIds
+      .map(id => ({ id, data: sessionData.windows[id] }))
+      .filter(e => e.data && APPS[e.data.appId])
+      .sort((a, b) => (a.data.zIndex || 100) - (b.data.zIndex || 100));
+
+    sortedEntries.forEach(({ id, data }) => {
+      if (openWindows[id]) return;
+      openApp(data.appId, true, {
+        winId: id,
+        ws: data.ws,
+        top: data.top,
+        left: data.left,
+        width: data.width,
+        height: data.height,
+        zIndex: data.zIndex,
+        minimized: !!data.minimized,
+        maximized: !!data.maximized,
+        oldW: data.oldW,
+        oldH: data.oldH,
+        oldT: data.oldT,
+        oldL: data.oldL,
+        silent: true
+      });
+    });
+
+    const buttons = document.querySelectorAll('#ws-switcher button');
+    buttons.forEach((btn, index) => {
+      btn.className = (index + 1 === currentWorkspace) ? 'active' : '';
+    });
+
+    Object.values(openWindows).forEach(entry => {
+      const win = entry?.win;
+      if (!win) return;
+      const winWs = parseInt(win.dataset.ws, 10);
+      if (winWs !== currentWorkspace) {
+        win.style.display = 'none';
+      } else if (win.classList.contains('minimized')) {
+        win.style.display = 'none';
+      } else {
+        win.style.display = 'flex';
+      }
+    });
+
+    const targetActive = sessionData.activeWinId;
+    if (targetActive && openWindows[targetActive]) {
+      const entry = openWindows[targetActive];
+      const win = entry.win;
+      const winWs = parseInt(win.dataset.ws, 10);
+      if (winWs === currentWorkspace && !win.classList.contains('minimized')) {
+        focusWindow(targetActive);
+      } else {
+        updateTopBar(null);
+      }
+    } else {
+      activeWinId = null;
+      updateTopBar(null);
+    }
+
+    renderDock();
+    if (windowManagerOpen) renderWindowManager();
+    refreshIcons();
+  } catch (e) {
+    /* Silencioso */
+  } finally {
+    isRestoringSession = false;
+  }
+}
+
 /* ================= INICIALIZACIÓN DEL SISTEMA ================= */
 document.addEventListener('DOMContentLoaded', () => {
   const bootScreen = document.getElementById('boot-screen');
@@ -486,8 +670,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  /* ★ Inicializamos la trash zone del WM */
   setupWmTrashZone();
+
+  restoreSessionState();
+
+  window.addEventListener('beforeunload', () => {
+    saveSessionState(true);
+  });
 });
 
 /* ================= SHORTCUTS GLOBALES ================= */
@@ -1587,6 +1776,8 @@ function switchWorkspace(num) {
   renderDock();
 
   if (windowManagerOpen) renderWindowManager();
+
+  scheduleSaveSession();
 }
 
 function moveWindowToWorkspace(winId, targetWs) {
@@ -1620,6 +1811,8 @@ function moveWindowToWorkspace(winId, targetWs) {
     `${appTitle} → Space ${targetWs}`,
     'move'
   );
+
+  saveSessionState(true);
 
   return true;
 }
@@ -2583,7 +2776,6 @@ function renderWindowManager() {
     }
   }
 
-  /* ★ FIX: ocultar explícitamente el empty cuando hay ventanas */
   if (activeWsWinIds.length === 0) {
     grid.innerHTML = '';
     grid.hidden = true;
@@ -2666,13 +2858,11 @@ function renderWindowManager() {
   grid.querySelectorAll('.wm-card[data-wm-win]').forEach(card => {
     const winId = card.dataset.wmWin;
 
-    /* Click izquierdo: enfocar (solo si no estamos arrastrando) */
     card.addEventListener('click', (e) => {
       if (wmDragState) return;
       focusFromWindowManager(winId);
     });
 
-    /* ★ Click derecho: menú contextual de la card */
     card.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -2713,7 +2903,6 @@ function setupWmTrashZone() {
   const trash = document.getElementById('wm-trash-zone');
   if (!trash) return;
 
-  /* La trash recibe el drop y elimina la ventana */
   trash.addEventListener('dragover', (e) => {
     if (!wmDragState) return;
     e.preventDefault();
@@ -2737,15 +2926,12 @@ function setupWmTrashZone() {
     const { winId } = wmDragState;
     if (!winId || !openWindows[winId]) return;
 
-    /* Ejecutamos la eliminación con animación */
     deleteWindowFromWm(winId);
 
-    /* Marcamos como "justDropped" para que no se disparen los handlers de las cards */
     wmDragState.justDropped = true;
   });
 }
 
-/* ★ Muestra la trash y cambia el estado visual del WM */
 function setWmDragActive(active) {
   const overlay = document.getElementById('window-manager-overlay');
   const strip = document.getElementById('wm-workspaces-strip');
@@ -2755,7 +2941,6 @@ function setWmDragActive(active) {
   if (strip) strip.classList.toggle('wm-dragging', active);
 }
 
-/* ★ Elimina una ventana con animación de "trash" */
 function deleteWindowFromWm(winId) {
   const entry = openWindows[winId];
   if (!entry?.win) return;
@@ -2763,13 +2948,11 @@ function deleteWindowFromWm(winId) {
   const win = entry.win;
   const appTitle = APPS[entry.appId]?.title || entry.appId;
 
-  /* Buscamos la card correspondiente en el grid */
   const card = document.querySelector(`.wm-card[data-wm-win="${winId}"]`);
   if (card) {
     card.classList.add('deleting');
   }
 
-  /* Esperamos el final de la animación y cerramos la ventana */
   setTimeout(() => {
     closeApp(winId);
     showToast(
@@ -2799,12 +2982,10 @@ function showWmCardContextMenu(winId, event) {
   const hasMultiple = instances.length > 1;
   const instNumber = hasMultiple ? getInstanceNumber(winId) : 1;
 
-  /* Creamos el menú */
   const menu = document.createElement('div');
   menu.className = 'wm-card-context-menu';
   menu.dataset.winId = winId;
 
-  /* Header */
   const iconHTML = app.image
     ? `<img src="${app.image}" alt="${escapeHtml(app.title)}" onerror="this.style.display='none'; this.parentElement.innerHTML='<i data-lucide=\\'${app.icon}\\'></i>';" />`
     : `<i data-lucide="${app.icon}"></i>`;
@@ -2821,7 +3002,6 @@ function showWmCardContextMenu(winId, event) {
     </div>
   `;
 
-  /* Opción: Enfocar */
   html += `
     <button class="wm-ctx-item" data-action="focus" type="button">
       <span class="wm-ctx-icon-left"><i data-lucide="focus"></i></span>
@@ -2829,7 +3009,6 @@ function showWmCardContextMenu(winId, event) {
     </button>
   `;
 
-  /* Opción: Minimizar / Restaurar */
   if (isMinimized) {
     html += `
       <button class="wm-ctx-item" data-action="restore" type="button">
@@ -2846,7 +3025,6 @@ function showWmCardContextMenu(winId, event) {
     `;
   }
 
-  /* Opción: Nueva instancia de la misma app */
   html += `
     <button class="wm-ctx-item" data-action="new-instance" type="button">
       <span class="wm-ctx-icon-left"><i data-lucide="plus-square"></i></span>
@@ -2855,7 +3033,6 @@ function showWmCardContextMenu(winId, event) {
     </button>
   `;
 
-  /* Separador + Mover a Space */
   html += `<div class="wm-ctx-separator"></div>`;
   html += `<span class="wm-ctx-section-label">Mover a otro Space</span>`;
 
@@ -2871,7 +3048,6 @@ function showWmCardContextMenu(winId, event) {
     `;
   }
 
-  /* Separador + Cerrar */
   html += `<div class="wm-ctx-separator"></div>`;
   html += `
     <button class="wm-ctx-item danger" data-action="close" type="button">
@@ -2882,26 +3058,22 @@ function showWmCardContextMenu(winId, event) {
 
   menu.innerHTML = html;
 
-  /* Lo agregamos al body para medirlo */
   document.body.appendChild(menu);
   wmCardContextMenuEl = menu;
   wmCardContextMenuWinId = winId;
 
   refreshIcons();
 
-  /* Posicionamiento */
   const menuRect = menu.getBoundingClientRect();
   const margin = 10;
 
   let left = event.clientX;
   let top = event.clientY;
 
-  /* Si se sale por la derecha */
   if (left + menuRect.width + margin > window.innerWidth) {
     left = window.innerWidth - menuRect.width - margin;
   }
 
-  /* Si se sale por abajo */
   if (top + menuRect.height + margin > window.innerHeight) {
     top = window.innerHeight - menuRect.height - margin;
   }
@@ -2912,7 +3084,6 @@ function showWmCardContextMenu(winId, event) {
   menu.style.left = `${left}px`;
   menu.style.top = `${top}px`;
 
-  /* Listeners de las opciones */
   menu.querySelectorAll('.wm-ctx-item[data-action]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -2921,7 +3092,6 @@ function showWmCardContextMenu(winId, event) {
     });
   });
 
-  /* Los spaces también son clickeables */
   menu.querySelectorAll('.wm-ctx-space-item[data-target-ws]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -2950,7 +3120,6 @@ function handleWmCardAction(action, winId, btnEl, targetWs = null) {
 
     case 'minimize': {
       minimizeApp(winId);
-      /* No cerramos el WM, seguimos dentro */
       if (windowManagerOpen) renderWindowManager();
       break;
     }
@@ -3024,7 +3193,6 @@ function setupWmDragAndDrop() {
 
       try { e.dataTransfer.setDragImage(mini, mini.offsetWidth / 2, mini.offsetHeight / 2); } catch (_) {}
 
-      /* ★ Activamos el estado de drag en el WM (muestra la trash, etc.) */
       setWmDragActive(true);
     });
 
@@ -3036,7 +3204,6 @@ function setupWmDragAndDrop() {
         c.classList.remove('drag-over', 'drag-invalid');
       });
 
-      /* Removemos el estado hover de la trash */
       const trash = document.getElementById('wm-trash-zone');
       if (trash) trash.classList.remove('drag-over');
 
@@ -3107,14 +3274,132 @@ function cleanupWmDrag() {
   setWmDragActive(false);
 }
 
+/* =====================================================
+   ★ SETUP WINDOW RESIZE — 8 handles (N, S, E, W, NE, NW, SE, SW)
+===================================================== */
+function setupWindowResize(win) {
+  const MIN_W = 450;
+  const MIN_H = 350;
+  const TOP_MIN = 46; /* topbar offset mínimo */
+
+  const dirs = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
+  const cursorMap = {
+    'n': 'ns-resize', 's': 'ns-resize',
+    'e': 'ew-resize', 'w': 'ew-resize',
+    'nw': 'nwse-resize', 'se': 'nwse-resize',
+    'ne': 'nesw-resize', 'sw': 'nesw-resize'
+  };
+
+  dirs.forEach(dir => {
+    const handle = document.createElement('div');
+    handle.className = 'window-resize-handle';
+    handle.dataset.dir = dir;
+    win.appendChild(handle);
+  });
+
+  win.querySelectorAll('.window-resize-handle').forEach(handle => {
+    const dir = handle.dataset.dir;
+
+    const onStart = (e) => {
+      /* No redimensionar si está maximizada */
+      if (win.classList.contains('maximized')) return;
+      /* No redimensionar con click derecho o middle */
+      if (e.type === 'mousedown' && e.button !== 0) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      /* ★ Foco inmediato al hacer resize */
+      const winId = win.dataset.winId;
+      if (winId) focusWindow(winId);
+
+      const startX = e.touches ? e.touches[0].clientX : e.clientX;
+      const startY = e.touches ? e.touches[0].clientY : e.clientY;
+
+      const startLeft = win.offsetLeft;
+      const startTop = win.offsetTop;
+      const startWidth = win.offsetWidth;
+      const startHeight = win.offsetHeight;
+
+      isResizing = true;
+      win.classList.add('resizing');
+      document.body.classList.add('window-resizing');
+      document.body.style.setProperty('--resize-cursor', cursorMap[dir] || 'default');
+
+      const moveEvent = e.type === 'touchstart' ? 'touchmove' : 'mousemove';
+      const endEvent = e.type === 'touchstart' ? 'touchend' : 'mouseup';
+
+      function onMove(ev) {
+        const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
+        const clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
+
+        const dx = clientX - startX;
+        const dy = clientY - startY;
+
+        let newLeft = startLeft;
+        let newTop = startTop;
+        let newWidth = startWidth;
+        let newHeight = startHeight;
+
+        if (dir.includes('e')) newWidth = Math.max(MIN_W, startWidth + dx);
+        if (dir.includes('s')) newHeight = Math.max(MIN_H, startHeight + dy);
+
+        if (dir.includes('w')) {
+          const maxDx = startWidth - MIN_W;
+          const safeDx = Math.min(dx, maxDx);
+          newWidth = startWidth - safeDx;
+          newLeft = startLeft + safeDx;
+        }
+
+        if (dir.includes('n')) {
+          const maxDy = startHeight - MIN_H;
+          const safeDy = Math.min(dy, maxDy);
+          const desiredTop = startTop + safeDy;
+          if (desiredTop < TOP_MIN) {
+            const correction = TOP_MIN - desiredTop;
+            newHeight = startHeight - (safeDy - correction);
+            newTop = TOP_MIN;
+          } else {
+            newHeight = startHeight - safeDy;
+            newTop = desiredTop;
+          }
+        }
+
+        win.style.width = `${newWidth}px`;
+        win.style.height = `${newHeight}px`;
+        win.style.left = `${newLeft}px`;
+        win.style.top = `${newTop}px`;
+      }
+
+      function onEnd() {
+        document.removeEventListener(moveEvent, onMove);
+        document.removeEventListener(endEvent, onEnd);
+        isResizing = false;
+        win.classList.remove('resizing');
+        document.body.classList.remove('window-resizing');
+        document.body.style.removeProperty('--resize-cursor');
+        /* ★ Guardado inmediato al terminar el resize */
+        saveSessionState(true);
+      }
+
+      document.addEventListener(moveEvent, onMove, { passive: false });
+      document.addEventListener(endEvent, onEnd);
+    };
+
+    handle.addEventListener('mousedown', onStart);
+    handle.addEventListener('touchstart', onStart, { passive: false });
+  });
+}
+
 /* ================= GESTIÓN DE VENTANAS (multi-instancia) ================= */
-function openApp(appId, forceNew = false) {
+function openApp(appId, forceNew = false, restoreData = null) {
   const app = APPS[appId];
   if (!app) return;
 
+  const isRestoring = !!restoreData;
   const instances = getInstancesOfApp(appId);
 
-  if (!forceNew && instances.length > 0) {
+  if (!forceNew && !isRestoring && instances.length > 0) {
     const lastWinId = getLastInstanceOfApp(appId);
     if (lastWinId) {
       const lastWin = openWindows[lastWinId].win;
@@ -3126,22 +3411,61 @@ function openApp(appId, forceNew = false) {
     }
   }
 
-  const winId = generateWinId(appId);
+  const winId = isRestoring && restoreData.winId ? restoreData.winId : generateWinId(appId);
+
+  if (openWindows[winId]) {
+    return;
+  }
+
   const win = document.createElement('div');
   win.className = 'window focused';
   win.id = `win-${winId}`;
-  win.dataset.ws = currentWorkspace;
   win.dataset.appId = appId;
   win.dataset.winId = winId;
 
-  const top = 65 + Math.random() * 25;
-  const left = 100 + Math.random() * 50;
-  win.style.top = top + 'px';
-  win.style.left = left + 'px';
+  const wsToUse = isRestoring && restoreData.ws ? restoreData.ws : currentWorkspace;
+  win.dataset.ws = String(wsToUse);
 
-  win.style.width = appId === 'music' ? '980px' : appId === 'settings' ? '780px' : '680px';
-  win.style.height = appId === 'music' ? '640px' : appId === 'settings' ? '540px' : '480px';
-  win.style.zIndex = ++zIndexCounter;
+  const top = (isRestoring && restoreData.top) ? restoreData.top : (65 + Math.random() * 25) + 'px';
+  const left = (isRestoring && restoreData.left) ? restoreData.left : (100 + Math.random() * 50) + 'px';
+  const width = (isRestoring && restoreData.width) ? restoreData.width
+    : (appId === 'music' ? '980px' : appId === 'settings' ? '780px' : '680px');
+  const height = (isRestoring && restoreData.height) ? restoreData.height
+    : (appId === 'music' ? '640px' : appId === 'settings' ? '540px' : '480px');
+
+  win.style.top = top;
+  win.style.left = left;
+  win.style.width = width;
+  win.style.height = height;
+
+  if (isRestoring && typeof restoreData.zIndex === 'number') {
+    win.style.zIndex = restoreData.zIndex;
+    if (restoreData.zIndex > zIndexCounter) {
+      zIndexCounter = restoreData.zIndex;
+    }
+  } else {
+    win.style.zIndex = ++zIndexCounter;
+  }
+
+  if (isRestoring && restoreData.maximized) {
+    win.classList.add('maximized');
+    win.style.width = '100vw';
+    win.style.height = 'calc(100vh - 46px)';
+    win.style.top = '46px';
+    win.style.left = '0';
+    win.style.borderRadius = '0';
+  }
+  if (isRestoring && restoreData.minimized) {
+    win.classList.add('minimized');
+    win.style.display = 'none';
+  }
+
+  if (isRestoring) {
+    if (restoreData.oldW) win.dataset.oldW = restoreData.oldW;
+    if (restoreData.oldH) win.dataset.oldH = restoreData.oldH;
+    if (restoreData.oldT) win.dataset.oldT = restoreData.oldT;
+    if (restoreData.oldL) win.dataset.oldL = restoreData.oldL;
+  }
 
   const totalInstances = instances.length + 1;
   const newInstNumber = getInstanceNumber(winId);
@@ -3170,14 +3494,23 @@ function openApp(appId, forceNew = false) {
   win.addEventListener('mousedown', () => focusWindow(winId));
   document.getElementById('windows-container').appendChild(win);
 
+  openWindows[winId] = { appId, win };
+
   if (appId === 'terminal') setupTerminal(win);
   if (appId === 'nova') setupNovaAI(win);
   if (appId === 'files') setupFiles(win);
   if (appId === 'settings') renderSettingsApp();
   if (appId === 'music') setupSpotifyApp(win);
 
-  openWindows[winId] = { appId, win };
-  focusWindow(winId);
+  /* ★ Setupeamos los handles de resize */
+  setupWindowResize(win);
+
+  if (!isRestoring) {
+    focusWindow(winId);
+  } else {
+    win.classList.add('focused');
+  }
+
   renderDock();
   syncAllSliders();
   refreshIcons();
@@ -3203,10 +3536,12 @@ function openApp(appId, forceNew = false) {
       const point = getPointerPosition(ev);
       win.style.left = (ol + point.x - sx) + 'px';
       win.style.top = Math.max(46, (ot + point.y - sy)) + 'px';
+      scheduleSaveSession();
     }
     function up() {
       document.removeEventListener(moveEvent, move);
       document.removeEventListener(endEvent, up);
+      saveSessionState(true);
     }
     document.addEventListener(moveEvent, move, { passive: false });
     document.addEventListener(endEvent, up);
@@ -3215,12 +3550,16 @@ function openApp(appId, forceNew = false) {
   titlebar.addEventListener('mousedown', startDrag);
   titlebar.addEventListener('touchstart', startDrag, { passive: false });
 
-  if (totalInstances > 1) {
+  if (!isRestoring && totalInstances > 1) {
     showToast(
       `${app.title} · Instancia #${newInstNumber}`,
       `Abriendo nueva ventana de ${app.title}.`,
       'plus'
     );
+  }
+
+  if (!isRestoring) {
+    saveSessionState(true);
   }
 }
 
@@ -3244,6 +3583,8 @@ function focusWindow(winId) {
   updateTopBar(winId);
 
   if (windowManagerOpen) renderWindowManager();
+
+  scheduleSaveSession();
 }
 
 function closeApp(winId) {
@@ -3277,6 +3618,8 @@ function closeApp(winId) {
   hideDockPreview();
 
   if (windowManagerOpen) renderWindowManager();
+
+  saveSessionState(true);
 }
 
 function maximizeApp(winId) {
@@ -3298,6 +3641,8 @@ function maximizeApp(winId) {
     win.style.top = '46px';
     win.style.left = '0';
     win.style.borderRadius = "0";
+
+    saveSessionState(true);
   }
 }
 
@@ -3312,6 +3657,8 @@ function restoreWindow(winId) {
   win.style.top = win.dataset.oldT;
   win.style.left = win.dataset.oldL;
   win.style.borderRadius = "var(--radius-md)";
+
+  saveSessionState(true);
 }
 
 function minimizeApp(winId) {
@@ -3327,6 +3674,8 @@ function minimizeApp(winId) {
   }
 
   if (windowManagerOpen) renderWindowManager();
+
+  saveSessionState(true);
 }
 
 /* ================= SETUP NOVA AI ================= */

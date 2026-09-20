@@ -57,6 +57,11 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
+/* ★ Prevenir selección de texto durante resize */
+body.window-resizing { cursor: var(--resize-cursor, default) !important; }
+body.window-resizing * { cursor: var(--resize-cursor, default) !important; pointer-events: none !important; }
+body.window-resizing .window { pointer-events: auto !important; }
+
 /* SVG / Lucide Global Styles */
 svg, [data-lucide] {
   width: 1em; height: 1em; display: inline-block; vertical-align: middle; flex-shrink: 0;
@@ -522,6 +527,10 @@ svg, [data-lucide] {
 .window { position: absolute; min-width: 450px; min-height: 350px; display: flex; flex-direction: column; background: color-mix(in srgb, var(--panel-color) 88%, #0d0f17 12%); backdrop-filter: blur(var(--blur-amount)) saturate(1.5); -webkit-backdrop-filter: blur(var(--blur-amount)) saturate(1.5); border-radius: var(--radius-md); box-shadow: var(--shadow); border: 1px solid rgba(255, 255, 255, 0.1); overflow: hidden; transition: border-color 0.2s, width 0.2s, height 0.2s, top 0.2s, left 0.2s, border-radius 0.2s; }
 .reduce-motion .window { transition: none !important; }
 .window.focused { border-color: color-mix(in srgb, var(--accent) 45%, rgba(255,255,255,0.2)); box-shadow: 0 25px 68px rgba(0,0,0,0.65), 0 0 25px color-mix(in srgb, var(--accent) 15%, transparent); }
+
+/* ★ Desactivar transición de tamaño durante resize activo para que se sienta fluido */
+.window.resizing { transition: none !important; }
+
 .titlebar { height: 38px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; background: color-mix(in srgb, var(--panel-color) 78%, transparent); border-bottom: 1px solid rgba(255,255,255,0.07); cursor: grab; }
 .titlebar:active { cursor: grabbing; }
 .window-identity { display: flex; align-items: center; min-width: 0; gap: 8px; color: var(--text-main); font-size: 11px; font-weight: 700; }
@@ -536,6 +545,62 @@ svg, [data-lucide] {
 .wbtns .max:hover { background: #a6e3a1; }
 .wbtns .close:hover { background: #f38ba8; }
 .wcontent { flex: 1; overflow: hidden; display: flex; flex-direction: column; background: transparent; position: relative; min-height: 0; }
+
+/* =====================================================
+   ★ WINDOW RESIZE HANDLES
+===================================================== */
+.window-resize-handle {
+  position: absolute;
+  z-index: 10;
+  /* Invisibles por defecto — solo el cursor indica la zona */
+  background: transparent;
+  transition: background 0.15s ease;
+  /* Previene que la selección de texto interfiera */
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+/* Bordes: 6px de grosor, transparentes */
+.window-resize-handle[data-dir="n"] { top: 0; left: 0; right: 0; height: 6px; cursor: ns-resize; }
+.window-resize-handle[data-dir="s"] { bottom: 0; left: 0; right: 0; height: 6px; cursor: ns-resize; }
+.window-resize-handle[data-dir="e"] { top: 0; bottom: 0; right: 0; width: 6px; cursor: ew-resize; }
+.window-resize-handle[data-dir="w"] { top: 0; bottom: 0; left: 0; width: 6px; cursor: ew-resize; }
+
+/* Esquinas: 12x12, superpuestas a los bordes */
+.window-resize-handle[data-dir="nw"] { top: 0; left: 0; width: 12px; height: 12px; cursor: nwse-resize; }
+.window-resize-handle[data-dir="ne"] { top: 0; right: 0; width: 12px; height: 12px; cursor: nesw-resize; }
+.window-resize-handle[data-dir="sw"] { bottom: 0; left: 0; width: 12px; height: 12px; cursor: nesw-resize; }
+.window-resize-handle[data-dir="se"] { bottom: 0; right: 0; width: 12px; height: 12px; cursor: nwse-resize; }
+
+/* Highlight sutil al hacer hover (solo el acento, bajo alpha) */
+.window-resize-handle:hover {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.window-resize-handle[data-dir="nw"]:hover,
+.window-resize-handle[data-dir="ne"]:hover,
+.window-resize-handle[data-dir="sw"]:hover,
+.window-resize-handle[data-dir="se"]:hover {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+/* ★ Durante resize activo, mantener el highlight visible */
+.window.resizing .window-resize-handle:hover {
+  background: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* ★ Desactivar handles cuando la ventana está maximizada */
+.window.maximized .window-resize-handle {
+  display: none !important;
+}
+
+/* ★ Bordes más visibles cuando la ventana está enfocada (opcional, muy sutil) */
+.window.focused .window-resize-handle[data-dir="n"]:hover,
+.window.focused .window-resize-handle[data-dir="s"]:hover,
+.window.focused .window-resize-handle[data-dir="e"]:hover,
+.window.focused .window-resize-handle[data-dir="w"]:hover {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
 
 /* ================= AJUSTES ================= */
 .settings-preview { display: flex; width: 100%; height: 100%; min-height: 0; color: var(--text-main); }
