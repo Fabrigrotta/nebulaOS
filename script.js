@@ -14,6 +14,9 @@ const DOCK_APPS = ['browser', 'terminal', 'nova', 'files', 'vscode', 'music', 'g
 
 const TOTAL_WORKSPACES = 5;
 
+/* Apps que soportan pestañas internas */
+const TABBED_APPS = new Set(['terminal', 'files']);
+
 const WALLPAPERS = [
   { file: 'fondo principal.jpg', name: 'Nebula', accent: '#b4befe', text: '#cdd6f4', sub: '#bac2de', green: '#a6e3a1', panel: 'rgba(18,21,33,0.72)' },
   { file: 'fondo 2.jpg', name: 'Aurora', accent: '#89dceb', text: '#d9f4ff', sub: '#a9c6d3', green: '#a6e3a1', panel: 'rgba(11,31,39,0.75)' },
@@ -173,13 +176,19 @@ let isRestoringSession = false;
 
 let isResizing = false;
 
+/* ★ Estado de tabs por ventana */
+const windowTabsState = new WeakMap();
+
+/* ★ Estado de cada panel de terminal / files (por panel, no por ventana) */
+const terminalPanelStates = new WeakMap();
+const filesPanelStates = new WeakMap();
+
 const launcherState = {
   query: '',
   results: [],
   selectedIndex: 0
 };
 
-/* ★ Estado del File Explorer (context menu, modal, selección) */
 let fsContextMenuEl = null;
 let fsRenameModalEl = null;
 let fsRenameTarget = null;
@@ -387,7 +396,7 @@ function migrateNotesFormat(notes) {
 }
 
 /* =====================================================
-   ★ PERSISTENCIA DE SESIÓN DE VENTANAS
+   ★ PERSISTENCIA DE SESIÓN DE VENTANAS (CON TABS)
 ===================================================== */
 
 function saveSessionState(immediate = false) {
@@ -404,6 +413,18 @@ function saveSessionState(immediate = false) {
         const isMaximized = win.classList.contains('maximized');
         const isMinimized = win.classList.contains('minimized');
 
+        let tabsData = null;
+        if (TABBED_APPS.has(entry.appId)) {
+          const state = windowTabsState.get(win);
+          if (state) {
+            tabsData = {
+              tabs: state.tabs.map(t => ({ id: t.id, label: t.label, kind: t.kind || null })),
+              activeTabId: state.activeTabId,
+              counter: state.counter
+            };
+          }
+        }
+
         windowsData[winId] = {
           appId: entry.appId,
           ws: parseInt(win.dataset.ws, 10) || 1,
@@ -417,12 +438,13 @@ function saveSessionState(immediate = false) {
           oldW: win.dataset.oldW || '',
           oldH: win.dataset.oldH || '',
           oldT: win.dataset.oldT || '',
-          oldL: win.dataset.oldL || ''
+          oldL: win.dataset.oldL || '',
+          tabs: tabsData
         };
       });
 
       const sessionData = {
-        v: 1,
+        v: 2,
         windows: windowsData,
         activeWinId: activeWinId,
         currentWorkspace: currentWorkspace,
@@ -512,6 +534,7 @@ function restoreSessionState() {
         oldH: data.oldH,
         oldT: data.oldT,
         oldL: data.oldL,
+        tabs: data.tabs || null,
         silent: true
       });
     });
@@ -1714,7 +1737,6 @@ function fsRemoveItem(item) {
   return true;
 }
 
-/* ★ FIX: fsRenameItem actualiza name Y label, valida vacío/duplicado */
 function fsRenameItem(item, newName) {
   if (!newName || !newName.trim()) {
     showToast('Nombre vacío', 'Escribí un nombre válido.', 'alert-circle');
@@ -1763,12 +1785,10 @@ function fsMoveItem(item, targetFolder) {
   return true;
 }
 
-/* ---- Estado por ventana del explorador ---- */
-const fsWindowStates = new WeakMap();
-
-function getFsState(win) {
-  if (!fsWindowStates.has(win)) {
-    fsWindowStates.set(win, {
+/* ---- Estado por PANEL del explorador (multi-tab) ---- */
+function getFsPanelState(panel) {
+  if (!filesPanelStates.has(panel)) {
+    filesPanelStates.set(panel, {
       current: FILE_SYSTEM,
       trail: [FILE_SYSTEM],
       history: [],
@@ -1779,10 +1799,9 @@ function getFsState(win) {
       visibleItems: []
     });
   }
-  return fsWindowStates.get(win);
+  return filesPanelStates.get(panel);
 }
 
-/* ★ FIX: Modal con onclick (no acumula listeners) y stopPropagation en keydown */
 function ensureFsRenameModal() {
   if (fsRenameModalEl) return fsRenameModalEl;
   const modal = document.createElement('div');
@@ -1884,9 +1903,11 @@ function hideFsContextMenu() {
   }
 }
 
-function showFsContextMenu(ev, state, targetItem, win) {
+function showFsContextMenu(ev, panel, targetItem, win) {
   ev.preventDefault();
   ev.stopPropagation();
+
+  const state = getFsPanelState(panel);
 
   const menu = ensureFsContextMenu();
   menu.innerHTML = '';
@@ -1938,7 +1959,7 @@ function showFsContextMenu(ev, state, targetItem, win) {
       appendItem({
         icon: 'folder-open',
         label: 'Abrir carpeta',
-        action: () => fsOpenFolder(win, state, targetItem)
+        action: () => fsOpenFolder(panel, targetItem)
       });
     } else if (targetItem.type === 'image') {
       appendItem({
@@ -1958,7 +1979,7 @@ function showFsContextMenu(ev, state, targetItem, win) {
       icon: 'pencil',
       label: 'Renombrar',
       shortcut: 'F2',
-      action: () => fsPromptRename(win, state, targetItem)
+      action: () => fsPromptRename(panel, targetItem)
     });
 
     appendSep();
@@ -1968,7 +1989,7 @@ function showFsContextMenu(ev, state, targetItem, win) {
   appendItem({
     icon: 'folder-input',
     label: moveLabel,
-    action: () => fsPromptMove(win, state, isMulti ? Array.from(state.selected) : [targetItem])
+    action: () => fsPromptMove(panel, isMulti ? Array.from(state.selected) : [targetItem])
   });
 
   if (targetItem && !isMulti) {
@@ -1978,7 +1999,7 @@ function showFsContextMenu(ev, state, targetItem, win) {
       action: () => {
         state.selected.clear();
         state.selected.add(targetItem);
-        fsRefresh(win, state);
+        fsRefresh(panel);
       }
     });
   }
@@ -1990,7 +2011,7 @@ function showFsContextMenu(ev, state, targetItem, win) {
       label: isMulti ? `Eliminar ${itemsCount} elementos` : 'Eliminar',
       shortcut: 'Supr',
       danger: true,
-      action: () => fsDeleteSelection(win, state)
+      action: () => fsDeleteSelection(panel)
     });
   }
 
@@ -1998,12 +2019,12 @@ function showFsContextMenu(ev, state, targetItem, win) {
   appendItem({
     icon: 'folder-plus',
     label: 'Nueva carpeta aquí',
-    action: () => fsCreateFolder(win, state)
+    action: () => fsCreateFolder(panel)
   });
   appendItem({
     icon: 'file-plus',
     label: 'Nuevo archivo de texto',
-    action: () => fsCreateFile(win, state)
+    action: () => fsCreateFile(panel)
   });
 
   menu.classList.add('open');
@@ -2022,16 +2043,17 @@ function showFsContextMenu(ev, state, targetItem, win) {
 }
 
 /* ---- Acciones del explorador ---- */
-function fsOpenFolder(win, state, folder) {
+function fsOpenFolder(panel, folder) {
+  const state = getFsPanelState(panel);
   state.history.push(state.current);
   state.future = [];
   state.current = folder;
   state.trail = [FILE_SYSTEM, ...fsBuildTrail(folder)];
   state.query = '';
   state.selected.clear();
-  const search = win.querySelector('[data-files-search]');
+  const search = panel.querySelector('[data-files-search]');
   if (search) search.value = '';
-  fsRefresh(win, state);
+  fsRefresh(panel);
 }
 
 function fsBuildTrail(folder) {
@@ -2044,7 +2066,7 @@ function fsBuildTrail(folder) {
   return path;
 }
 
-function fsPromptRename(win, state, item) {
+function fsPromptRename(panel, item) {
   openFsRenameModal({
     title: 'Renombrar',
     sub: item.type === 'folder' ? 'Carpeta' : 'Archivo',
@@ -2054,14 +2076,15 @@ function fsPromptRename(win, state, item) {
       const ok = fsRenameItem(item, value);
       if (ok) {
         showToast('Renombrado', `"${item.name}" actualizado.`, 'pencil');
-        fsRefresh(win, state);
+        fsRefresh(panel);
       }
       return ok;
     }
   });
 }
 
-function fsPromptMove(win, state, items) {
+function fsPromptMove(panel, items) {
+  const state = getFsPanelState(panel);
   const folders = [];
   const collectFolders = (folder, depth = 0) => {
     if (folder !== FILE_SYSTEM) folders.push({ folder, depth });
@@ -2110,7 +2133,7 @@ function fsPromptMove(win, state, items) {
       if (moved > 0) {
         showToast('Movido', `${moved} elemento${moved === 1 ? '' : 's'} → ${folder.label || folder.name}`, 'folder-input');
         state.selected.clear();
-        fsRefresh(win, state);
+        fsRefresh(panel);
       }
     });
     menu.appendChild(btn);
@@ -2146,7 +2169,8 @@ function hideAllFsMoveMenus() {
   });
 }
 
-function fsDeleteSelection(win, state) {
+function fsDeleteSelection(panel) {
+  const state = getFsPanelState(panel);
   const items = Array.from(state.selected);
   if (items.length === 0) return;
 
@@ -2154,32 +2178,35 @@ function fsDeleteSelection(win, state) {
   state.selected.clear();
 
   showToast('Eliminado', `${items.length} elemento${items.length === 1 ? '' : 's'} eliminado${items.length === 1 ? '' : 's'}.`, 'trash-2');
-  fsRefresh(win, state);
+  fsRefresh(panel);
 }
 
-function fsCreateFolder(win, state) {
+function fsCreateFolder(panel) {
+  const state = getFsPanelState(panel);
   const parent = state.current;
   const baseName = 'Nueva carpeta';
   const unique = fsGenerateUniqueName(baseName, parent);
   fsAddItem(parent, { name: unique, label: unique, type: 'folder', children: [] });
   showToast('Carpeta creada', `"${unique}" creada.`, 'folder-plus');
-  fsRefresh(win, state);
+  fsRefresh(panel);
 }
 
-function fsCreateFile(win, state) {
+function fsCreateFile(panel) {
+  const state = getFsPanelState(panel);
   const parent = state.current;
   const baseName = 'Nuevo archivo.txt';
   const unique = fsGenerateUniqueName(baseName, parent);
   fsAddItem(parent, { name: unique, type: 'text', path: './message.txt', size: 'TXT · Documento' });
   showToast('Archivo creado', `"${unique}" creado.`, 'file-plus');
-  fsRefresh(win, state);
+  fsRefresh(panel);
 }
 
-/* ---- Render principal del explorador ---- */
-function fsRefresh(win, state) {
-  const explorer = win.querySelector('.files-preview');
-  if (!explorer) return;
+/* ---- Render principal del explorador (por panel) ---- */
+function fsRefresh(panel) {
+  if (!panel) return;
+  const state = getFsPanelState(panel);
 
+  const explorer = panel;
   const grid = explorer.querySelector('.files-grid');
   const titleEl = explorer.querySelector('[data-files-title]');
   const pathEl = explorer.querySelector('[data-files-path]');
@@ -2236,15 +2263,16 @@ function fsRefresh(win, state) {
   }).join('') : '<div class="files-no-results" style="grid-column: 1/-1; padding: 20px; text-align: center; color: var(--text-sub); font-size: 11px;">No hay elementos que coincidan.</div>';
 
   refreshIcons();
-  fsBindGridEvents(win, state);
+  fsBindGridEvents(panel);
 
   if (preview && state.selected.size !== 1) {
     preview.innerHTML = '<div class="files-empty-preview" style="color: var(--text-sub); font-size: 11px;">Seleccioná un archivo para previsualización interactiva rápida.</div>';
   }
 }
 
-function fsBindGridEvents(win, state) {
-  const explorer = win.querySelector('.files-preview');
+function fsBindGridEvents(panel) {
+  const state = getFsPanelState(panel);
+  const explorer = panel;
   if (!explorer) return;
   const grid = explorer.querySelector('.files-grid');
   if (!grid) return;
@@ -2275,7 +2303,7 @@ function fsBindGridEvents(win, state) {
         e.dataTransfer.setDragImage(el, el.offsetWidth / 2, el.offsetHeight / 2);
       } catch (_) {}
 
-      fsRefresh(win, state);
+      fsRefresh(panel);
     });
 
     el.addEventListener('dragend', () => {
@@ -2300,7 +2328,7 @@ function fsBindGridEvents(win, state) {
       el.addEventListener('drop', (e) => {
         e.preventDefault();
         el.classList.remove('drag-over');
-        fsHandleDrop(win, state, e, item);
+        fsHandleDrop(panel, e, item);
       });
     }
 
@@ -2321,16 +2349,16 @@ function fsBindGridEvents(win, state) {
         state.selected.add(item);
         state.lastClickedIndex = idx;
       }
-      fsRefresh(win, state);
-      fsUpdatePreview(win, state);
+      fsRefresh(panel);
+      fsUpdatePreview(panel);
     });
 
     el.addEventListener('dblclick', (e) => {
       e.stopPropagation();
       if (item.type === 'folder') {
-        fsOpenFolder(win, state, item);
+        fsOpenFolder(panel, item);
       } else {
-        fsUpdatePreview(win, state);
+        fsUpdatePreview(panel);
       }
     });
 
@@ -2340,9 +2368,9 @@ function fsBindGridEvents(win, state) {
       if (!state.selected.has(item)) {
         state.selected.clear();
         state.selected.add(item);
-        fsRefresh(win, state);
+        fsRefresh(panel);
       }
-      showFsContextMenu(e, state, item, win);
+      showFsContextMenu(e, panel, item, openWindows[panel.dataset.winId]?.win);
     });
   });
 
@@ -2350,7 +2378,7 @@ function fsBindGridEvents(win, state) {
     if (e.target === grid || e.target.classList.contains('files-no-results')) {
       state.selected.clear();
       state.lastClickedIndex = -1;
-      fsRefresh(win, state);
+      fsRefresh(panel);
       const preview = explorer.querySelector('[data-files-preview]');
       if (preview) preview.innerHTML = '<div class="files-empty-preview" style="color: var(--text-sub); font-size: 11px;">Seleccioná un archivo para previsualización interactiva rápida.</div>';
     }
@@ -2361,8 +2389,8 @@ function fsBindGridEvents(win, state) {
     e.preventDefault();
     e.stopPropagation();
     state.selected.clear();
-    fsRefresh(win, state);
-    showFsContextMenu(e, state, null, win);
+    fsRefresh(panel);
+    showFsContextMenu(e, panel, null, openWindows[panel.dataset.winId]?.win);
   });
 
   grid.addEventListener('dragover', (e) => {
@@ -2382,7 +2410,7 @@ function fsBindGridEvents(win, state) {
     if (e.target.closest('.explorer-item')) return;
     e.preventDefault();
     grid.classList.remove('drag-over-empty');
-    fsHandleDropToCurrent(win, state, e);
+    fsHandleDropToCurrent(panel, e);
   });
 
   const pathEl = explorer.querySelector('[data-files-path]');
@@ -2399,20 +2427,22 @@ function fsBindGridEvents(win, state) {
     pathEl.addEventListener('drop', (e) => {
       e.preventDefault();
       pathEl.classList.remove('drop-target');
-      fsHandleDropToFolder(win, state, e, FILE_SYSTEM);
+      fsHandleDropToFolder(panel, e, FILE_SYSTEM);
     });
   }
 }
 
-function fsHandleDrop(win, state, e, targetFolder) {
-  fsHandleDropToFolder(win, state, e, targetFolder);
+function fsHandleDrop(panel, e, targetFolder) {
+  fsHandleDropToFolder(panel, e, targetFolder);
 }
 
-function fsHandleDropToCurrent(win, state, e) {
-  fsHandleDropToFolder(win, state, e, state.current);
+function fsHandleDropToCurrent(panel, e) {
+  const state = getFsPanelState(panel);
+  fsHandleDropToFolder(panel, e, state.current);
 }
 
-function fsHandleDropToFolder(win, state, e, targetFolder) {
+function fsHandleDropToFolder(panel, e, targetFolder) {
+  const state = getFsPanelState(panel);
   let names = [];
   try {
     names = JSON.parse(e.dataTransfer.getData('application/x-nebula-fs-items') || '[]');
@@ -2447,11 +2477,12 @@ function fsHandleDropToFolder(win, state, e, targetFolder) {
   }
 
   state.selected.clear();
-  fsRefresh(win, state);
+  fsRefresh(panel);
 }
 
-function fsUpdatePreview(win, state) {
-  const explorer = win.querySelector('.files-preview');
+function fsUpdatePreview(panel) {
+  const state = getFsPanelState(panel);
+  const explorer = panel;
   if (!explorer) return;
   const preview = explorer.querySelector('[data-files-preview]');
   if (!preview) return;
@@ -2518,25 +2549,24 @@ function fsUpdatePreview(win, state) {
   refreshIcons();
 }
 
-function setupFiles(win) {
-  const explorer = win.querySelector('.files-preview');
-  if (!explorer) return;
+function setupFiles(panel) {
+  if (!panel) return;
 
   if (!FILE_SYSTEM || typeof FILE_SYSTEM !== 'object' || !Array.isArray(FILE_SYSTEM.children)) {
     FILE_SYSTEM = getDefaultFileSystem();
   }
 
-  const state = getFsState(win);
+  const state = getFsPanelState(panel);
   state.current = FILE_SYSTEM;
   state.trail = [FILE_SYSTEM];
   state.selected = new Set();
 
-  const grid = explorer.querySelector('.files-grid');
-  const search = explorer.querySelector('[data-files-search]');
-  const back = explorer.querySelector('[data-files-back]');
-  const forward = explorer.querySelector('[data-files-forward]');
+  const grid = panel.querySelector('.files-grid');
+  const search = panel.querySelector('[data-files-search]');
+  const back = panel.querySelector('[data-files-back]');
+  const forward = panel.querySelector('[data-files-forward]');
 
-  const toolbar = explorer.querySelector('.files-toolbar');
+  const toolbar = panel.querySelector('.files-toolbar');
   if (toolbar && !toolbar.querySelector('[data-files-toolbar-extras]')) {
     const extras = document.createElement('div');
     extras.setAttribute('data-files-toolbar-extras', '');
@@ -2559,18 +2589,18 @@ function setupFiles(win) {
 
     extras.querySelector('[data-files-newfolder]')?.addEventListener('click', (e) => {
       e.stopPropagation();
-      fsCreateFolder(win, state);
+      fsCreateFolder(panel);
     });
     extras.querySelector('[data-files-delete]')?.addEventListener('click', (e) => {
       e.stopPropagation();
-      fsDeleteSelection(win, state);
+      fsDeleteSelection(panel);
     });
   }
 
   if (search) {
     search.addEventListener('input', () => {
       state.query = search.value.trim().toLowerCase();
-      fsRefresh(win, state);
+      fsRefresh(panel);
     });
   }
 
@@ -2584,7 +2614,7 @@ function setupFiles(win) {
       state.query = '';
       if (search) search.value = '';
       state.selected.clear();
-      fsRefresh(win, state);
+      fsRefresh(panel);
     });
   }
   if (forward) {
@@ -2597,15 +2627,15 @@ function setupFiles(win) {
       state.query = '';
       if (search) search.value = '';
       state.selected.clear();
-      fsRefresh(win, state);
+      fsRefresh(panel);
     });
   }
 
-  explorer.querySelectorAll('[data-files-location]').forEach(button => {
+  panel.querySelectorAll('[data-files-location]').forEach(button => {
     button.addEventListener('click', () => {
       const folder = fsFindFolder(button.dataset.filesLocation);
       if (!folder) return;
-      explorer.querySelectorAll('[data-files-location]').forEach(b => b.classList.remove('active'));
+      panel.querySelectorAll('[data-files-location]').forEach(b => b.classList.remove('active'));
       button.classList.add('active');
       state.history.push(state.current);
       state.future = [];
@@ -2614,37 +2644,35 @@ function setupFiles(win) {
       state.query = '';
       if (search) search.value = '';
       state.selected.clear();
-      fsRefresh(win, state);
+      fsRefresh(panel);
     });
   });
 
-  win.addEventListener('keydown', (e) => {
+  panel.addEventListener('keydown', (e) => {
     const tag = document.activeElement?.tagName?.toLowerCase();
     const isInput = tag === 'input' || tag === 'textarea';
-    /* Ignoramos si el foco está dentro del modal de renombrar */
     if (e.target.closest('.fs-rename-modal')) return;
 
     if (e.key === 'F2' && state.selected.size === 1) {
       e.preventDefault();
       const item = Array.from(state.selected)[0];
-      fsPromptRename(win, state, item);
+      fsPromptRename(panel, item);
     } else if (e.key === 'Delete' && state.selected.size > 0 && !isInput) {
       e.preventDefault();
-      fsDeleteSelection(win, state);
+      fsDeleteSelection(panel);
     } else if (e.key === 'a' && (e.ctrlKey || e.metaKey) && !isInput) {
       e.preventDefault();
       state.visibleItems.forEach(item => state.selected.add(item));
-      fsRefresh(win, state);
+      fsRefresh(panel);
     } else if (e.key === 'n' && e.shiftKey && (e.ctrlKey || e.metaKey) && !isInput) {
       e.preventDefault();
-      fsCreateFolder(win, state);
+      fsCreateFolder(panel);
     }
   });
 
-  fsRefresh(win, state);
+  fsRefresh(panel);
 }
 
-/* ---- Búsqueda del launcher (prefijo ?) ---- */
 function searchFilesInSystem(query, folder = FILE_SYSTEM, trail = []) {
   const results = [];
   const q = (query || '').toLowerCase();
@@ -4506,6 +4534,293 @@ function setupWindowResize(win) {
   });
 }
 
+/* =====================================================
+   ★ WINDOW TABS — Sistema de pestañas internas
+===================================================== */
+
+function getWindowTabsState(win) {
+  if (!windowTabsState.has(win)) {
+    windowTabsState.set(win, {
+      tabs: [],
+      activeTabId: null,
+      counter: 0
+    });
+  }
+  return windowTabsState.get(win);
+}
+
+function generateTabId() {
+  return 'tab-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+}
+
+function createTabObject(appId, win) {
+  const state = getWindowTabsState(win);
+  state.counter++;
+  const tabId = generateTabId();
+
+  let label = '';
+  let kind = null;
+
+  if (appId === 'terminal') {
+    kind = 'terminal';
+    label = `Terminal ${state.counter}`;
+  } else if (appId === 'files') {
+    kind = 'files';
+    label = `Inicio ${state.counter}`;
+  } else {
+    label = `Tab ${state.counter}`;
+  }
+
+  return { id: tabId, label, kind };
+}
+
+function buildTabPanelHTML(appId, tab) {
+  if (appId === 'terminal') {
+    return `
+      <div class="window-tab-panel" data-tab-id="${tab.id}">
+        <div class="term-body">
+          <div class="prompt">
+            <span class="dir">~/nebula-os/gaming-core</span>
+            <span class="branch"> main [profile:${currentProfile}]</span>
+          </div>
+          <div class="term-history"></div>
+          <div class="prompt" style="margin-top:4px;">
+            <span class="time">❯</span>
+            <input class="term-input" autocomplete="off">
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (appId === 'files') {
+    return `
+      <div class="window-tab-panel" data-tab-id="${tab.id}">
+        <div class="files-preview">
+          <div class="files-toolbar">
+            <button type="button" class="files-nav-btn" data-files-back aria-label="Atrás"><i data-lucide="chevron-left"></i></button>
+            <button type="button" class="files-nav-btn" data-files-forward aria-label="Adelante"><i data-lucide="chevron-right"></i></button>
+            <i data-lucide="folder"></i>
+            <strong>Archivos Inteligentes</strong>
+            <span class="files-path" data-files-path>Inicio</span>
+            <label class="files-search"><i data-lucide="search"></i><input type="search" data-files-search placeholder="Buscar archivo o mod..." aria-label="Buscar"></label>
+          </div>
+          <div class="files-layout">
+            <aside class="files-sidebar">
+              <small>GAMING & MULTIMEDIA</small>
+              <button class="files-side-item" type="button" data-files-location="capturas"><i data-lucide="gamepad-2"></i> Capturas de Juegos</button>
+              <button class="files-side-item" type="button" data-files-location="mods"><i data-lucide="cpu"></i> MODs & Configs</button>
+              <button class="files-side-item" type="button" data-files-location="juegos"><i data-lucide="disc"></i> Juegos / ISOs</button>
+              <button class="files-side-item" type="button" data-files-location="musica"><i data-lucide="music"></i> Música & Audio</button>
+              <small>UBICACIONES</small>
+              <button class="files-side-item active" type="button" data-files-location="Inicio"><i data-lucide="home"></i> Inicio</button>
+              <button class="files-side-item" type="button" data-files-location="fondos"><i data-lucide="image"></i> Fondos</button>
+              <button class="files-side-item" type="button" data-files-location="imagenes"><i data-lucide="layers"></i> Imágenes</button>
+              <button class="files-side-item" type="button" data-files-location="vsc"><i data-lucide="code"></i> Proyectos</button>
+            </aside>
+            <section class="files-content">
+              <div class="files-content-bar">
+                <strong data-files-title>Inicio</strong>
+                <span>Explorador Inteligente</span>
+              </div>
+              <div class="files-grid"></div>
+              <aside class="files-preview-pane" data-files-preview>
+                <div class="files-empty-preview">Seleccioná un archivo para previsualización interactiva rápida.</div>
+              </aside>
+            </section>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  return `<div class="window-tab-panel" data-tab-id="${tab.id}"></div>`;
+}
+
+function renderWindowTabs(winId) {
+  const entry = openWindows[winId];
+  if (!entry?.win) return;
+  const win = entry.win;
+  const appId = entry.appId;
+
+  if (!TABBED_APPS.has(appId)) return;
+
+  const state = getWindowTabsState(win);
+  const tabsBar = win.querySelector('.window-tabs');
+  const panelsWrap = win.querySelector('.window-tab-panels');
+  if (!tabsBar || !panelsWrap) return;
+
+  /* Render tabs bar */
+  tabsBar.innerHTML = state.tabs.map(tab => {
+    const isActive = tab.id === state.activeTabId;
+    const icon = appId === 'terminal' ? 'terminal' : 'folder';
+    return `
+      <div class="window-tab ${isActive ? 'active' : ''}" data-tab-id="${tab.id}" role="tab">
+        <span class="window-tab-icon"><i data-lucide="${icon}"></i></span>
+        <span class="window-tab-title">${escapeHtml(tab.label)}</span>
+        <button class="window-tab-close" type="button" data-tab-close="${tab.id}" aria-label="Cerrar pestaña">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+    `;
+  }).join('') + `
+    <button class="window-tab-add" type="button" data-tab-add title="Nueva pestaña (Ctrl+T)">
+      <i data-lucide="plus"></i>
+    </button>
+  `;
+
+  /* Render panels — preservamos los existentes y creamos los que falten */
+  state.tabs.forEach(tab => {
+    let panel = panelsWrap.querySelector(`.window-tab-panel[data-tab-id="${tab.id}"]`);
+    if (!panel) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = buildTabPanelHTML(appId, tab).trim();
+      panel = wrap.firstElementChild;
+      panelsWrap.appendChild(panel);
+
+      /* Setup específico según app */
+      if (appId === 'terminal') {
+        setupTerminalPanel(panel);
+      } else if (appId === 'files') {
+        setupFiles(panel);
+      }
+    }
+    panel.classList.toggle('active', tab.id === state.activeTabId);
+  });
+
+  /* Remover paneles huérfanos (de tabs cerradas) */
+  panelsWrap.querySelectorAll('.window-tab-panel').forEach(panel => {
+    const tabId = panel.dataset.tabId;
+    if (!state.tabs.some(t => t.id === tabId)) {
+      panel.remove();
+    }
+  });
+
+  /* Bind events */
+  tabsBar.querySelectorAll('.window-tab').forEach(tabEl => {
+    const tabId = tabEl.dataset.tabId;
+    tabEl.addEventListener('click', (e) => {
+      if (e.target.closest('.window-tab-close')) return;
+      switchWindowTab(winId, tabId);
+    });
+    tabEl.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      /* Middle-click para cerrar */
+    });
+    tabEl.addEventListener('auxclick', (e) => {
+      if (e.button === 1) {
+        e.preventDefault();
+        closeWindowTab(winId, tabId);
+      }
+    });
+  });
+
+  tabsBar.querySelectorAll('[data-tab-close]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeWindowTab(winId, btn.dataset.tabClose);
+    });
+  });
+
+  tabsBar.querySelector('[data-tab-add]')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    addWindowTab(winId);
+  });
+
+  refreshIcons();
+  updateWindowTitleForTabs(winId);
+  syncAllSliders();
+}
+
+function updateWindowTitleForTabs(winId) {
+  const entry = openWindows[winId];
+  if (!entry?.win) return;
+  const win = entry.win;
+  const appId = entry.appId;
+  const app = APPS[appId];
+  if (!app) return;
+
+  const titleEl = win.querySelector('.window-identity strong');
+  if (!titleEl) return;
+
+  const instances = getInstancesOfApp(appId);
+  const hasMultipleInstances = instances.length > 1;
+  const instNumber = hasMultipleInstances ? getInstanceNumber(winId) : 1;
+
+  let baseTitle = app.title;
+  if (hasMultipleInstances) baseTitle += ` · #${instNumber}`;
+
+  if (TABBED_APPS.has(appId)) {
+    const state = getWindowTabsState(win);
+    const activeTab = state.tabs.find(t => t.id === state.activeTabId);
+    if (activeTab && state.tabs.length > 1) {
+      titleEl.textContent = `${baseTitle} · ${activeTab.label} (${state.tabs.findIndex(t => t.id === state.activeTabId) + 1}/${state.tabs.length})`;
+    } else if (activeTab) {
+      titleEl.textContent = baseTitle;
+    } else {
+      titleEl.textContent = baseTitle;
+    }
+  } else {
+    titleEl.textContent = baseTitle;
+  }
+}
+
+function addWindowTab(winId) {
+  const entry = openWindows[winId];
+  if (!entry?.win) return;
+  const win = entry.win;
+  const appId = entry.appId;
+  if (!TABBED_APPS.has(appId)) return;
+
+  const state = getWindowTabsState(win);
+  const newTab = createTabObject(appId, win);
+  state.tabs.push(newTab);
+  state.activeTabId = newTab.id;
+
+  renderWindowTabs(winId);
+  saveSessionState(true);
+}
+
+function closeWindowTab(winId, tabId) {
+  const entry = openWindows[winId];
+  if (!entry?.win) return;
+  const win = entry.win;
+  const appId = entry.appId;
+  if (!TABBED_APPS.has(appId)) return;
+
+  const state = getWindowTabsState(win);
+  const idx = state.tabs.findIndex(t => t.id === tabId);
+  if (idx === -1) return;
+
+  state.tabs.splice(idx, 1);
+
+  if (state.tabs.length === 0) {
+    closeApp(winId);
+    return;
+  }
+
+  if (state.activeTabId === tabId) {
+    const newActive = state.tabs[Math.max(0, idx - 1)];
+    state.activeTabId = newActive.id;
+  }
+
+  renderWindowTabs(winId);
+  saveSessionState(true);
+}
+
+function switchWindowTab(winId, tabId) {
+  const entry = openWindows[winId];
+  if (!entry?.win) return;
+  const win = entry.win;
+  const state = getWindowTabsState(win);
+  if (!state.tabs.some(t => t.id === tabId)) return;
+  if (state.activeTabId === tabId) return;
+  state.activeTabId = tabId;
+  renderWindowTabs(winId);
+  saveSessionState(true);
+}
+
 /* ================= GESTIÓN DE VENTANAS ================= */
 function openApp(appId, forceNew = false, restoreData = null) {
   const app = APPS[appId];
@@ -4537,6 +4852,9 @@ function openApp(appId, forceNew = false, restoreData = null) {
   win.id = `win-${winId}`;
   win.dataset.appId = appId;
   win.dataset.winId = winId;
+
+  const supportsTabs = TABBED_APPS.has(appId);
+  if (supportsTabs) win.classList.add('has-tabs');
 
   const wsToUse = isRestoring && restoreData.ws ? restoreData.ws : currentWorkspace;
   win.dataset.ws = String(wsToUse);
@@ -4586,6 +4904,17 @@ function openApp(appId, forceNew = false, restoreData = null) {
   const newInstNumber = getInstanceNumber(winId);
   const titleWithInstance = totalInstances > 1 ? `${app.title} · #${newInstNumber}` : app.title;
 
+  /* Contenido principal de la ventana */
+  let contentHTML = '';
+  if (supportsTabs) {
+    contentHTML = `
+      <div class="window-tabs" role="tablist"></div>
+      <div class="window-tab-panels"></div>
+    `;
+  } else {
+    contentHTML = getAppContent(appId);
+  }
+
   win.innerHTML = `
     <div class="titlebar">
       <div class="window-identity">
@@ -4602,7 +4931,7 @@ function openApp(appId, forceNew = false, restoreData = null) {
       </div>
     </div>
     <div class="wcontent">
-      ${getAppContent(appId)}
+      ${contentHTML}
     </div>
   `;
 
@@ -4611,11 +4940,33 @@ function openApp(appId, forceNew = false, restoreData = null) {
 
   openWindows[winId] = { appId, win };
 
-  if (appId === 'terminal') setupTerminal(win);
-  if (appId === 'nova') setupNovaAI(win);
-  if (appId === 'files') setupFiles(win);
-  if (appId === 'settings') renderSettingsApp();
-  if (appId === 'music') setupSpotifyApp(win);
+  /* Setup según app */
+  if (supportsTabs) {
+    /* Restaurar tabs guardadas o crear la primera */
+    const state = getWindowTabsState(win);
+    if (isRestoring && restoreData.tabs && Array.isArray(restoreData.tabs.tabs) && restoreData.tabs.tabs.length > 0) {
+      state.tabs = restoreData.tabs.tabs.map(t => ({
+        id: t.id || generateTabId(),
+        label: t.label || 'Tab',
+        kind: t.kind || null
+      }));
+      state.counter = restoreData.tabs.counter || state.tabs.length;
+      state.activeTabId = restoreData.tabs.activeTabId && state.tabs.some(t => t.id === restoreData.tabs.activeTabId)
+        ? restoreData.tabs.activeTabId
+        : state.tabs[0].id;
+    } else {
+      const firstTab = createTabObject(appId, win);
+      state.tabs = [firstTab];
+      state.activeTabId = firstTab.id;
+    }
+
+    renderWindowTabs(winId);
+  } else {
+    /* Apps no-tabbed: setup normal */
+    if (appId === 'nova') setupNovaAI(win);
+    if (appId === 'settings') renderSettingsApp();
+    if (appId === 'music') setupSpotifyApp(win);
+  }
 
   setupWindowResize(win);
 
@@ -4850,11 +5201,16 @@ function setupNovaAI(win) {
   refreshIcons();
 }
 
-/* ================= SETUP TERMINAL ================= */
-function setupTerminal(win) {
-  const history = win.querySelector('.term-history');
-  const input = win.querySelector('.term-input');
+/* ================= SETUP TERMINAL (por PANEL) ================= */
+function setupTerminalPanel(panel) {
+  if (!panel) return;
+
+  const history = panel.querySelector('.term-history');
+  const input = panel.querySelector('.term-input');
   if (!history || !input) return;
+
+  if (terminalPanelStates.has(panel)) return;
+  terminalPanelStates.set(panel, { history: [] });
 
   const appendLine = (text, className = '') => {
     const line = document.createElement('div');
@@ -4917,6 +5273,11 @@ function setupTerminal(win) {
     input.value = '';
     input.focus();
   });
+
+  /* Escribimos un banner inicial */
+  appendLine('Nebula OS Terminal (WezTerm Emulator)');
+  appendLine('Escribí "help" para ver comandos disponibles.');
+  appendLine('');
 
   input.focus();
 }
@@ -5067,6 +5428,7 @@ function getAppContent(id) {
   }
 
   if (id === 'files') {
+    /* Este HTML se usa solo cuando NO es tabbed (fallback). */
     return `
       <div class="files-preview">
         <div class="files-toolbar">
@@ -5344,6 +5706,7 @@ function getAppContent(id) {
   }
 
   if (id === 'terminal') {
+    /* Fallback para terminal no-tabbed (no debería pasar, ya que terminal es tabbed) */
     return `
     <div class="term-body">
       <div class="prompt">
@@ -5997,12 +6360,9 @@ function handleImageError(e) {
   e.target.classList.add('img-broken');
 }
 
-/* ★ FIX: setupKeyboardAccessibility ignora eventos del modal de renombrar y de inputs */
 function setupKeyboardAccessibility() {
   document.addEventListener('keydown', e => {
-    /* Ignoramos si el foco está dentro del modal de renombrar */
     if (e.target.closest('.fs-rename-modal')) return;
-    /* Ignoramos si el foco está dentro de un input o textarea */
     const tag = e.target?.tagName?.toLowerCase();
     if (tag === 'input' || tag === 'textarea') return;
 
