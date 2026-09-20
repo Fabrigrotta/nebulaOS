@@ -98,6 +98,12 @@ const WALLPAPERS = [
   { file: 'fondo 3.jpg', name: 'Solar', accent: '#f9c784', text: '#fff1dc', sub: '#d7bfa4', green: '#b8e986', panel: 'rgba(43,25,20,0.75)' }
 ];
 
+/* =====================================================
+   ★ THEME PRESETS
+   Cada preset define colores + parámetros visuales.
+   `shadowStrength` (0-100) controla la intensidad de
+   `--shadow` en :root, con la fórmula de applyShadowStrength().
+===================================================== */
 const THEME_PRESETS = {
   cyberpunk: {
     name: 'Cyberpunk Neón',
@@ -112,6 +118,7 @@ const THEME_PRESETS = {
     accentGreen: '#00ff88',
     accentRed: '#ff2a6d',
     accentOrange: '#ff9e00',
+    shadowStrength: 65,
     colors: ['#00ffcc', '#ff007f', '#7928ca', '#0a0e18']
   },
   catppuccin: {
@@ -127,6 +134,7 @@ const THEME_PRESETS = {
     accentGreen: '#a6e3a1',
     accentRed: '#f38ba8',
     accentOrange: '#fab387',
+    shadowStrength: 55,
     colors: ['#cba6f7', '#89b4fa', '#f5c2e7', '#1e1e2e']
   },
   synthwave: {
@@ -142,6 +150,7 @@ const THEME_PRESETS = {
     accentGreen: '#05ffa1',
     accentRed: '#ff3860',
     accentOrange: '#ffb86c',
+    shadowStrength: 60,
     colors: ['#ff71ce', '#01cdfe', '#05ffa1', '#1a102c']
   },
   stealth: {
@@ -157,7 +166,25 @@ const THEME_PRESETS = {
     accentGreen: '#34d399',
     accentRed: '#ef4444',
     accentOrange: '#f59e0b',
+    shadowStrength: 40,
     colors: ['#10b981', '#3b82f6', '#475569', '#08090c']
+  },
+  /* ★ Nord Arc: paleta SwiftUI + fondo neutro */
+  'nord-arc': {
+    name: 'Nord Arc',
+    accent: '#30B0C7',
+    accentGlow: 'rgba(48, 176, 199, 0.30)',
+    panelColor: 'rgba(28, 32, 38, 0.88)',
+    blurAmount: '14px',
+    borderRadius: '10px',
+    textMain: '#E5E5EA',
+    textSub: '#8E8E93',
+    bgDark: '#1C1C1E',
+    accentGreen: '#34C759',
+    accentRed: '#FF3B30',
+    accentOrange: '#FF9500',
+    shadowStrength: 35,
+    colors: ['#30B0C7', '#5856D6', '#AF52DE', '#1C1C1E']
   }
 };
 
@@ -216,6 +243,7 @@ let editingNoteIndex = null;
 let lastClockSecond = null;
 let lastClockMinute = null;
 
+/* ★ designerState ahora incluye shadowStrength */
 let designerState = {
   activePreset: 'catppuccin',
   accent: '#b4befe',
@@ -229,6 +257,7 @@ let designerState = {
   panelAlpha: 0.72,
   blurAmount: 18,
   borderRadius: 14,
+  shadowStrength: 55,
   dockStyle: 'floating',
   dockPreviewStyle: 'blueprint'
 };
@@ -292,7 +321,14 @@ const ANIM_RESTORE_MS = 360;
 
 const pendingClose = new Set();
 
-let settingsState = { animations: true, transparency: true, activeSettingsTab: 'designer' };
+/* ★ settingsState: nueva estructura con sub-tabs y carpeta del Designer */
+let settingsState = {
+  animations: true,
+  transparency: true,
+  activeSettingsTab: 'system',        // 'system' | 'designer' | 'gaming'
+  designerSubTab: 'styles',           // 'styles' | 'wallpapers'
+  designerExpanded: true
+};
 
 /* ================= HELPER DE ICONOGRAFÍA LUCIDE ================= */
 function refreshIcons() {
@@ -1183,7 +1219,25 @@ function simulateRamBoost() {
   showToast('Memoria Optimizada', `RAM liberada de ${previous}% a 17%. 4.8 GB liberados.`, 'sparkles');
 }
 
-/* ================= FEATURE 2: NEBULA DESIGNER ================= */
+/* =====================================================
+   ★ FEATURE 2: NEBULA DESIGNER — Temas y controles en vivo
+===================================================== */
+
+/**
+ * Aplica la intensidad de sombra a la variable global --shadow.
+ * s = value/100, se calcula offset-y, blur y alpha proporcionales.
+ */
+function applyShadowStrength(value) {
+  const clamped = Math.max(0, Math.min(100, Number(value) || 0));
+  const s = clamped / 100;
+  const y = Math.round(16 * s);
+  const blur = Math.round(40 * s);
+  const alpha = (0.15 + 0.55 * s).toFixed(2);
+  const shadowValue = `0 ${y}px ${blur}px rgba(0, 0, 0, ${alpha}), inset 0 1px 0 rgba(255, 255, 255, 0.08)`;
+  document.documentElement.style.setProperty('--shadow', shadowValue);
+  designerState.shadowStrength = clamped;
+}
+
 function applyThemePreset(presetId) {
   const preset = THEME_PRESETS[presetId];
   if (!preset) return;
@@ -1213,6 +1267,11 @@ function applyThemePreset(presetId) {
   root.style.setProperty('--accent-green', preset.accentGreen);
   root.style.setProperty('--accent-red', preset.accentRed);
   root.style.setProperty('--accent-orange', preset.accentOrange);
+
+  if (typeof preset.shadowStrength === 'number') {
+    applyShadowStrength(preset.shadowStrength);
+    designerState.shadowStrength = preset.shadowStrength;
+  }
 
   saveDesignerState();
   showToast('Estilo Aplicado', `Paleta visual "${preset.name}" activada.`, 'palette');
@@ -1294,6 +1353,14 @@ function setLivePanelAlpha(alpha) {
   document.documentElement.style.setProperty('--panel-color', newColor);
   const valEl = document.getElementById('designer-alpha-val');
   if (valEl) valEl.textContent = `${alpha}%`;
+  saveDesignerState();
+}
+
+/* ★ Control en vivo de sombra de ventanas */
+function setLiveShadowStrength(value) {
+  applyShadowStrength(value);
+  const valEl = document.getElementById('designer-shadow-val');
+  if (valEl) valEl.textContent = `${value}%`;
   saveDesignerState();
 }
 
@@ -1398,7 +1465,6 @@ function getCityById(cityId) {
 
 function getWmoInfo(code, isDay = 1) {
   const base = WMO_CODE_MAP[code] || { icon: 'cloud', label: 'Desconocido', color: '#94a3b8' };
-  // Si es de noche y está despejado, usar luna
   if (isDay === 0 && (code === 0 || code === 1)) {
     return { icon: 'moon', label: base.label, color: '#cba6f7' };
   }
@@ -1439,7 +1505,6 @@ async function fetchWeatherForCity(cityId, { force = false } = {}) {
     const dailyMin = daily.temperature_2m_min || [];
     const dailyCode = daily.weather_code || [];
 
-    // Los primeros 3 días del forecast (el día 0 es hoy, lo salteamos)
     const forecast = [];
     for (let i = 1; i < Math.min(4, dailyDates.length); i++) {
       forecast.push({
@@ -1463,7 +1528,6 @@ async function fetchWeatherForCity(cityId, { force = false } = {}) {
     weatherCache[cityId] = { data, fetchedAt: now };
     return { ok: true, data, fromCache: false };
   } catch (err) {
-    // Fallback: si hay caché vieja, usarla
     if (cached) {
       return { ok: true, data: cached.data, fromCache: true, stale: true };
     }
@@ -1477,14 +1541,10 @@ function formatWeatherDateForCity(city) {
       const dt = luxon.DateTime.now().setZone(city.timezone);
       const shortDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
       const shortMonths = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-      // luxon usa weekday 1=lunes ... 7=domingo
       const dayIdx = dt.weekday === 7 ? 0 : dt.weekday;
       return `${shortDays[dayIdx]} ${dt.day} de ${shortMonths[dt.month - 1]}`;
-    } catch (e) {
-      // fallback a fecha local
-    }
+    } catch (e) {}
   }
-  // Fallback: fecha local del navegador
   const now = new Date();
   const shortDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
   const shortMonths = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -1503,7 +1563,6 @@ function getCityTimeForHeader(city) {
 }
 
 function getForecastDayName(dateStr) {
-  // dateStr viene como "2025-09-22" (ISO date de Open-Meteo)
   const date = new Date(dateStr + 'T12:00:00Z');
   const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
   return days[date.getUTCDay()];
@@ -1637,7 +1696,6 @@ function openCityDropdown(widgetId, anchorEl) {
   let left = rect.left;
   let top = rect.bottom + 6;
 
-  // Ajustar si se sale de pantalla
   if (left + ddRect.width + 10 > window.innerWidth) {
     left = window.innerWidth - ddRect.width - 10;
   }
@@ -1674,7 +1732,6 @@ async function selectCityForWidget(widgetId, cityId) {
   const el = document.getElementById(widgetId);
   if (!el) return;
 
-  // Mostrar estado "cargando"
   const body = el.querySelector('.weather-body');
   if (body) {
     const iconWrap = body.querySelector('.weather-icon-wrap');
@@ -1685,11 +1742,9 @@ async function selectCityForWidget(widgetId, cityId) {
   }
   refreshIcons();
 
-  // Fetch datos de la nueva ciudad
   const result = await fetchWeatherForCity(cityId, { force: false });
   const data = result.ok ? result.data : null;
 
-  // Re-render del widget entero (para reflejar nueva ciudad + fecha/hora + datos)
   const titlebar = el.querySelector('.widget-titlebar');
   const body2 = el.querySelector('.weather-body');
   if (body2) {
@@ -1706,7 +1761,6 @@ async function selectCityForWidget(widgetId, cityId) {
 }
 
 function setupWeatherAutoRefresh() {
-  // Refresco global cada 15 min: recorre todos los widgets de clima y fuerza fetch
   setInterval(() => {
     desktopWidgets.filter(w => w.type === 'weather').forEach(async (widget) => {
       const result = await fetchWeatherForCity(widget.cityId, { force: true });
@@ -1805,7 +1859,6 @@ function renderDesktopWidgets() {
   if (!layer) return;
   layer.innerHTML = '';
 
-  // Filtrar widgets válidos (por si quedaron fantasmas de versiones viejas)
   const validTypes = new Set(['clock', 'weather', 'gaming-hub']);
   desktopWidgets = desktopWidgets.filter(w => validTypes.has(w.type));
 
@@ -1843,11 +1896,9 @@ function renderDesktopWidgets() {
       title = 'CLIMA';
       iconName = 'cloud-sun';
       extraClass = 'weather-widget';
-      // Render inicial: si hay caché, la usamos. Si no, mostramos estado de carga y disparamos fetch.
       const cached = weatherCache[widget.cityId]?.data;
       bodyHTML = renderWeatherWidgetHTML(widget, cached);
 
-      // Si no hay caché ni datos frescos, disparamos fetch asíncrono
       if (!cached) {
         fetchWeatherForCity(widget.cityId, { force: false }).then(result => {
           if (!result.ok) return;
@@ -1918,7 +1969,6 @@ function setupDraggableWidget(el, widgetData) {
 }
 
 function updateWidgetStats() {
-  // Actualiza el reloj digital si existe
   const clockTime = document.getElementById('w-clock-time');
   if (clockTime) {
     const now = new Date();
@@ -1997,6 +2047,10 @@ function parseAndExecuteNovaAction(query) {
     applyThemePreset('stealth');
     actionTaken = 'Tema Dark Stealth aplicado';
     replyText = 'Activé el modo Dark Stealth con bajo contraste y acentos esmeralda para descansar la vista.';
+  } else if (q.includes('nord') || q.includes('arc')) {
+    applyThemePreset('nord-arc');
+    actionTaken = 'Tema Nord Arc aplicado';
+    replyText = 'Listo. Apliqué el tema Nord Arc, con acento cyan y estética sobria.';
   } else if (q.includes('activa') && (q.includes('modo juego') || q.includes('game mode'))) {
     toggleGameMode(true);
     actionTaken = 'Modo Juego Activado';
@@ -3348,19 +3402,24 @@ function loadPersistedState() {
       root.style.setProperty('--radius-lg', `${parseInt(designerState.borderRadius, 10) + 6}px`);
       document.body.classList.toggle('dock-unified-bottom', designerState.dockStyle === 'unified-bottom');
       applyDockPreviewStyle(designerState.dockPreviewStyle || 'blueprint');
+
+      if (typeof designerState.shadowStrength === 'number') {
+        applyShadowStrength(designerState.shadowStrength);
+      } else {
+        applyShadowStrength(55);
+      }
     } else {
       applyDockPreviewStyle('blueprint');
+      applyShadowStrength(55);
     }
 
     const savedWidgets = JSON.parse(localStorage.getItem(WIDGETS_STORAGE_KEY));
     if (Array.isArray(savedWidgets)) {
-      // Filtrar widgets válidos y migrar weather viejos (que tenían city/condition/temp/forecast)
       const validTypes = new Set(['clock', 'weather', 'gaming-hub']);
       desktopWidgets = savedWidgets
         .filter(w => w && typeof w === 'object' && validTypes.has(w.type))
         .map(w => {
           if (w.type === 'weather') {
-            // Si tiene cityId, respetarlo. Si no, usar el default.
             const cityId = w.cityId || DEFAULT_WEATHER_CITY_ID;
             return {
               id: w.id || ('widget-weather-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)),
@@ -5060,7 +5119,8 @@ function getWindowTabsState(win) {
     windowTabsState.set(win, {
       tabs: [],
       activeTabId: null,
-      counter: 0    });
+      counter: 0
+    });
   }
   return windowTabsState.get(win);
 }
@@ -5985,7 +6045,40 @@ function renderSettingsApp() {
 
 function setSettingsTab(tabName) {
   settingsState.activeSettingsTab = tabName;
+
+  /* Auto-expandir carpeta al activar Designer */
+  if (tabName === 'designer') {
+    settingsState.designerExpanded = true;
+  } else {
+    /* Auto-colapsar carpeta al cambiar a otra sección */
+    settingsState.designerExpanded = false;
+  }
+
+  saveSettingsState();
   renderSettingsApp();
+}
+
+/* ★ Nuevo: colapsar/expandir carpeta del Designer */
+function toggleDesignerFolder() {
+  settingsState.designerExpanded = !settingsState.designerExpanded;
+  saveSettingsState();
+  renderSettingsApp();
+}
+
+/* ★ Nuevo: cambiar sub-tab dentro del Designer (Estilos / Fondos) */
+function setDesignerSubTab(subTab) {
+  if (subTab !== 'styles' && subTab !== 'wallpapers') return;
+  settingsState.designerSubTab = subTab;
+  settingsState.activeSettingsTab = 'designer';
+  settingsState.designerExpanded = true;
+  saveSettingsState();
+  renderSettingsApp();
+}
+
+function saveSettingsState() {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settingsState));
+  } catch (e) {}
 }
 
 /* ================= CONTENIDO DE APPS (HTML DINÁMICO) ================= */
@@ -6062,18 +6155,55 @@ function getAppContent(id) {
   }
 
   if (id === 'settings') {
-    const activeTab = settingsState.activeSettingsTab || 'designer';
+    const activeTab = settingsState.activeSettingsTab || 'system';
+    const designerExpanded = settingsState.designerExpanded !== false;
+    const designerSubTab = settingsState.designerSubTab || 'styles';
+
+    /* Determinar qué contenido mostrar en el panel principal */
+    let mainContent = '';
+    if (activeTab === 'system') {
+      mainContent = getSystemSettingsHTML();
+    } else if (activeTab === 'gaming') {
+      mainContent = getGamingSettingsHTML();
+    } else if (activeTab === 'designer') {
+      mainContent = getDesignerSettingsHTML();
+    }
+
     return `
       <div class="settings-preview">
         <aside class="settings-nav">
           <div class="settings-nav-title"><i data-lucide="sliders"></i> Ajustes</div>
-          <div class="settings-nav-item ${activeTab === 'designer' ? 'active' : ''}" onclick="setSettingsTab('designer')"><i data-lucide="palette"></i> Nebula Designer</div>
-          <div class="settings-nav-item ${activeTab === 'appearance' ? 'active' : ''}" onclick="setSettingsTab('appearance')"><i data-lucide="image"></i> Fondos de Pantalla</div>
-          <div class="settings-nav-item ${activeTab === 'gaming' ? 'active' : ''}" onclick="setSettingsTab('gaming')"><i data-lucide="gamepad-2"></i> Gaming & HUD</div>
-          <div class="settings-nav-item ${activeTab === 'system' ? 'active' : ''}" onclick="setSettingsTab('system')"><i data-lucide="cpu"></i> Sistema</div>
+
+          <div class="settings-nav-item ${activeTab === 'system' ? 'active' : ''}" onclick="setSettingsTab('system')">
+            <i data-lucide="monitor"></i> Sistema
+          </div>
+
+          <!-- ★ Carpeta Nebula Designer con sub-ítems -->
+          <div class="settings-nav-folder ${activeTab === 'designer' ? 'active' : ''} ${designerExpanded ? 'expanded' : ''}">
+            <div class="settings-nav-folder-header" onclick="setSettingsTab('designer')">
+              <span class="settings-nav-folder-label">
+                <i data-lucide="palette"></i> Nebula Designer
+              </span>
+              <button type="button" class="settings-nav-folder-toggle" onclick="event.stopPropagation(); toggleDesignerFolder();" aria-label="Expandir/colapsar carpeta">
+                <i data-lucide="chevron-down" class="settings-nav-folder-chevron"></i>
+              </button>
+            </div>
+            <div class="settings-nav-sub ${designerExpanded ? 'expanded' : ''}">
+              <div class="settings-nav-subitem ${activeTab === 'designer' && designerSubTab === 'styles' ? 'active' : ''}" onclick="setDesignerSubTab('styles')">
+                <i data-lucide="paintbrush"></i> Estilos
+              </div>
+              <div class="settings-nav-subitem ${activeTab === 'designer' && designerSubTab === 'wallpapers' ? 'active' : ''}" onclick="setDesignerSubTab('wallpapers')">
+                <i data-lucide="image"></i> Fondos de Pantalla
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-nav-item ${activeTab === 'gaming' ? 'active' : ''}" onclick="setSettingsTab('gaming')">
+            <i data-lucide="gamepad-2"></i> Gaming & HUD
+          </div>
         </aside>
         <section class="settings-main">
-          ${activeTab === 'designer' ? getDesignerSettingsHTML() : activeTab === 'appearance' ? getAppearanceSettingsHTML() : activeTab === 'gaming' ? getGamingSettingsHTML() : getSystemSettingsHTML()}
+          ${mainContent}
         </section>
       </div>
     `;
@@ -6394,7 +6524,8 @@ function getWidgetsGalleryHTML() {
   `;
 }
 
-function getDesignerSettingsHTML() {
+/* ★ Sub-tab "Estilos" del Designer */
+function getDesignerStylesHTML() {
   const currentStyle = designerState.dockPreviewStyle || 'blueprint';
   const demoApp = APPS['terminal'];
 
@@ -6449,6 +6580,16 @@ function getDesignerSettingsHTML() {
         <strong>Dark Stealth</strong>
         <small>Carbón táctico y esmeralda de bajo consumo visual</small>
       </div>
+
+      <div class="theme-preset-card ${designerState.activePreset === 'nord-arc' ? 'selected' : ''}" onclick="applyThemePreset('nord-arc')">
+        <div class="preset-colors-row">
+          <span class="preset-color-chip" style="background:#30B0C7;"></span>
+          <span class="preset-color-chip" style="background:#5856D6;"></span>
+          <span class="preset-color-chip" style="background:#AF52DE;"></span>
+        </div>
+        <strong>Nord Arc</strong>
+        <small>Acento cyan con fondo neutro oscuro, estética limpia y sobria</small>
+      </div>
     </div>
 
     <div class="settings-section-label">Ajuste Fino en Vivo (CSS Variables)</div>
@@ -6491,6 +6632,17 @@ function getDesignerSettingsHTML() {
         <div class="designer-control-input">
           <input type="range" min="20" max="95" value="${Math.round(designerState.panelAlpha * 100)}" oninput="setLivePanelAlpha(this.value)">
           <span id="designer-alpha-val">${Math.round(designerState.panelAlpha * 100)}%</span>
+        </div>
+      </div>
+
+      <div class="designer-control-item">
+        <div class="designer-control-info">
+          <strong>Sombras de Ventanas (--shadow)</strong>
+          <small>Intensidad de la sombra proyectada por ventanas y paneles</small>
+        </div>
+        <div class="designer-control-input">
+          <input type="range" min="0" max="100" value="${designerState.shadowStrength ?? 55}" oninput="setLiveShadowStrength(this.value)">
+          <span id="designer-shadow-val">${designerState.shadowStrength ?? 55}%</span>
         </div>
       </div>
     </div>
@@ -6575,6 +6727,48 @@ function getDesignerSettingsHTML() {
   `;
 }
 
+/* ★ Sub-tab "Fondos de Pantalla" del Designer */
+function getDesignerWallpapersHTML() {
+  return `
+    <div class="settings-heading">
+      <div>
+        <div class="settings-kicker">NEBULA DESIGNER</div>
+        <h2>Fondos de Pantalla</h2>
+        <p>Elegí la escena de fondo para tu escritorio. No afectará a tus colores y ajustes de diseño actuales.</p>
+      </div>
+      <div class="settings-status"><span></span> Fondo Activo: ${WALLPAPERS[currentWallpaperIndex]?.name || 'Nebula'}</div>
+    </div>
+
+    <div class="settings-section-label">Galería de Fondos Disponibles</div>
+    <div class="designer-presets-grid">
+      <div class="theme-preset-card ${currentWallpaperIndex === 0 ? 'selected' : ''}" onclick="applyWallpaper(0)">
+        <div style="height:65px; border-radius:8px; background:url('./fondos/fondo principal.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
+        <strong>Fondo Nebula</strong>
+        <small>Violeta espacial profundo y nebulosas estelares</small>
+      </div>
+      <div class="theme-preset-card ${currentWallpaperIndex === 1 ? 'selected' : ''}" onclick="applyWallpaper(1)">
+        <div style="height:65px; border-radius:8px; background:url('./fondos/fondo 2.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
+        <strong>Fondo Aurora</strong>
+        <small>Azul ártico cósmico y resplandor polar</small>
+      </div>
+      <div class="theme-preset-card ${currentWallpaperIndex === 2 ? 'selected' : ''}" onclick="applyWallpaper(2)">
+        <div style="height:65px; border-radius:8px; background:url('./fondos/fondo 3.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
+        <strong>Fondo Solar</strong>
+        <small>Dorado estelar cálido y destellos solares</small>
+      </div>
+    </div>
+  `;
+}
+
+/* ★ Router del contenido del Designer según sub-tab */
+function getDesignerSettingsHTML() {
+  const subTab = settingsState.designerSubTab || 'styles';
+  if (subTab === 'wallpapers') {
+    return getDesignerWallpapersHTML();
+  }
+  return getDesignerStylesHTML();
+}
+
 function getGamingSettingsHTML() {
   return `
     <div class="settings-heading">
@@ -6612,38 +6806,6 @@ function getGamingSettingsHTML() {
       <button class="profile-chip ${currentProfile === 'gamer' ? 'active' : ''}" onclick="switchProfile('gamer')"><i data-lucide="gamepad-2"></i> Gamer</button>
       <button class="profile-chip ${currentProfile === 'streamer' ? 'active' : ''}" onclick="switchProfile('streamer')"><i data-lucide="radio"></i> Streamer</button>
       <button class="profile-chip ${currentProfile === 'studio' ? 'active' : ''}" onclick="switchProfile('studio')"><i data-lucide="terminal"></i> Estudio</button>
-    </div>
-  `;
-}
-
-function getAppearanceSettingsHTML() {
-  return `
-    <div class="settings-heading">
-      <div>
-        <div class="settings-kicker">PERSONALIZACIÓN DE ESCRITORIO</div>
-        <h2>Fondos de Pantalla</h2>
-        <p>Elegí la escena de fondo para tu escritorio. No afectará a tus colores y ajustes de diseño actuales.</p>
-      </div>
-      <div class="settings-status"><span></span> Fondo Activo: ${WALLPAPERS[currentWallpaperIndex]?.name || 'Nebula'}</div>
-    </div>
-
-    <div class="settings-section-label">Galería de Fondos Disponibles</div>
-    <div class="designer-presets-grid">
-      <div class="theme-preset-card ${currentWallpaperIndex === 0 ? 'selected' : ''}" onclick="applyWallpaper(0)">
-        <div style="height:65px; border-radius:8px; background:url('./fondos/fondo principal.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
-        <strong>Fondo Nebula</strong>
-        <small>Violeta espacial profundo y nebulosas estelares</small>
-      </div>
-      <div class="theme-preset-card ${currentWallpaperIndex === 1 ? 'selected' : ''}" onclick="applyWallpaper(1)">
-        <div style="height:65px; border-radius:8px; background:url('./fondos/fondo 2.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
-        <strong>Fondo Aurora</strong>
-        <small>Azul ártico cósmico y resplandor polar</small>
-      </div>
-      <div class="theme-preset-card ${currentWallpaperIndex === 2 ? 'selected' : ''}" onclick="applyWallpaper(2)">
-        <div style="height:65px; border-radius:8px; background:url('./fondos/fondo 3.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
-        <strong>Fondo Solar</strong>
-        <small>Dorado estelar cálido y destellos solares</small>
-      </div>
     </div>
   `;
 }
@@ -6759,6 +6921,7 @@ function buildLauncherActions() {
     { id: 'action-theme-catppuccin', title: 'Tema: Minimal Catppuccin', sub: 'Paleta pastel suave y relajante', icon: 'palette', category: 'Tema', keywords: ['tema', 'catppuccin', 'minimal', 'theme'], run: () => applyThemePreset('catppuccin') },
     { id: 'action-theme-synthwave', title: 'Tema: Retro Synthwave', sub: 'Magenta brillante, estética 80s', icon: 'palette', category: 'Tema', keywords: ['tema', 'synthwave', 'retro', 'theme'], run: () => applyThemePreset('synthwave') },
     { id: 'action-theme-stealth', title: 'Tema: Dark Stealth', sub: 'Carbón táctico, esmeralda de bajo consumo', icon: 'palette', category: 'Tema', keywords: ['tema', 'stealth', 'oscuro', 'dark', 'theme'], run: () => applyThemePreset('stealth') },
+    { id: 'action-theme-nord-arc', title: 'Tema: Nord Arc', sub: 'Acento cyan con fondo neutro oscuro', icon: 'palette', category: 'Tema', keywords: ['tema', 'nord', 'arc', 'theme', 'cyan'], run: () => applyThemePreset('nord-arc') },
     { id: 'action-workspace-1', title: 'Ir al Space 1', sub: 'Cambiar al primer escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '1'], run: () => switchWorkspace(1) },
     { id: 'action-workspace-2', title: 'Ir al Space 2', sub: 'Cambiar al segundo escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '2'], run: () => switchWorkspace(2) },
     { id: 'action-workspace-3', title: 'Ir al Space 3', sub: 'Cambiar al tercer escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '3'], run: () => switchWorkspace(3) },
@@ -6787,7 +6950,8 @@ function buildLauncherCommands() {
     { id: 'cmd-theme-cyberpunk', title: '> theme cyberpunk', sub: 'Aplicar tema Cyberpunk Neón', icon: 'palette', category: 'Comando', keywords: ['theme cyberpunk', 'tema cyberpunk'], run: () => applyThemePreset('cyberpunk') },
     { id: 'cmd-theme-catppuccin', title: '> theme catppuccin', sub: 'Aplicar tema Minimal Catppuccin', icon: 'palette', category: 'Comando', keywords: ['theme catppuccin', 'tema catppuccin'], run: () => applyThemePreset('catppuccin') },
     { id: 'cmd-theme-synthwave', title: '> theme synthwave', sub: 'Aplicar tema Retro Synthwave', icon: 'palette', category: 'Comando', keywords: ['theme synthwave', 'tema synthwave'], run: () => applyThemePreset('synthwave') },
-    { id: 'cmd-theme-stealth', title: '> theme stealth', sub: 'Aplicar tema Dark Stealth', icon: 'palette', category: 'Comando', keywords: ['theme stealth', 'tema stealth'], run: () => applyThemePreset('stealth') }
+    { id: 'cmd-theme-stealth', title: '> theme stealth', sub: 'Aplicar tema Dark Stealth', icon: 'palette', category: 'Comando', keywords: ['theme stealth', 'tema stealth'], run: () => applyThemePreset('stealth') },
+    { id: 'cmd-theme-nord-arc', title: '> theme nord-arc', sub: 'Aplicar tema Nord Arc', icon: 'palette', category: 'Comando', keywords: ['theme nord', 'tema nord', 'nord arc'], run: () => applyThemePreset('nord-arc') }
   ];
 }
 
