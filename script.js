@@ -206,6 +206,48 @@ const DOCK_PREVIEW_STYLES = {
   compact:   { name: 'Compacto',         desc: 'Solo lo esencial: ícono y datos',                   available: false }
 };
 
+/* =====================================================
+   ★ NEBULA SHIELD — Catálogo de features de seguridad
+===================================================== */
+const SHIELD_FEATURES = {
+  antivirus: {
+    id: 'antivirus',
+    name: 'Antivirus en Tiempo Real',
+    description: 'Escaneo continuo de archivos, procesos y descargas',
+    icon: 'shield-check',
+    color: '#00ff88'
+  },
+  firewall: {
+    id: 'firewall',
+    name: 'Firewall',
+    description: 'Bloqueo de conexiones entrantes no autorizadas',
+    icon: 'flame',
+    color: '#ff9e00'
+  },
+  encryption: {
+    id: 'encryption',
+    name: 'Cifrado de Disco',
+    description: 'Protección AES-256 de todo el almacenamiento',
+    icon: 'lock',
+    color: '#7c3aed'
+  },
+  behavior: {
+    id: 'behavior',
+    name: 'Análisis de Comportamiento',
+    description: 'Detección de procesos sospechosos por IA',
+    icon: 'brain',
+    color: '#3a86ff'
+  }
+};
+
+const VPN_SERVERS = [
+  { id: 'amsterdam', name: 'Ámsterdam',   country: 'Países Bajos', flag: '🇳🇱', ping: 42 },
+  { id: 'newyork',   name: 'Nueva York',  country: 'EE.UU.',       flag: '🇺🇸', ping: 87 },
+  { id: 'tokyo',     name: 'Tokio',       country: 'Japón',        flag: '🇯🇵', ping: 156 },
+  { id: 'zurich',    name: 'Zúrich',      country: 'Suiza',        flag: '🇨🇭', ping: 35 },
+  { id: 'buenosaires', name: 'Buenos Aires', country: 'Argentina', flag: '🇦🇷', ping: 18 }
+];
+
 /* ================= VARIABLES GLOBALES DE ESTADO ================= */
 let openWindows = {};
 let appInstanceCounter = {};
@@ -262,6 +304,49 @@ let designerState = {
   dockPreviewStyle: 'blueprint'
 };
 
+/* =====================================================
+   ★ NEBULA SHIELD — Estado de seguridad
+===================================================== */
+let shieldState = {
+  antivirus: true,
+  firewall: true,
+  encryption: true,
+  behavior: false,
+  vpnConnected: false,
+  vpnServer: 'amsterdam',
+  lastScan: null,          // timestamp
+  scanInProgress: false,
+  scanProgress: 0,
+  scanCurrentFile: '',
+  threatsFound: 0,
+  threatsQuarantined: 0,
+  scheduledScan: true,
+  scanHistory: []          // [{ date, threats, duration }]
+};
+
+/* =====================================================
+   ★ NEBULA UPDATES — Estado de actualizaciones
+===================================================== */
+let updatesState = {
+  currentVersion: '2.5.0 Ultimate',
+  currentCodename: 'Nebula',
+  availableVersion: '2.6.0',
+  availableCodename: 'Andromeda',
+  updateAvailable: true,
+  updateSize: '1.2 GB',
+  updateCheckedAt: null,
+  updateInProgress: false,
+  updateProgress: 0,
+  updateStage: '',         // 'descargando' | 'instalando' | 'verificando'
+  autoUpdate: true,
+  betaChannel: false,
+  updateHistory: [
+    { version: '2.5.0', codename: 'Ultimate', date: 'Hace 3 semanas', size: '980 MB' },
+    { version: '2.4.2', codename: 'Gamer',    date: 'Hace 2 meses',   size: '1.1 GB' },
+    { version: '2.4.0', codename: 'Quantum',  date: 'Hace 4 meses',   size: '850 MB' }
+  ]
+};
+
 let desktopWidgets = [];
 
 let dockPreviewEl = null;
@@ -310,6 +395,8 @@ const BRIGHTNESS_STORAGE_KEY = 'nebula-os:brightness';
 const CALENDAR_NOTES_STORAGE_KEY = 'nebula-os:calendar-notes';
 const SESSION_STORAGE_KEY = 'nebula-os:session';
 const FILESYSTEM_STORAGE_KEY = 'nebula-os:filesystem';
+const SHIELD_STORAGE_KEY = 'nebula-os:shield';
+const UPDATES_STORAGE_KEY = 'nebula-os:updates';
 
 const Z_INDEX_NORMALIZE_THRESHOLD = 800;
 const Z_INDEX_BASE = 100;
@@ -325,7 +412,7 @@ const pendingClose = new Set();
 let settingsState = {
   animations: true,
   transparency: true,
-  activeSettingsTab: 'system',        // 'system' | 'designer' | 'gaming'
+  activeSettingsTab: 'system',        // 'system' | 'designer' | 'gaming' | 'shield' | 'updates'
   designerSubTab: 'styles',           // 'styles' | 'wallpapers'
   designerExpanded: true
 };
@@ -1219,6 +1306,11 @@ function simulateRamBoost() {
   showToast('Memoria Optimizada', `RAM liberada de ${previous}% a 17%. 4.8 GB liberados.`, 'sparkles');
 }
 
+/* Alias usado en Ajustes > Sistema */
+function simulateCleanRam() {
+  simulateRamBoost();
+}
+
 /* =====================================================
    ★ FEATURE 2: NEBULA DESIGNER — Temas y controles en vivo
 ===================================================== */
@@ -2063,6 +2155,18 @@ function parseAndExecuteNovaAction(query) {
     simulateRamBoost();
     actionTaken = 'RAM Optimizada y Cache Purgada';
     replyText = 'He ejecutado una limpieza profunda de procesos inactivos y cache. La memoria RAM quedó optimizada.';
+  } else if (q.includes('antivirus') || q.includes('escaneo') || q.includes('escanea') || q.includes('seguridad') || q.includes('virus')) {
+    openApp('settings');
+    settingsState.activeSettingsTab = 'shield';
+    renderSettingsApp();
+    actionTaken = 'Nebula Shield abierto';
+    replyText = 'He abierto el centro de seguridad Nebula Shield. Podés ejecutar un escaneo completo desde ahí.';
+  } else if (q.includes('actualiza') || q.includes('update') || q.includes('version') || q.includes('versión')) {
+    openApp('settings');
+    settingsState.activeSettingsTab = 'updates';
+    renderSettingsApp();
+    actionTaken = 'Centro de Actualizaciones abierto';
+    replyText = 'He abierto el centro de actualizaciones. Podés verificar si hay nuevas versiones disponibles.';
   } else if (q.includes('musica') || q.includes('música') || q.includes('cancion') || q.includes('canción') || q.includes('spotify') || q.includes('cerati') || q.includes('nirvana')) {
     toggleMediaPlayback();
     const track = TRACKS[currentTrackIndex];
@@ -3455,6 +3559,18 @@ function loadPersistedState() {
 
     const rawNotes = JSON.parse(localStorage.getItem(CALENDAR_NOTES_STORAGE_KEY) || '{}');
     calendarState.notes = migrateNotesFormat(rawNotes);
+
+    /* ★ NEBULA SHIELD — Estado persistente */
+    const savedShield = JSON.parse(localStorage.getItem(SHIELD_STORAGE_KEY));
+    if (savedShield && typeof savedShield === 'object') {
+      shieldState = { ...shieldState, ...savedShield, scanInProgress: false, scanProgress: 0 };
+    }
+
+    /* ★ NEBULA UPDATES — Estado persistente */
+    const savedUpdates = JSON.parse(localStorage.getItem(UPDATES_STORAGE_KEY));
+    if (savedUpdates && typeof savedUpdates === 'object') {
+      updatesState = { ...updatesState, ...savedUpdates, updateInProgress: false, updateProgress: 0, updateStage: '' };
+    }
   } catch (e) {}
 }
 
@@ -6081,6 +6197,629 @@ function saveSettingsState() {
   } catch (e) {}
 }
 
+/* =====================================================
+   ★ NEBULA SHIELD — Lógica y Persistencia
+===================================================== */
+
+function saveShieldState() {
+  try {
+    const serializable = { ...shieldState, scanInProgress: false, scanProgress: 0, scanCurrentFile: '' };
+    localStorage.setItem(SHIELD_STORAGE_KEY, JSON.stringify(serializable));
+  } catch (e) {}
+}
+
+function toggleShieldFeature(featureId, explicitState = null) {
+  const feature = SHIELD_FEATURES[featureId];
+  if (!feature) return;
+
+  const newState = explicitState !== null ? explicitState : !shieldState[featureId];
+  shieldState[featureId] = newState;
+  saveShieldState();
+
+  showToast(
+    `${feature.name}: ${newState ? 'Activado' : 'Desactivado'}`,
+    newState ? `${feature.description} está ahora en ejecución.` : `${feature.description} fue pausado.`,
+    newState ? 'shield-check' : 'shield-off'
+  );
+
+  renderSettingsApp();
+}
+
+function toggleVpnConnection() {
+  const shieldBtn = document.getElementById('shield-vpn-btn');
+  const statusEl = document.getElementById('shield-vpn-status');
+
+  if (!shieldState.vpnConnected) {
+    if (shieldBtn) {
+      shieldBtn.disabled = true;
+      shieldBtn.innerHTML = '<i data-lucide="loader-circle" class="shield-spinner"></i> Conectando...';
+      refreshIcons();
+    }
+    setTimeout(() => {
+      shieldState.vpnConnected = true;
+      saveShieldState();
+      showToast('VPN Conectada', `Servidor: ${VPN_SERVERS.find(s => s.id === shieldState.vpnServer)?.name || 'Ámsterdam'}`, 'globe');
+      renderSettingsApp();
+    }, 1400);
+  } else {
+    shieldState.vpnConnected = false;
+    saveShieldState();
+    showToast('VPN Desconectada', 'Conexión segura finalizada.', 'globe-off');
+    renderSettingsApp();
+  }
+}
+
+function selectVpnServer(serverId) {
+  const server = VPN_SERVERS.find(s => s.id === serverId);
+  if (!server) return;
+  if (shieldState.vpnConnected) {
+    showToast('VPN activa', 'Desconectá la VPN antes de cambiar de servidor.', 'info');
+    return;
+  }
+  shieldState.vpnServer = serverId;
+  saveShieldState();
+  renderSettingsApp();
+}
+
+function runShieldScan() {
+  if (shieldState.scanInProgress) return;
+
+  shieldState.scanInProgress = true;
+  shieldState.scanProgress = 0;
+  shieldState.threatsFound = 0;
+
+  const SCAN_ITEMS = [
+    '/System/Kernel/nebula-core.bin',
+    '/Users/nebula/Documents/facturas_2026.pdf',
+    '/Games/Steam/steamapps/cs2.exe',
+    '/Downloads/cyberpunk_mod_v3.pak',
+    '/System/Drivers/gpu_nvidia.sys',
+    '/Users/nebula/Pictures/captura_pantalla_4k.png',
+    '/Games/Riot/valorant/valorant.exe',
+    '/Temp/cache_browser_4a3f2.bin',
+    '/System/Security/kernel-patches.sig',
+    '/Users/nebula/Dev/vscode-workspace.json',
+    '/Downloads/archivo_sospechoso_xk3.exe',
+    '/Games/Epic/fortnite-launcher.exe'
+  ];
+
+  const scanNext = () => {
+    shieldState.scanProgress += Math.random() * 12 + 6;
+    if (shieldState.scanProgress > 100) shieldState.scanProgress = 100;
+    shieldState.scanCurrentFile = SCAN_ITEMS[Math.floor(Math.random() * SCAN_ITEMS.length)];
+
+    /* Amenaza ficticia en ~60% del escaneo */
+    if (shieldState.scanProgress > 60 && shieldState.threatsFound === 0 && Math.random() > 0.55) {
+      shieldState.threatsFound = 1;
+    }
+
+    updateShieldScanUI();
+
+    if (shieldState.scanProgress < 100) {
+      setTimeout(scanNext, 250 + Math.random() * 200);
+    } else {
+      setTimeout(() => {
+        shieldState.scanInProgress = false;
+        shieldState.lastScan = Date.now();
+        shieldState.scanHistory.unshift({
+          date: new Date().toISOString(),
+          threats: shieldState.threatsFound,
+          duration: Math.round(3 + Math.random() * 4)
+        });
+        if (shieldState.scanHistory.length > 8) shieldState.scanHistory.pop();
+
+        if (shieldState.threatsFound > 0) {
+          showToast(
+            '¡Amenaza Detectada!',
+            `${shieldState.threatsFound} archivo${shieldState.threatsFound === 1 ? '' : 's'} sospechoso${shieldState.threatsFound === 1 ? '' : 's'} en cuarentena.`,
+            'alert-triangle',
+            true
+          );
+          shieldState.threatsQuarantined += shieldState.threatsFound;
+        } else {
+          showToast('Escaneo Completado', 'No se encontraron amenazas. Sistema limpio.', 'shield-check');
+        }
+        saveShieldState();
+        renderSettingsApp();
+      }, 400);
+    }
+  };
+
+  renderSettingsApp();
+  setTimeout(scanNext, 200);
+}
+
+function updateShieldScanUI() {
+  const progressFill = document.getElementById('shield-scan-fill');
+  const progressPct = document.getElementById('shield-scan-pct');
+  const currentFile = document.getElementById('shield-scan-file');
+  const threatsEl = document.getElementById('shield-scan-threats');
+
+  if (progressFill) progressFill.style.width = `${shieldState.scanProgress}%`;
+  if (progressPct) progressPct.textContent = `${Math.round(shieldState.scanProgress)}%`;
+  if (currentFile) currentFile.textContent = shieldState.scanCurrentFile || 'Iniciando análisis...';
+  if (threatsEl) threatsEl.textContent = String(shieldState.threatsFound);
+}
+
+function cancelShieldScan() {
+  if (!shieldState.scanInProgress) return;
+  shieldState.scanInProgress = false;
+  shieldState.scanProgress = 0;
+  showToast('Escaneo Cancelado', 'El análisis fue detenido por el usuario.', 'x-circle');
+  renderSettingsApp();
+}
+
+function toggleShieldScheduledScan() {
+  shieldState.scheduledScan = !shieldState.scheduledScan;
+  saveShieldState();
+  showToast(
+    'Escaneo Automático',
+    shieldState.scheduledScan ? 'Análisis semanal programado cada lunes a las 03:00.' : 'Análisis automático desactivado.',
+    shieldState.scheduledScan ? 'calendar-check' : 'calendar-x'
+  );
+  renderSettingsApp();
+}
+
+function getTimeAgo(timestamp) {
+  if (!timestamp) return 'Nunca';
+  const diff = Date.now() - timestamp;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Hace unos segundos';
+  if (mins < 60) return `Hace ${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `Hace ${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `Hace ${days} día${days === 1 ? '' : 's'}`;
+  const months = Math.floor(days / 30);
+  return `Hace ${months} mes${months === 1 ? '' : 'es'}`;
+}
+
+/* =====================================================
+   ★ NEBULA UPDATES — Lógica y Persistencia
+===================================================== */
+
+function saveUpdatesState() {
+  try {
+    const serializable = { ...updatesState, updateInProgress: false, updateProgress: 0, updateStage: '' };
+    localStorage.setItem(UPDATES_STORAGE_KEY, JSON.stringify(serializable));
+  } catch (e) {}
+}
+
+function simulateUpdateCheck() {
+  const btn = document.getElementById('updates-check-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-circle" class="shield-spinner"></i> Buscando...';
+    refreshIcons();
+  }
+
+  showToast('Buscando Actualizaciones', 'Consultando servidores de Nebula OS...', 'search');
+
+  setTimeout(() => {
+    updatesState.updateCheckedAt = Date.now();
+
+    if (updatesState.updateAvailable) {
+      showToast('Actualización Disponible', `Nebula OS v${updatesState.availableVersion} "${updatesState.availableCodename}" está lista para instalar.`, 'download');
+    } else {
+      showToast('Sistema Actualizado', 'Ya tenés la última versión disponible.', 'check-circle-2');
+    }
+
+    saveUpdatesState();
+    renderSettingsApp();
+  }, 2200);
+}
+
+function installUpdate() {
+  if (updatesState.updateInProgress) return;
+  if (!updatesState.updateAvailable) {
+    showToast('Sin actualizaciones', 'No hay nuevas versiones disponibles.', 'info');
+    return;
+  }
+
+  updatesState.updateInProgress = true;
+  updatesState.updateProgress = 0;
+  updatesState.updateStage = 'descargando';
+  renderSettingsApp();
+
+  const tick = () => {
+    updatesState.updateProgress += Math.random() * 8 + 4;
+
+    if (updatesState.updateProgress >= 100) {
+      updatesState.updateProgress = 100;
+      updateUpdatesUI();
+
+      /* Cambio de etapa */
+      if (updatesState.updateStage === 'descargando') {
+        setTimeout(() => {
+          updatesState.updateStage = 'instalando';
+          updatesState.updateProgress = 0;
+          renderSettingsApp();
+          setTimeout(tick, 400);
+        }, 600);
+        return;
+      }
+
+      if (updatesState.updateStage === 'instalando') {
+        setTimeout(() => {
+          updatesState.updateStage = 'verificando';
+          updatesState.updateProgress = 0;
+          renderSettingsApp();
+          setTimeout(tick, 400);
+        }, 600);
+        return;
+      }
+
+      /* Fin del proceso */
+      setTimeout(() => {
+        updatesState.updateInProgress = false;
+        updatesState.updateProgress = 0;
+        updatesState.updateStage = '';
+        updatesState.currentVersion = updatesState.availableVersion;
+        updatesState.currentCodename = updatesState.availableCodename;
+        updatesState.updateAvailable = false;
+        updatesState.updateHistory.unshift({
+          version: updatesState.availableVersion,
+          codename: updatesState.availableCodename,
+          date: 'Hace unos segundos',
+          size: updatesState.updateSize
+        });
+        if (updatesState.updateHistory.length > 6) updatesState.updateHistory.pop();
+        saveUpdatesState();
+        renderSettingsApp();
+        showToast('¡Actualización Completa!', `Nebula OS v${updatesState.currentVersion} instalada correctamente. Reiniciando subsistemas...`, 'check-circle-2');
+      }, 800);
+      return;
+    }
+
+    updateUpdatesUI();
+    setTimeout(tick, 220 + Math.random() * 180);
+  };
+
+  setTimeout(tick, 300);
+}
+
+function updateUpdatesUI() {
+  const fill = document.getElementById('updates-progress-fill');
+  const pct = document.getElementById('updates-progress-pct');
+  const stageEl = document.getElementById('updates-stage-label');
+
+  if (fill) fill.style.width = `${updatesState.updateProgress}%`;
+  if (pct) pct.textContent = `${Math.round(updatesState.updateProgress)}%`;
+
+  if (stageEl) {
+    const stageLabels = {
+      descargando: 'Descargando paquete...',
+      instalando: 'Instalando archivos...',
+      verificando: 'Verificando integridad (SHA-256)...',
+      '': 'Preparando...'
+    };
+    stageEl.textContent = stageLabels[updatesState.updateStage] || 'Preparando...';
+  }
+}
+
+function scheduleUpdateLater() {
+  showToast('Actualización Programada', 'Nebula OS se actualizará automáticamente cuando no estés usando el equipo.', 'clock');
+}
+
+function toggleAutoUpdate() {
+  updatesState.autoUpdate = !updatesState.autoUpdate;
+  saveUpdatesState();
+  showToast(
+    'Auto-Actualización',
+    updatesState.autoUpdate ? 'Las actualizaciones se instalarán automáticamente.' : 'Ahora instalás las actualizaciones manualmente.',
+    updatesState.autoUpdate ? 'toggle-right' : 'toggle-left'
+  );
+  renderSettingsApp();
+}
+
+function toggleBetaChannel() {
+  updatesState.betaChannel = !updatesState.betaChannel;
+  saveUpdatesState();
+  showToast(
+    'Canal Beta',
+    updatesState.betaChannel ? 'Ahora recibís versiones beta antes que nadie. Podés experimentar inestabilidad.' : 'Volviste al canal estable.',
+    updatesState.betaChannel ? 'flask-conical' : 'shield'
+  );
+  renderSettingsApp();
+}
+
+/* =====================================================
+   ★ HTML DE NEBULA SHIELD (Seguridad)
+===================================================== */
+function getShieldSettingsHTML() {
+  const allActive = shieldState.antivirus && shieldState.firewall && shieldState.encryption;
+  const activeCount = ['antivirus', 'firewall', 'encryption', 'behavior'].filter(k => shieldState[k]).length;
+  const totalCount = 4;
+  const isProtected = activeCount >= 3;
+  const statusLabel = isProtected ? 'SISTEMA PROTEGIDO' : (activeCount >= 2 ? 'PROTECCIÓN PARCIAL' : 'PROTECCIÓN BAJA');
+  const statusClass = isProtected ? 'protected' : (activeCount >= 2 ? 'warning' : 'danger');
+
+  const activeVpn = VPN_SERVERS.find(s => s.id === shieldState.vpnServer) || VPN_SERVERS[0];
+
+  return `
+    <div class="settings-heading">
+      <div>
+        <div class="settings-kicker">NEBULA SHIELD</div>
+        <h2>Seguridad & Protección</h2>
+        <p>Antivirus, firewall y VPN en tiempo real. Estado actual de tu sistema.</p>
+      </div>
+      <div class="settings-status shield-status-${statusClass}">
+        <span class="shield-status-dot"></span> ${statusLabel}
+      </div>
+    </div>
+
+    <div class="settings-section-label">Estado de Protección (${activeCount}/${totalCount} activos)</div>
+    <div class="shield-status-grid">
+      ${Object.values(SHIELD_FEATURES).map(feature => {
+        const isOn = shieldState[feature.id];
+        return `
+          <div class="shield-card ${isOn ? 'active' : 'inactive'}" data-feature="${feature.id}">
+            <div class="shield-card-top">
+              <div class="shield-card-icon" style="color: ${isOn ? feature.color : 'var(--text-sub)'};">
+                <i data-lucide="${isOn ? feature.icon : feature.icon}"></i>
+              </div>
+              <div class="shield-card-state">
+                <span class="shield-card-led ${isOn ? 'on' : 'off'}"></span>
+              </div>
+            </div>
+            <strong class="shield-card-title">${feature.name}</strong>
+            <small class="shield-card-desc">${feature.description}</small>
+            <button class="shield-card-btn ${isOn ? 'on' : ''}" type="button" onclick="toggleShieldFeature('${feature.id}')">
+              ${isOn ? 'Activo · Desactivar' : 'Inactivo · Activar'}
+            </button>
+          </div>
+        `;
+      }).join('')}
+    </div>
+
+    <div class="settings-section-label">VPN NEBULA SHIELD</div>
+    <div class="shield-vpn-card ${shieldState.vpnConnected ? 'connected' : ''}">
+      <div class="shield-vpn-main">
+        <div class="shield-vpn-icon">
+          <i data-lucide="globe"></i>
+          <span class="shield-vpn-pulse ${shieldState.vpnConnected ? 'active' : ''}"></span>
+        </div>
+        <div class="shield-vpn-info">
+          <strong>${shieldState.vpnConnected ? 'Conexión Segura Activa' : 'VPN Desconectada'}</strong>
+          <small>
+            <span class="shield-vpn-flag">${activeVpn.flag}</span>
+            ${activeVpn.name}, ${activeVpn.country}
+            ${shieldState.vpnConnected ? `<span class="shield-vpn-ping">· ${activeVpn.ping} ms</span>` : ''}
+          </small>
+        </div>
+        <button class="shield-vpn-btn ${shieldState.vpnConnected ? 'danger' : ''}" id="shield-vpn-btn" type="button" onclick="toggleVpnConnection()">
+          ${shieldState.vpnConnected ? '<i data-lucide="power"></i> Desconectar' : '<i data-lucide="power"></i> Conectar'}
+        </button>
+      </div>
+
+      <div class="shield-vpn-servers">
+        <span class="shield-vpn-servers-label">Servidor:</span>
+        <div class="shield-vpn-servers-list">
+          ${VPN_SERVERS.map(s => `
+            <button class="shield-vpn-server ${shieldState.vpnServer === s.id ? 'active' : ''}" type="button" onclick="selectVpnServer('${s.id}')">
+              <span>${s.flag}</span> ${s.name}
+              <small>${s.ping}ms</small>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section-label">Escaneo del Sistema</div>
+    <div class="shield-scan-card ${shieldState.scanInProgress ? 'scanning' : ''}">
+      <div class="shield-scan-header">
+        <div class="shield-scan-info">
+          <strong>
+            <i data-lucide="${shieldState.scanInProgress ? 'loader-circle' : 'scan-line'}" class="${shieldState.scanInProgress ? 'shield-spinner' : ''}"></i>
+            ${shieldState.scanInProgress ? 'Escaneando sistema...' : 'Análisis de Amenazas'}
+          </strong>
+          <small>Último escaneo: ${getTimeAgo(shieldState.lastScan)}</small>
+        </div>
+        <div class="shield-scan-stats">
+          <span class="shield-scan-stat">
+            <strong id="shield-scan-threats" class="${shieldState.threatsFound > 0 ? 'danger' : ''}">${shieldState.threatsFound}</strong>
+            amenazas
+          </span>
+        </div>
+      </div>
+
+      ${shieldState.scanInProgress ? `
+        <div class="shield-scan-progress">
+          <div class="shield-scan-bar">
+            <div class="shield-scan-fill" id="shield-scan-fill" style="width: ${shieldState.scanProgress}%"></div>
+          </div>
+          <div class="shield-scan-meta">
+            <span class="shield-scan-pct" id="shield-scan-pct">${Math.round(shieldState.scanProgress)}%</span>
+            <span class="shield-scan-file" id="shield-scan-file">${escapeHtml(shieldState.scanCurrentFile || 'Iniciando análisis...')}</span>
+          </div>
+        </div>
+        <button class="shield-scan-btn cancel" type="button" onclick="cancelShieldScan()">
+          <i data-lucide="x"></i> Cancelar escaneo
+        </button>
+      ` : `
+        <button class="shield-scan-btn" type="button" onclick="runShieldScan()">
+          <i data-lucide="scan-line"></i> Escanear ahora
+        </button>
+      `}
+
+      <div class="shield-scan-scheduled">
+        <div class="shield-scan-scheduled-info">
+          <i data-lucide="calendar-clock"></i>
+          <div>
+            <strong>Análisis semanal automático</strong>
+            <small>Cada lunes a las 03:00 AM · Duración estimada 4 min</small>
+          </div>
+        </div>
+        <button class="quick-switch ${shieldState.scheduledScan ? 'active' : ''}" type="button" onclick="toggleShieldScheduledScan()" aria-label="Toggle escaneo programado">
+          <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
+        </button>
+      </div>
+    </div>
+
+    ${shieldState.scanHistory.length > 0 ? `
+      <div class="settings-section-label">Historial de Escaneos</div>
+      <div class="shield-history-list">
+        ${shieldState.scanHistory.slice(0, 5).map(item => {
+          const date = new Date(item.date);
+          const dateStr = `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+          const clean = item.threats === 0;
+          return `
+            <div class="shield-history-item ${clean ? 'clean' : 'threat'}">
+              <span class="shield-history-icon">
+                <i data-lucide="${clean ? 'shield-check' : 'alert-triangle'}"></i>
+              </span>
+              <div class="shield-history-info">
+                <strong>${clean ? 'Sin amenazas' : `${item.threats} amenaza${item.threats === 1 ? '' : 's'} detectada${item.threats === 1 ? '' : 's'}`}</strong>
+                <small>${dateStr} · ${item.duration} min</small>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    ` : ''}
+  `;
+}
+
+/* =====================================================
+   ★ HTML DE NEBULA UPDATES (Actualizaciones)
+===================================================== */
+function getUpdatesSettingsHTML() {
+  const hasUpdate = updatesState.updateAvailable;
+  const statusLabel = hasUpdate
+    ? `ACTUALIZACIÓN A v${updatesState.availableVersion}`
+    : 'SISTEMA AL DÍA';
+  const statusClass = hasUpdate ? 'warning' : 'protected';
+
+  return `
+    <div class="settings-heading">
+      <div>
+        <div class="settings-kicker">NEBULA UPDATES</div>
+        <h2>Actualizaciones del Sistema</h2>
+        <p>Versión actual, parches de seguridad y mejoras de rendimiento.</p>
+      </div>
+      <div class="settings-status shield-status-${statusClass}">
+        <span class="shield-status-dot"></span> ${statusLabel}
+      </div>
+    </div>
+
+    <div class="settings-section-label">Estado de Versión</div>
+    <div class="updates-version-card">
+      <div class="updates-version-row">
+        <div class="updates-version-info">
+          <span class="updates-version-label">Versión actual</span>
+          <strong class="updates-version-number">v${updatesState.currentVersion}</strong>
+          <small class="updates-version-codename">Codename "${updatesState.currentCodename}" · Canal ${updatesState.betaChannel ? 'Beta' : 'Estable'}</small>
+        </div>
+        <div class="updates-version-icon">
+          <i data-lucide="package-check"></i>
+        </div>
+      </div>
+    </div>
+
+    ${hasUpdate ? `
+      <div class="settings-section-label">Actualización Disponible</div>
+      <div class="updates-available-card ${updatesState.updateInProgress ? 'installing' : ''}">
+        <div class="updates-available-header">
+          <div>
+            <div class="updates-available-badge">
+              <i data-lucide="sparkles"></i> NUEVO
+            </div>
+            <h3>Nebula OS v${updatesState.availableVersion} <span class="updates-codename">"${updatesState.availableCodename}"</span></h3>
+            <small>Tamaño: ${updatesState.updateSize} · Disponible desde hoy</small>
+          </div>
+        </div>
+
+        <ul class="updates-changelog">
+          <li><i data-lucide="sparkles"></i> Nuevo widget de clima con selector de ciudad</li>
+          <li><i data-lucide="zap"></i> Mejora del +12% de FPS en Game Mode</li>
+          <li><i data-lucide="bug"></i> Corrección de bugs en el gestor de ventanas</li>
+          <li><i data-lucide="shield-check"></i> Parches de seguridad CVE-2026-4521 y CVE-2026-4518</li>
+          <li><i data-lucide="palette"></i> Nuevos presets visuales y mejoras del Designer</li>
+        </ul>
+
+        ${updatesState.updateInProgress ? `
+          <div class="updates-progress">
+            <div class="updates-progress-header">
+              <span id="updates-stage-label">Preparando...</span>
+              <span class="updates-progress-pct" id="updates-progress-pct">${Math.round(updatesState.updateProgress)}%</span>
+            </div>
+            <div class="updates-progress-bar">
+              <div class="updates-progress-fill" id="updates-progress-fill" style="width: ${updatesState.updateProgress}%"></div>
+            </div>
+          </div>
+        ` : `
+          <div class="updates-actions">
+            <button class="updates-btn primary" type="button" onclick="installUpdate()">
+              <i data-lucide="download"></i> Actualizar ahora
+            </button>
+            <button class="updates-btn ghost" type="button" onclick="scheduleUpdateLater()">
+              <i data-lucide="clock"></i> Programar
+            </button>
+          </div>
+        `}
+      </div>
+    ` : `
+      <div class="settings-section-label">Estado</div>
+      <div class="updates-uptodate-card">
+        <div class="updates-uptodate-icon">
+          <i data-lucide="check-circle-2"></i>
+        </div>
+        <div class="updates-uptodate-info">
+          <strong>¡Estás en la última versión!</strong>
+          <small>Última verificación: ${getTimeAgo(updatesState.updateCheckedAt)}</small>
+        </div>
+      </div>
+    `}
+
+    <div class="updates-check-row">
+      <button class="updates-btn ghost" id="updates-check-btn" type="button" onclick="simulateUpdateCheck()">
+        <i data-lucide="refresh-cw"></i> Buscar actualizaciones
+      </button>
+    </div>
+
+    <div class="settings-section-label">Preferencias</div>
+    <div class="designer-controls-grid">
+      <div class="designer-control-item">
+        <div class="designer-control-info">
+          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="download-cloud" style="color:var(--accent);"></i> Auto-Actualización</strong>
+          <small>Instalar automáticamente cuando estén disponibles</small>
+        </div>
+        <button class="quick-switch ${updatesState.autoUpdate ? 'active' : ''}" type="button" onclick="toggleAutoUpdate()" aria-label="Toggle auto update">
+          <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
+        </button>
+      </div>
+
+      <div class="designer-control-item">
+        <div class="designer-control-info">
+          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="flask-conical" style="color:var(--accent-orange);"></i> Canal Beta</strong>
+          <small>Recibir versiones de prueba antes del lanzamiento público</small>
+        </div>
+        <button class="quick-switch ${updatesState.betaChannel ? 'active' : ''}" type="button" onclick="toggleBetaChannel()" aria-label="Toggle beta channel">
+          <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="settings-section-label">Historial de Versiones</div>
+    <div class="updates-history-list">
+      ${updatesState.updateHistory.map(item => `
+        <div class="updates-history-item">
+          <div class="updates-history-icon">
+            <i data-lucide="package"></i>
+          </div>
+          <div class="updates-history-info">
+            <strong>v${item.version} <span class="updates-codename">"${item.codename}"</span></strong>
+            <small>${item.date} · ${item.size}</small>
+          </div>
+          <span class="updates-history-check">
+            <i data-lucide="check-circle-2"></i>
+          </span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
 /* ================= CONTENIDO DE APPS (HTML DINÁMICO) ================= */
 function getAppContent(id) {
   if (id === 'nova') {
@@ -6104,6 +6843,7 @@ function getAppContent(id) {
             <button type="button" data-nova-prompt="Optimiza el sistema"><i data-lucide="sparkles"></i> Limpiar RAM</button>
             <button type="button" data-nova-prompt="Pon música"><i data-lucide="music"></i> Poner música</button>
             <button type="button" data-nova-prompt="Añadí un widget de clima"><i data-lucide="cloud-sun"></i> Widget de Clima</button>
+            <button type="button" data-nova-prompt="Escaneá el sistema con Nebula Shield"><i data-lucide="shield-check"></i> Escanear sistema</button>
           </div>
         </div>
         <form class="nova-form">
@@ -6167,6 +6907,10 @@ function getAppContent(id) {
       mainContent = getGamingSettingsHTML();
     } else if (activeTab === 'designer') {
       mainContent = getDesignerSettingsHTML();
+    } else if (activeTab === 'shield') {
+      mainContent = getShieldSettingsHTML();
+    } else if (activeTab === 'updates') {
+      mainContent = getUpdatesSettingsHTML();
     }
 
     return `
@@ -6176,6 +6920,16 @@ function getAppContent(id) {
 
           <div class="settings-nav-item ${activeTab === 'system' ? 'active' : ''}" onclick="setSettingsTab('system')">
             <i data-lucide="monitor"></i> Sistema
+          </div>
+
+          <div class="settings-nav-item ${activeTab === 'shield' ? 'active' : ''}" onclick="setSettingsTab('shield')">
+            <i data-lucide="shield-check"></i> Nebula Shield
+            ${!shieldState.antivirus || !shieldState.firewall ? '<span class="settings-nav-warn"><i data-lucide="alert-triangle"></i></span>' : ''}
+          </div>
+
+          <div class="settings-nav-item ${activeTab === 'updates' ? 'active' : ''}" onclick="setSettingsTab('updates')">
+            <i data-lucide="download"></i> Actualizaciones
+            ${updatesState.updateAvailable ? '<span class="settings-nav-badge">1</span>' : ''}
           </div>
 
           <!-- ★ Carpeta Nebula Designer con sub-ítems -->
@@ -6914,6 +7668,9 @@ function buildLauncherActions() {
     { id: 'action-weather-widget', title: 'Añadir Widget de Clima', sub: 'Widget meteorológico con datos reales (Open-Meteo)', icon: 'cloud-sun', category: 'Acción', keywords: ['clima', 'weather', 'widget', 'tiempo', 'temperatura'], run: () => addWeatherWidget() },
     { id: 'action-clear-widgets', title: 'Limpiar widgets del escritorio', sub: 'Remueve todos los widgets flotantes', icon: 'trash-2', category: 'Acción', keywords: ['limpiar', 'widgets', 'escritorio', 'borrar'], run: () => clearDesktopWidgets() },
     { id: 'action-close-all', title: 'Cerrar todas las ventanas', sub: 'Cierra todas las apps abiertas', icon: 'x-circle', category: 'Acción', keywords: ['cerrar', 'close', 'todas', 'ventanas', 'apps'], run: () => { Object.keys(openWindows).forEach(id => closeApp(id)); showToast('Ventanas cerradas', 'Se cerraron todas las apps abiertas.', 'x-circle'); } },
+    { id: 'action-shield-scan', title: 'Escaneo de Seguridad (Nebula Shield)', sub: 'Inicia un análisis completo del sistema', icon: 'shield-check', category: 'Acción', keywords: ['escanear', 'seguridad', 'shield', 'virus', 'antivirus', 'scan'], run: () => { openApp('settings'); settingsState.activeSettingsTab = 'shield'; renderSettingsApp(); setTimeout(() => runShieldScan(), 400); } },
+    { id: 'action-shield-vpn', title: 'Alternar VPN Nebula Shield', sub: 'Conectar / desconectar la VPN', icon: 'globe', category: 'Acción', keywords: ['vpn', 'shield', 'privacidad'], run: () => { openApp('settings'); settingsState.activeSettingsTab = 'shield'; renderSettingsApp(); setTimeout(() => toggleVpnConnection(), 400); } },
+    { id: 'action-check-updates', title: 'Buscar actualizaciones', sub: 'Verifica si hay nuevas versiones del sistema', icon: 'download', category: 'Acción', keywords: ['actualizar', 'update', 'version', 'updates'], run: () => { openApp('settings'); settingsState.activeSettingsTab = 'updates'; renderSettingsApp(); setTimeout(() => simulateUpdateCheck(), 400); } },
     { id: 'action-profile-gamer', title: 'Perfil: Gamer', sub: 'Aplica tema Cyberpunk + Game Mode + telemetría', icon: 'gamepad-2', category: 'Perfil', keywords: ['perfil', 'gamer', 'profile'], run: () => switchProfile('gamer') },
     { id: 'action-profile-streamer', title: 'Perfil: Streamer', sub: 'Aplica tema Synthwave + widget multimedia', icon: 'radio', category: 'Perfil', keywords: ['perfil', 'streamer', 'profile'], run: () => switchProfile('streamer') },
     { id: 'action-profile-studio', title: 'Perfil: Estudio', sub: 'Aplica tema Catppuccin + workspace 1', icon: 'terminal', category: 'Perfil', keywords: ['perfil', 'estudio', 'studio', 'dev'], run: () => switchProfile('studio') },
