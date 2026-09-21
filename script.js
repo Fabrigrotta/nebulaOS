@@ -7,10 +7,11 @@ const APPS = {
   games:    { title: 'Steam', sub: 'Librería de Juegos', icon: 'gamepad-2', image: './assets/images/iconos/steam.png', tileClass: 'app-tile-games', accentColor: '#7c3aed' },
   vscode:   { title: 'VS Code', sub: 'Editor de Código', icon: 'code-2', image: './assets/images/iconos/visualStudioCode.png', tileClass: 'app-tile-vscode', accentColor: '#0284c7' },
   settings: { title: 'Ajustes', sub: 'Panel de Control & Designer', icon: 'sliders', image: './assets/images/iconos/ajustes.png', tileClass: 'app-tile-settings', accentColor: '#94a3b8' },
-  nova:     { title: 'Nova AI', sub: 'Asistente Gamer & Tweaker', icon: 'sparkles', image: './assets/images/logosSO/novaLogo.png', tileClass: 'app-tile-nova', accentColor: '#c026d3' }
+  nova:     { title: 'Nova AI', sub: 'Asistente Gamer & Tweaker', icon: 'sparkles', image: './assets/images/logosSO/novaLogo.png', tileClass: 'app-tile-nova', accentColor: '#c026d3' },
+  store:    { title: 'Nebula Store', sub: 'Tienda de Personalización', icon: 'shopping-bag', image: null, tileClass: 'app-tile-store', accentColor: '#f59e0b' }
 };
 
-const DOCK_APPS = ['browser', 'terminal', 'nova', 'files', 'vscode', 'music', 'games', 'settings'];
+const DOCK_APPS = ['browser', 'terminal', 'nova', 'files', 'vscode', 'music', 'games', 'store', 'settings'];
 
 const TOTAL_WORKSPACES = 5;
 
@@ -2661,18 +2662,14 @@ function setupBrowserApp(win) {
     };
 
     iframe.onload = () => {
-      // El iframe cargó pero puede que esté vacío o bloqueado
       try {
         const doc = iframe.contentDocument || iframe.contentWindow.document;
-        // Si es cross-origin, acceder va a tirar error -> catch => fallback
         if (doc && doc.body && doc.body.innerHTML.trim().length > 0) {
           resolveSuccess();
         } else {
-          // Sin contenido visible: puede ser X-Frame-Options
           resolveFallback('empty');
         }
       } catch (e) {
-        // Bloqueado por X-Frame-Options / cross-origin
         resolveFallback('cross-origin');
       }
     };
@@ -2681,12 +2678,10 @@ function setupBrowserApp(win) {
       resolveFallback('error');
     };
 
-    // Timeout de seguridad: si en 2.5s no resolvió, asumimos fallback
     currentTimeout = setTimeout(() => {
       resolveFallback('timeout');
     }, 2500);
 
-    // Empezamos a cargar
     iframe.src = normalized;
   }
 
@@ -5114,6 +5109,12 @@ function runWindowAnimation(win, className, durationMs, onEnd) {
 
 /* ================= GESTIÓN DE VENTANAS ================= */
 function openApp(appId, forceNew = false, restoreData = null) {
+  // ★ NEBULA STORE: se abre como overlay, NUNCA como ventana.
+  if (appId === 'store') {
+    openStore();
+    return;
+  }
+
   const app = APPS[appId];
   if (!app) return;
 
