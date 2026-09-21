@@ -9,7 +9,8 @@ const APPS = {
   settings: { title: 'Ajustes', sub: 'Panel de Control & Designer', icon: 'sliders', image: './assets/images/iconos/ajustes.png', tileClass: 'app-tile-settings', accentColor: '#94a3b8' },
   nova:     { title: 'Nova AI', sub: 'Asistente Gamer & Tweaker', icon: 'sparkles', image: './assets/images/logosSO/novaLogo.png', tileClass: 'app-tile-nova', accentColor: '#c026d3' },
   store:    { title: 'Nebula Store', sub: 'Tienda de Personalización', icon: 'shopping-cart', image: null, tileClass: 'app-tile-store', accentColor: '#f59e0b' },
-  vault:    { title: 'Nebula Vault', sub: 'Gestor de Contraseñas Seguro', icon: 'key-round', image: null, tileClass: 'app-tile-vault', accentColor: '#a855f7' }
+  vault:    { title: 'Nebula Vault', sub: 'Gestor de Contraseñas Seguro', icon: 'key-round', image: null, tileClass: 'app-tile-vault', accentColor: '#a855f7' },
+  activity: { title: 'Centro de Actividad', sub: 'Historial y gestión de eventos del sistema', icon: 'list-checks', image: null, tileClass: 'app-tile-activity', accentColor: '#60a5fa' }
 };
 
 const DOCK_APPS = ['browser', 'terminal', 'nova', 'files', 'vscode', 'music', 'games', 'store', 'settings'];
@@ -388,6 +389,34 @@ const WIFI_NETWORKS = [
   { id: 'guest-network', ssid: 'Invitados',         security: 'open', signal: 3, frequency: '2.4 GHz', password: null }
 ];
 
+/* ═══════════════════════════════════════════════════════════════
+   ★ CENTRO DE ACTIVIDAD — Constantes y estado global
+═══════════════════════════════════════════════════════════════ */
+
+const ACTIVITY_STORAGE_KEY = 'nebula-os:activity-log';
+const ACTIVITY_MAX_ITEMS = 200;
+
+const ACTIVITY_CATEGORIES = {
+  all:      { id: 'all',      name: 'Todos',      icon: 'layers' },
+  security: { id: 'security', name: 'Seguridad',  icon: 'shield-check' },
+  gaming:   { id: 'gaming',   name: 'Gaming',     icon: 'gamepad-2' },
+  network:  { id: 'network',  name: 'Red',        icon: 'wifi' },
+  system:   { id: 'system',   name: 'Sistema',    icon: 'settings-2' }
+};
+
+const ACTIVITY_LEVELS = {
+  info:    { id: 'info',    name: 'Info',    color: '#3a86ff' },
+  success: { id: 'success', name: 'Éxito',   color: '#a6e3a1' },
+  warning: { id: 'warning', name: 'Alerta',  color: '#fab387' },
+  danger:  { id: 'danger',  name: 'Crítico', color: '#f38ba8' }
+};
+
+let activityLog = [];
+let activityFilter = 'all';
+let activitySearchQuery = '';
+let activityExpandedId = null;
+let activityIdCounter = 0;
+
 const BLUETOOTH_DEVICES = [
   { id: 'hyperx-cloud',   name: 'HyperX Cloud II',     type: 'headset', icon: 'headphones',  battery: 78, paired: true,  connected: true  },
   { id: 'mx-master-3',    name: 'Logitech MX Master 3', type: 'mouse',   icon: 'mouse',       battery: 45, paired: true,  connected: true  },
@@ -443,6 +472,8 @@ let shieldState = {
   scheduledScan: true,
   scanHistory: []
 };
+
+let shieldHistoryExpandedId = null;
 
 let updatesState = {
   currentVersion: '2.5.0 Ultimate',
@@ -910,8 +941,9 @@ document.addEventListener('DOMContentLoaded', () => {
   renderDesktopWidgets();
   renderConnectivityState();
   renderDndState();
-  renderWifiPanel(); 
+  renderWifiPanel();
   renderBluetoothPanel();
+  updateActivityDockBadge();
   applyBrightness(currentBrightness);
   setupQuickCenterPlayer();
   updatePlayerBackground();
@@ -1432,13 +1464,39 @@ function toggleGameMode(explicitState = null) {
   if (topbarBadge) topbarBadge.style.display = gameModeActive ? 'flex' : 'none';
 
   if (gameModeActive) {
+    const prevRam = systemMetrics.ram;
     systemMetrics.ram = Math.max(16, Math.min(22, Math.round(systemMetrics.ram * 0.45)));
     systemMetrics.cpu = Math.min(85, systemMetrics.cpu + 15);
     systemMetrics.fps = 144;
     updateMetrics();
     showToast('Modo Juego Activado', 'Recursos optimizados: RAM liberada y perfil de alto rendimiento fijado.', 'gamepad-2');
+    logActivity({
+      category: 'gaming',
+      level: 'info',
+      icon: 'gamepad-2',
+      title: 'Modo Juego activado',
+      subtitle: `RAM: ${prevRam}% → ${systemMetrics.ram}% · CPU: 4.95 GHz`,
+      detail: {
+        'Perfil aplicado': 'Alto Rendimiento',
+        'RAM liberada': `${((prevRam - systemMetrics.ram) * 32 / 100).toFixed(1)} GB`,
+        'Frecuencia CPU': '4.95 GHz (Turbo Boost)',
+        'GPU': 'RTX 4080 · Boost Mode',
+        description: 'El sistema entró en modo de alto rendimiento. Los recursos fueron optimizados para gaming.'
+      }
+    });
   } else {
     showToast('Modo Juego Desactivado', 'Perfil estándar balanceado restablecido.', 'zap');
+    logActivity({
+      category: 'gaming',
+      level: 'info',
+      icon: 'zap',
+      title: 'Modo Juego desactivado',
+      subtitle: 'Perfil balanceado restablecido',
+      detail: {
+        'Perfil aplicado': 'Balanceado',
+        description: 'El sistema volvió al perfil de energía estándar.'
+      }
+    });
   }
 
   try {
@@ -1510,6 +1568,18 @@ function takeGamerScreenshot() {
   screen.style.filter = 'brightness(1.5)';
   setTimeout(() => screen.style.filter = '', 120);
   showToast('Captura Guardada', 'Guardada en Archivos / Capturas de Juegos', 'camera');
+  logActivity({
+    category: 'gaming',
+    level: 'info',
+    icon: 'camera',
+    title: 'Captura guardada',
+    subtitle: 'Guardada en Archivos / Capturas de Juegos',
+    detail: {
+      'Ruta': '/Capturas de Juegos/',
+      'Formato': 'PNG · 3840x2160',
+      description: 'La captura se guardó correctamente en la carpeta de Capturas de Juegos.'
+    }
+  });
 }
 
 function simulateRamBoost() {
@@ -5764,6 +5834,7 @@ function openApp(appId, forceNew = false, restoreData = null) {
     if (appId === 'music') setupSpotifyApp(win);
     if (appId === 'browser') setupBrowserApp(win);
     if (appId === 'vault') setupVaultApp(win);
+    if (appId === 'activity') setupActivityApp(win);
   }
 
   setupWindowResize(win);
@@ -6302,9 +6373,24 @@ function toggleVpnConnection() {
     setTimeout(() => {
       shieldState.vpnConnected = true;
       saveShieldState();
-      showToast('VPN Conectada', `Servidor: ${VPN_SERVERS.find(s => s.id === shieldState.vpnServer)?.name || 'Ámsterdam'}`, 'globe');
+      const vpnServer = VPN_SERVERS.find(s => s.id === shieldState.vpnServer) || VPN_SERVERS[0];
+      showToast('VPN Conectada', `Servidor: ${vpnServer.name}`, 'globe');
       renderConnectivityState();
       renderSettingsApp();
+      logActivity({
+        category: 'network',
+        level: 'info',
+        icon: 'shield-check',
+        title: 'VPN Conectada',
+        subtitle: `${vpnServer.name} · ${vpnServer.country}`,
+        detail: {
+          'Servidor': `${vpnServer.flag} ${vpnServer.name}, ${vpnServer.country}`,
+          'Protocolo': 'WireGuard',
+          'Cifrado': 'AES-256-GCM',
+          'Ping': `${vpnServer.ping} ms`,
+          description: 'Conexión VPN establecida correctamente. Todo el tráfico está cifrado.'
+        }
+      });
     }, 1400);
   } else {
     shieldState.vpnConnected = false;
@@ -6312,6 +6398,17 @@ function toggleVpnConnection() {
     showToast('VPN Desconectada', 'Conexión segura finalizada.', 'globe-off');
     renderConnectivityState();
     renderSettingsApp();
+    logActivity({
+      category: 'network',
+      level: 'warning',
+      icon: 'globe-off',
+      title: 'VPN Desconectada',
+      subtitle: 'Tráfico ya no está cifrado',
+      detail: {
+        'Estado': 'Desconectado',
+        description: 'La conexión VPN se cerró. El tráfico del sistema ya no está protegido.'
+      }
+    });
   }
 }
 
@@ -6366,11 +6463,29 @@ function runShieldScan() {
       setTimeout(() => {
         shieldState.scanInProgress = false;
         shieldState.lastScan = Date.now();
-        shieldState.scanHistory.unshift({
+
+        const scanEntry = {
+          id: 'scan-' + Date.now(),
           date: new Date().toISOString(),
           threats: shieldState.threatsFound,
-          duration: Math.round(3 + Math.random() * 4)
-        });
+          duration: Math.round(3 + Math.random() * 4),
+          filesScanned: 24187 + Math.floor(Math.random() * 500),
+          threatDetails: null,
+          resolved: true
+        };
+
+        if (shieldState.threatsFound > 0) {
+          scanEntry.threatDetails = {
+            fileName: shieldState.scanCurrentFile || '/Downloads/archivo_sospechoso.exe',
+            threatType: 'Trojan.Win32.Agent',
+            severity: 'critical',
+            detectedBy: 'Antivirus en tiempo real',
+            description: 'Este archivo intentó inyectar código malicioso en procesos del sistema. Fue neutralizado por el antivirus en tiempo real y puesto en cuarentena automáticamente.'
+          };
+          scanEntry.resolved = false;
+        }
+
+        shieldState.scanHistory.unshift(scanEntry);
         if (shieldState.scanHistory.length > 8) shieldState.scanHistory.pop();
 
         if (shieldState.threatsFound > 0) {
@@ -6381,11 +6496,44 @@ function runShieldScan() {
             true
           );
           shieldState.threatsQuarantined += shieldState.threatsFound;
+
+          // ★ Log en Centro de Actividad
+          logActivity({
+            category: 'security',
+            level: 'danger',
+            icon: 'alert-triangle',
+            title: `Amenaza${shieldState.threatsFound > 1 ? 's' : ''} detectada${shieldState.threatsFound > 1 ? 's' : ''}`,
+            subtitle: `${shieldState.threatsFound} archivo${shieldState.threatsFound === 1 ? '' : 's'} en cuarentena`,
+            detail: {
+              'Archivo': shieldState.scanCurrentFile || '/Downloads/archivo_sospechoso.exe',
+              'Tipo': 'Trojan.Win32.Agent',
+              'Nivel': 'Crítico',
+              'Detectado por': 'Antivirus en tiempo real',
+              description: 'Este archivo intentó inyectar código malicioso en procesos del sistema. Fue neutralizado por el antivirus en tiempo real y puesto en cuarentena automáticamente.',
+              actions: [
+                { id: 'delete',  label: 'Eliminar archivo', icon: 'trash-2',    variant: 'danger' },
+                { id: 'restore', label: 'Restaurar',        icon: 'rotate-ccw', variant: 'success' },
+                { id: 'info',    label: 'Más info',         icon: 'info',       variant: 'default' }
+              ]
+            }
+          });
         } else {
           showToast('Escaneo Completado', 'No se encontraron amenazas. Sistema limpio.', 'shield-check');
+          logActivity({
+            category: 'security',
+            level: 'success',
+            icon: 'shield-check',
+            title: 'Escaneo completado',
+            subtitle: '0 amenazas encontradas',
+            detail: {
+              'Archivos escaneados': '24,187',
+              'Duración': '4 min 12 s',
+              'Motor': 'Nebula Shield v2.5',
+              'Base de firmas': 'Actualizada hoy',
+              description: 'Se realizó un escaneo completo del sistema. No se encontraron amenazas activas.'
+            }
+          });
         }
-        saveShieldState();
-        renderSettingsApp();
       }, 400);
     }
   };
@@ -6510,6 +6658,7 @@ function installUpdate() {
       }
 
       setTimeout(() => {
+        const prevVersion = updatesState.currentVersion;
         updatesState.updateInProgress = false;
         updatesState.updateProgress = 0;
         updatesState.updateStage = '';
@@ -6526,6 +6675,19 @@ function installUpdate() {
         saveUpdatesState();
         renderSettingsApp();
         showToast('¡Actualización Completa!', `Nebula OS v${updatesState.currentVersion} instalada correctamente. Reiniciando subsistemas...`, 'check-circle-2');
+        logActivity({
+          category: 'system',
+          level: 'success',
+          icon: 'download',
+          title: 'Actualización del sistema',
+          subtitle: `v${updatesState.currentVersion} "${updatesState.currentCodename}" instalada`,
+          detail: {
+            'Versión anterior': `v${prevVersion}`,
+            'Nueva versión': `v${updatesState.currentVersion}`,
+            'Tamaño': updatesState.updateSize,
+            description: 'La actualización se instaló correctamente. Mejoras de rendimiento y correcciones de seguridad aplicadas.'
+          }
+        });
       }, 800);
       return;
     }
@@ -6718,20 +6880,7 @@ function getShieldSecurityHTML() {
       <div class="settings-section-label">Historial de Escaneos</div>
       <div class="shield-history-list">
         ${shieldState.scanHistory.slice(0, 5).map(item => {
-          const date = new Date(item.date);
-          const dateStr = `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
-          const clean = item.threats === 0;
-          return `
-            <div class="shield-history-item ${clean ? 'clean' : 'threat'}">
-              <span class="shield-history-icon">
-                <i data-lucide="${clean ? 'shield-check' : 'alert-triangle'}"></i>
-              </span>
-              <div class="shield-history-info">
-                <strong>${clean ? 'Sin amenazas' : `${item.threats} amenaza${item.threats === 1 ? '' : 's'} detectada${item.threats === 1 ? '' : 's'}`}</strong>
-                <small>${dateStr} · ${item.duration} min</small>
-              </div>
-            </div>
-          `;
+          return renderShieldHistoryItemHTML(item);
         }).join('')}
       </div>
     ` : ''}
@@ -7329,6 +7478,9 @@ function getSettingsNavHTML() {
           <div class="settings-nav-subitem ${activeTab === 'shield' && shieldSubTab === 'vault' ? 'active' : ''}" onclick="setShieldSubTab('vault')">
             <i data-lucide="key-round"></i> Gestor de Contraseñas
           </div>
+          <div class="settings-nav-subitem" onclick="openActivityFromShield()">
+            <i data-lucide="list-checks"></i> Centro de Actividad
+          </div>
         </div>
       </div>
 
@@ -7353,6 +7505,154 @@ function getSettingsNavHTML() {
       <div class="settings-nav-item ${activeTab === 'gaming' ? 'active' : ''}" onclick="setSettingsTab('gaming')"><i data-lucide="gamepad-2"></i> Gaming & HUD</div>
     </aside>
   `;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ HISTORIAL DE ESCANEOS — Items expandibles
+═══════════════════════════════════════════════════════════════ */
+
+function renderShieldHistoryItemHTML(item) {
+  const date = new Date(item.date);
+  const dateStr = `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+  const clean = item.threats === 0;
+  const hasDetails = !!item.threatDetails;
+  const isExpanded = shieldHistoryExpandedId === item.id;
+  const isResolved = item.resolved === true;
+  const hasUnresolved = hasDetails && !isResolved;
+
+  let badgesHTML = '';
+  if (hasUnresolved) {
+    badgesHTML = `<span class="shield-history-badge unresolved">Sin resolver</span>`;
+  } else if (hasDetails && isResolved) {
+    badgesHTML = `<span class="shield-history-badge resolved">Resuelto</span>`;
+  }
+
+  let detailHTML = '';
+  if (hasDetails && isExpanded) {
+    detailHTML = renderShieldHistoryDetailHTML(item);
+  }
+
+  return `
+    <div class="shield-history-item-expandable ${clean ? 'clean' : 'threat'} ${isExpanded ? 'expanded' : ''}"
+         data-scan-id="${item.id}">
+      <div class="shield-history-item-header"
+           onclick="toggleShieldHistoryItem('${item.id}')"
+           ${!hasDetails ? 'style="cursor: default;"' : ''}>
+        <span class="shield-history-icon">
+          <i data-lucide="${clean ? 'shield-check' : 'alert-triangle'}"></i>
+        </span>
+        <div class="shield-history-info">
+          <strong>${clean ? 'Sin amenazas' : `${item.threats} amenaza${item.threats === 1 ? '' : 's'} detectada${item.threats === 1 ? '' : 's'}`}</strong>
+          <small>${dateStr} · ${item.duration} min</small>
+        </div>
+        ${badgesHTML}
+        ${hasDetails ? `<i data-lucide="chevron-down" class="shield-history-chevron"></i>` : ''}
+      </div>
+      ${hasDetails ? `
+        <div class="shield-history-item-detail">
+          ${detailHTML}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderShieldHistoryDetailHTML(item) {
+  const details = item.threatDetails;
+  if (!details) return '';
+
+  const detailRows = [
+    { label: 'Archivos escaneados', value: item.filesScanned.toLocaleString('es-AR') },
+    { label: 'Amenazas encontradas', value: String(item.threats), danger: item.threats > 0 },
+    { label: 'Duración', value: `${item.duration} min` },
+    { label: 'Tipo detectado', value: details.threatType, danger: true },
+    { label: 'Archivo', value: details.fileName, mono: true },
+    { label: 'Detectado por', value: details.detectedBy }
+  ];
+
+  const rowsHTML = detailRows.map(row => `
+    <div class="shield-history-detail-row">
+      <span class="shield-history-detail-label">${escapeHtml(row.label)}</span>
+      <span class="shield-history-detail-value ${row.mono ? 'mono' : ''} ${row.danger ? 'danger' : ''}">${escapeHtml(String(row.value))}</span>
+    </div>
+  `).join('');
+
+  let actionsHTML = '';
+  if (!item.resolved) {
+    actionsHTML = `
+      <div class="shield-history-detail-actions">
+        <button class="shield-history-btn danger" type="button" onclick="event.stopPropagation(); handleShieldHistoryAction('${item.id}', 'delete')">
+          <i data-lucide="trash-2"></i> Eliminar archivo
+        </button>
+        <button class="shield-history-btn success" type="button" onclick="event.stopPropagation(); handleShieldHistoryAction('${item.id}', 'restore')">
+          <i data-lucide="rotate-ccw"></i> Restaurar
+        </button>
+        <button class="shield-history-btn" type="button" onclick="event.stopPropagation(); handleShieldHistoryAction('${item.id}', 'info')">
+          <i data-lucide="info"></i> Más info
+        </button>
+      </div>
+    `;
+  } else {
+    actionsHTML = `
+      <div class="shield-history-resolved-note">
+        <i data-lucide="check-circle-2"></i>
+        Amenaza resuelta por el usuario
+      </div>
+    `;
+  }
+
+  return `
+    <div class="shield-history-detail-grid">${rowsHTML}</div>
+    <div class="shield-history-detail-description">${escapeHtml(details.description)}</div>
+    ${actionsHTML}
+  `;
+}
+
+function toggleShieldHistoryItem(id) {
+  const item = shieldState.scanHistory.find(s => s.id === id);
+  if (!item || !item.threatDetails) return;
+
+  shieldHistoryExpandedId = shieldHistoryExpandedId === id ? null : id;
+  renderSettingsApp();
+}
+
+function handleShieldHistoryAction(itemId, actionId) {
+  const item = shieldState.scanHistory.find(s => s.id === itemId);
+  if (!item || !item.threatDetails) return;
+
+  if (actionId === 'info') {
+    showToast('Más información', `Detalle completo de ${item.threatDetails.threatType}`, 'info');
+    return;
+  }
+
+  item.resolved = true;
+  item.resolvedAt = new Date().toISOString();
+  item.resolutionAction = actionId;
+
+  saveShieldState();
+  renderSettingsApp();
+
+  // También agregamos al Centro de Actividad
+  logActivity({
+    category: 'security',
+    level: 'success',
+    icon: 'check-circle-2',
+    title: actionId === 'delete' ? 'Amenaza eliminada' : 'Amenaza restaurada',
+    subtitle: `${item.threatDetails.fileName} — Resolución manual`,
+    detail: {
+      'Archivo': item.threatDetails.fileName,
+      'Tipo': item.threatDetails.threatType,
+      'Acción': actionId === 'delete' ? 'Eliminar archivo' : 'Restaurar',
+      'Fecha': new Date().toLocaleString('es-AR'),
+      description: 'La amenaza fue procesada por el usuario desde el Historial de Escaneos.'
+    }
+  });
+
+  showToast(
+    actionId === 'delete' ? 'Archivo eliminado' : 'Archivo restaurado',
+    `"${item.threatDetails.fileName}"`,
+    actionId === 'delete' ? 'trash-2' : 'rotate-ccw'
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -7478,7 +7778,8 @@ function getAppContent(id) {
 
     case 'vault':
       return getVaultAppHTML();
-
+    case 'activity':
+      return getActivityAppHTML();
     case 'terminal':
       return `
         <div class="term-body">
@@ -9229,6 +9530,18 @@ function attemptUnlockVault() {
     renderVault();
     refreshIcons();
     showToast('Bóveda Desbloqueada', 'Acceso concedido. Cuidá tus datos.', 'unlock');
+    logActivity({
+      category: 'security',
+      level: 'info',
+      icon: 'unlock',
+      title: 'Bóveda desbloqueada',
+      subtitle: 'Acceso concedido a Nebula Vault',
+      detail: {
+        'Método': 'Contraseña maestra',
+        'Hora': new Date().toLocaleTimeString('es-AR'),
+        description: 'Acceso concedido a la bóveda de contraseñas. Se bloqueó automáticamente por inactividad tras 5 minutos.'
+      }
+    });
   } else {
     input.value = '';
     input.classList.add('shake-error');
@@ -10020,6 +10333,20 @@ function connectToWifi(networkId) {
     wifiPasswordVisible = null;
     renderWifiPanel();
     showToast('WiFi Conectada', `Conectado a "${network.ssid}".`, 'wifi');
+    logActivity({
+      category: 'network',
+      level: 'info',
+      icon: 'wifi',
+      title: 'WiFi conectada',
+      subtitle: `${network.ssid} · ${network.frequency}`,
+      detail: {
+        'Red': network.ssid,
+        'Seguridad': getWifiSecurityLabel(network.security),
+        'Frecuencia': network.frequency,
+        'Señal': `${network.signal}/4`,
+        description: 'Conexión inalámbrica establecida correctamente.'
+      }
+    });
   }, 900 + Math.random() * 600);
 }
 
@@ -10288,6 +10615,19 @@ function pairBluetoothDevice(id) {
     device.battery = Math.floor(60 + Math.random() * 40);
     renderBluetoothPanel();
     showToast('Dispositivo Emparejado', `"${device.name}" emparejado y conectado.`, 'check-circle-2');
+    logActivity({
+      category: 'network',
+      level: 'info',
+      icon: 'bluetooth',
+      title: 'Dispositivo Bluetooth emparejado',
+      subtitle: `${device.name}`,
+      detail: {
+        'Dispositivo': device.name,
+        'Tipo': device.type,
+        'Batería': `${device.battery}%`,
+        description: 'Nuevo dispositivo Bluetooth emparejado y conectado al sistema.'
+      }
+    });
   }, 1200 + Math.random() * 800);
 }
 
@@ -10324,4 +10664,643 @@ function openNetworkSettings() {
   openApp('settings');
   settingsState.activeSettingsTab = 'system';
   renderSettingsApp();
+}
+/* ═══════════════════════════════════════════════════════════════
+   ★ CENTRO DE ACTIVIDAD — Lógica completa
+═══════════════════════════════════════════════════════════════ */
+
+/* ─── Logging API ─── */
+
+function logActivity(opts) {
+  const {
+    category = 'system',
+    level = 'info',
+    icon = 'activity',
+    title = '',
+    subtitle = '',
+    detail = null
+  } = opts || {};
+
+  activityIdCounter++;
+  const activity = {
+    id: 'act-' + Date.now() + '-' + activityIdCounter,
+    category,
+    level,
+    icon,
+    title: String(title),
+    subtitle: String(subtitle),
+    detail: detail ? { ...detail } : null,
+    timestamp: Date.now(),
+    expanded: false,
+    resolved: detail?.actions?.length ? false : null
+  };
+
+  activityLog.unshift(activity);
+  if (activityLog.length > ACTIVITY_MAX_ITEMS) {
+    activityLog = activityLog.slice(0, ACTIVITY_MAX_ITEMS);
+  }
+
+  saveActivityLog();
+  updateActivityDockBadge();
+
+  // Si la ventana del Centro de Actividad está abierta, re-renderizar
+  const openActivityWins = getInstancesOfApp('activity');
+  if (openActivityWins.length > 0) {
+    renderActivityApp();
+  }
+}
+
+function saveActivityLog() {
+  try {
+    const serializable = activityLog.map(a => ({ ...a }));
+    localStorage.setItem(ACTIVITY_STORAGE_KEY, JSON.stringify(serializable));
+  } catch (e) {}
+}
+
+function loadActivityLog() {
+  try {
+    const raw = localStorage.getItem(ACTIVITY_STORAGE_KEY);
+    if (!raw) {
+      seedInitialActivityLog();
+      return;
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      seedInitialActivityLog();
+      return;
+    }
+    activityLog = parsed.filter(a =>
+      a && typeof a === 'object' && a.id && a.title
+    );
+    if (activityLog.length === 0) {
+      seedInitialActivityLog();
+    }
+  } catch (e) {
+    seedInitialActivityLog();
+  }
+}
+
+function seedInitialActivityLog() {
+  const now = Date.now();
+  const min = 60 * 1000;
+  const hour = 60 * min;
+
+  activityLog = [
+    {
+      id: 'act-seed-1',
+      category: 'security',
+      level: 'danger',
+      icon: 'alert-triangle',
+      title: 'Amenaza detectada',
+      subtitle: 'Trojan.Win32.Agent.xk3',
+      detail: {
+        fileName: '/Downloads/archivo_sospechoso_xk3.exe',
+        type: 'Trojan.Win32.Agent',
+        severity: 'critical',
+        detectedBy: 'Antivirus en tiempo real',
+        description: 'Este archivo intentó inyectar código malicioso en procesos del sistema. Fue neutralizado por el antivirus en tiempo real y puesto en cuarentena automáticamente.',
+        actions: [
+          { id: 'delete',  label: 'Eliminar archivo', icon: 'trash-2',    variant: 'danger' },
+          { id: 'restore', label: 'Restaurar',        icon: 'rotate-ccw', variant: 'success' },
+          { id: 'info',    label: 'Más info',         icon: 'info',       variant: 'default' }
+        ]
+      },
+      timestamp: now - 12 * min,
+      expanded: false,
+      resolved: false
+    },
+    {
+      id: 'act-seed-2',
+      category: 'security',
+      level: 'success',
+      icon: 'shield-check',
+      title: 'Escaneo completado',
+      subtitle: '0 amenazas encontradas en 4 min',
+      detail: {
+        'Archivos escaneados': '24,187',
+        'Duración': '4 min 12 s',
+        'Motor': 'Nebula Shield v2.5',
+        'Base de firmas': 'Actualizada hoy',
+        description: 'Se realizó un escaneo completo del sistema. No se encontraron amenazas activas.'
+      },
+      timestamp: now - 25 * min,
+      expanded: false,
+      resolved: null
+    },
+    {
+      id: 'act-seed-3',
+      category: 'gaming',
+      level: 'info',
+      icon: 'gamepad-2',
+      title: 'Modo Juego activado',
+      subtitle: 'RAM: 38% → 17% · CPU: 4.95 GHz',
+      detail: {
+        'Perfil aplicado': 'Alto Rendimiento',
+        'RAM liberada': '3.4 GB',
+        'Frecuencia CPU': '4.95 GHz (Turbo Boost)',
+        'GPU': 'RTX 4080 · Boost Mode',
+        description: 'El sistema entró en modo de alto rendimiento. Los recursos fueron optimizados para gaming.'
+      },
+      timestamp: now - 1 * hour,
+      expanded: false,
+      resolved: null
+    },
+    {
+      id: 'act-seed-4',
+      category: 'network',
+      level: 'info',
+      icon: 'shield-check',
+      title: 'VPN Conectada',
+      subtitle: 'Ámsterdam · Países Bajos',
+      detail: {
+        'Servidor': '🇳🇱 Ámsterdam, Países Bajos',
+        'Protocolo': 'WireGuard',
+        'Cifrado': 'AES-256-GCM',
+        'Ping': '42 ms',
+        description: 'Conexión VPN establecida correctamente. Todo el tráfico está cifrado.'
+      },
+      timestamp: now - 2 * hour,
+      expanded: false,
+      resolved: null
+    },
+    {
+      id: 'act-seed-5',
+      category: 'system',
+      level: 'success',
+      icon: 'download',
+      title: 'Actualización del sistema',
+      subtitle: 'Nebula OS v2.4.2 "Gamer" instalada',
+      detail: {
+        'Versión anterior': 'v2.4.0 Quantum',
+        'Nueva versión': 'v2.4.2 Gamer',
+        'Tamaño': '1.1 GB',
+        'Duración': '2 min 45 s',
+        description: 'La actualización se instaló correctamente. Mejoras de rendimiento y correcciones de seguridad aplicadas.'
+      },
+      timestamp: now - 5 * hour,
+      expanded: false,
+      resolved: null
+    },
+    {
+      id: 'act-seed-6',
+      category: 'system',
+      level: 'info',
+      icon: 'sparkles',
+      title: 'RAM optimizada',
+      subtitle: '5.8 GB liberados',
+      detail: {
+        'RAM anterior': '62%',
+        'RAM nueva': '17%',
+        'Procesos cerrados': '14',
+        description: 'Se ejecutó una limpieza profunda de procesos inactivos y cache.'
+      },
+      timestamp: now - 24 * hour,
+      expanded: false,
+      resolved: null
+    }
+  ];
+
+  activityIdCounter = activityLog.length;
+  saveActivityLog();
+}
+
+function updateActivityDockBadge() {
+  const unresolvedThreats = activityLog.filter(a =>
+    a.category === 'security' &&
+    a.level === 'danger' &&
+    a.resolved === false
+  ).length;
+
+  const dockItem = document.querySelector('.dock-item[data-app-id="activity"]');
+  if (!dockItem) return;
+
+  if (unresolvedThreats > 0) {
+    dockItem.classList.add('has-alert-badge');
+    dockItem.title = `Centro de Actividad · ${unresolvedThreats} amenaza${unresolvedThreats === 1 ? '' : 's'} sin resolver`;
+  } else {
+    dockItem.classList.remove('has-alert-badge');
+  }
+}
+
+/* ─── Helpers ─── */
+
+function getActivityRelativeTime(timestamp) {
+  const diff = Date.now() - timestamp;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Ahora';
+  if (mins < 60) return `Hace ${mins}min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `Hace ${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `Hace ${days}d`;
+  const date = new Date(timestamp);
+  return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}`;
+}
+
+function getActivityGroupKey(timestamp) {
+  const now = new Date();
+  const date = new Date(timestamp);
+
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yesterday = today - 86400000;
+  const weekAgo = today - 7 * 86400000;
+
+  const ts = date.getTime();
+
+  if (ts >= today) return 'today';
+  if (ts >= yesterday) return 'yesterday';
+  if (ts >= weekAgo) return 'this-week';
+  return 'older';
+}
+
+function getActivityGroupLabel(key) {
+  return {
+    'today': 'Hoy',
+    'yesterday': 'Ayer',
+    'this-week': 'Esta semana',
+    'older': 'Anteriores'
+  }[key] || key;
+}
+
+function getActivityFilteredItems() {
+  let items = [...activityLog];
+
+  if (activityFilter !== 'all') {
+    items = items.filter(a => a.category === activityFilter);
+  }
+
+  if (activitySearchQuery) {
+    const q = activitySearchQuery.toLowerCase();
+    items = items.filter(a =>
+      (a.title || '').toLowerCase().includes(q) ||
+      (a.subtitle || '').toLowerCase().includes(q)
+    );
+  }
+
+  return items;
+}
+
+function getActivityCategoryCount(categoryId) {
+  if (categoryId === 'all') return activityLog.length;
+  return activityLog.filter(a => a.category === categoryId).length;
+}
+
+/* ─── Render principal ─── */
+
+function getActivityAppHTML() {
+  const items = getActivityFilteredItems();
+  const totalCount = activityLog.length;
+
+  const filtersHTML = Object.values(ACTIVITY_CATEGORIES).map(cat => {
+    const count = getActivityCategoryCount(cat.id);
+    const isActive = activityFilter === cat.id;
+    return `
+      <button class="activity-filter-chip ${isActive ? 'active' : ''}"
+              type="button"
+              onclick="setActivityFilter('${cat.id}')">
+        <i data-lucide="${cat.icon}"></i>
+        ${cat.name}
+        ${count > 0 ? `<span class="filter-count">${count}</span>` : ''}
+      </button>
+    `;
+  }).join('');
+
+  let bodyHTML = '';
+
+  if (items.length === 0) {
+    bodyHTML = `
+      <div class="activity-empty">
+        <div class="activity-empty-icon"><i data-lucide="list-checks"></i></div>
+        <strong>Sin actividad registrada</strong>
+        <small>${activitySearchQuery ? 'No se encontraron eventos que coincidan con tu búsqueda.' : 'Los eventos del sistema aparecerán acá a medida que ocurran.'}</small>
+      </div>
+    `;
+  } else {
+    // Agrupar por fecha
+    const groups = { today: [], yesterday: [], 'this-week': [], older: [] };
+    items.forEach(item => {
+      const groupKey = getActivityGroupKey(item.timestamp);
+      groups[groupKey].push(item);
+    });
+
+    const order = ['today', 'yesterday', 'this-week', 'older'];
+
+    bodyHTML = order.map(groupKey => {
+      const groupItems = groups[groupKey];
+      if (groupItems.length === 0) return '';
+
+      const groupHTML = groupItems.map(item => renderActivityItemHTML(item)).join('');
+
+      return `
+        <div class="activity-group">
+          <div class="activity-group-header">
+            <span>${getActivityGroupLabel(groupKey)}</span>
+            <span class="activity-group-count">${groupItems.length}</span>
+          </div>
+          ${groupHTML}
+        </div>
+      `;
+    }).join('');
+  }
+
+  return `
+    <div class="activity-app">
+      <header class="activity-header">
+        <div class="activity-header-left">
+          <span class="activity-header-kicker">NEBULA ACTIVITY CENTER</span>
+          <h2 class="activity-header-title">Centro de Actividad</h2>
+          <div class="activity-header-sub">
+            ${totalCount} evento${totalCount === 1 ? '' : 's'} registrado${totalCount === 1 ? '' : 's'} · Mostrando <strong>${items.length}</strong>
+          </div>
+        </div>
+        <div class="activity-header-actions">
+          <button class="activity-action-btn danger" type="button"
+                  onclick="clearActivityLog()"
+                  ${activityLog.length === 0 ? 'disabled' : ''}
+                  title="Limpiar historial">
+            <i data-lucide="trash-2"></i> Limpiar
+          </button>
+        </div>
+      </header>
+
+      <div class="activity-toolbar">
+        <div class="activity-filters">${filtersHTML}</div>
+        <label class="activity-search">
+          <i data-lucide="search"></i>
+          <input type="search"
+                 placeholder="Buscar evento..."
+                 value="${escapeHtml(activitySearchQuery)}"
+                 oninput="setActivitySearch(this.value)">
+        </label>
+      </div>
+
+      <div class="activity-body">
+        ${bodyHTML}
+      </div>
+    </div>
+  `;
+}
+
+function renderActivityItemHTML(item) {
+  const isExpanded = item.id === activityExpandedId;
+  const isUnresolved = item.resolved === false;
+  const isResolved = item.resolved === true;
+
+  let badgesHTML = '';
+  if (isUnresolved) {
+    badgesHTML = `<span class="activity-item-badge unresolved">Sin resolver</span>`;
+  } else if (isResolved) {
+    badgesHTML = `<span class="activity-item-badge resolved">Resuelto</span>`;
+  }
+
+  let detailHTML = '';
+  if (item.detail) {
+    detailHTML = renderActivityDetailHTML(item);
+  }
+
+  return `
+    <div class="activity-item level-${item.level} ${isExpanded ? 'expanded' : ''}"
+         data-activity-id="${item.id}">
+      <div class="activity-item-header" onclick="toggleActivityItem('${item.id}')">
+        <div class="activity-item-icon">
+          <i data-lucide="${item.icon}"></i>
+        </div>
+        <div class="activity-item-meta">
+          <div class="activity-item-title">${escapeHtml(item.title)}</div>
+          <div class="activity-item-sub">${escapeHtml(item.subtitle)}</div>
+        </div>
+        ${badgesHTML}
+        <div class="activity-item-time">
+          <i data-lucide="clock"></i>
+          ${getActivityRelativeTime(item.timestamp)}
+        </div>
+        ${item.detail ? '<i data-lucide="chevron-down" class="activity-item-chevron"></i>' : ''}
+      </div>
+      ${item.detail ? `
+        <div class="activity-item-detail">
+          ${detailHTML}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderActivityDetailHTML(item) {
+  const detail = item.detail;
+  if (!detail) return '';
+
+  // Detalles estructurados (excluyendo description y actions)
+  const detailEntries = Object.entries(detail).filter(([key]) =>
+    key !== 'description' && key !== 'actions'
+  );
+
+  const detailRowsHTML = detailEntries.map(([key, value]) => {
+    const isMono = key.toLowerCase().includes('archivo') ||
+                   key.toLowerCase().includes('file') ||
+                   key.toLowerCase().includes('ruta');
+    const isDanger = String(value).toLowerCase().includes('critical') ||
+                     String(value).toLowerCase().includes('crítico');
+
+    const label = key
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, s => s.toUpperCase());
+
+    return `
+      <div class="activity-detail-row">
+        <span class="activity-detail-label">${escapeHtml(label)}</span>
+        <span class="activity-detail-value ${isMono ? 'mono' : ''} ${isDanger ? 'danger' : ''}">${escapeHtml(String(value))}</span>
+      </div>
+    `;
+  }).join('');
+
+  const descriptionHTML = detail.description ? `
+    <div class="activity-detail-description">
+      ${escapeHtml(detail.description)}
+    </div>
+  ` : '';
+
+  const actionsHTML = detail.actions && detail.actions.length > 0 ? `
+    <div class="activity-detail-actions">
+      ${detail.actions.map(action => `
+        <button class="activity-detail-btn ${action.variant || 'default'}"
+                type="button"
+                onclick="handleActivityAction('${item.id}', '${action.id}')">
+          <i data-lucide="${action.icon}"></i>
+          ${escapeHtml(action.label)}
+        </button>
+      `).join('')}
+    </div>
+  ` : '';
+
+  return `
+    ${detailRowsHTML ? `<div class="activity-detail-grid">${detailRowsHTML}</div>` : ''}
+    ${descriptionHTML}
+    ${actionsHTML}
+  `;
+}
+
+/* ─── Acciones ─── */
+
+function setActivityFilter(filterId) {
+  activityFilter = filterId;
+  renderActivityApp();
+}
+
+function setActivitySearch(query) {
+  activitySearchQuery = query;
+  // Re-render only the body to preserve focus
+  const body = document.querySelector('.activity-body');
+  if (!body) return;
+  const items = getActivityFilteredItems();
+
+  if (items.length === 0) {
+    body.innerHTML = `
+      <div class="activity-empty">
+        <div class="activity-empty-icon"><i data-lucide="list-checks"></i></div>
+        <strong>Sin actividad registrada</strong>
+        <small>No se encontraron eventos que coincidan con tu búsqueda.</small>
+      </div>
+    `;
+  } else {
+    const groups = { today: [], yesterday: [], 'this-week': [], older: [] };
+    items.forEach(item => {
+      const groupKey = getActivityGroupKey(item.timestamp);
+      groups[groupKey].push(item);
+    });
+    const order = ['today', 'yesterday', 'this-week', 'older'];
+    body.innerHTML = order.map(groupKey => {
+      const groupItems = groups[groupKey];
+      if (groupItems.length === 0) return '';
+      return `
+        <div class="activity-group">
+          <div class="activity-group-header">
+            <span>${getActivityGroupLabel(groupKey)}</span>
+            <span class="activity-group-count">${groupItems.length}</span>
+          </div>
+          ${groupItems.map(renderActivityItemHTML).join('')}
+        </div>
+      `;
+    }).join('');
+  }
+
+  refreshIcons();
+}
+
+function toggleActivityItem(id) {
+  activityExpandedId = activityExpandedId === id ? null : id;
+  renderActivityApp();
+}
+
+function clearActivityLog() {
+  if (activityLog.length === 0) return;
+
+  // Removemos solo los que NO están sin resolver (para no perder amenazas activas)
+  const unresolved = activityLog.filter(a => a.resolved === false);
+  const removedCount = activityLog.length - unresolved.length;
+
+  if (unresolved.length > 0) {
+    activityLog = unresolved;
+    saveActivityLog();
+    updateActivityDockBadge();
+    renderActivityApp();
+    showToast(
+      'Historial parcialmente limpiado',
+      `${removedCount} evento${removedCount === 1 ? '' : 's'} eliminado${removedCount === 1 ? '' : 's'}. Se conservaron ${unresolved.length} amenaza${unresolved.length === 1 ? '' : 's'} sin resolver.`,
+      'trash-2'
+    );
+  } else {
+    activityLog = [];
+    saveActivityLog();
+    updateActivityDockBadge();
+    renderActivityApp();
+    showToast('Historial limpiado', `${removedCount} evento${removedCount === 1 ? '' : 's'} eliminado${removedCount === 1 ? '' : 's'}.`, 'trash-2');
+  }
+}
+
+function handleActivityAction(itemId, actionId) {
+  const item = activityLog.find(a => a.id === itemId);
+  if (!item) return;
+
+  switch (actionId) {
+    case 'delete':
+      resolveActivityThreat(item, 'deleted');
+      showToast('Archivo eliminado', `"${item.detail?.fileName || 'El archivo'}" fue eliminado permanentemente.`, 'trash-2');
+      break;
+
+    case 'restore':
+      resolveActivityThreat(item, 'restored');
+      showToast('Archivo restaurado', `"${item.detail?.fileName || 'El archivo'}" fue movido a la carpeta original.`, 'rotate-ccw');
+      break;
+
+    case 'info':
+      showToast('Más información', 'Se abriría el detalle completo de la amenaza en una ventana externa.', 'info');
+      break;
+
+    default:
+      showToast('Acción ejecutada', `Acción "${actionId}" completada.`, 'check-circle-2');
+  }
+}
+
+function resolveActivityThreat(item, actionType) {
+  item.resolved = true;
+  item.detail = item.detail || {};
+  item.detail['Estado'] = actionType === 'deleted' ? 'Eliminado permanentemente' : 'Restaurado por el usuario';
+  item.detail['Resuelto'] = new Date().toLocaleString('es-AR');
+
+  // Quitar acciones para que no se puedan repetir
+  if (item.detail.actions) {
+    item.detail.actions = [];
+  }
+
+  saveActivityLog();
+  updateActivityDockBadge();
+  renderActivityApp();
+
+  // Log del evento de resolución
+  logActivity({
+    category: 'security',
+    level: 'success',
+    icon: 'check-circle-2',
+    title: actionType === 'deleted' ? 'Amenaza eliminada' : 'Amenaza restaurada',
+    subtitle: `${item.detail?.fileName || 'Archivo'} — Resolución manual`,
+    detail: {
+      'Amenaza original': item.title,
+      'Acción': actionType === 'deleted' ? 'Eliminar archivo' : 'Restaurar',
+      'Fecha': new Date().toLocaleString('es-AR'),
+      description: 'La amenaza fue procesada por el usuario desde el Centro de Actividad.'
+    }
+  });
+}
+
+function renderActivityApp() {
+  const activityWinIds = getInstancesOfApp('activity');
+  activityWinIds.forEach(winId => {
+    const win = openWindows[winId]?.win;
+    if (!win) return;
+    const content = win.querySelector('.wcontent');
+    if (!content) return;
+    content.innerHTML = getActivityAppHTML();
+  });
+  refreshIcons();
+}
+
+/* ─── Bootstrap ─── */
+
+function setupActivityApp(win) {
+  if (!win) return;
+  // No necesita listeners adicionales — todo es onclick inline
+}
+
+loadActivityLog();
+
+function openActivityFromShield() {
+  // Cierra todas las ventanas de Ajustes (porque vamos a abrir otra app)
+  const settingsWinIds = getInstancesOfApp('settings');
+  settingsWinIds.forEach(winId => closeApp(winId));
+
+  // Abre el Centro de Actividad
+  openApp('activity');
+
+  // Toast de feedback
+  showToast('Centro de Actividad', 'Abriendo historial de eventos del sistema.', 'list-checks');
 }
