@@ -75,6 +75,10 @@
         <div class="item hidden-tray" id="tray-vpn-item" title="VPN Shield">
           <i data-lucide="shield-check" class="tray-icon"></i>
         </div>
+        <div class="item notif-btn" id="tray-notif-btn" title="Centro de Notificaciones" role="button" tabindex="0">
+          <i data-lucide="bell" class="tray-icon"></i>
+          <span class="notif-badge" id="notif-badge" hidden>0</span>
+        </div>
         <div class="item" title="Volumen">
           <i data-lucide="volume-2" class="tray-icon"></i>
           <span id="tray-volume-num">80%</span>
@@ -159,7 +163,6 @@
         <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
       </button>
 
-      <!-- ★ VPN reemplaza a Alto Ahorro -->
       <button class="quick-switch" id="vpn-toggle" type="button" aria-pressed="false" onclick="toggleVpnFromQuickCenter()">
         <div class="switch-meta">
           <i data-lucide="shield-check"></i>
@@ -236,6 +239,35 @@
         <button class="cc-ctrl" id="cc-repeat" title="Repetir" type="button"><i data-lucide="repeat"></i></button>
         <span class="cc-eq-dot" id="cc-eq-dot" title="Estado"></span>
       </div>
+    </div>
+  </div>
+
+  <!-- CENTRO DE NOTIFICACIONES -->
+  <div id="notification-center" class="hidden" aria-label="Centro de notificaciones">
+    <div class="notif-panel-header">
+      <div>
+        <div class="widget-kicker">NEBULA NOTIFICATIONS</div>
+        <strong>Centro de Notificaciones</strong>
+        <span id="notif-subtitle">Sin notificaciones nuevas</span>
+      </div>
+      <div class="notif-panel-actions">
+        <button class="notif-action-btn" id="notif-clear-btn" type="button" title="Limpiar todo">
+          <i data-lucide="trash-2"></i>
+        </button>
+        <button class="notif-action-btn" id="notif-close-btn" type="button" title="Cerrar" onclick="closeNotificationCenter()">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="notif-list" id="notif-list" aria-live="polite">
+      <!-- Items dinámicos -->
+    </div>
+
+    <div class="notif-empty" id="notif-empty">
+      <div class="notif-empty-icon"><i data-lucide="bell-off"></i></div>
+      <strong>Todo tranquilo por acá</strong>
+      <small>Las notificaciones del sistema aparecerán acá.</small>
     </div>
   </div>
 

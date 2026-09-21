@@ -83,13 +83,10 @@ const WMO_CODE_MAP = {
 };
 
 /* Configuración del widget de clima */
-const WEATHER_FETCH_INTERVAL_MS = 15 * 60 * 1000; // 15 min
+const WEATHER_FETCH_INTERVAL_MS = 15 * 60 * 1000;
 const WEATHER_CACHE_STALE_MS = 15 * 60 * 1000;
 
-/* Caché en memoria: { [cityId]: { data, fetchedAt } } */
 const weatherCache = {};
-
-/* Timers activos por widget */
 const weatherWidgetTimers = new WeakMap();
 
 const WALLPAPERS = [
@@ -98,12 +95,6 @@ const WALLPAPERS = [
   { file: 'fondo3.jpg', name: 'Solar', accent: '#f9c784', text: '#fff1dc', sub: '#d7bfa4', green: '#b8e986', panel: 'rgba(43,25,20,0.75)' }
 ];
 
-/* =====================================================
-   ★ THEME PRESETS
-   Cada preset define colores + parámetros visuales.
-   `shadowStrength` (0-100) controla la intensidad de
-   `--shadow` en :root, con la fórmula de applyShadowStrength().
-===================================================== */
 const THEME_PRESETS = {
   cyberpunk: {
     name: 'Cyberpunk Neón',
@@ -169,7 +160,6 @@ const THEME_PRESETS = {
     shadowStrength: 40,
     colors: ['#10b981', '#3b82f6', '#475569', '#08090c']
   },
-  /* ★ Nord Arc: paleta SwiftUI + fondo neutro */
   'nord-arc': {
     name: 'Nord Arc',
     accent: '#30B0C7',
@@ -206,9 +196,6 @@ const DOCK_PREVIEW_STYLES = {
   compact:   { name: 'Compacto',         desc: 'Solo lo esencial: ícono y datos',                   available: false }
 };
 
-/* =====================================================
-   ★ NEBULA SHIELD — Catálogo de features de seguridad
-===================================================== */
 const SHIELD_FEATURES = {
   antivirus: {
     id: 'antivirus',
@@ -285,7 +272,6 @@ let editingNoteIndex = null;
 let lastClockSecond = null;
 let lastClockMinute = null;
 
-/* ★ designerState ahora incluye shadowStrength */
 let designerState = {
   activePreset: 'catppuccin',
   accent: '#b4befe',
@@ -304,9 +290,6 @@ let designerState = {
   dockPreviewStyle: 'blueprint'
 };
 
-/* =====================================================
-   ★ NEBULA SHIELD — Estado de seguridad
-===================================================== */
 let shieldState = {
   antivirus: true,
   firewall: true,
@@ -314,19 +297,16 @@ let shieldState = {
   behavior: false,
   vpnConnected: false,
   vpnServer: 'amsterdam',
-  lastScan: null,          // timestamp
+  lastScan: null,
   scanInProgress: false,
   scanProgress: 0,
   scanCurrentFile: '',
   threatsFound: 0,
   threatsQuarantined: 0,
   scheduledScan: true,
-  scanHistory: []          // [{ date, threats, duration }]
+  scanHistory: []
 };
 
-/* =====================================================
-   ★ NEBULA UPDATES — Estado de actualizaciones
-===================================================== */
 let updatesState = {
   currentVersion: '2.5.0 Ultimate',
   currentCodename: 'Nebula',
@@ -337,7 +317,7 @@ let updatesState = {
   updateCheckedAt: null,
   updateInProgress: false,
   updateProgress: 0,
-  updateStage: '',         // 'descargando' | 'instalando' | 'verificando'
+  updateStage: '',
   autoUpdate: true,
   betaChannel: false,
   updateHistory: [
@@ -346,6 +326,11 @@ let updatesState = {
     { version: '2.4.0', codename: 'Quantum',  date: 'Hace 4 meses',   size: '850 MB' }
   ]
 };
+
+/* ★ CENTRO DE NOTIFICACIONES — Historial */
+let notifications = [];
+let unreadCount = 0;
+let notifIdCounter = 0;
 
 let desktopWidgets = [];
 
@@ -397,6 +382,8 @@ const SESSION_STORAGE_KEY = 'nebula-os:session';
 const FILESYSTEM_STORAGE_KEY = 'nebula-os:filesystem';
 const SHIELD_STORAGE_KEY = 'nebula-os:shield';
 const UPDATES_STORAGE_KEY = 'nebula-os:updates';
+const NOTIFICATIONS_STORAGE_KEY = 'nebula-os:notifications';
+const NOTIFICATIONS_MAX = 30;
 
 const Z_INDEX_NORMALIZE_THRESHOLD = 800;
 const Z_INDEX_BASE = 100;
@@ -408,12 +395,11 @@ const ANIM_RESTORE_MS = 360;
 
 const pendingClose = new Set();
 
-/* ★ settingsState: nueva estructura con sub-tabs y carpeta del Designer */
 let settingsState = {
   animations: true,
   transparency: true,
-  activeSettingsTab: 'system',        // 'system' | 'designer' | 'gaming' | 'shield' | 'updates'
-  designerSubTab: 'styles',           // 'styles' | 'wallpapers'
+  activeSettingsTab: 'system',
+  designerSubTab: 'styles',
   designerExpanded: true
 };
 
@@ -793,6 +779,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   createStars();
   loadPersistedState();
+  loadNotifications();
+  updateNotifBadge();
   renderDock();
   setupSliders();
   updateClock();
@@ -816,7 +804,7 @@ document.addEventListener('DOMContentLoaded', () => {
   syncAllSliders();
   refreshIcons();
 
-  document.querySelectorAll('.waybar-module, #dock, #control-center, #quick-center, #launcher').forEach(el => {
+  document.querySelectorAll('.waybar-module, #dock, #control-center, #quick-center, #launcher, #notification-center').forEach(el => {
     el.classList.add('glass-panel');
   });
   
@@ -826,9 +814,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const quickCenter = document.getElementById('quick-center');
   const trayHudToggle = document.getElementById('tray-hud-toggle');
   const topbarProfilePill = document.getElementById('topbar-profile-pill');
+  const trayNotifBtn = document.getElementById('tray-notif-btn');
+  const notifClearBtn = document.getElementById('notif-clear-btn');
 
   const toggleControlCenter = () => {
     closeQuickCenter();
+    closeNotificationCenter();
     const wasHidden = controlCenter?.classList.contains('hidden');
     controlCenter?.classList.toggle('hidden');
     if (wasHidden) {
@@ -841,10 +832,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (controlCenter && !controlCenter.classList.contains('hidden')) {
       closeControlCenter();
     }
+    closeNotificationCenter();
     quickCenter?.classList.toggle('hidden');
     updateToastPosition();
     syncAllSliders();
     syncVpnQuickCenterState();
+    renderConnectivityState();
     refreshIcons();
   };
 
@@ -862,6 +855,22 @@ document.addEventListener('DOMContentLoaded', () => {
     switchProfile(next);
   });
 
+  /* ★ Centro de Notificaciones — Botón campana con captura previa para evitar conflicto con sysTrayBtn */
+  if (trayNotifBtn) {
+    trayNotifBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      toggleNotificationCenter();
+    }, true);
+  }
+  if (notifClearBtn) {
+    notifClearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      clearAllNotifications();
+    });
+  }
+
   document.addEventListener('click', (e) => {
     const isPlayerClick = e.target.closest('#cc-spotify-player');
     const isCalendarClick = e.target.closest('.calendar-panel') || e.target.closest('#notes-list');
@@ -872,6 +881,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const isFsCtxClick = e.target.closest('.fs-context-menu');
     const isFsRenameClick = e.target.closest('.fs-rename-modal');
     const isCitySelectorClick = e.target.closest('.weather-city-selector');
+    const isNotifPanelClick = e.target.closest('#notification-center');
+    const isNotifBtnClick = e.target.closest('#tray-notif-btn');
 
     if (!isDockCtxClick) hideDockContextMenu();
     if (!isWmCardCtxClick) hideWmCardContextMenu();
@@ -890,9 +901,12 @@ document.addEventListener('DOMContentLoaded', () => {
         && !isWmCardCtxClick
         && !isFsCtxClick
         && !isFsRenameClick
-        && !isCitySelectorClick) {
+        && !isCitySelectorClick
+        && !isNotifPanelClick
+        && !isNotifBtnClick) {
       closeControlCenter();
       closeQuickCenter();
+      closeNotificationCenter();
     }
     hideContextMenu();
   });
@@ -906,6 +920,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Escape') {
       closeControlCenter();
       closeQuickCenter();
+      closeNotificationCenter();
       if (gamerOverlayVisible) toggleGamerOverlay();
       if (windowManagerOpen) closeWindowManager();
       hideDockContextMenu();
@@ -947,7 +962,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   restoreSessionState();
 
-  /* ★ Sincronizar el switch de VPN del Quick Center al iniciar */
   syncVpnQuickCenterState();
 
   window.addEventListener('beforeunload', () => {
@@ -1037,6 +1051,17 @@ function renderConnectivityState() {
     }
   }
 
+  const trayVpn = document.getElementById('tray-vpn-item');
+  if (trayVpn) {
+    if (shieldState.vpnConnected) {
+      trayVpn.classList.remove('hidden-tray');
+      trayVpn.title = `VPN Shield: Conectada · ${VPN_SERVERS.find(s => s.id === shieldState.vpnServer)?.name || 'Ámsterdam'}`;
+    } else {
+      trayVpn.classList.add('hidden-tray');
+      trayVpn.title = 'VPN Shield: Desconectada';
+    }
+  }
+
   const wifiToggle = document.getElementById('wifi-toggle');
   if (wifiToggle) {
     wifiToggle.classList.toggle('active', wifiEnabled);
@@ -1048,13 +1073,11 @@ function renderConnectivityState() {
     btToggle.setAttribute('aria-pressed', String(bluetoothEnabled));
   }
 
-  /* ★ Sincronizar también el switch de VPN */
   syncVpnQuickCenterState();
 
   refreshIcons();
 }
 
-/* ★ Sincroniza el estado visual del switch de VPN del Quick Center */
 function syncVpnQuickCenterState() {
   const vpnToggle = document.getElementById('vpn-toggle');
   if (vpnToggle) {
@@ -1067,7 +1090,6 @@ function syncVpnQuickCenterState() {
   }
 }
 
-/* ★ Toggle de VPN desde el Quick Center */
 function toggleVpnFromQuickCenter() {
   toggleVpnConnection();
 }
@@ -1331,7 +1353,6 @@ function simulateRamBoost() {
   showToast('Memoria Optimizada', `RAM liberada de ${previous}% a 17%. 4.8 GB liberados.`, 'sparkles');
 }
 
-/* Alias usado en Ajustes > Sistema */
 function simulateCleanRam() {
   simulateRamBoost();
 }
@@ -1340,10 +1361,6 @@ function simulateCleanRam() {
    ★ FEATURE 2: NEBULA DESIGNER — Temas y controles en vivo
 ===================================================== */
 
-/**
- * Aplica la intensidad de sombra a la variable global --shadow.
- * s = value/100, se calcula offset-y, blur y alpha proporcionales.
- */
 function applyShadowStrength(value) {
   const clamped = Math.max(0, Math.min(100, Number(value) || 0));
   const s = clamped / 100;
@@ -1473,7 +1490,6 @@ function setLivePanelAlpha(alpha) {
   saveDesignerState();
 }
 
-/* ★ Control en vivo de sombra de ventanas */
 function setLiveShadowStrength(value) {
   applyShadowStrength(value);
   const valEl = document.getElementById('designer-shadow-val');
@@ -2180,6 +2196,10 @@ function parseAndExecuteNovaAction(query) {
     simulateRamBoost();
     actionTaken = 'RAM Optimizada y Cache Purgada';
     replyText = 'He ejecutado una limpieza profunda de procesos inactivos y cache. La memoria RAM quedó optimizada.';
+  } else if (q.includes('vpn') || q.includes('conectar vpn')) {
+    toggleVpnConnection();
+    actionTaken = shieldState.vpnConnected ? 'VPN Conectada' : 'VPN Desconectada';
+    replyText = shieldState.vpnConnected ? 'Conexión VPN establecida. Tu tráfico está cifrado.' : 'VPN desconectada.';
   } else if (q.includes('antivirus') || q.includes('escaneo') || q.includes('escanea') || q.includes('seguridad') || q.includes('virus')) {
     openApp('settings');
     settingsState.activeSettingsTab = 'shield';
@@ -3492,6 +3512,8 @@ function setSystemVolume(val) {
 function showToast(title, message, iconName = 'sparkles', force = false) {
   if (dndEnabled && !force) return;
 
+  addNotificationToHistory(title, message, iconName);
+
   const container = document.getElementById('toast-container');
   if (!container) return;
 
@@ -3508,6 +3530,206 @@ function showToast(title, message, iconName = 'sparkles', force = false) {
   container.appendChild(toast);
   refreshIcons();
   setTimeout(() => toast.remove(), 4000);
+}
+
+/* =====================================================
+   ★ CENTRO DE NOTIFICACIONES — Lógica
+===================================================== */
+
+function addNotificationToHistory(title, message, iconName = 'sparkles') {
+  notifIdCounter++;
+  const notif = {
+    id: 'notif-' + Date.now() + '-' + notifIdCounter,
+    title: String(title),
+    message: String(message),
+    icon: iconName,
+    timestamp: Date.now(),
+    read: false
+  };
+
+  notifications.unshift(notif);
+  if (notifications.length > NOTIFICATIONS_MAX) {
+    notifications = notifications.slice(0, NOTIFICATIONS_MAX);
+  }
+
+  unreadCount++;
+  saveNotifications();
+  updateNotifBadge();
+
+  const panel = document.getElementById('notification-center');
+  if (panel && !panel.classList.contains('hidden')) {
+    renderNotificationCenter();
+  }
+}
+
+function updateNotifBadge() {
+  const badge = document.getElementById('notif-badge');
+  const btn = document.getElementById('tray-notif-btn');
+  if (!badge || !btn) return;
+
+  if (unreadCount > 0) {
+    badge.hidden = false;
+    badge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+    btn.classList.add('has-unread');
+  } else {
+    badge.hidden = true;
+    btn.classList.remove('has-unread');
+  }
+}
+
+function markAllNotificationsAsRead() {
+  notifications.forEach(n => { n.read = true; });
+  unreadCount = 0;
+  saveNotifications();
+  updateNotifBadge();
+  renderNotificationCenter();
+}
+
+function clearAllNotifications() {
+  if (notifications.length === 0) {
+    showToast('Sin notificaciones', 'No hay nada para limpiar.', 'info');
+    return;
+  }
+  const count = notifications.length;
+  notifications = [];
+  unreadCount = 0;
+  saveNotifications();
+  updateNotifBadge();
+  renderNotificationCenter();
+  showToast('Notificaciones limpiadas', `Se eliminaron ${count} notificacion${count === 1 ? '' : 'es'}.`, 'trash-2');
+}
+
+function removeNotification(id) {
+  const idx = notifications.findIndex(n => n.id === id);
+  if (idx === -1) return;
+  const wasUnread = !notifications[idx].read;
+  notifications.splice(idx, 1);
+  if (wasUnread) unreadCount = Math.max(0, unreadCount - 1);
+  saveNotifications();
+  updateNotifBadge();
+  renderNotificationCenter();
+}
+
+function getRelativeTime(timestamp) {
+  const diff = Date.now() - timestamp;
+  const secs = Math.floor(diff / 1000);
+  if (secs < 10) return 'Ahora';
+  if (secs < 60) return `Hace ${secs}s`;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `Hace ${mins}min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `Hace ${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `Hace ${days}d`;
+  const date = new Date(timestamp);
+  return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}`;
+}
+
+function renderNotificationCenter() {
+  const list = document.getElementById('notif-list');
+  const empty = document.getElementById('notif-empty');
+  const subtitle = document.getElementById('notif-subtitle');
+  const clearBtn = document.getElementById('notif-clear-btn');
+  if (!list || !empty) return;
+
+  if (notifications.length === 0) {
+    list.innerHTML = '';
+    list.hidden = true;
+    empty.hidden = false;
+    if (subtitle) subtitle.textContent = 'Sin notificaciones';
+    if (clearBtn) clearBtn.disabled = true;
+    return;
+  }
+
+  list.hidden = false;
+  empty.hidden = true;
+  if (subtitle) {
+    subtitle.textContent = `${notifications.length} notificacion${notifications.length === 1 ? '' : 'es'} · ${unreadCount} sin leer`;
+  }
+  if (clearBtn) clearBtn.disabled = false;
+
+  list.innerHTML = notifications.map(n => `
+    <div class="notif-item ${n.read ? '' : 'unread'}" data-notif-id="${n.id}">
+      <span class="notif-item-icon"><i data-lucide="${n.icon || 'bell'}"></i></span>
+      <div class="notif-item-body">
+        <strong>${escapeHtml(n.title)}</strong>
+        <small>${escapeHtml(n.message)}</small>
+      </div>
+      <div class="notif-item-meta">
+        <span class="notif-item-time">${getRelativeTime(n.timestamp)}</span>
+        <button class="notif-item-close" type="button" title="Eliminar" data-notif-remove="${n.id}">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('[data-notif-remove]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeNotification(btn.dataset.notifRemove);
+    });
+  });
+
+  refreshIcons();
+}
+
+function openNotificationCenter() {
+  const panel = document.getElementById('notification-center');
+  if (!panel) return;
+
+  closeQuickCenter();
+  closeControlCenter();
+
+  panel.classList.remove('hidden');
+  renderNotificationCenter();
+
+  setTimeout(() => {
+    markAllNotificationsAsRead();
+  }, 300);
+}
+
+function closeNotificationCenter() {
+  const panel = document.getElementById('notification-center');
+  if (!panel) return;
+  panel.classList.add('hidden');
+}
+
+function toggleNotificationCenter() {
+  const panel = document.getElementById('notification-center');
+  if (!panel) return;
+  if (panel.classList.contains('hidden')) {
+    openNotificationCenter();
+  } else {
+    closeNotificationCenter();
+  }
+}
+
+function saveNotifications() {
+  try {
+    const serializable = notifications.map(n => ({ ...n }));
+    localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(serializable));
+  } catch (e) {}
+}
+
+function loadNotifications() {
+  try {
+    const raw = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return;
+    notifications = parsed
+      .filter(n => n && typeof n === 'object' && n.id && n.title)
+      .map(n => ({
+        id: String(n.id),
+        title: String(n.title),
+        message: String(n.message || ''),
+        icon: n.icon || 'bell',
+        timestamp: typeof n.timestamp === 'number' ? n.timestamp : Date.now(),
+        read: !!n.read
+      }));
+    unreadCount = notifications.filter(n => !n.read).length;
+  } catch (e) {}
 }
 
 /* ================= PERSISTENCIA & CONFIG ================= */
@@ -3585,13 +3807,11 @@ function loadPersistedState() {
     const rawNotes = JSON.parse(localStorage.getItem(CALENDAR_NOTES_STORAGE_KEY) || '{}');
     calendarState.notes = migrateNotesFormat(rawNotes);
 
-    /* ★ NEBULA SHIELD — Estado persistente */
     const savedShield = JSON.parse(localStorage.getItem(SHIELD_STORAGE_KEY));
     if (savedShield && typeof savedShield === 'object') {
       shieldState = { ...shieldState, ...savedShield, scanInProgress: false, scanProgress: 0 };
     }
 
-    /* ★ NEBULA UPDATES — Estado persistente */
     const savedUpdates = JSON.parse(localStorage.getItem(UPDATES_STORAGE_KEY));
     if (savedUpdates && typeof savedUpdates === 'object') {
       updatesState = { ...updatesState, ...savedUpdates, updateInProgress: false, updateProgress: 0, updateStage: '' };
@@ -4507,6 +4727,7 @@ function openWindowManager() {
 
   closeQuickCenter();
   closeControlCenter();
+  closeNotificationCenter();
   hideDockPreview();
   hideContextMenu();
   hideDockContextMenu();
@@ -6177,11 +6398,9 @@ function renderSettingsApp() {
 function setSettingsTab(tabName) {
   settingsState.activeSettingsTab = tabName;
 
-  /* Auto-expandir carpeta al activar Designer */
   if (tabName === 'designer') {
     settingsState.designerExpanded = true;
   } else {
-    /* Auto-colapsar carpeta al cambiar a otra sección */
     settingsState.designerExpanded = false;
   }
 
@@ -6189,14 +6408,12 @@ function setSettingsTab(tabName) {
   renderSettingsApp();
 }
 
-/* ★ Nuevo: colapsar/expandir carpeta del Designer */
 function toggleDesignerFolder() {
   settingsState.designerExpanded = !settingsState.designerExpanded;
   saveSettingsState();
   renderSettingsApp();
 }
 
-/* ★ Nuevo: cambiar sub-tab dentro del Designer (Estilos / Fondos) */
 function setDesignerSubTab(subTab) {
   if (subTab !== 'styles' && subTab !== 'wallpapers') return;
   settingsState.designerSubTab = subTab;
@@ -6250,7 +6467,6 @@ function toggleVpnConnection() {
       shieldBtn.innerHTML = '<i data-lucide="loader-circle" class="shield-spinner"></i> Conectando...';
       refreshIcons();
     }
-    /* Sincronizar el switch del Quick Center con el estado "conectando" */
     const vpnToggle = document.getElementById('vpn-toggle');
     if (vpnToggle) vpnToggle.classList.add('active');
 
@@ -6258,14 +6474,14 @@ function toggleVpnConnection() {
       shieldState.vpnConnected = true;
       saveShieldState();
       showToast('VPN Conectada', `Servidor: ${VPN_SERVERS.find(s => s.id === shieldState.vpnServer)?.name || 'Ámsterdam'}`, 'globe');
-      syncVpnQuickCenterState();
+      renderConnectivityState();
       renderSettingsApp();
     }, 1400);
   } else {
     shieldState.vpnConnected = false;
     saveShieldState();
     showToast('VPN Desconectada', 'Conexión segura finalizada.', 'globe-off');
-    syncVpnQuickCenterState();
+    renderConnectivityState();
     renderSettingsApp();
   }
 }
@@ -6309,7 +6525,6 @@ function runShieldScan() {
     if (shieldState.scanProgress > 100) shieldState.scanProgress = 100;
     shieldState.scanCurrentFile = SCAN_ITEMS[Math.floor(Math.random() * SCAN_ITEMS.length)];
 
-    /* Amenaza ficticia en ~60% del escaneo */
     if (shieldState.scanProgress > 60 && shieldState.threatsFound === 0 && Math.random() > 0.55) {
       shieldState.threatsFound = 1;
     }
@@ -6449,7 +6664,6 @@ function installUpdate() {
       updatesState.updateProgress = 100;
       updateUpdatesUI();
 
-      /* Cambio de etapa */
       if (updatesState.updateStage === 'descargando') {
         setTimeout(() => {
           updatesState.updateStage = 'instalando';
@@ -6470,7 +6684,6 @@ function installUpdate() {
         return;
       }
 
-      /* Fin del proceso */
       setTimeout(() => {
         updatesState.updateInProgress = false;
         updatesState.updateProgress = 0;
@@ -6920,7 +7133,6 @@ function getAppContent(id) {
     const designerExpanded = settingsState.designerExpanded !== false;
     const designerSubTab = settingsState.designerSubTab || 'styles';
 
-    /* Determinar qué contenido mostrar en el panel principal */
     let mainContent = '';
     if (activeTab === 'system') {
       mainContent = getSystemSettingsHTML();
@@ -6953,7 +7165,6 @@ function getAppContent(id) {
             ${updatesState.updateAvailable ? '<span class="settings-nav-badge">1</span>' : ''}
           </div>
 
-          <!-- ★ Carpeta Nebula Designer con sub-ítems -->
           <div class="settings-nav-folder ${activeTab === 'designer' ? 'active' : ''} ${designerExpanded ? 'expanded' : ''}">
             <div class="settings-nav-folder-header" onclick="setSettingsTab('designer')">
               <span class="settings-nav-folder-label">
@@ -7684,7 +7895,7 @@ function buildLauncherActions() {
   return [
     { id: 'action-gamemode', title: 'Activar / Desactivar Modo Juego', sub: 'Boost de CPU/GPU, libera RAM y activa HUD', icon: 'gamepad-2', category: 'Acción', keywords: ['modo juego', 'game mode', 'gamemode', 'boost', 'gamer'], run: () => toggleGameMode() },
     { id: 'action-hud', title: 'Alternar Gaming HUD', sub: 'Overlay con telemetría de hardware (Alt+Z)', icon: 'activity', category: 'Acción', keywords: ['hud', 'overlay', 'telemetria', 'gaming', 'alt z'], run: () => toggleGamerOverlay() },
-    { id: 'action-vpn', title: 'Alternar VPN Nebula Shield', sub: 'Conectar / desconectar la VPN', icon: 'globe', category: 'Acción', keywords: ['vpn', 'shield', 'privacidad'], run: () => toggleVpnConnection() },
+    { id: 'action-vpn', title: 'Alternar VPN Nebula Shield', sub: 'Conectar / desconectar la VPN', icon: 'shield-check', category: 'Acción', keywords: ['vpn', 'shield', 'privacidad'], run: () => toggleVpnConnection() },
     { id: 'action-wallpaper-next', title: 'Siguiente fondo de pantalla', sub: 'Rota al siguiente wallpaper disponible', icon: 'image', category: 'Acción', keywords: ['wallpaper', 'fondo', 'siguiente', 'rotar'], run: () => applyWallpaper((currentWallpaperIndex + 1) % WALLPAPERS.length) },
     { id: 'action-ram-boost', title: 'Optimizar RAM', sub: 'Libera memoria y limpia cache', icon: 'sparkles', category: 'Acción', keywords: ['optimizar', 'ram', 'limpiar', 'memoria', 'boost'], run: () => simulateRamBoost() },
     { id: 'action-weather-widget', title: 'Añadir Widget de Clima', sub: 'Widget meteorológico con datos reales (Open-Meteo)', icon: 'cloud-sun', category: 'Acción', keywords: ['clima', 'weather', 'widget', 'tiempo', 'temperatura'], run: () => addWeatherWidget() },
@@ -7692,6 +7903,7 @@ function buildLauncherActions() {
     { id: 'action-close-all', title: 'Cerrar todas las ventanas', sub: 'Cierra todas las apps abiertas', icon: 'x-circle', category: 'Acción', keywords: ['cerrar', 'close', 'todas', 'ventanas', 'apps'], run: () => { Object.keys(openWindows).forEach(id => closeApp(id)); showToast('Ventanas cerradas', 'Se cerraron todas las apps abiertas.', 'x-circle'); } },
     { id: 'action-shield-scan', title: 'Escaneo de Seguridad (Nebula Shield)', sub: 'Inicia un análisis completo del sistema', icon: 'shield-check', category: 'Acción', keywords: ['escanear', 'seguridad', 'shield', 'virus', 'antivirus', 'scan'], run: () => { openApp('settings'); settingsState.activeSettingsTab = 'shield'; renderSettingsApp(); setTimeout(() => runShieldScan(), 400); } },
     { id: 'action-check-updates', title: 'Buscar actualizaciones', sub: 'Verifica si hay nuevas versiones del sistema', icon: 'download', category: 'Acción', keywords: ['actualizar', 'update', 'version', 'updates'], run: () => { openApp('settings'); settingsState.activeSettingsTab = 'updates'; renderSettingsApp(); setTimeout(() => simulateUpdateCheck(), 400); } },
+    { id: 'action-notif-center', title: 'Abrir Centro de Notificaciones', sub: 'Ver historial de notificaciones del sistema', icon: 'bell', category: 'Acción', keywords: ['notificaciones', 'notif', 'historial', 'centro'], run: () => openNotificationCenter() },
     { id: 'action-profile-gamer', title: 'Perfil: Gamer', sub: 'Aplica tema Cyberpunk + Game Mode + telemetría', icon: 'gamepad-2', category: 'Perfil', keywords: ['perfil', 'gamer', 'profile'], run: () => switchProfile('gamer') },
     { id: 'action-profile-streamer', title: 'Perfil: Streamer', sub: 'Aplica tema Synthwave + widget multimedia', icon: 'radio', category: 'Perfil', keywords: ['perfil', 'streamer', 'profile'], run: () => switchProfile('streamer') },
     { id: 'action-profile-studio', title: 'Perfil: Estudio', sub: 'Aplica tema Catppuccin + workspace 1', icon: 'terminal', category: 'Perfil', keywords: ['perfil', 'estudio', 'studio', 'dev'], run: () => switchProfile('studio') },
