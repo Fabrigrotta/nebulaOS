@@ -8,7 +8,8 @@ const APPS = {
   vscode:   { title: 'VS Code', sub: 'Editor de Código', icon: 'code-2', image: './assets/images/iconos/visualStudioCode.png', tileClass: 'app-tile-vscode', accentColor: '#0284c7' },
   settings: { title: 'Ajustes', sub: 'Panel de Control & Designer', icon: 'sliders', image: './assets/images/iconos/ajustes.png', tileClass: 'app-tile-settings', accentColor: '#94a3b8' },
   nova:     { title: 'Nova AI', sub: 'Asistente Gamer & Tweaker', icon: 'sparkles', image: './assets/images/logosSO/novaLogo.png', tileClass: 'app-tile-nova', accentColor: '#c026d3' },
-  store:    { title: 'Nebula Store', sub: 'Tienda de Personalización', icon: 'shopping-cart', image: null, tileClass: 'app-tile-store', accentColor: '#f59e0b' }
+  store:    { title: 'Nebula Store', sub: 'Tienda de Personalización', icon: 'shopping-cart', image: null, tileClass: 'app-tile-store', accentColor: '#f59e0b' },
+  vault:    { title: 'Nebula Vault', sub: 'Gestor de Contraseñas Seguro', icon: 'key-round', image: null, tileClass: 'app-tile-vault', accentColor: '#a855f7' }
 };
 
 const DOCK_APPS = ['browser', 'terminal', 'nova', 'files', 'vscode', 'music', 'games', 'store', 'settings'];
@@ -316,6 +317,40 @@ const STORE_PRODUCTS = [
   { id: 'game-elden-ring', type: 'game', name: 'Elden Ring', description: 'RPG de acción en un mundo abierto épico.', author: 'FromSoftware', rating: 4.9, downloads: 68000, size: '45.6 GB', price: 'Gratis', preview: { icon: 'sword', color: '#c9a050' } }
 ];
 
+/* ================= VAULT — CONSTANTES GLOBALES (deben ir ARRIBA) ================= */
+const VAULT_STORAGE_KEY = 'nebula-os:vault';
+const VAULT_MASTER_KEY = 'nebula-os:vault-master';
+const VAULT_LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutos
+
+const VAULT_CATEGORIES = [
+  { id: 'redes',   name: 'Redes Sociales', icon: 'users',    color: '#3b82f6' },
+  { id: 'gaming',  name: 'Gaming',         icon: 'gamepad-2', color: '#a855f7' },
+  { id: 'trabajo', name: 'Trabajo',        icon: 'briefcase', color: '#f59e0b' },
+  { id: 'bancos',  name: 'Bancos',         icon: 'landmark',  color: '#10b981' },
+  { id: 'email',   name: 'Email',          icon: 'mail',      color: '#ef4444' },
+  { id: 'otros',   name: 'Otros',          icon: 'package',   color: '#64748b' }
+];
+
+let vaultState = {
+  unlocked: false,
+  entries: [],
+  searchQuery: '',
+  activeCategory: 'all',
+  selectedEntryId: null,
+  showPassword: {},
+  masterChanged: false,
+  lastOpenedAt: null,
+  generator: {
+    length: 16,
+    uppercase: true,
+    lowercase: true,
+    numbers: true,
+    symbols: true
+  }
+};
+
+let vaultLockTimer = null;
+
 /* ================= VARIABLES GLOBALES DE ESTADO ================= */
 let openWindows = {};
 let appInstanceCounter = {};
@@ -471,7 +506,9 @@ let settingsState = {
   transparency: true,
   activeSettingsTab: 'system',
   designerSubTab: 'styles',
-  designerExpanded: true
+  designerExpanded: true,
+  shieldSubTab: 'security',
+  shieldExpanded: true
 };
 
 function refreshIcons() {
@@ -1378,6 +1415,7 @@ function setupTelemetryLoop() {
     updateGamingHubWidget();
   }, 1200);
 }
+
 function takeGamerScreenshot() {
   const screen = document.getElementById('screen');
   screen.style.filter = 'brightness(1.5)';
@@ -5636,6 +5674,7 @@ function openApp(appId, forceNew = false, restoreData = null) {
     if (appId === 'settings') renderSettingsApp();
     if (appId === 'music') setupSpotifyApp(win);
     if (appId === 'browser') setupBrowserApp(win);
+    if (appId === 'vault') setupVaultApp(win);
   }
 
   setupWindowResize(win);
@@ -6106,6 +6145,21 @@ function toggleDesignerFolder() {
   renderSettingsApp();
 }
 
+function setShieldSubTab(subTab) {
+  if (subTab !== 'security' && subTab !== 'vault') return;
+  settingsState.shieldSubTab = subTab;
+  settingsState.activeSettingsTab = 'shield';
+  settingsState.shieldExpanded = true;
+  saveSettingsState();
+  renderSettingsApp();
+}
+
+function toggleShieldFolder() {
+  settingsState.shieldExpanded = !settingsState.shieldExpanded;
+  saveSettingsState();
+  renderSettingsApp();
+}
+
 function setDesignerSubTab(subTab) {
   if (subTab !== 'styles' && subTab !== 'wallpapers') return;
   settingsState.designerSubTab = subTab;
@@ -6439,7 +6493,11 @@ function toggleBetaChannel() {
   renderSettingsApp();
 }
 
-function getShieldSettingsHTML() {
+/* ═══════════════════════════════════════════════════════════════
+   ★ SECCIÓN: NEBULA SHIELD — HTML
+═══════════════════════════════════════════════════════════════ */
+
+function getShieldSecurityHTML() {
   const activeCount = ['antivirus', 'firewall', 'encryption', 'behavior'].filter(k => shieldState[k]).length;
   const totalCount = 4;
   const isProtected = activeCount >= 3;
@@ -6591,402 +6649,176 @@ function getShieldSettingsHTML() {
   `;
 }
 
-function getUpdatesSettingsHTML() {
-  const hasUpdate = updatesState.updateAvailable;
-  const statusLabel = hasUpdate
-    ? `ACTUALIZACIÓN A v${updatesState.availableVersion}`
-    : 'SISTEMA AL DÍA';
-  const statusClass = hasUpdate ? 'warning' : 'protected';
+function getShieldVaultHTML() {
+  const count = vaultState.entries.length;
+  const isUnlocked = vaultState.unlocked;
+  const hasDefaultMaster = !vaultState.masterChanged;
+  const lastOpened = vaultState.lastOpenedAt ? getTimeAgo(vaultState.lastOpenedAt) : 'Nunca abierto';
+  const strength = calculateVaultOverallStrength();
 
   return `
     <div class="settings-heading">
       <div>
-        <div class="settings-kicker">NEBULA UPDATES</div>
-        <h2>Actualizaciones del Sistema</h2>
-        <p>Versión actual, parches de seguridad y mejoras de rendimiento.</p>
+        <div class="settings-kicker">NEBULA SHIELD</div>
+        <h2>Gestor de Contraseñas</h2>
+        <p>Bóveda cifrada localmente para guardar tus credenciales de forma segura.</p>
       </div>
-      <div class="settings-status shield-status-${statusClass}">
-        <span class="shield-status-dot"></span> ${statusLabel}
-      </div>
-    </div>
-
-    <div class="settings-section-label">Estado de Versión</div>
-    <div class="updates-version-card">
-      <div class="updates-version-row">
-        <div class="updates-version-info">
-          <span class="updates-version-label">Versión actual</span>
-          <strong class="updates-version-number">v${updatesState.currentVersion}</strong>
-          <small class="updates-version-codename">Codename "${updatesState.currentCodename}" · Canal ${updatesState.betaChannel ? 'Beta' : 'Estable'}</small>
-        </div>
-        <div class="updates-version-icon">
-          <i data-lucide="package-check"></i>
-        </div>
+      <div class="settings-status shield-status-${isUnlocked ? 'protected' : 'warning'}">
+        <span class="shield-status-dot"></span>
+        ${isUnlocked ? 'DESBLOQUEADA' : 'BLOQUEADA'}
       </div>
     </div>
 
-    ${hasUpdate ? `
-      <div class="settings-section-label">Actualización Disponible</div>
-      <div class="updates-available-card ${updatesState.updateInProgress ? 'installing' : ''}">
-        <div class="updates-available-header">
+    <div class="settings-section-label">Estado de la Bóveda</div>
+    <div class="vault-shield-card ${isUnlocked ? 'unlocked' : 'locked'}">
+      <div class="vault-shield-main">
+        <div class="vault-shield-icon">
+          <i data-lucide="key-round"></i>
+          <span class="vault-shield-status ${isUnlocked ? 'unlocked' : 'locked'}"></span>
+        </div>
+
+        <div class="vault-shield-info">
+          <div class="vault-shield-title-row">
+            <strong>Nebula Vault</strong>
+            <span class="vault-shield-status-badge ${isUnlocked ? 'unlocked' : 'locked'}">
+              <i data-lucide="${isUnlocked ? 'unlock' : 'lock'}"></i>
+              ${isUnlocked ? 'Desbloqueada' : 'Bloqueada'}
+            </span>
+          </div>
+          <small>Gestor seguro de contraseñas · Cifrado local AES-256</small>
+          <div class="vault-shield-stats">
+            <span class="vault-shield-stat">
+              <i data-lucide="key-round"></i>
+              <strong>${count}</strong> contraseña${count === 1 ? '' : 's'}
+            </span>
+            <span class="vault-shield-stat" style="color: ${strength.color};">
+              <i data-lucide="shield"></i>
+              <strong>${strength.label}</strong>
+            </span>
+            <span class="vault-shield-stat">
+              <i data-lucide="clock"></i>
+              ${lastOpened}
+            </span>
+          </div>
+        </div>
+
+        <div class="vault-shield-actions">
+          <button class="vault-shield-btn ${isUnlocked ? 'danger' : 'primary'}" type="button" onclick="${isUnlocked ? 'lockVaultFromShield()' : 'openVaultFromShield()'}">
+            <i data-lucide="${isUnlocked ? 'lock' : 'key-round'}"></i>
+            ${isUnlocked ? 'Bloquear' : 'Abrir Vault'}
+          </button>
+        </div>
+      </div>
+
+      ${hasDefaultMaster ? `
+        <div class="vault-shield-warning">
+          <i data-lucide="alert-triangle"></i>
           <div>
-            <div class="updates-available-badge">
-              <i data-lucide="sparkles"></i> NUEVO
-            </div>
-            <h3>Nebula OS v${updatesState.availableVersion} <span class="updates-codename">"${updatesState.availableCodename}"</span></h3>
-            <small>Tamaño: ${updatesState.updateSize} · Disponible desde hoy</small>
+            <strong>Estás usando la contraseña maestra por defecto</strong>
+            <small>Por seguridad, cambiá <code>nebula123</code> por una contraseña propia.</small>
           </div>
+          <button class="vault-shield-warning-btn" type="button" onclick="openMasterPasswordModal()">
+            <i data-lucide="pencil"></i> Cambiar
+          </button>
         </div>
+      ` : `
+        <div class="vault-shield-footer">
+          <button class="vault-shield-link-btn" type="button" onclick="openMasterPasswordModal()">
+            <i data-lucide="key"></i> Cambiar contraseña maestra
+          </button>
+        </div>
+      `}
+    </div>
 
-        <ul class="updates-changelog">
-          <li><i data-lucide="sparkles"></i> Nuevo widget de clima con selector de ciudad</li>
-          <li><i data-lucide="zap"></i> Mejora del +12% de FPS en Game Mode</li>
-          <li><i data-lucide="bug"></i> Corrección de bugs en el gestor de ventanas</li>
-          <li><i data-lucide="shield-check"></i> Parches de seguridad CVE-2026-4521 y CVE-2026-4518</li>
-          <li><i data-lucide="palette"></i> Nuevos presets visuales y mejoras del Designer</li>
-        </ul>
-
-        ${updatesState.updateInProgress ? `
-          <div class="updates-progress">
-            <div class="updates-progress-header">
-              <span id="updates-stage-label">Preparando...</span>
-              <span class="updates-progress-pct" id="updates-progress-pct">${Math.round(updatesState.updateProgress)}%</span>
+    <div class="settings-section-label">Contraseñas Guardadas</div>
+    ${count > 0 ? `
+      <div class="vault-mini-list">
+        ${vaultState.entries.slice(0, 5).map(entry => {
+          const cat = VAULT_CATEGORIES.find(c => c.id === entry.category) || VAULT_CATEGORIES[5];
+          const strength = calculatePasswordStrength(entry.password);
+          return `
+            <div class="vault-mini-item">
+              <div class="vault-mini-icon" style="background: ${cat.color}20; color: ${cat.color};">
+                <i data-lucide="${cat.icon}"></i>
+              </div>
+              <div class="vault-mini-info">
+                <strong>${escapeHtml(entry.title)}</strong>
+                <small>${escapeHtml(entry.username)}</small>
+              </div>
+              <div class="vault-mini-strength">
+                <div class="vault-strength-bar">
+                  <span style="width: ${strength.percent}%; background: ${strength.color};"></span>
+                </div>
+              </div>
             </div>
-            <div class="updates-progress-bar">
-              <div class="updates-progress-fill" id="updates-progress-fill" style="width: ${updatesState.updateProgress}%"></div>
-            </div>
-          </div>
-        ` : `
-          <div class="updates-actions">
-            <button class="updates-btn primary" type="button" onclick="installUpdate()">
-              <i data-lucide="download"></i> Actualizar ahora
-            </button>
-            <button class="updates-btn ghost" type="button" onclick="scheduleUpdateLater()">
-              <i data-lucide="clock"></i> Programar
-            </button>
-          </div>
-        `}
+          `;
+        }).join('')}
+        ${count > 5 ? `<div class="vault-mini-more">+${count - 5} más…</div>` : ''}
       </div>
     ` : `
-      <div class="settings-section-label">Estado</div>
-      <div class="updates-uptodate-card">
-        <div class="updates-uptodate-icon">
-          <i data-lucide="check-circle-2"></i>
-        </div>
-        <div class="updates-uptodate-info">
-          <strong>¡Estás en la última versión!</strong>
-          <small>Última verificación: ${getTimeAgo(updatesState.updateCheckedAt)}</small>
-        </div>
+      <div class="vault-empty">
+        <div class="vault-empty-icon"><i data-lucide="shield-off"></i></div>
+        <strong>No hay contraseñas guardadas</strong>
+        <span>Abrí Nebula Vault para agregar tu primera contraseña.</span>
       </div>
     `}
+  `;
+}
+/* ═══════════════════════════════════════════════════════════════
+   ★ SECCIÓN: SETTINGS HTML — Sistema, Gaming, Designer, Updates
+═══════════════════════════════════════════════════════════════ */
 
-    <div class="updates-check-row">
-      <button class="updates-btn ghost" id="updates-check-btn" type="button" onclick="simulateUpdateCheck()">
-        <i data-lucide="refresh-cw"></i> Buscar actualizaciones
-      </button>
+function getSystemSettingsHTML() {
+  return `
+    <div class="settings-heading">
+      <div>
+        <div class="settings-kicker">INFORMACIÓN DEL SISTEMA</div>
+        <h2>Nebula OS v2.5 Ultimate</h2>
+        <p>Especificaciones de hardware y configuración del entorno.</p>
+      </div>
+      <div class="settings-status"><span></span> Kernel Optimizado</div>
     </div>
-
-    <div class="settings-section-label">Preferencias</div>
+    <div class="settings-section-label">Especificaciones del Equipo</div>
     <div class="designer-controls-grid">
+      <div class="designer-control-item"><div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="cpu" style="color:var(--accent);"></i> Procesador (CPU)</strong><small>AMD Ryzen 9 7950X · 16 Cores, 32 Threads @ 4.5 - 5.7 GHz</small></div></div>
+      <div class="designer-control-item"><div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="activity" style="color:#00ffcc;"></i> Tarjeta Gráfica (GPU)</strong><small>NVIDIA GeForce RTX 4090 · 24GB GDDR6X · Driver 560.81 GameReady</small></div></div>
       <div class="designer-control-item">
-        <div class="designer-control-info">
-          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="download-cloud" style="color:var(--accent);"></i> Auto-Actualización</strong>
-          <small>Instalar automáticamente cuando estén disponibles</small>
-        </div>
-        <button class="quick-switch ${updatesState.autoUpdate ? 'active' : ''}" type="button" onclick="toggleAutoUpdate()" aria-label="Toggle auto update">
-          <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
-        </button>
+        <div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="zap" style="color:#ff71ce;"></i> Memoria RAM</strong><small>32 GB DDR5 6000MHz Dual-Channel (Uso actual: ${systemMetrics.ram}%)</small></div>
+        <button class="hud-tool-btn" onclick="simulateCleanRam()" style="margin-left:auto;"><i data-lucide="sparkles"></i> Limpiar</button>
       </div>
-
-      <div class="designer-control-item">
-        <div class="designer-control-info">
-          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="flask-conical" style="color:var(--accent-orange);"></i> Canal Beta</strong>
-          <small>Recibir versiones de prueba antes del lanzamiento público</small>
-        </div>
-        <button class="quick-switch ${updatesState.betaChannel ? 'active' : ''}" type="button" onclick="toggleBetaChannel()" aria-label="Toggle beta channel">
-          <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
-        </button>
-      </div>
-    </div>
-
-    <div class="settings-section-label">Historial de Versiones</div>
-    <div class="updates-history-list">
-      ${updatesState.updateHistory.map(item => `
-        <div class="updates-history-item">
-          <div class="updates-history-icon">
-            <i data-lucide="package"></i>
-          </div>
-          <div class="updates-history-info">
-            <strong>v${item.version} <span class="updates-codename">"${item.codename}"</span></strong>
-            <small>${item.date} · ${item.size}</small>
-          </div>
-          <span class="updates-history-check">
-            <i data-lucide="check-circle-2"></i>
-          </span>
-        </div>
-      `).join('')}
+      <div class="designer-control-item"><div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="monitor" style="color:#38bdf8;"></i> Pantalla</strong><small>2560x1440 QHD @ 240Hz OLED HDR · Espacio de trabajo ${currentWorkspace}/5</small></div></div>
     </div>
   `;
 }
 
-function getAppContent(id) {
-  if (id === 'nova') {
-    return `
-      <div class="nova-app">
-        <header class="nova-header">
-          <div class="nova-mark"><i data-lucide="sparkles"></i></div>
-          <div><strong>Nova AI Assistant</strong><span>Prompt-to-Action & System Tweaker · En línea</span></div>
-        </header>
-        <div class="nova-context">
-          <span class="nova-context-dot"></span>
-          <span>Perfil: <strong>${currentProfile.toUpperCase()}</strong> | Modo Juego: <strong>${gameModeActive ? 'ON (Boost)' : 'OFF'}</strong></span>
-        </div>
-        <div class="nova-history" aria-live="polite">
-          <div class="nova-message nova">
-            ¡Hola! Soy Nova AI. Puedo ejecutar acciones directas en tu sistema (cambiar temas, activar Modo Juego, optimizar RAM o poner música). ¿Qué querés configurar hoy?
-          </div>
-          <div class="nova-suggestions">
-            <button type="button" data-nova-prompt="Cambia al tema Cyberpunk"><i data-lucide="palette"></i> Tema Cyberpunk</button>
-            <button type="button" data-nova-prompt="Activa el modo juego"><i data-lucide="gamepad-2"></i> Modo Juego</button>
-            <button type="button" data-nova-prompt="Optimiza el sistema"><i data-lucide="sparkles"></i> Limpiar RAM</button>
-            <button type="button" data-nova-prompt="Pon música"><i data-lucide="music"></i> Poner música</button>
-            <button type="button" data-nova-prompt="Añadí un widget de clima"><i data-lucide="cloud-sun"></i> Widget de Clima</button>
-            <button type="button" data-nova-prompt="Escaneá el sistema con Nebula Shield"><i data-lucide="shield-check"></i> Escanear sistema</button>
-          </div>
-        </div>
-        <form class="nova-form">
-          <button type="button" class="nova-voice-btn" id="nova-voice-btn" title="Comando por voz" onclick="startNovaVoiceInput()"><i data-lucide="mic"></i></button>
-          <input class="nova-input" type="text" autocomplete="off" maxlength="240" placeholder="Pedile a Nova AI que cambie el tema, optimice o abra un juego...">
-          <button type="submit" aria-label="Enviar comando">Enviar</button>
-        </form>
+function getGamingSettingsHTML() {
+  return `
+    <div class="settings-heading">
+      <div>
+        <div class="settings-kicker">NEBULA GAMING HUB</div>
+        <h2>Configuración de Alto Rendimiento</h2>
+        <p>Control de Game Mode, Overlay y telemetría de hardware.</p>
       </div>
-    `;
-  }
-
-  if (id === 'files') {
-    return `
-      <div class="files-preview">
-        <div class="files-toolbar">
-          <button type="button" class="files-nav-btn" data-files-back aria-label="Atrás"><i data-lucide="chevron-left"></i></button>
-          <button type="button" class="files-nav-btn" data-files-forward aria-label="Adelante"><i data-lucide="chevron-right"></i></button>
-          <i data-lucide="folder"></i>
-          <strong>Archivos Inteligentes</strong>
-          <span class="files-path" data-files-path>Inicio</span>
-          <label class="files-search"><i data-lucide="search"></i><input type="search" data-files-search placeholder="Buscar archivo o mod..." aria-label="Buscar"></label>
-        </div>
-        <div class="files-layout">
-          <aside class="files-sidebar">
-            <small>GAMING & MULTIMEDIA</small>
-            <button class="files-side-item" type="button" data-files-location="capturas"><i data-lucide="gamepad-2"></i> Capturas de Juegos</button>
-            <button class="files-side-item" type="button" data-files-location="mods"><i data-lucide="cpu"></i> MODs & Configs</button>
-            <button class="files-side-item" type="button" data-files-location="juegos"><i data-lucide="disc"></i> Juegos / ISOs</button>
-            <button class="files-side-item" type="button" data-files-location="musica"><i data-lucide="music"></i> Música & Audio</button>
-            <small>UBICACIONES</small>
-            <button class="files-side-item active" type="button" data-files-location="Inicio"><i data-lucide="home"></i> Inicio</button>
-            <button class="files-side-item" type="button" data-files-location="fondos"><i data-lucide="image"></i> Fondos</button>
-            <button class="files-side-item" type="button" data-files-location="imagenes"><i data-lucide="layers"></i> Imágenes</button>
-            <button class="files-side-item" type="button" data-files-location="vsc"><i data-lucide="code"></i> Proyectos</button>
-          </aside>
-          <section class="files-content">
-            <div class="files-content-bar">
-              <strong data-files-title>Inicio</strong>
-              <span>Explorador Inteligente</span>
-            </div>
-            <div class="files-grid"></div>
-            <aside class="files-preview-pane" data-files-preview>
-              <div class="files-empty-preview">Seleccioná un archivo para previsualización interactiva rápida.</div>
-            </aside>
-          </section>
-        </div>
+      <div class="settings-status"><span></span> ${gameModeActive ? 'Modo Juego: ON' : 'Estándar'}</div>
+    </div>
+    <div class="settings-section-label">Estado de Rendimiento</div>
+    <div class="designer-controls-grid">
+      <div class="designer-control-item">
+        <div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="gamepad-2" style="color:#00ffcc;"></i> Modo Juego (Game Mode)</strong><small>Fija el perfil en Máximo Rendimiento y reduce efectos pesados</small></div>
+        <button class="quick-switch ${gameModeActive ? 'active' : ''}" onclick="toggleGameMode()" style="padding:0; border:0; background:transparent;"><span class="pill-switch-track"><span class="pill-switch-thumb"></span></span></button>
       </div>
-    `;
-  }
-
-  if (id === 'settings') {
-    const activeTab = settingsState.activeSettingsTab || 'system';
-    const designerExpanded = settingsState.designerExpanded !== false;
-    const designerSubTab = settingsState.designerSubTab || 'styles';
-
-    let mainContent = '';
-    if (activeTab === 'system') mainContent = getSystemSettingsHTML();
-    else if (activeTab === 'gaming') mainContent = getGamingSettingsHTML();
-    else if (activeTab === 'designer') mainContent = getDesignerSettingsHTML();
-    else if (activeTab === 'shield') mainContent = getShieldSettingsHTML();
-    else if (activeTab === 'updates') mainContent = getUpdatesSettingsHTML();
-
-    return `
-      <div class="settings-preview">
-        <aside class="settings-nav">
-          <div class="settings-nav-title"><i data-lucide="sliders"></i> Ajustes</div>
-          <div class="settings-nav-item ${activeTab === 'system' ? 'active' : ''}" onclick="setSettingsTab('system')"><i data-lucide="monitor"></i> Sistema</div>
-          <div class="settings-nav-item ${activeTab === 'shield' ? 'active' : ''}" onclick="setSettingsTab('shield')">
-            <i data-lucide="shield-check"></i> Nebula Shield
-            ${!shieldState.antivirus || !shieldState.firewall ? '<span class="settings-nav-warn"><i data-lucide="alert-triangle"></i></span>' : ''}
-          </div>
-          <div class="settings-nav-item ${activeTab === 'updates' ? 'active' : ''}" onclick="setSettingsTab('updates')">
-            <i data-lucide="download"></i> Actualizaciones
-            ${updatesState.updateAvailable ? '<span class="settings-nav-badge">1</span>' : ''}
-          </div>
-          <div class="settings-nav-folder ${activeTab === 'designer' ? 'active' : ''} ${designerExpanded ? 'expanded' : ''}">
-            <div class="settings-nav-folder-header" onclick="setSettingsTab('designer')">
-              <span class="settings-nav-folder-label"><i data-lucide="palette"></i> Nebula Designer</span>
-              <button type="button" class="settings-nav-folder-toggle" onclick="event.stopPropagation(); toggleDesignerFolder();" aria-label="Expandir/colapsar carpeta">
-                <i data-lucide="chevron-down" class="settings-nav-folder-chevron"></i>
-              </button>
-            </div>
-            <div class="settings-nav-sub ${designerExpanded ? 'expanded' : ''}">
-              <div class="settings-nav-subitem ${activeTab === 'designer' && designerSubTab === 'styles' ? 'active' : ''}" onclick="setDesignerSubTab('styles')"><i data-lucide="paintbrush"></i> Estilos</div>
-              <div class="settings-nav-subitem ${activeTab === 'designer' && designerSubTab === 'wallpapers' ? 'active' : ''}" onclick="setDesignerSubTab('wallpapers')"><i data-lucide="image"></i> Fondos de Pantalla</div>
-            </div>
-          </div>
-          <div class="settings-nav-item ${activeTab === 'gaming' ? 'active' : ''}" onclick="setSettingsTab('gaming')"><i data-lucide="gamepad-2"></i> Gaming & HUD</div>
-        </aside>
-        <section class="settings-main">${mainContent}</section>
+      <div class="designer-control-item">
+        <div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="activity" style="color:#3a86ff;"></i> Gaming Overlay (HUD)</strong><small>Atajo rápido: <kbd style="color:#00ffcc; background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:4px;">Alt + Z</kbd></small></div>
+        <button class="hud-tool-btn" onclick="toggleGamerOverlay()" style="margin-left:auto;"><i data-lucide="activity"></i> Abrir HUD</button>
       </div>
-    `;
-  }
-
-  if (id === 'browser') return getBrowserContentHTML('browser-0');
-
-  if (id === 'vscode') return `<div class="vscode-preview"><img src="./assets/images/apps/visualStudio/capturaVisualStudio.png" alt="Captura de Visual Studio Code"></div>`;
-
-  if (id === 'games') {
-    return `
-      <div class="steam-preview" style="position:relative;">
-        <div style="position:absolute; top:12px; right:12px; z-index:10; background:rgba(10,14,24,0.85); padding:8px 12px; border-radius:8px; border:1px solid rgba(0,255,204,0.3); display:flex; gap:10px; align-items:center; backdrop-filter:blur(10px);">
-          <span style="font-size:11px; font-weight:700; color:#00ffcc; display:flex; align-items:center; gap:4px;"><i data-lucide="gamepad-2"></i> Modo Juego:</span>
-          <button class="quick-switch ${gameModeActive ? 'active' : ''}" onclick="toggleGameMode()" style="padding:0; margin:0; border:0; background:transparent;">
-            <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
-          </button>
-          <button class="hud-tool-btn" onclick="toggleGamerOverlay()" style="padding:4px 8px;"><i data-lucide="activity"></i> HUD (Alt+Z)</button>
-        </div>
-        <img src="./assets/images/apps/steam/capturaSteam.png" alt="Vista de Steam">
-      </div>
-    `;
-  }
-
-  if (id === 'music') {
-    const track = TRACKS[currentTrackIndex];
-    const currentFormatted = formatTime(currentPlaybackTime);
-    const totalFormatted = formatTime(track.duration);
-
-    return `
-      <div class="spot-app">
-        <div class="spot-topbar">
-          <div class="spot-topbar-nav">
-            <button class="spot-nav-arrow" type="button" disabled aria-label="Atrás"><i data-lucide="chevron-left"></i></button>
-            <button class="spot-nav-arrow" type="button" disabled aria-label="Adelante"><i data-lucide="chevron-right"></i></button>
-          </div>
-          <label class="spot-searchbar"><i data-lucide="search"></i><input type="search" placeholder="¿Qué querés reproducir?" aria-label="Buscar en Spotify"></label>
-          <div class="spot-topbar-right"><div class="spot-topbar-avatar" title="Perfil">N</div></div>
-        </div>
-        <aside class="spot-sidebar">
-          <div class="spot-sidebar-header">
-            <strong><i data-lucide="library"></i> Tu biblioteca</strong>
-            <button class="spot-sidebar-create" type="button"><i data-lucide="plus"></i> Crear</button>
-          </div>
-          <div class="spot-sidebar-filters">
-            <button class="spot-filter-chip active" type="button">Playlists</button>
-            <button class="spot-filter-chip" type="button">Álbumes</button>
-            <button class="spot-filter-chip" type="button">Artistas</button>
-          </div>
-          <label class="spot-library-search"><i data-lucide="search"></i><input type="search" placeholder="Buscar en tu biblioteca" aria-label="Buscar en tu biblioteca"></label>
-          <div class="spot-library-list">
-            <button class="spot-lib-item active" type="button"><span class="spot-lib-icon"><i data-lucide="heart"></i></span><div class="spot-lib-info"><strong>Tus me gusta</strong><small>Playlist · 42 canciones</small></div></button>
-            <button class="spot-lib-item" type="button"><span class="spot-lib-icon"><i data-lucide="sparkles"></i></span><div class="spot-lib-info"><strong>Descubrimiento semanal</strong><small>Playlist · 30 canciones</small></div></button>
-            <button class="spot-lib-item" type="button"><span class="spot-lib-icon"><i data-lucide="music"></i></span><div class="spot-lib-info"><strong>Mix de Rock</strong><small>Playlist · 50 canciones</small></div></button>
-            <button class="spot-lib-item" type="button"><span class="spot-lib-icon"><i data-lucide="headphones"></i></span><div class="spot-lib-info"><strong>Lofi Beats Gaming</strong><small>Playlist · 25 canciones</small></div></button>
-            <button class="spot-lib-item" type="button"><span class="spot-lib-icon"><i data-lucide="radio"></i></span><div class="spot-lib-info"><strong>Cyberpunk Beats</strong><small>Playlist · 40 canciones</small></div></button>
-          </div>
-        </aside>
-        <main class="spot-main">
-          <div class="spot-hero">
-            <div class="spot-hero-info">
-              <div class="spot-hero-kicker">Playlist destacada</div>
-              <h1>Música para programar</h1>
-              <button class="spot-hero-btn" type="button" onclick="currentTrackIndex=0; currentPlaybackTime=0; if(!isPlaying){isPlaying=true;} updateMediaUI(); updatePlayerBackground(); updatePlayerProgress(); const iconName = isPlaying ? 'pause' : 'play'; ['media-toggle','hud-play-btn','cc-play-btn'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = '<i data-lucide=\\'' + iconName + '\\'></i>'; }); document.querySelectorAll('#spot-play-btn').forEach(btn => btn.innerHTML = '<i data-lucide=\\'' + iconName + '\\'></i>'); refreshIcons();">
-                <i data-lucide="play"></i> Escuchar ahora
-              </button>
-            </div>
-            <img class="spot-hero-cover" src="./assets/images/apps/spotify/top50.jpg" alt="Playlist destacada">
-          </div>
-          <div class="spot-main-chips">
-            <button class="spot-main-chip active" type="button">Todo</button>
-            <button class="spot-main-chip" type="button">Música</button>
-            <button class="spot-main-chip" type="button">Podcasts</button>
-          </div>
-          <div class="spot-section-title">Tus canciones</div>
-          <div class="spot-grid">
-            ${TRACKS.map((t, i) => `
-              <button class="spot-card ${i === currentTrackIndex ? 'playing' : ''}" type="button" data-track-index="${i}">
-                <img class="spot-card-img" src="${t.art}" alt="${escapeHtml(t.title)}">
-                <div class="spot-card-info">
-                  <div class="spot-card-title">${escapeHtml(t.title)}</div>
-                  <div class="spot-card-sub">${escapeHtml(t.artist)}</div>
-                </div>
-              </button>
-            `).join('')}
-          </div>
-          <div class="spot-section-title">Descubrí algo nuevo</div>
-          <div class="spot-grid">
-            <button class="spot-card" type="button" data-track-index="2"><img class="spot-card-img" src="./assets/images/apps/spotify/tapaAlbum3.jpg" alt="Callejeros"><div class="spot-card-info"><div class="spot-card-title">Rock Nacional</div><div class="spot-card-sub">Callejeros · Prohibido</div></div></button>
-            <button class="spot-card" type="button" data-track-index="3"><img class="spot-card-img" src="./assets/images/apps/spotify/top50.jpg" alt="Synthwave"><div class="spot-card-info"><div class="spot-card-title">Synthwave Mix</div><div class="spot-card-sub">Hyper Sound · Night City</div></div></button>
-            <button class="spot-card" type="button" data-track-index="1"><img class="spot-card-img" src="./assets/images/apps/spotify/tapaAlbum1.jpg" alt="Nirvana"><div class="spot-card-info"><div class="spot-card-title">Nevermind</div><div class="spot-card-sub">Nirvana · Smells Like...</div></div></button>
-          </div>
-        </main>
-        <div class="spot-player">
-          <div class="spot-player-left">
-            <img src="${track.art}" alt="${escapeHtml(track.title)}" id="spot-player-cover">
-            <div class="spot-player-track">
-              <strong id="spot-player-title">${escapeHtml(track.title)}</strong>
-              <small id="spot-player-artist">${escapeHtml(track.artist)}</small>
-            </div>
-            <button class="spot-player-like" type="button" id="spot-like-btn" title="Me gusta"><i data-lucide="heart"></i></button>
-          </div>
-          <div class="spot-player-center">
-            <div class="spot-player-controls">
-              <button class="spot-ctrl ${shuffleEnabled ? 'active' : ''}" type="button" id="spot-shuffle" title="Aleatorio"><i data-lucide="shuffle"></i></button>
-              <button class="spot-ctrl" type="button" id="spot-prev-btn" title="Anterior"><i data-lucide="skip-back"></i></button>
-              <button class="spot-ctrl main" type="button" id="spot-play-btn" title="Reproducir / Pausar"><i data-lucide="${isPlaying ? 'pause' : 'play'}"></i></button>
-              <button class="spot-ctrl" type="button" id="spot-next-btn" title="Siguiente"><i data-lucide="skip-forward"></i></button>
-              <button class="spot-ctrl ${repeatEnabled ? 'active' : ''}" type="button" id="spot-repeat" title="Repetir"><i data-lucide="repeat"></i></button>
-            </div>
-            <div class="spot-player-progress">
-              <span class="spot-player-time" id="spot-time-current">${currentFormatted}</span>
-              <div class="spot-progress-track" id="spot-progress-track"><span id="spot-progress-fill" style="width: 0%;"></span></div>
-              <span class="spot-player-time" id="spot-time-total">${totalFormatted}</span>
-            </div>
-          </div>
-          <div class="spot-player-right">
-            <button class="spot-extra-btn" type="button" title="Letra"><i data-lucide="mic-2"></i></button>
-            <button class="spot-extra-btn" type="button" title="Cola de reproducción"><i data-lucide="list-music"></i></button>
-            <button class="spot-extra-btn" type="button" title="Dispositivos"><i data-lucide="monitor-speaker"></i></button>
-            <div class="spot-volume">
-              <i data-lucide="volume-2" class="spot-extra-btn" style="pointer-events: none;"></i>
-              <input type="range" min="0" max="100" value="${systemVolume}" id="spot-volume-slider" aria-label="Volumen">
-            </div>
-            <button class="spot-extra-btn" type="button" title="Pantalla completa"><i data-lucide="maximize-2"></i></button>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  if (id === 'terminal') {
-    return `
-    <div class="term-body">
-      <div class="prompt">
-        <span class="dir">~/nebula-os/gaming-core</span>
-        <span class="branch"> main [profile:${currentProfile}]</span>
-      </div>
-      <div class="term-history"></div>
-      <div class="prompt" style="margin-top:4px;">
-        <span class="time">❯</span>
-        <input class="term-input" autocomplete="off" autofocus>
-      </div>
-    </div>`;
-  }
-  
-  return `<div class="app-pad"><h2>${APPS[id]?.title || id}</h2><p>${APPS[id]?.sub || ''}</p></div>`;
+    </div>
+    <div class="settings-section-label">Perfil de Usuario Activo</div>
+    <div class="profile-switcher-chips" style="justify-content:flex-start; margin-top:10px;">
+      <button class="profile-chip ${currentProfile === 'gamer' ? 'active' : ''}" onclick="switchProfile('gamer')"><i data-lucide="gamepad-2"></i> Gamer</button>
+      <button class="profile-chip ${currentProfile === 'streamer' ? 'active' : ''}" onclick="switchProfile('streamer')"><i data-lucide="radio"></i> Streamer</button>
+      <button class="profile-chip ${currentProfile === 'studio' ? 'active' : ''}" onclick="switchProfile('studio')"><i data-lucide="terminal"></i> Estudio</button>
+    </div>
+  `;
 }
 
 function getWidgetsGalleryHTML() {
@@ -7238,58 +7070,478 @@ function getDesignerSettingsHTML() {
   return getDesignerStylesHTML();
 }
 
-function getGamingSettingsHTML() {
+function getUpdatesSettingsHTML() {
+  const hasUpdate = updatesState.updateAvailable;
+  const statusLabel = hasUpdate
+    ? `ACTUALIZACIÓN A v${updatesState.availableVersion}`
+    : 'SISTEMA AL DÍA';
+  const statusClass = hasUpdate ? 'warning' : 'protected';
+
   return `
     <div class="settings-heading">
       <div>
-        <div class="settings-kicker">NEBULA GAMING HUB</div>
-        <h2>Configuración de Alto Rendimiento</h2>
-        <p>Control de Game Mode, Overlay y telemetría de hardware.</p>
+        <div class="settings-kicker">NEBULA UPDATES</div>
+        <h2>Actualizaciones del Sistema</h2>
+        <p>Versión actual, parches de seguridad y mejoras de rendimiento.</p>
       </div>
-      <div class="settings-status"><span></span> ${gameModeActive ? 'Modo Juego: ON' : 'Estándar'}</div>
+      <div class="settings-status shield-status-${statusClass}">
+        <span class="shield-status-dot"></span> ${statusLabel}
+      </div>
     </div>
-    <div class="settings-section-label">Estado de Rendimiento</div>
+
+    <div class="settings-section-label">Estado de Versión</div>
+    <div class="updates-version-card">
+      <div class="updates-version-row">
+        <div class="updates-version-info">
+          <span class="updates-version-label">Versión actual</span>
+          <strong class="updates-version-number">v${updatesState.currentVersion}</strong>
+          <small class="updates-version-codename">Codename "${updatesState.currentCodename}" · Canal ${updatesState.betaChannel ? 'Beta' : 'Estable'}</small>
+        </div>
+        <div class="updates-version-icon">
+          <i data-lucide="package-check"></i>
+        </div>
+      </div>
+    </div>
+
+    ${hasUpdate ? `
+      <div class="settings-section-label">Actualización Disponible</div>
+      <div class="updates-available-card ${updatesState.updateInProgress ? 'installing' : ''}">
+        <div class="updates-available-header">
+          <div>
+            <div class="updates-available-badge">
+              <i data-lucide="sparkles"></i> NUEVO
+            </div>
+            <h3>Nebula OS v${updatesState.availableVersion} <span class="updates-codename">"${updatesState.availableCodename}"</span></h3>
+            <small>Tamaño: ${updatesState.updateSize} · Disponible desde hoy</small>
+          </div>
+        </div>
+
+        <ul class="updates-changelog">
+          <li><i data-lucide="sparkles"></i> Nuevo widget de clima con selector de ciudad</li>
+          <li><i data-lucide="zap"></i> Mejora del +12% de FPS en Game Mode</li>
+          <li><i data-lucide="bug"></i> Corrección de bugs en el gestor de ventanas</li>
+          <li><i data-lucide="shield-check"></i> Parches de seguridad CVE-2026-4521 y CVE-2026-4518</li>
+          <li><i data-lucide="palette"></i> Nuevos presets visuales y mejoras del Designer</li>
+        </ul>
+
+        ${updatesState.updateInProgress ? `
+          <div class="updates-progress">
+            <div class="updates-progress-header">
+              <span id="updates-stage-label">Preparando...</span>
+              <span class="updates-progress-pct" id="updates-progress-pct">${Math.round(updatesState.updateProgress)}%</span>
+            </div>
+            <div class="updates-progress-bar">
+              <div class="updates-progress-fill" id="updates-progress-fill" style="width: ${updatesState.updateProgress}%"></div>
+            </div>
+          </div>
+        ` : `
+          <div class="updates-actions">
+            <button class="updates-btn primary" type="button" onclick="installUpdate()">
+              <i data-lucide="download"></i> Actualizar ahora
+            </button>
+            <button class="updates-btn ghost" type="button" onclick="scheduleUpdateLater()">
+              <i data-lucide="clock"></i> Programar
+            </button>
+          </div>
+        `}
+      </div>
+    ` : `
+      <div class="settings-section-label">Estado</div>
+      <div class="updates-uptodate-card">
+        <div class="updates-uptodate-icon">
+          <i data-lucide="check-circle-2"></i>
+        </div>
+        <div class="updates-uptodate-info">
+          <strong>¡Estás en la última versión!</strong>
+          <small>Última verificación: ${getTimeAgo(updatesState.updateCheckedAt)}</small>
+        </div>
+      </div>
+    `}
+
+    <div class="updates-check-row">
+      <button class="updates-btn ghost" id="updates-check-btn" type="button" onclick="simulateUpdateCheck()">
+        <i data-lucide="refresh-cw"></i> Buscar actualizaciones
+      </button>
+    </div>
+
+    <div class="settings-section-label">Preferencias</div>
     <div class="designer-controls-grid">
       <div class="designer-control-item">
-        <div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="gamepad-2" style="color:#00ffcc;"></i> Modo Juego (Game Mode)</strong><small>Fija el perfil en Máximo Rendimiento y reduce efectos pesados</small></div>
-        <button class="quick-switch ${gameModeActive ? 'active' : ''}" onclick="toggleGameMode()" style="padding:0; border:0; background:transparent;"><span class="pill-switch-track"><span class="pill-switch-thumb"></span></span></button>
+        <div class="designer-control-info">
+          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="download-cloud" style="color:var(--accent);"></i> Auto-Actualización</strong>
+          <small>Instalar automáticamente cuando estén disponibles</small>
+        </div>
+        <button class="quick-switch ${updatesState.autoUpdate ? 'active' : ''}" type="button" onclick="toggleAutoUpdate()" aria-label="Toggle auto update">
+          <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
+        </button>
       </div>
+
       <div class="designer-control-item">
-        <div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="activity" style="color:#3a86ff;"></i> Gaming Overlay (HUD)</strong><small>Atajo rápido: <kbd style="color:#00ffcc; background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:4px;">Alt + Z</kbd></small></div>
-        <button class="hud-tool-btn" onclick="toggleGamerOverlay()" style="margin-left:auto;"><i data-lucide="activity"></i> Abrir HUD</button>
+        <div class="designer-control-info">
+          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="flask-conical" style="color:var(--accent-orange);"></i> Canal Beta</strong>
+          <small>Recibir versiones de prueba antes del lanzamiento público</small>
+        </div>
+        <button class="quick-switch ${updatesState.betaChannel ? 'active' : ''}" type="button" onclick="toggleBetaChannel()" aria-label="Toggle beta channel">
+          <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
+        </button>
       </div>
     </div>
-    <div class="settings-section-label">Perfil de Usuario Activo</div>
-    <div class="profile-switcher-chips" style="justify-content:flex-start; margin-top:10px;">
-      <button class="profile-chip ${currentProfile === 'gamer' ? 'active' : ''}" onclick="switchProfile('gamer')"><i data-lucide="gamepad-2"></i> Gamer</button>
-      <button class="profile-chip ${currentProfile === 'streamer' ? 'active' : ''}" onclick="switchProfile('streamer')"><i data-lucide="radio"></i> Streamer</button>
-      <button class="profile-chip ${currentProfile === 'studio' ? 'active' : ''}" onclick="switchProfile('studio')"><i data-lucide="terminal"></i> Estudio</button>
+
+    <div class="settings-section-label">Historial de Versiones</div>
+    <div class="updates-history-list">
+      ${updatesState.updateHistory.map(item => `
+        <div class="updates-history-item">
+          <div class="updates-history-icon">
+            <i data-lucide="package"></i>
+          </div>
+          <div class="updates-history-info">
+            <strong>v${item.version} <span class="updates-codename">"${item.codename}"</span></strong>
+            <small>${item.date} · ${item.size}</small>
+          </div>
+          <span class="updates-history-check">
+            <i data-lucide="check-circle-2"></i>
+          </span>
+        </div>
+      `).join('')}
     </div>
   `;
 }
 
-function getSystemSettingsHTML() {
+/* ═══════════════════════════════════════════════════════════════
+   ★ SECCIÓN: SETTINGS NAV — Sidebar
+═══════════════════════════════════════════════════════════════ */
+
+function getSettingsNavHTML() {
+  const activeTab = settingsState.activeSettingsTab || 'system';
+  const designerExpanded = settingsState.designerExpanded !== false;
+  const designerSubTab = settingsState.designerSubTab || 'styles';
+  const shieldExpanded = settingsState.shieldExpanded !== false;
+  const shieldSubTab = settingsState.shieldSubTab || 'security';
+
   return `
-    <div class="settings-heading">
-      <div>
-        <div class="settings-kicker">INFORMACIÓN DEL SISTEMA</div>
-        <h2>Nebula OS v2.5 Ultimate</h2>
-        <p>Especificaciones de hardware y configuración del entorno.</p>
+    <aside class="settings-nav">
+      <div class="settings-nav-title"><i data-lucide="sliders"></i> Ajustes</div>
+
+      <div class="settings-nav-item ${activeTab === 'system' ? 'active' : ''}" onclick="setSettingsTab('system')">
+        <i data-lucide="monitor"></i> Sistema
       </div>
-      <div class="settings-status"><span></span> Kernel Optimizado</div>
-    </div>
-    <div class="settings-section-label">Especificaciones del Equipo</div>
-    <div class="designer-controls-grid">
-      <div class="designer-control-item"><div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="cpu" style="color:var(--accent);"></i> Procesador (CPU)</strong><small>AMD Ryzen 9 7950X · 16 Cores, 32 Threads @ 4.5 - 5.7 GHz</small></div></div>
-      <div class="designer-control-item"><div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="activity" style="color:#00ffcc;"></i> Tarjeta Gráfica (GPU)</strong><small>NVIDIA GeForce RTX 4090 · 24GB GDDR6X · Driver 560.81 GameReady</small></div></div>
-      <div class="designer-control-item">
-        <div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="zap" style="color:#ff71ce;"></i> Memoria RAM</strong><small>32 GB DDR5 6000MHz Dual-Channel (Uso actual: ${systemMetrics.ram}%)</small></div>
-        <button class="hud-tool-btn" onclick="simulateCleanRam()" style="margin-left:auto;"><i data-lucide="sparkles"></i> Limpiar</button>
+
+      <div class="settings-nav-folder ${activeTab === 'shield' ? 'active' : ''} ${shieldExpanded ? 'expanded' : ''}">
+        <div class="settings-nav-folder-header" onclick="setSettingsTab('shield')">
+          <span class="settings-nav-folder-label"><i data-lucide="shield-check"></i> Nebula Shield</span>
+          <button type="button" class="settings-nav-folder-toggle" onclick="event.stopPropagation(); toggleShieldFolder();" aria-label="Expandir/colapsar carpeta">
+            <i data-lucide="chevron-down" class="settings-nav-folder-chevron"></i>
+          </button>
+        </div>
+        <div class="settings-nav-sub ${shieldExpanded ? 'expanded' : ''}">
+          <div class="settings-nav-subitem ${activeTab === 'shield' && shieldSubTab === 'security' ? 'active' : ''}" onclick="setShieldSubTab('security')">
+            <i data-lucide="lock"></i> Seguridad & Protección
+          </div>
+          <div class="settings-nav-subitem ${activeTab === 'shield' && shieldSubTab === 'vault' ? 'active' : ''}" onclick="setShieldSubTab('vault')">
+            <i data-lucide="key-round"></i> Gestor de Contraseñas
+          </div>
+        </div>
       </div>
-      <div class="designer-control-item"><div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="monitor" style="color:#38bdf8;"></i> Pantalla</strong><small>2560x1440 QHD @ 240Hz OLED HDR · Espacio de trabajo ${currentWorkspace}/5</small></div></div>
+
+      <div class="settings-nav-item ${activeTab === 'updates' ? 'active' : ''}" onclick="setSettingsTab('updates')">
+        <i data-lucide="download"></i> Actualizaciones
+        ${updatesState.updateAvailable ? '<span class="settings-nav-badge">1</span>' : ''}
+      </div>
+
+      <div class="settings-nav-folder ${activeTab === 'designer' ? 'active' : ''} ${designerExpanded ? 'expanded' : ''}">
+        <div class="settings-nav-folder-header" onclick="setSettingsTab('designer')">
+          <span class="settings-nav-folder-label"><i data-lucide="palette"></i> Nebula Designer</span>
+          <button type="button" class="settings-nav-folder-toggle" onclick="event.stopPropagation(); toggleDesignerFolder();" aria-label="Expandir/colapsar carpeta">
+            <i data-lucide="chevron-down" class="settings-nav-folder-chevron"></i>
+          </button>
+        </div>
+        <div class="settings-nav-sub ${designerExpanded ? 'expanded' : ''}">
+          <div class="settings-nav-subitem ${activeTab === 'designer' && designerSubTab === 'styles' ? 'active' : ''}" onclick="setDesignerSubTab('styles')"><i data-lucide="paintbrush"></i> Estilos</div>
+          <div class="settings-nav-subitem ${activeTab === 'designer' && designerSubTab === 'wallpapers' ? 'active' : ''}" onclick="setDesignerSubTab('wallpapers')"><i data-lucide="image"></i> Fondos de Pantalla</div>
+        </div>
+      </div>
+
+      <div class="settings-nav-item ${activeTab === 'gaming' ? 'active' : ''}" onclick="setSettingsTab('gaming')"><i data-lucide="gamepad-2"></i> Gaming & HUD</div>
+    </aside>
+  `;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SECCIÓN: GET APP CONTENT — Router principal de apps
+═══════════════════════════════════════════════════════════════ */
+
+function getAppContent(id) {
+  switch (id) {
+    case 'nova':
+      return `
+        <div class="nova-app">
+          <header class="nova-header">
+            <div class="nova-mark"><i data-lucide="sparkles"></i></div>
+            <div><strong>Nova AI Assistant</strong><span>Prompt-to-Action & System Tweaker · En línea</span></div>
+          </header>
+          <div class="nova-context">
+            <span class="nova-context-dot"></span>
+            <span>Perfil: <strong>${currentProfile.toUpperCase()}</strong> | Modo Juego: <strong>${gameModeActive ? 'ON (Boost)' : 'OFF'}</strong></span>
+          </div>
+          <div class="nova-history" aria-live="polite">
+            <div class="nova-message nova">
+              ¡Hola! Soy Nova AI. Puedo ejecutar acciones directas en tu sistema (cambiar temas, activar Modo Juego, optimizar RAM o poner música). ¿Qué querés configurar hoy?
+            </div>
+            <div class="nova-suggestions">
+              <button type="button" data-nova-prompt="Cambia al tema Cyberpunk"><i data-lucide="palette"></i> Tema Cyberpunk</button>
+              <button type="button" data-nova-prompt="Activa el modo juego"><i data-lucide="gamepad-2"></i> Modo Juego</button>
+              <button type="button" data-nova-prompt="Optimiza el sistema"><i data-lucide="sparkles"></i> Limpiar RAM</button>
+              <button type="button" data-nova-prompt="Pon música"><i data-lucide="music"></i> Poner música</button>
+              <button type="button" data-nova-prompt="Añadí un widget de clima"><i data-lucide="cloud-sun"></i> Widget de Clima</button>
+              <button type="button" data-nova-prompt="Escaneá el sistema con Nebula Shield"><i data-lucide="shield-check"></i> Escanear sistema</button>
+            </div>
+          </div>
+          <form class="nova-form">
+            <button type="button" class="nova-voice-btn" id="nova-voice-btn" title="Comando por voz" onclick="startNovaVoiceInput()"><i data-lucide="mic"></i></button>
+            <input class="nova-input" type="text" autocomplete="off" maxlength="240" placeholder="Pedile a Nova AI que cambie el tema, optimice o abra un juego...">
+            <button type="submit" aria-label="Enviar comando">Enviar</button>
+          </form>
+        </div>
+      `;
+
+    case 'files':
+      return `
+        <div class="files-preview">
+          <div class="files-toolbar">
+            <button type="button" class="files-nav-btn" data-files-back aria-label="Atrás"><i data-lucide="chevron-left"></i></button>
+            <button type="button" class="files-nav-btn" data-files-forward aria-label="Adelante"><i data-lucide="chevron-right"></i></button>
+            <i data-lucide="folder"></i>
+            <strong>Archivos Inteligentes</strong>
+            <span class="files-path" data-files-path>Inicio</span>
+            <label class="files-search"><i data-lucide="search"></i><input type="search" data-files-search placeholder="Buscar archivo o mod..." aria-label="Buscar"></label>
+          </div>
+          <div class="files-layout">
+            <aside class="files-sidebar">
+              <small>GAMING & MULTIMEDIA</small>
+              <button class="files-side-item" type="button" data-files-location="capturas"><i data-lucide="gamepad-2"></i> Capturas de Juegos</button>
+              <button class="files-side-item" type="button" data-files-location="mods"><i data-lucide="cpu"></i> MODs & Configs</button>
+              <button class="files-side-item" type="button" data-files-location="juegos"><i data-lucide="disc"></i> Juegos / ISOs</button>
+              <button class="files-side-item" type="button" data-files-location="musica"><i data-lucide="music"></i> Música & Audio</button>
+              <small>UBICACIONES</small>
+              <button class="files-side-item active" type="button" data-files-location="Inicio"><i data-lucide="home"></i> Inicio</button>
+              <button class="files-side-item" type="button" data-files-location="fondos"><i data-lucide="image"></i> Fondos</button>
+              <button class="files-side-item" type="button" data-files-location="imagenes"><i data-lucide="layers"></i> Imágenes</button>
+              <button class="files-side-item" type="button" data-files-location="vsc"><i data-lucide="code"></i> Proyectos</button>
+            </aside>
+            <section class="files-content">
+              <div class="files-content-bar">
+                <strong data-files-title>Inicio</strong>
+                <span>Explorador Inteligente</span>
+              </div>
+              <div class="files-grid"></div>
+              <aside class="files-preview-pane" data-files-preview>
+                <div class="files-empty-preview">Seleccioná un archivo para previsualización interactiva rápida.</div>
+              </aside>
+            </section>
+          </div>
+        </div>
+      `;
+
+    case 'settings': {
+      const activeTab = settingsState.activeSettingsTab || 'system';
+      const shieldSubTab = settingsState.shieldSubTab || 'security';
+
+      let mainContent = '';
+      switch (activeTab) {
+        case 'system':   mainContent = getSystemSettingsHTML(); break;
+        case 'gaming':   mainContent = getGamingSettingsHTML(); break;
+        case 'designer': mainContent = getDesignerSettingsHTML(); break;
+        case 'shield':   mainContent = (shieldSubTab === 'vault') ? getShieldVaultHTML() : getShieldSecurityHTML(); break;
+        case 'updates':  mainContent = getUpdatesSettingsHTML(); break;
+        default:         mainContent = getSystemSettingsHTML();
+      }
+
+      return `
+        <div class="settings-preview">
+          ${getSettingsNavHTML()}
+          <section class="settings-main">${mainContent}</section>
+        </div>
+      `;
+    }
+
+    case 'browser':
+      return getBrowserContentHTML('browser-0');
+
+    case 'vscode':
+      return `<div class="vscode-preview"><img src="./assets/images/apps/visualStudio/capturaVisualStudio.png" alt="Captura de Visual Studio Code"></div>`;
+
+    case 'games':
+      return `
+        <div class="steam-preview" style="position:relative;">
+          <div style="position:absolute; top:12px; right:12px; z-index:10; background:rgba(10,14,24,0.85); padding:8px 12px; border-radius:8px; border:1px solid rgba(0,255,204,0.3); display:flex; gap:10px; align-items:center; backdrop-filter:blur(10px);">
+            <span style="font-size:11px; font-weight:700; color:#00ffcc; display:flex; align-items:center; gap:4px;"><i data-lucide="gamepad-2"></i> Modo Juego:</span>
+            <button class="quick-switch ${gameModeActive ? 'active' : ''}" onclick="toggleGameMode()" style="padding:0; margin:0; border:0; background:transparent;">
+              <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
+            </button>
+            <button class="hud-tool-btn" onclick="toggleGamerOverlay()" style="padding:4px 8px;"><i data-lucide="activity"></i> HUD (Alt+Z)</button>
+          </div>
+          <img src="./assets/images/apps/steam/capturaSteam.png" alt="Vista de Steam">
+        </div>
+      `;
+
+    case 'music':
+      return getSpotifyAppHTML();
+
+    case 'vault':
+      return getVaultAppHTML();
+
+    case 'terminal':
+      return `
+        <div class="term-body">
+          <div class="prompt">
+            <span class="dir">~/nebula-os/gaming-core</span>
+            <span class="branch"> main [profile:${currentProfile}]</span>
+          </div>
+          <div class="term-history"></div>
+          <div class="prompt" style="margin-top:4px;">
+            <span class="time">❯</span>
+            <input class="term-input" autocomplete="off" autofocus>
+          </div>
+        </div>
+      `;
+
+    default:
+      return `<div class="app-pad"><h2>${APPS[id]?.title || id}</h2><p>${APPS[id]?.sub || ''}</p></div>`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY HTML
+═══════════════════════════════════════════════════════════════ */
+
+function getSpotifyAppHTML() {
+  const track = TRACKS[currentTrackIndex];
+  const currentFormatted = formatTime(currentPlaybackTime);
+  const totalFormatted = formatTime(track.duration);
+
+  return `
+    <div class="spot-app">
+      <div class="spot-topbar">
+        <div class="spot-topbar-nav">
+          <button class="spot-nav-arrow" type="button" disabled aria-label="Atrás"><i data-lucide="chevron-left"></i></button>
+          <button class="spot-nav-arrow" type="button" disabled aria-label="Adelante"><i data-lucide="chevron-right"></i></button>
+        </div>
+        <label class="spot-searchbar"><i data-lucide="search"></i><input type="search" placeholder="¿Qué querés reproducir?" aria-label="Buscar en Spotify"></label>
+        <div class="spot-topbar-right"><div class="spot-topbar-avatar" title="Perfil">N</div></div>
+      </div>
+      <aside class="spot-sidebar">
+        <div class="spot-sidebar-header">
+          <strong><i data-lucide="library"></i> Tu biblioteca</strong>
+          <button class="spot-sidebar-create" type="button"><i data-lucide="plus"></i> Crear</button>
+        </div>
+        <div class="spot-sidebar-filters">
+          <button class="spot-filter-chip active" type="button">Playlists</button>
+          <button class="spot-filter-chip" type="button">Álbumes</button>
+          <button class="spot-filter-chip" type="button">Artistas</button>
+        </div>
+        <label class="spot-library-search"><i data-lucide="search"></i><input type="search" placeholder="Buscar en tu biblioteca" aria-label="Buscar en tu biblioteca"></label>
+        <div class="spot-library-list">
+          <button class="spot-lib-item active" type="button"><span class="spot-lib-icon"><i data-lucide="heart"></i></span><div class="spot-lib-info"><strong>Tus me gusta</strong><small>Playlist · 42 canciones</small></div></button>
+          <button class="spot-lib-item" type="button"><span class="spot-lib-icon"><i data-lucide="sparkles"></i></span><div class="spot-lib-info"><strong>Descubrimiento semanal</strong><small>Playlist · 30 canciones</small></div></button>
+          <button class="spot-lib-item" type="button"><span class="spot-lib-icon"><i data-lucide="music"></i></span><div class="spot-lib-info"><strong>Mix de Rock</strong><small>Playlist · 50 canciones</small></div></button>
+          <button class="spot-lib-item" type="button"><span class="spot-lib-icon"><i data-lucide="headphones"></i></span><div class="spot-lib-info"><strong>Lofi Beats Gaming</strong><small>Playlist · 25 canciones</small></div></button>
+          <button class="spot-lib-item" type="button"><span class="spot-lib-icon"><i data-lucide="radio"></i></span><div class="spot-lib-info"><strong>Cyberpunk Beats</strong><small>Playlist · 40 canciones</small></div></button>
+        </div>
+      </aside>
+      <main class="spot-main">
+        <div class="spot-hero">
+          <div class="spot-hero-info">
+            <div class="spot-hero-kicker">Playlist destacada</div>
+            <h1>Música para programar</h1>
+            <button class="spot-hero-btn" type="button" onclick="playFirstTrack()">
+              <i data-lucide="play"></i> Escuchar ahora
+            </button>
+          </div>
+          <img class="spot-hero-cover" src="./assets/images/apps/spotify/top50.jpg" alt="Playlist destacada">
+        </div>
+        <div class="spot-main-chips">
+          <button class="spot-main-chip active" type="button">Todo</button>
+          <button class="spot-main-chip" type="button">Música</button>
+          <button class="spot-main-chip" type="button">Podcasts</button>
+        </div>
+        <div class="spot-section-title">Tus canciones</div>
+        <div class="spot-grid">
+          ${TRACKS.map((t, i) => `
+            <button class="spot-card ${i === currentTrackIndex ? 'playing' : ''}" type="button" data-track-index="${i}">
+              <img class="spot-card-img" src="${t.art}" alt="${escapeHtml(t.title)}">
+              <div class="spot-card-info">
+                <div class="spot-card-title">${escapeHtml(t.title)}</div>
+                <div class="spot-card-sub">${escapeHtml(t.artist)}</div>
+              </div>
+            </button>
+          `).join('')}
+        </div>
+        <div class="spot-section-title">Descubrí algo nuevo</div>
+        <div class="spot-grid">
+          <button class="spot-card" type="button" data-track-index="2"><img class="spot-card-img" src="./assets/images/apps/spotify/tapaAlbum3.jpg" alt="Callejeros"><div class="spot-card-info"><div class="spot-card-title">Rock Nacional</div><div class="spot-card-sub">Callejeros · Prohibido</div></div></button>
+          <button class="spot-card" type="button" data-track-index="3"><img class="spot-card-img" src="./assets/images/apps/spotify/top50.jpg" alt="Synthwave"><div class="spot-card-info"><div class="spot-card-title">Synthwave Mix</div><div class="spot-card-sub">Hyper Sound · Night City</div></div></button>
+          <button class="spot-card" type="button" data-track-index="1"><img class="spot-card-img" src="./assets/images/apps/spotify/tapaAlbum1.jpg" alt="Nirvana"><div class="spot-card-info"><div class="spot-card-title">Nevermind</div><div class="spot-card-sub">Nirvana · Smells Like...</div></div></button>
+        </div>
+      </main>
+      <div class="spot-player">
+        <div class="spot-player-left">
+          <img src="${track.art}" alt="${escapeHtml(track.title)}" id="spot-player-cover">
+          <div class="spot-player-track">
+            <strong id="spot-player-title">${escapeHtml(track.title)}</strong>
+            <small id="spot-player-artist">${escapeHtml(track.artist)}</small>
+          </div>
+          <button class="spot-player-like" type="button" id="spot-like-btn" title="Me gusta"><i data-lucide="heart"></i></button>
+        </div>
+        <div class="spot-player-center">
+          <div class="spot-player-controls">
+            <button class="spot-ctrl ${shuffleEnabled ? 'active' : ''}" type="button" id="spot-shuffle" title="Aleatorio"><i data-lucide="shuffle"></i></button>
+            <button class="spot-ctrl" type="button" id="spot-prev-btn" title="Anterior"><i data-lucide="skip-back"></i></button>
+            <button class="spot-ctrl main" type="button" id="spot-play-btn" title="Reproducir / Pausar"><i data-lucide="${isPlaying ? 'pause' : 'play'}"></i></button>
+            <button class="spot-ctrl" type="button" id="spot-next-btn" title="Siguiente"><i data-lucide="skip-forward"></i></button>
+            <button class="spot-ctrl ${repeatEnabled ? 'active' : ''}" type="button" id="spot-repeat" title="Repetir"><i data-lucide="repeat"></i></button>
+          </div>
+          <div class="spot-player-progress">
+            <span class="spot-player-time" id="spot-time-current">${currentFormatted}</span>
+            <div class="spot-progress-track" id="spot-progress-track"><span id="spot-progress-fill" style="width: 0%;"></span></div>
+            <span class="spot-player-time" id="spot-time-total">${totalFormatted}</span>
+          </div>
+        </div>
+        <div class="spot-player-right">
+          <button class="spot-extra-btn" type="button" title="Letra"><i data-lucide="mic-2"></i></button>
+          <button class="spot-extra-btn" type="button" title="Cola de reproducción"><i data-lucide="list-music"></i></button>
+          <button class="spot-extra-btn" type="button" title="Dispositivos"><i data-lucide="monitor-speaker"></i></button>
+          <div class="spot-volume">
+            <i data-lucide="volume-2" class="spot-extra-btn" style="pointer-events: none;"></i>
+            <input type="range" min="0" max="100" value="${systemVolume}" id="spot-volume-slider" aria-label="Volumen">
+          </div>
+          <button class="spot-extra-btn" type="button" title="Pantalla completa"><i data-lucide="maximize-2"></i></button>
+        </div>
+      </div>
     </div>
   `;
 }
+
+function playFirstTrack() {
+  currentTrackIndex = 0;
+  currentPlaybackTime = 0;
+  if (!isPlaying) isPlaying = true;
+  updateMediaUI();
+  updatePlayerBackground();
+  updatePlayerProgress();
+  const iconName = isPlaying ? 'pause' : 'play';
+  ['media-toggle', 'hud-play-btn', 'cc-play-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = `<i data-lucide="${iconName}"></i>`;
+  });
+  document.querySelectorAll('#spot-play-btn').forEach(btn => {
+    btn.innerHTML = `<i data-lucide="${iconName}"></i>`;
+  });
+  refreshIcons();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ LAUNCHER
+═══════════════════════════════════════════════════════════════ */
 
 const launcherOverlay = document.getElementById('launcher-overlay');
 const launcherInput = document.getElementById('launcher-input');
@@ -7352,6 +7604,7 @@ function buildLauncherActions() {
     { id: 'action-check-updates', title: 'Buscar actualizaciones', sub: 'Verifica si hay nuevas versiones del sistema', icon: 'download', category: 'Acción', keywords: ['actualizar', 'update', 'version', 'updates'], run: () => { openApp('settings'); settingsState.activeSettingsTab = 'updates'; renderSettingsApp(); setTimeout(() => simulateUpdateCheck(), 400); } },
     { id: 'action-notif-center', title: 'Abrir Centro de Notificaciones', sub: 'Ver historial de notificaciones del sistema', icon: 'bell', category: 'Acción', keywords: ['notificaciones', 'notif', 'historial', 'centro'], run: () => openNotificationCenter() },
     { id: 'action-open-store', title: 'Abrir Nebula Store', sub: 'Tienda de temas, widgets, apps y juegos', icon: 'shopping-bag', category: 'Acción', keywords: ['tienda', 'store', 'temas', 'widgets', 'apps', 'juegos'], run: () => openStore() },
+    { id: 'action-open-vault', title: 'Abrir Nebula Vault', sub: 'Gestor de contraseñas seguro', icon: 'key-round', category: 'Acción', keywords: ['vault', 'contraseñas', 'passwords', 'boveda'], run: () => openApp('vault') },
     { id: 'action-profile-gamer', title: 'Perfil: Gamer', sub: 'Aplica tema Cyberpunk + Game Mode + telemetría', icon: 'gamepad-2', category: 'Perfil', keywords: ['perfil', 'gamer', 'profile'], run: () => switchProfile('gamer') },
     { id: 'action-profile-streamer', title: 'Perfil: Streamer', sub: 'Aplica tema Synthwave + widget multimedia', icon: 'radio', category: 'Perfil', keywords: ['perfil', 'streamer', 'profile'], run: () => switchProfile('streamer') },
     { id: 'action-profile-studio', title: 'Perfil: Estudio', sub: 'Aplica tema Catppuccin + workspace 1', icon: 'terminal', category: 'Perfil', keywords: ['perfil', 'estudio', 'studio', 'dev'], run: () => switchProfile('studio') },
@@ -7917,6 +8170,10 @@ function parseAndExecuteNovaAction(query) {
     openApp('terminal');
     actionTaken = 'Abriendo WezTerm';
     replyText = 'Terminal iniciada.';
+  } else if (q.includes('abre vault') || q.includes('contraseña') || q.includes('boveda')) {
+    openApp('vault');
+    actionTaken = 'Abriendo Nebula Vault';
+    replyText = 'Abriendo el gestor de contraseñas Nebula Vault.';
   } else if (q.includes('abre ajustes') || q.includes('designer')) {
     openApp('settings');
     actionTaken = 'Abriendo Nebula Designer';
@@ -7991,9 +8248,9 @@ function startNovaVoiceInput() {
   recognition.start();
 }
 
-/* =====================================================
+/* ═══════════════════════════════════════════════════════════════
    ★ NEBULA STORE — Overlay
-===================================================== */
+═══════════════════════════════════════════════════════════════ */
 
 function openStore() {
   const overlay = document.getElementById('store-overlay');
@@ -8243,9 +8500,9 @@ function loadInstalledProducts() {
   }
 }
 
-/* =====================================================
-   ★ FIREFOX HÍBRIDO
-===================================================== */
+/* ═══════════════════════════════════════════════════════════════
+   ★ FIREFOX HÍBRIDO — Browser App
+═══════════════════════════════════════════════════════════════ */
 
 const browserState = new WeakMap();
 
@@ -8522,3 +8779,942 @@ function closeAllOpenApps() {
   const ids = Object.keys(openWindows);
   ids.forEach(winId => closeApp(winId));
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ NEBULA VAULT — Gestor de Contraseñas (lógica completa)
+═══════════════════════════════════════════════════════════════ */
+
+function getDefaultVaultEntries() {
+  return [
+    { id: 'vault-1', title: 'Netflix',     username: 'gamer@nebula.os',   password: 'N3bula#2026!Str0ng', url: 'https://netflix.com',   category: 'redes',   notes: 'Plan Premium 4K', createdAt: Date.now() - 86400000 * 30 },
+    { id: 'vault-2', title: 'Steam',       username: 'nebula_gamer',      password: 'St3am_Ultra$Pass',   url: 'https://store.steampowered.com', category: 'gaming',  notes: 'Cuenta principal', createdAt: Date.now() - 86400000 * 25 },
+    { id: 'vault-3', title: 'GitHub',      username: 'nebula-dev',        password: 'G1tHub@Dev_2026',    url: 'https://github.com',    category: 'trabajo', notes: '2FA activado',      createdAt: Date.now() - 86400000 * 20 },
+    { id: 'vault-4', title: 'Gmail',       username: 'user@gmail.com',    password: 'MyM@il_Pr0t3ct',     url: 'https://mail.google.com', category: 'email', notes: 'Personal',          createdAt: Date.now() - 86400000 * 15 },
+    { id: 'vault-5', title: 'Binance',     username: 'crypto_trader',     password: 'Bin@nce#Crypto!99',  url: 'https://binance.com',   category: 'bancos',  notes: 'Wallet principal',   createdAt: Date.now() - 86400000 * 10 },
+    { id: 'vault-6', title: 'Discord',     username: 'nebula#0001',       password: 'D1sc0rd_N1ght#',     url: 'https://discord.com',   category: 'redes',   notes: 'Servidor de gaming', createdAt: Date.now() - 86400000 * 5 }
+  ];
+}
+
+function loadVaultEntries() {
+  try {
+    const raw = localStorage.getItem(VAULT_STORAGE_KEY);
+    if (!raw) return getDefaultVaultEntries();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return getDefaultVaultEntries();
+    return parsed;
+  } catch (e) {
+    return getDefaultVaultEntries();
+  }
+}
+
+function saveVaultEntries() {
+  try {
+    localStorage.setItem(VAULT_STORAGE_KEY, JSON.stringify(vaultState.entries));
+  } catch (e) {}
+}
+
+function getVaultMaster() {
+  try {
+    const raw = localStorage.getItem(VAULT_MASTER_KEY);
+    if (!raw) return 'nebula123';
+    const parsed = JSON.parse(raw);
+    return parsed.master || 'nebula123';
+  } catch (e) {
+    return 'nebula123';
+  }
+}
+
+function setVaultMaster(newMaster) {
+  try {
+    localStorage.setItem(VAULT_MASTER_KEY, JSON.stringify({
+      master: newMaster,
+      updatedAt: Date.now(),
+      changed: true
+    }));
+    vaultState.masterChanged = true;
+  } catch (e) {}
+}
+
+function loadVaultMasterMeta() {
+  try {
+    const raw = localStorage.getItem(VAULT_MASTER_KEY);
+    if (!raw) {
+      vaultState.masterChanged = false;
+      return;
+    }
+    const parsed = JSON.parse(raw);
+    vaultState.masterChanged = !!parsed.changed;
+  } catch (e) {
+    vaultState.masterChanged = false;
+  }
+}
+
+function calculatePasswordStrength(password) {
+  if (!password) return { score: 0, label: 'Vacía', color: '#64748b', percent: 0 };
+
+  let score = 0;
+  if (password.length >= 8)  score += 15;
+  if (password.length >= 12) score += 15;
+  if (password.length >= 16) score += 10;
+  if (password.length >= 20) score += 10;
+
+  if (/[a-z]/.test(password)) score += 10;
+  if (/[A-Z]/.test(password)) score += 15;
+  if (/[0-9]/.test(password)) score += 15;
+  if (/[^A-Za-z0-9]/.test(password)) score += 20;
+
+  if (/^(123|abc|qwe|password|admin)/i.test(password)) score = Math.max(10, score - 40);
+  if (/(.)\1{2,}/.test(password)) score = Math.max(10, score - 15);
+  if (/^\d+$/.test(password)) score = Math.max(10, score - 30);
+
+  score = Math.min(100, Math.max(0, score));
+
+  let label, color;
+  if (score >= 80) { label = 'Muy Fuerte'; color = '#10b981'; }
+  else if (score >= 60) { label = 'Fuerte'; color = '#22c55e'; }
+  else if (score >= 40) { label = 'Media'; color = '#f59e0b'; }
+  else if (score >= 20) { label = 'Débil'; color = '#ef4444'; }
+  else { label = 'Muy Débil'; color = '#dc2626'; }
+
+  return { score, label, color, percent: score };
+}
+
+function generatePassword() {
+  const opts = vaultState.generator;
+  let chars = '';
+  if (opts.uppercase) chars += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  if (opts.lowercase) chars += 'abcdefghijklmnopqrstuvwxyz';
+  if (opts.numbers)   chars += '0123456789';
+  if (opts.symbols)   chars += '!@#$%^&*()_+-=[]{}|;:,.<>?';
+
+  if (!chars) return '';
+
+  let password = '';
+  if (opts.uppercase) password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)];
+  if (opts.lowercase) password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)];
+  if (opts.numbers)   password += '0123456789'[Math.floor(Math.random() * 10)];
+  if (opts.symbols)   password += '!@#$%^&*()_+-=[]{}|;:,.<>?'[Math.floor(Math.random() * 27)];
+
+  for (let i = password.length; i < opts.length; i++) {
+    password += chars[Math.floor(Math.random() * chars.length)];
+  }
+
+  return password.split('').sort(() => Math.random() - 0.5).join('');
+}
+
+function resetVaultLockTimer() {
+  if (vaultLockTimer) clearTimeout(vaultLockTimer);
+  if (!vaultState.unlocked) return;
+
+  vaultLockTimer = setTimeout(() => {
+    lockVault();
+    showToast('Nebula Vault bloqueado', 'La bóveda se bloqueó por inactividad.', 'lock');
+  }, VAULT_LOCK_TIMEOUT_MS);
+}
+
+function lockVault() {
+  vaultState.unlocked = false;
+  vaultState.selectedEntryId = null;
+  renderVault();
+  if (vaultLockTimer) clearTimeout(vaultLockTimer);
+}
+
+function setupVaultApp(win) {
+  if (!win) return;
+
+  // Si la bóveda está bloqueada, enfocar el input de master password
+  if (!vaultState.unlocked) {
+    setTimeout(() => {
+      const input = win.querySelector('#vault-master-input');
+      if (input) {
+        input.focus();
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            attemptUnlockVault();
+          }
+        });
+      }
+    }, 100);
+  } else {
+    resetVaultLockTimer();
+  }
+}
+
+function getVaultAppHTML() {
+  const entries = vaultState.entries;
+
+  if (!vaultState.unlocked) {
+    return `
+      <div class="vault-app vault-locked">
+        <div class="vault-lock-screen">
+          <div class="vault-lock-icon">
+            <i data-lucide="shield-check"></i>
+          </div>
+          <h2>Nebula Vault</h2>
+          <p>Ingresá tu contraseña maestra para desbloquear la bóveda</p>
+          <div class="vault-lock-form">
+            <input type="password" class="vault-master-input" id="vault-master-input" placeholder="Contraseña maestra..." autocomplete="off">
+            <button type="button" class="vault-unlock-btn" onclick="attemptUnlockVault()">
+              <i data-lucide="unlock"></i> Desbloquear
+            </button>
+          </div>
+          <small class="vault-hint">Pista: la contraseña por defecto es <code>nebula123</code></small>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="vault-app">
+      <div class="vault-sidebar">
+        <div class="vault-sidebar-header">
+          <div class="vault-logo"><i data-lucide="key-round"></i></div>
+          <div>
+            <strong>Nebula Vault</strong>
+            <small>${entries.length} contraseña${entries.length === 1 ? '' : 's'}</small>
+          </div>
+        </div>
+
+        <button type="button" class="vault-add-btn" onclick="openVaultEntryModal()">
+          <i data-lucide="plus"></i> Nueva contraseña
+        </button>
+
+        <div class="vault-sidebar-section">
+          <span class="vault-sidebar-label">Categorías</span>
+          <button class="vault-cat-item ${vaultState.activeCategory === 'all' ? 'active' : ''}" type="button" onclick="setVaultCategory('all')">
+            <span class="vault-cat-icon" style="background: rgba(255,255,255,0.08);"><i data-lucide="layers"></i></span>
+            Todas
+            <span class="vault-cat-count">${entries.length}</span>
+          </button>
+          ${VAULT_CATEGORIES.map(cat => {
+            const count = entries.filter(e => e.category === cat.id).length;
+            return `
+              <button class="vault-cat-item ${vaultState.activeCategory === cat.id ? 'active' : ''}" type="button" onclick="setVaultCategory('${cat.id}')">
+                <span class="vault-cat-icon" style="background: ${cat.color}20; color: ${cat.color};"><i data-lucide="${cat.icon}"></i></span>
+                ${cat.name}
+                <span class="vault-cat-count">${count}</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+
+        <div class="vault-sidebar-footer">
+          <button class="vault-lock-btn" type="button" onclick="lockVault()">
+            <i data-lucide="lock"></i> Bloquear bóveda
+          </button>
+        </div>
+      </div>
+
+      <div class="vault-main">
+        <div class="vault-toolbar">
+          <label class="vault-search">
+            <i data-lucide="search"></i>
+            <input type="search" placeholder="Buscar por título, usuario o URL..." value="${escapeHtml(vaultState.searchQuery)}" oninput="setVaultSearch(this.value)">
+          </label>
+          <button class="vault-tool-btn" type="button" onclick="openVaultGeneratorModal()" title="Generador de contraseñas">
+            <i data-lucide="wand-2"></i> Generador
+          </button>
+        </div>
+
+        <div class="vault-content">
+          ${renderVaultEntriesList()}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderVaultEntriesList() {
+  let entries = vaultState.entries;
+
+  if (vaultState.activeCategory !== 'all') {
+    entries = entries.filter(e => e.category === vaultState.activeCategory);
+  }
+
+  if (vaultState.searchQuery) {
+    const q = vaultState.searchQuery.toLowerCase();
+    entries = entries.filter(e =>
+      (e.title || '').toLowerCase().includes(q) ||
+      (e.username || '').toLowerCase().includes(q) ||
+      (e.url || '').toLowerCase().includes(q)
+    );
+  }
+
+  if (entries.length === 0) {
+    return `
+      <div class="vault-empty">
+        <div class="vault-empty-icon"><i data-lucide="shield-off"></i></div>
+        <strong>No hay contraseñas guardadas</strong>
+        <span>${vaultState.searchQuery ? 'Probá con otra búsqueda' : 'Agregá tu primera contraseña con el botón de arriba'}</span>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="vault-entries-list">
+      ${entries.map(entry => {
+        const cat = VAULT_CATEGORIES.find(c => c.id === entry.category) || VAULT_CATEGORIES[5];
+        const isShowing = vaultState.showPassword[entry.id] === true;
+        const strength = calculatePasswordStrength(entry.password);
+        const isSelected = vaultState.selectedEntryId === entry.id;
+
+        return `
+          <div class="vault-entry ${isSelected ? 'selected' : ''}" data-vault-id="${entry.id}" onclick="selectVaultEntry('${entry.id}')">
+            <div class="vault-entry-icon" style="background: ${cat.color}20; color: ${cat.color};">
+              <i data-lucide="${cat.icon}"></i>
+            </div>
+            <div class="vault-entry-info">
+              <div class="vault-entry-title">${escapeHtml(entry.title)}</div>
+              <div class="vault-entry-user">${escapeHtml(entry.username)}</div>
+            </div>
+            <div class="vault-entry-password">
+              <span class="vault-password-text" data-visible="${isShowing}">
+                ${isShowing ? escapeHtml(entry.password) : '••••••••••••'}
+              </span>
+            </div>
+            <div class="vault-entry-strength" title="${strength.label} (${strength.score}/100)">
+              <div class="vault-strength-bar">
+                <span style="width: ${strength.percent}%; background: ${strength.color};"></span>
+              </div>
+            </div>
+            <div class="vault-entry-actions" onclick="event.stopPropagation()">
+              <button class="vault-icon-btn" type="button" onclick="toggleVaultShowPassword('${entry.id}')" title="${isShowing ? 'Ocultar' : 'Mostrar'}">
+                <i data-lucide="${isShowing ? 'eye-off' : 'eye'}"></i>
+              </button>
+              <button class="vault-icon-btn" type="button" onclick="copyVaultPassword('${entry.id}')" title="Copiar contraseña">
+                <i data-lucide="copy"></i>
+              </button>
+              <button class="vault-icon-btn" type="button" onclick="editVaultEntry('${entry.id}')" title="Editar">
+                <i data-lucide="pencil"></i>
+              </button>
+              <button class="vault-icon-btn danger" type="button" onclick="deleteVaultEntry('${entry.id}')" title="Eliminar">
+                <i data-lucide="trash-2"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderVault() {
+  const vaultWinIds = getInstancesOfApp('vault');
+  vaultWinIds.forEach(winId => {
+    const win = openWindows[winId]?.win;
+    if (!win) return;
+    const content = win.querySelector('.wcontent');
+    if (!content) return;
+    content.innerHTML = getVaultAppHTML();
+    refreshIcons();
+
+    if (!vaultState.unlocked) {
+      setTimeout(() => {
+        const input = content.querySelector('#vault-master-input');
+        if (input) {
+          input.focus();
+          input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              attemptUnlockVault();
+            }
+          });
+        }
+      }, 100);
+    }
+  });
+  refreshIcons();
+}
+
+function attemptUnlockVault() {
+  const input = document.getElementById('vault-master-input');
+  if (!input) return;
+
+  const master = getVaultMaster();
+  if (input.value === master) {
+    vaultState.unlocked = true;
+    vaultState.searchQuery = '';
+    vaultState.activeCategory = 'all';
+    resetVaultLockTimer();
+    renderVault();
+    refreshIcons();
+    showToast('Bóveda Desbloqueada', 'Acceso concedido. Cuidá tus datos.', 'unlock');
+  } else {
+    input.value = '';
+    input.classList.add('shake-error');
+    setTimeout(() => input.classList.remove('shake-error'), 500);
+    showToast('Contraseña Incorrecta', 'Verificá tu contraseña maestra e intentá de nuevo.', 'alert-circle');
+  }
+}
+
+function setVaultCategory(catId) {
+  vaultState.activeCategory = catId;
+  vaultState.selectedEntryId = null;
+  renderVault();
+  resetVaultLockTimer();
+}
+
+function setVaultSearch(query) {
+  vaultState.searchQuery = query;
+  const content = document.querySelector('.vault-content');
+  if (content) content.innerHTML = renderVaultEntriesList();
+  refreshIcons();
+  resetVaultLockTimer();
+}
+
+function selectVaultEntry(id) {
+  vaultState.selectedEntryId = vaultState.selectedEntryId === id ? null : id;
+  renderVault();
+  resetVaultLockTimer();
+}
+
+function toggleVaultShowPassword(id) {
+  vaultState.showPassword[id] = !vaultState.showPassword[id];
+  renderVault();
+  resetVaultLockTimer();
+}
+
+async function copyVaultPassword(id) {
+  const entry = vaultState.entries.find(e => e.id === id);
+  if (!entry) return;
+
+  try {
+    await navigator.clipboard.writeText(entry.password);
+    showToast('Copiado al Portapapeles', `Contraseña de "${entry.title}" copiada.`, 'clipboard-check');
+  } catch (e) {
+    showToast('Copiado', 'Contraseña copiada (fallback).', 'clipboard');
+  }
+  resetVaultLockTimer();
+}
+
+function deleteVaultEntry(id) {
+  const entry = vaultState.entries.find(e => e.id === id);
+  if (!entry) return;
+
+  vaultState.entries = vaultState.entries.filter(e => e.id !== id);
+  saveVaultEntries();
+  vaultState.selectedEntryId = null;
+  renderVault();
+  showToast('Contraseña eliminada', `"${entry.title}" fue removida de la bóveda.`, 'trash-2');
+  resetVaultLockTimer();
+}
+
+function editVaultEntry(id) {
+  const entry = vaultState.entries.find(e => e.id === id);
+  if (!entry) return;
+  openVaultEntryModal(entry);
+}
+
+function openVaultFromShield() {
+  openApp('vault');
+  vaultState.lastOpenedAt = Date.now();
+}
+
+function lockVaultFromShield() {
+  lockVault();
+  renderSettingsApp();
+  showToast('Bóveda Bloqueada', 'La bóveda se cerró por seguridad.', 'lock');
+}
+
+function calculateVaultOverallStrength() {
+  if (vaultState.entries.length === 0) {
+    return { score: 0, label: 'Sin datos', color: '#64748b' };
+  }
+  let total = 0;
+  vaultState.entries.forEach(e => {
+    total += calculatePasswordStrength(e.password).score;
+  });
+  const avg = Math.round(total / vaultState.entries.length);
+
+  let label, color;
+  if (avg >= 80) { label = 'Excelente'; color = '#10b981'; }
+  else if (avg >= 60) { label = 'Buena'; color = '#22c55e'; }
+  else if (avg >= 40) { label = 'Regular'; color = '#f59e0b'; }
+  else { label = 'Débil'; color = '#ef4444'; }
+
+  return { score: avg, label, color };
+}
+
+/* ───────── Modales: Entry + Master + Generator ───────── */
+
+let vaultEntryModalEl = null;
+
+function ensureVaultEntryModal() {
+  if (vaultEntryModalEl) return vaultEntryModalEl;
+
+  const modal = document.createElement('div');
+  modal.className = 'vault-modal';
+  modal.id = 'vault-entry-modal';
+  modal.innerHTML = `
+    <div class="vault-modal-dialog">
+      <div class="vault-modal-header">
+        <div class="vault-modal-icon"><i data-lucide="key-round"></i></div>
+        <div>
+          <strong id="vault-modal-title">Nueva Contraseña</strong>
+          <small id="vault-modal-sub">Guardá una nueva entrada en la bóveda</small>
+        </div>
+        <button class="vault-modal-close" type="button" onclick="closeVaultEntryModal()">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <div class="vault-modal-body">
+        <div class="vault-field">
+          <label>Título *</label>
+          <input type="text" id="vault-field-title" placeholder="Ej: Netflix, GitHub, Steam..." maxlength="60">
+        </div>
+
+        <div class="vault-field">
+          <label>Usuario / Email *</label>
+          <input type="text" id="vault-field-username" placeholder="usuario@email.com" maxlength="80">
+        </div>
+
+        <div class="vault-field">
+          <label>Contraseña *</label>
+          <div class="vault-password-input-wrap">
+            <input type="password" id="vault-field-password" placeholder="Escribí o generá una contraseña..." maxlength="120">
+            <button type="button" class="vault-inline-btn" onclick="toggleVaultFieldPassword()" title="Mostrar/Ocultar">
+              <i data-lucide="eye" id="vault-field-eye"></i>
+            </button>
+            <button type="button" class="vault-inline-btn accent" onclick="fillVaultFieldWithGenerated()" title="Generar contraseña">
+              <i data-lucide="wand-2"></i>
+            </button>
+          </div>
+          <div class="vault-strength-indicator" id="vault-strength-indicator">
+            <div class="vault-strength-track"><span id="vault-strength-fill" style="width: 0%; background: #64748b;"></span></div>
+            <small id="vault-strength-label">Fortaleza: —</small>
+          </div>
+        </div>
+
+        <div class="vault-field">
+          <label>URL (opcional)</label>
+          <input type="text" id="vault-field-url" placeholder="https://..." maxlength="120">
+        </div>
+
+        <div class="vault-field">
+          <label>Categoría</label>
+          <select id="vault-field-category">
+            ${VAULT_CATEGORIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+          </select>
+        </div>
+
+        <div class="vault-field">
+          <label>Notas (opcional)</label>
+          <textarea id="vault-field-notes" placeholder="Información adicional..." maxlength="300" rows="2"></textarea>
+        </div>
+      </div>
+
+      <div class="vault-modal-footer">
+        <button class="vault-btn ghost" type="button" onclick="closeVaultEntryModal()">Cancelar</button>
+        <button class="vault-btn primary" type="button" id="vault-save-btn" onclick="saveVaultEntryModal()">
+          <i data-lucide="save"></i> Guardar
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  vaultEntryModalEl = modal;
+
+  modal.addEventListener('mousedown', (e) => {
+    if (e.target === modal) closeVaultEntryModal();
+  });
+
+  const passInput = modal.querySelector('#vault-field-password');
+  passInput.addEventListener('input', () => updateVaultStrengthIndicator(passInput.value));
+
+  refreshIcons();
+  return modal;
+}
+
+function openVaultEntryModal(entry = null) {
+  const modal = ensureVaultEntryModal();
+  const title = modal.querySelector('#vault-modal-title');
+  const sub = modal.querySelector('#vault-modal-sub');
+  const saveBtn = modal.querySelector('#vault-save-btn');
+
+  if (entry) {
+    title.textContent = 'Editar Contraseña';
+    sub.textContent = `Modificando "${entry.title}"`;
+    saveBtn.innerHTML = '<i data-lucide="save"></i> Guardar cambios';
+    modal.dataset.editId = entry.id;
+    modal.querySelector('#vault-field-title').value = entry.title || '';
+    modal.querySelector('#vault-field-username').value = entry.username || '';
+    modal.querySelector('#vault-field-password').value = entry.password || '';
+    modal.querySelector('#vault-field-url').value = entry.url || '';
+    modal.querySelector('#vault-field-category').value = entry.category || 'otros';
+    modal.querySelector('#vault-field-notes').value = entry.notes || '';
+  } else {
+    title.textContent = 'Nueva Contraseña';
+    sub.textContent = 'Guardá una nueva entrada en la bóveda';
+    saveBtn.innerHTML = '<i data-lucide="save"></i> Guardar';
+    modal.dataset.editId = '';
+    modal.querySelector('#vault-field-title').value = '';
+    modal.querySelector('#vault-field-username').value = '';
+    modal.querySelector('#vault-field-password').value = '';
+    modal.querySelector('#vault-field-url').value = '';
+    modal.querySelector('#vault-field-category').value = 'otros';
+    modal.querySelector('#vault-field-notes').value = '';
+  }
+
+  updateVaultStrengthIndicator(modal.querySelector('#vault-field-password').value);
+
+  modal.classList.add('open');
+  refreshIcons();
+
+  setTimeout(() => modal.querySelector('#vault-field-title').focus(), 100);
+  resetVaultLockTimer();
+}
+
+function closeVaultEntryModal() {
+  if (vaultEntryModalEl) vaultEntryModalEl.classList.remove('open');
+}
+
+function toggleVaultFieldPassword() {
+  const modal = ensureVaultEntryModal();
+  const input = modal.querySelector('#vault-field-password');
+  const eye = modal.querySelector('#vault-field-eye');
+  if (input.type === 'password') {
+    input.type = 'text';
+    eye.setAttribute('data-lucide', 'eye-off');
+  } else {
+    input.type = 'password';
+    eye.setAttribute('data-lucide', 'eye');
+  }
+  refreshIcons();
+}
+
+function fillVaultFieldWithGenerated() {
+  const modal = ensureVaultEntryModal();
+  const input = modal.querySelector('#vault-field-password');
+  input.value = generatePassword();
+  input.type = 'text';
+  modal.querySelector('#vault-field-eye').setAttribute('data-lucide', 'eye-off');
+  updateVaultStrengthIndicator(input.value);
+  refreshIcons();
+  showToast('Contraseña Generada', 'Se generó una contraseña segura.', 'wand-2');
+}
+
+function updateVaultStrengthIndicator(password) {
+  const fill = document.getElementById('vault-strength-fill');
+  const label = document.getElementById('vault-strength-label');
+  if (!fill || !label) return;
+
+  const s = calculatePasswordStrength(password);
+  fill.style.width = `${s.percent}%`;
+  fill.style.background = s.color;
+  label.textContent = `Fortaleza: ${s.label}`;
+  label.style.color = s.color;
+}
+
+function saveVaultEntryModal() {
+  const modal = ensureVaultEntryModal();
+  const title    = modal.querySelector('#vault-field-title').value.trim();
+  const username = modal.querySelector('#vault-field-username').value.trim();
+  const password = modal.querySelector('#vault-field-password').value;
+  const url      = modal.querySelector('#vault-field-url').value.trim();
+  const category = modal.querySelector('#vault-field-category').value;
+  const notes    = modal.querySelector('#vault-field-notes').value.trim();
+  const editId   = modal.dataset.editId;
+
+  if (!title)    { showToast('Falta título',    'Escribí un título para identificar la entrada.',  'alert-circle'); return; }
+  if (!username) { showToast('Falta usuario',   'Escribí un usuario o email.',                    'alert-circle'); return; }
+  if (!password) { showToast('Falta contraseña','Escribí o generá una contraseña.',               'alert-circle'); return; }
+
+  if (editId) {
+    const idx = vaultState.entries.findIndex(e => e.id === editId);
+    if (idx !== -1) {
+      vaultState.entries[idx] = { ...vaultState.entries[idx], title, username, password, url, category, notes, updatedAt: Date.now() };
+      showToast('Contraseña actualizada', `"${title}" fue modificada.`, 'check-circle-2');
+    }
+  } else {
+    const newId = 'vault-' + Date.now();
+    vaultState.entries.unshift({
+      id: newId, title, username, password, url, category, notes,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    });
+    showToast('Contraseña Guardada', `"${title}" se agregó a la bóveda.`, 'save');
+  }
+
+  saveVaultEntries();
+  closeVaultEntryModal();
+  renderVault();
+  resetVaultLockTimer();
+}
+
+/* ───────── Modal: Generador ───────── */
+
+let vaultGeneratorModalEl = null;
+
+function ensureVaultGeneratorModal() {
+  if (vaultGeneratorModalEl) return vaultGeneratorModalEl;
+
+  const modal = document.createElement('div');
+  modal.className = 'vault-modal';
+  modal.id = 'vault-generator-modal';
+  modal.innerHTML = `
+    <div class="vault-modal-dialog vault-modal-small">
+      <div class="vault-modal-header">
+        <div class="vault-modal-icon accent"><i data-lucide="wand-2"></i></div>
+        <div>
+          <strong>Generador de Contraseñas</strong>
+          <small>Creá contraseñas seguras al instante</small>
+        </div>
+        <button class="vault-modal-close" type="button" onclick="closeVaultGeneratorModal()">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <div class="vault-modal-body">
+        <div class="vault-generated-display">
+          <span id="vault-generated-password">Hacé click en "Generar"</span>
+          <button type="button" class="vault-inline-btn" onclick="copyGeneratedPassword()" title="Copiar">
+            <i data-lucide="copy"></i>
+          </button>
+        </div>
+
+        <div class="vault-field">
+          <label>Longitud: <strong id="vault-gen-length-label">${vaultState.generator.length}</strong></label>
+          <input type="range" min="8" max="64" value="${vaultState.generator.length}" id="vault-gen-length" oninput="updateVaultGeneratorOption('length', parseInt(this.value))">
+        </div>
+
+        <div class="vault-gen-options">
+          <label class="vault-gen-option">
+            <input type="checkbox" ${vaultState.generator.uppercase ? 'checked' : ''} onchange="updateVaultGeneratorOption('uppercase', this.checked)">
+            <span>Mayúsculas (A-Z)</span>
+          </label>
+          <label class="vault-gen-option">
+            <input type="checkbox" ${vaultState.generator.lowercase ? 'checked' : ''} onchange="updateVaultGeneratorOption('lowercase', this.checked)">
+            <span>Minúsculas (a-z)</span>
+          </label>
+          <label class="vault-gen-option">
+            <input type="checkbox" ${vaultState.generator.numbers ? 'checked' : ''} onchange="updateVaultGeneratorOption('numbers', this.checked)">
+            <span>Números (0-9)</span>
+          </label>
+          <label class="vault-gen-option">
+            <input type="checkbox" ${vaultState.generator.symbols ? 'checked' : ''} onchange="updateVaultGeneratorOption('symbols', this.checked)">
+            <span>Símbolos (!@#$...)</span>
+          </label>
+        </div>
+
+        <div class="vault-strength-indicator">
+          <div class="vault-strength-track"><span id="vault-gen-strength-fill" style="width: 0%; background: #64748b;"></span></div>
+          <small id="vault-gen-strength-label">Fortaleza: —</small>
+        </div>
+      </div>
+
+      <div class="vault-modal-footer">
+        <button class="vault-btn ghost" type="button" onclick="closeVaultGeneratorModal()">Cerrar</button>
+        <button class="vault-btn primary" type="button" onclick="regenerateVaultPassword()">
+          <i data-lucide="refresh-cw"></i> Generar
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  vaultGeneratorModalEl = modal;
+
+  modal.addEventListener('mousedown', (e) => {
+    if (e.target === modal) closeVaultGeneratorModal();
+  });
+
+  refreshIcons();
+  return modal;
+}
+
+function openVaultGeneratorModal() {
+  const modal = ensureVaultGeneratorModal();
+  modal.classList.add('open');
+  refreshIcons();
+  regenerateVaultPassword();
+  resetVaultLockTimer();
+}
+
+function closeVaultGeneratorModal() {
+  if (vaultGeneratorModalEl) vaultGeneratorModalEl.classList.remove('open');
+}
+
+function updateVaultGeneratorOption(key, value) {
+  vaultState.generator[key] = value;
+  if (key === 'length') {
+    const label = document.getElementById('vault-gen-length-label');
+    if (label) label.textContent = value;
+  }
+  regenerateVaultPassword();
+}
+
+function regenerateVaultPassword() {
+  const pass = generatePassword();
+  const display = document.getElementById('vault-generated-password');
+  if (display) display.textContent = pass || 'Seleccioná al menos un tipo de carácter';
+
+  const fill = document.getElementById('vault-gen-strength-fill');
+  const label = document.getElementById('vault-gen-strength-label');
+  if (fill && label) {
+    const s = calculatePasswordStrength(pass);
+    fill.style.width = `${s.percent}%`;
+    fill.style.background = s.color;
+    label.textContent = `Fortaleza: ${s.label}`;
+    label.style.color = s.color;
+  }
+}
+
+async function copyGeneratedPassword() {
+  const display = document.getElementById('vault-generated-password');
+  if (!display || !display.textContent || display.textContent.startsWith('Hacé click') || display.textContent.startsWith('Seleccioná')) {
+    showToast('Nada para copiar', 'Primero generá una contraseña.', 'info');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(display.textContent);
+    showToast('Copiado', 'Contraseña generada copiada al portapapeles.', 'clipboard-check');
+  } catch (e) {
+    showToast('Copiado', 'Contraseña copiada (fallback).', 'clipboard');
+  }
+}
+
+/* ───────── Modal: Master Password ───────── */
+
+let vaultMasterModalEl = null;
+
+function ensureVaultMasterModal() {
+  if (vaultMasterModalEl) return vaultMasterModalEl;
+
+  const modal = document.createElement('div');
+  modal.className = 'vault-modal';
+  modal.id = 'vault-master-modal';
+  modal.innerHTML = `
+    <div class="vault-modal-dialog vault-modal-small">
+      <div class="vault-modal-header">
+        <div class="vault-modal-icon accent"><i data-lucide="key"></i></div>
+        <div>
+          <strong>Cambiar Contraseña Maestra</strong>
+          <small>Actualizá la clave de acceso a tu bóveda</small>
+        </div>
+        <button class="vault-modal-close" type="button" onclick="closeMasterPasswordModal()">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <div class="vault-modal-body">
+        <div class="vault-field">
+          <label>Contraseña maestra actual</label>
+          <input type="password" id="vault-master-current" placeholder="Escribí tu contraseña actual..." autocomplete="off">
+        </div>
+        <div class="vault-field">
+          <label>Nueva contraseña maestra</label>
+          <input type="password" id="vault-master-new" placeholder="Mínimo 6 caracteres..." autocomplete="off" oninput="updateMasterStrengthIndicator(this.value)">
+        </div>
+        <div class="vault-field">
+          <label>Confirmar nueva contraseña</label>
+          <input type="password" id="vault-master-confirm" placeholder="Repetí la nueva contraseña..." autocomplete="off">
+        </div>
+
+        <div class="vault-strength-indicator">
+          <div class="vault-strength-track"><span id="vault-master-strength-fill" style="width: 0%; background: #64748b;"></span></div>
+          <small id="vault-master-strength-label">Fortaleza: —</small>
+        </div>
+
+        <div class="vault-master-hint">
+          <i data-lucide="info"></i>
+          <small>Si olvidás la contraseña maestra, <strong>no vas a poder recuperar tus contraseñas</strong>. Guardala en un lugar seguro.</small>
+        </div>
+      </div>
+
+      <div class="vault-modal-footer">
+        <button class="vault-btn ghost" type="button" onclick="closeMasterPasswordModal()">Cancelar</button>
+        <button class="vault-btn primary" type="button" onclick="saveMasterPassword()">
+          <i data-lucide="check"></i> Guardar
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  vaultMasterModalEl = modal;
+
+  modal.addEventListener('mousedown', (e) => {
+    if (e.target === modal) closeMasterPasswordModal();
+  });
+
+  refreshIcons();
+  return modal;
+}
+
+function openMasterPasswordModal() {
+  const modal = ensureVaultMasterModal();
+  modal.querySelector('#vault-master-current').value = '';
+  modal.querySelector('#vault-master-new').value = '';
+  modal.querySelector('#vault-master-confirm').value = '';
+  updateMasterStrengthIndicator('');
+  modal.classList.add('open');
+  refreshIcons();
+  setTimeout(() => modal.querySelector('#vault-master-current').focus(), 100);
+}
+
+function closeMasterPasswordModal() {
+  if (vaultMasterModalEl) vaultMasterModalEl.classList.remove('open');
+}
+
+function updateMasterStrengthIndicator(pass) {
+  const fill = document.getElementById('vault-master-strength-fill');
+  const label = document.getElementById('vault-master-strength-label');
+  if (!fill || !label) return;
+
+  const s = calculatePasswordStrength(pass);
+  fill.style.width = `${s.percent}%`;
+  fill.style.background = s.color;
+  label.textContent = `Fortaleza: ${s.label}`;
+  label.style.color = s.color;
+}
+
+function saveMasterPassword() {
+  const current = document.getElementById('vault-master-current').value;
+  const newPass = document.getElementById('vault-master-new').value;
+  const confirm = document.getElementById('vault-master-confirm').value;
+
+  if (current !== getVaultMaster()) {
+    showToast('Contraseña incorrecta', 'La contraseña maestra actual no coincide.', 'alert-circle');
+    return;
+  }
+  if (newPass.length < 6) {
+    showToast('Muy corta', 'La nueva contraseña debe tener al menos 6 caracteres.', 'alert-circle');
+    return;
+  }
+  if (newPass !== confirm) {
+    showToast('No coinciden', 'Las contraseñas nuevas no coinciden.', 'alert-circle');
+    return;
+  }
+  if (newPass === current) {
+    showToast('Sin cambios', 'La nueva contraseña debe ser distinta a la actual.', 'info');
+    return;
+  }
+
+  setVaultMaster(newPass);
+  closeMasterPasswordModal();
+  renderSettingsApp();
+  showToast('Contraseña Maestra Actualizada', 'Tu bóveda está más segura.', 'shield-check');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ VAULT — Bootstrap: cargar datos al inicio
+═══════════════════════════════════════════════════════════════ */
+
+vaultState.entries = loadVaultEntries();
+loadVaultMasterMeta();
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeVaultEntryModal();
+    closeVaultGeneratorModal();
+    closeMasterPasswordModal();
+  }
+});
+
+document.addEventListener('mousemove', () => {
+  if (vaultState.unlocked) resetVaultLockTimer();
+}, { passive: true });
+
+document.addEventListener('keydown', () => {
+  if (vaultState.unlocked) resetVaultLockTimer();
+}, { passive: true });
