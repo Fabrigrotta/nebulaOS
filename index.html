@@ -463,6 +463,35 @@
     </div>
   </div>
 
+  <!-- ★ NEBULA STORE OVERLAY -->
+  <div id="store-overlay" class="hidden" aria-label="Nebula Store">
+    <div class="store-container">
+      <header class="store-header">
+        <div class="store-header-left">
+          <span class="store-kicker">NEBULA STORE</span>
+          <h2>Tienda de Personalización</h2>
+          <p id="store-subtitle">Descargá temas, widgets, wallpapers, apps y juegos</p>
+        </div>
+        <div class="store-header-right">
+          <button class="store-close-btn" type="button" onclick="closeStore()" aria-label="Cerrar tienda">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+      </header>
+
+      <div class="store-categories" id="store-categories">
+        <button class="store-cat-btn active" data-cat="all">Todos</button>
+        <button class="store-cat-btn" data-cat="theme">Temas</button>
+        <button class="store-cat-btn" data-cat="widget">Widgets</button>
+        <button class="store-cat-btn" data-cat="wallpaper">Wallpapers</button>
+        <button class="store-cat-btn" data-cat="app">Apps</button>
+        <button class="store-cat-btn" data-cat="game">Juegos</button>
+      </div>
+
+      <div class="store-grid" id="store-grid"></div>
+    </div>
+  </div>
+
   <!-- CONTENEDOR DE NOTIFICACIONES TOAST -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 </div>

@@ -31,12 +31,27 @@ const WIDGET_CATALOG = {
     description: 'Widget meteorológico con datos reales de Open-Meteo, selector de ciudad y pronóstico de 3 días.',
     icon: 'cloud-sun',
     type: 'weather'
+  },
+  'system-monitor-pro': {
+    id: 'system-monitor-pro',
+    name: 'System Monitor Pro',
+    description: 'Monitor avanzado de CPU, RAM, disco y red con gráficos en tiempo real.',
+    icon: 'activity',
+    type: 'system-monitor-pro',
+    available: false
+  },
+  'music-visualizer': {
+    id: 'music-visualizer',
+    name: 'Music Visualizer',
+    description: 'Visualizador de audio en tiempo real con barras de espectro y efectos de partículas.',
+    icon: 'audio-waveform',
+    type: 'music-visualizer',
+    available: false
   }
 };
 
 /* =====================================================
    CIUDADES DISPONIBLES PARA EL WIDGET DE CLIMA
-   Coordenadas + zona horaria IANA para datos reales
 ===================================================== */
 const WEATHER_CITIES = [
   { id: 'rosario',     name: 'Rosario',     region: 'Santa Fe, Argentina',  lat: -32.9468, lon: -60.6393, timezone: 'America/Argentina/Cordoba' },
@@ -82,7 +97,6 @@ const WMO_CODE_MAP = {
   99: { icon: 'cloud-lightning',    label: 'Tormenta fuerte granizo',color: '#cba6f7' }
 };
 
-/* Configuración del widget de clima */
 const WEATHER_FETCH_INTERVAL_MS = 15 * 60 * 1000;
 const WEATHER_CACHE_STALE_MS = 15 * 60 * 1000;
 
@@ -93,6 +107,11 @@ const WALLPAPERS = [
   { file: 'fondoPrincipal.jpg', name: 'Nebula', accent: '#b4befe', text: '#cdd6f4', sub: '#bac2de', green: '#a6e3a1', panel: 'rgba(18,21,33,0.72)' },
   { file: 'fondo2.jpg', name: 'Aurora', accent: '#89dceb', text: '#d9f4ff', sub: '#a9c6d3', green: '#a6e3a1', panel: 'rgba(11,31,39,0.75)' },
   { file: 'fondo3.jpg', name: 'Solar', accent: '#f9c784', text: '#fff1dc', sub: '#d7bfa4', green: '#b8e986', panel: 'rgba(43,25,20,0.75)' }
+];
+
+const STORE_WALLPAPERS = [
+  { id: 'cyber-city', name: 'Cyber City', file: 'cyber-city.jpg', accent: '#00ffcc', text: '#e0fff5', sub: '#7ab8a8', green: '#00ff88', panel: 'rgba(10, 14, 22, 0.88)' },
+  { id: 'deep-space', name: 'Deep Space', file: 'deep-space.jpg', accent: '#8b5cf6', text: '#ede9fe', sub: '#a78bfa', green: '#34d399', panel: 'rgba(20, 15, 40, 0.88)' }
 ];
 
 const THEME_PRESETS = {
@@ -178,6 +197,57 @@ const THEME_PRESETS = {
   }
 };
 
+const STORE_THEMES = {
+  'sunset-vibes': {
+    name: 'Sunset Vibes',
+    accent: '#ff6b6b',
+    accentGlow: 'rgba(255, 107, 107, 0.5)',
+    panelColor: 'rgba(45, 20, 30, 0.88)',
+    blurAmount: '14px',
+    borderRadius: '12px',
+    textMain: '#ffe0e0',
+    textSub: '#c99a9a',
+    bgDark: '#2d141e',
+    accentGreen: '#ff9f43',
+    accentRed: '#ee5253',
+    accentOrange: '#feca57',
+    shadowStrength: 55,
+    colors: ['#ff6b6b', '#ff9f43', '#feca57', '#2d141e']
+  },
+  'matrix-green': {
+    name: 'Matrix Green',
+    accent: '#00ff41',
+    accentGlow: 'rgba(0, 255, 65, 0.5)',
+    panelColor: 'rgba(0, 20, 0, 0.9)',
+    blurAmount: '8px',
+    borderRadius: '4px',
+    textMain: '#d0ffd0',
+    textSub: '#5a8a5a',
+    bgDark: '#001400',
+    accentGreen: '#00ff41',
+    accentRed: '#ff0040',
+    accentOrange: '#ffaa00',
+    shadowStrength: 70,
+    colors: ['#00ff41', '#00cc33', '#003300', '#001400']
+  },
+  'blood-moon': {
+    name: 'Blood Moon',
+    accent: '#ff0040',
+    accentGlow: 'rgba(255, 0, 64, 0.5)',
+    panelColor: 'rgba(30, 5, 10, 0.92)',
+    blurAmount: '10px',
+    borderRadius: '8px',
+    textMain: '#ffe0e5',
+    textSub: '#b07080',
+    bgDark: '#1e050a',
+    accentGreen: '#ff4060',
+    accentRed: '#ff0040',
+    accentOrange: '#ff6080',
+    shadowStrength: 65,
+    colors: ['#ff0040', '#cc0033', '#66001a', '#1e050a']
+  }
+};
+
 const TRACKS = [
   { title: 'Bocanada', artist: 'Gustavo Cerati', album: 'Bocanada', art: './assets/images/apps/spotify/tapaAlbum2.jpg', duration: 272 },
   { title: 'Smells Like Teen Spirit', artist: 'Nirvana', album: 'Nevermind', art: './assets/images/apps/spotify/tapaAlbum1.jpg', duration: 301 },
@@ -233,6 +303,24 @@ const VPN_SERVERS = [
   { id: 'tokyo',     name: 'Tokio',       country: 'Japón',        flag: '🇯🇵', ping: 156 },
   { id: 'zurich',    name: 'Zúrich',      country: 'Suiza',        flag: '🇨🇭', ping: 35 },
   { id: 'buenosaires', name: 'Buenos Aires', country: 'Argentina', flag: '🇦🇷', ping: 18 }
+];
+
+/* =====================================================
+   ★ NEBULA STORE — Catálogo de productos
+===================================================== */
+const STORE_PRODUCTS = [
+  { id: 'theme-sunset-vibes', type: 'theme', name: 'Sunset Vibes', description: 'Paleta cálida con tonos atardecer y acentos coral.', author: 'Nebula Design', rating: 4.8, downloads: 12500, size: '2.4 MB', price: 'Gratis', preview: { accent: '#ff6b6b', colors: ['#ff6b6b', '#ff9f43', '#feca57'] } },
+  { id: 'theme-matrix-green', type: 'theme', name: 'Matrix Green', description: 'Estilo hacker con verde fósforo y fondo negro.', author: 'CodeMaster', rating: 4.6, downloads: 8900, size: '1.8 MB', price: 'Gratis', preview: { accent: '#00ff41', colors: ['#00ff41', '#00cc33', '#003300'] } },
+  { id: 'theme-blood-moon', type: 'theme', name: 'Blood Moon', description: 'Tema oscuro con acentos rojos intensos y sombras profundas.', author: 'DarkArts', rating: 4.9, downloads: 15600, size: '2.1 MB', price: 'Gratis', preview: { accent: '#ff0040', colors: ['#ff0040', '#cc0033', '#66001a'] } },
+  { id: 'widget-system-monitor-pro', type: 'widget', name: 'System Monitor Pro', description: 'Monitor avanzado de CPU, RAM, disco y red con gráficos en tiempo real.', author: 'Nebula Labs', rating: 4.7, downloads: 7800, size: '3.2 MB', price: 'Gratis', preview: { icon: 'activity' } },
+  { id: 'widget-music-visualizer', type: 'widget', name: 'Music Visualizer', description: 'Visualizador de audio en tiempo real con barras de espectro y efectos de partículas.', author: 'SoundWave', rating: 4.5, downloads: 6200, size: '2.8 MB', price: 'Gratis', preview: { icon: 'audio-waveform' } },
+  { id: 'wallpaper-cyber-city', type: 'wallpaper', name: 'Cyber City', description: 'Ciudad futurista con neones y lluvia digital.', author: 'NeonDreams', rating: 4.9, downloads: 22000, size: '5.6 MB', price: 'Gratis', preview: { accent: '#00ffcc', file: 'cyber-city.jpg' } },
+  { id: 'wallpaper-deep-space', type: 'wallpaper', name: 'Deep Space', description: 'Nebulosa púrpura con estrellas y galaxias lejanas.', author: 'CosmosArt', rating: 4.8, downloads: 18500, size: '4.9 MB', price: 'Gratis', preview: { accent: '#8b5cf6', file: 'deep-space.jpg' } },
+  { id: 'app-discord', type: 'app', name: 'Discord', description: 'Comunicación por voz, video y texto para gamers.', author: 'Discord Inc.', rating: 4.9, downloads: 45000, size: '12.4 MB', price: 'Gratis', preview: { icon: 'message-circle', color: '#5865F2' } },
+  { id: 'app-notion', type: 'app', name: 'Notion', description: 'Organización personal y colaboración en equipo.', author: 'Notion Labs', rating: 4.7, downloads: 38000, size: '8.2 MB', price: 'Gratis', preview: { icon: 'file-text', color: '#ffffff' } },
+  { id: 'app-obs-studio', type: 'app', name: 'OBS Studio', description: 'Grabación y transmisión en vivo profesional.', author: 'OBS Project', rating: 4.8, downloads: 32000, size: '15.6 MB', price: 'Gratis', preview: { icon: 'video', color: '#302e31' } },
+  { id: 'game-hollow-knight', type: 'game', name: 'Hollow Knight', description: 'Aventura metroidvania en un reino de insectos.', author: 'Team Cherry', rating: 4.9, downloads: 52000, size: '9.2 GB', price: 'Gratis', preview: { icon: 'gamepad-2', color: '#ffffff' } },
+  { id: 'game-elden-ring', type: 'game', name: 'Elden Ring', description: 'RPG de acción en un mundo abierto épico.', author: 'FromSoftware', rating: 4.9, downloads: 68000, size: '45.6 GB', price: 'Gratis', preview: { icon: 'sword', color: '#c9a050' } }
 ];
 
 /* ================= VARIABLES GLOBALES DE ESTADO ================= */
@@ -327,12 +415,16 @@ let updatesState = {
   ]
 };
 
-/* ★ CENTRO DE NOTIFICACIONES — Historial */
 let notifications = [];
 let unreadCount = 0;
 let notifIdCounter = 0;
 
 let desktopWidgets = [];
+
+let storeProducts = [...STORE_PRODUCTS];
+let installedProducts = [];
+let storeFilter = 'all';
+let storeInstallProgress = {};
 
 let dockPreviewEl = null;
 let dockPreviewTimeout = null;
@@ -384,6 +476,7 @@ const SHIELD_STORAGE_KEY = 'nebula-os:shield';
 const UPDATES_STORAGE_KEY = 'nebula-os:updates';
 const NOTIFICATIONS_STORAGE_KEY = 'nebula-os:notifications';
 const NOTIFICATIONS_MAX = 30;
+const STORE_INSTALLED_STORAGE_KEY = 'nebula-os:store-installed';
 
 const Z_INDEX_NORMALIZE_THRESHOLD = 800;
 const Z_INDEX_BASE = 100;
@@ -855,7 +948,6 @@ document.addEventListener('DOMContentLoaded', () => {
     switchProfile(next);
   });
 
-  /* ★ Centro de Notificaciones — Botón campana con captura previa para evitar conflicto con sysTrayBtn */
   if (trayNotifBtn) {
     trayNotifBtn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -883,6 +975,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const isCitySelectorClick = e.target.closest('.weather-city-selector');
     const isNotifPanelClick = e.target.closest('#notification-center');
     const isNotifBtnClick = e.target.closest('#tray-notif-btn');
+    const isStoreClick = e.target.closest('#store-overlay');
 
     if (!isDockCtxClick) hideDockContextMenu();
     if (!isWmCardCtxClick) hideWmCardContextMenu();
@@ -903,10 +996,12 @@ document.addEventListener('DOMContentLoaded', () => {
         && !isFsRenameClick
         && !isCitySelectorClick
         && !isNotifPanelClick
-        && !isNotifBtnClick) {
+        && !isNotifBtnClick
+        && !isStoreClick) {
       closeControlCenter();
       closeQuickCenter();
       closeNotificationCenter();
+      closeStore();
     }
     hideContextMenu();
   });
@@ -921,6 +1016,7 @@ document.addEventListener('DOMContentLoaded', () => {
       closeControlCenter();
       closeQuickCenter();
       closeNotificationCenter();
+      closeStore();
       if (gamerOverlayVisible) toggleGamerOverlay();
       if (windowManagerOpen) closeWindowManager();
       hideDockContextMenu();
@@ -939,6 +1035,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('#context-menu') || e.target.closest('.window') || e.target.closest('.desktop-widget')) return;
     if (e.target.closest('.dock-item')) return;
     if (e.target.closest('#window-manager-overlay')) return;
+    if (e.target.closest('#store-overlay')) return;
     e.preventDefault();
     showContextMenu(e.clientX, e.clientY);
   });
@@ -1992,7 +2089,7 @@ function renderDesktopWidgets() {
   if (!layer) return;
   layer.innerHTML = '';
 
-  const validTypes = new Set(['clock', 'weather', 'gaming-hub']);
+  const validTypes = new Set(['clock', 'weather', 'gaming-hub', 'system-monitor-pro', 'music-visualizer']);
   desktopWidgets = desktopWidgets.filter(w => validTypes.has(w.type));
 
   desktopWidgets.forEach(widget => {
@@ -2045,6 +2142,16 @@ function renderDesktopWidgets() {
           }
         });
       }
+    } else if (widget.type === 'system-monitor-pro') {
+      title = 'SYSTEM MONITOR PRO';
+      iconName = 'activity';
+      extraClass = 'system-monitor-pro-widget';
+      bodyHTML = `<div class="system-monitor-pro-body" style="color:var(--text-sub);font-size:10px;text-align:center;padding:20px;">Widget de monitoreo avanzado (demo)</div>`;
+    } else if (widget.type === 'music-visualizer') {
+      title = 'MUSIC VISUALIZER';
+      iconName = 'audio-waveform';
+      extraClass = 'music-visualizer-widget';
+      bodyHTML = `<div class="music-visualizer-body" style="color:var(--text-sub);font-size:10px;text-align:center;padding:20px;">Visualizador de audio (demo)</div>`;
     }
 
     el.className = `desktop-widget ${extraClass}`.trim();
@@ -2109,1320 +2216,543 @@ function updateWidgetStats() {
   }
 }
 
-/* ================= FEATURE 4: GESTOR DE PERFILES ================= */
-function closeAllOpenApps() {
-  const ids = Object.keys(openWindows);
-  ids.forEach(winId => closeApp(winId));
-}
+/* =====================================================
+   ★ FEATURE 3: NEBULA STORE
+===================================================== */
 
-function switchProfile(profileId) {
-  closeAllOpenApps();
+function openStore() {
+  const overlay = document.getElementById('store-overlay');
+  if (!overlay) return;
 
-  currentProfile = profileId;
-  
-  const profileNameEl = document.getElementById('topbar-profile-name');
-  const profileIconEl = document.getElementById('topbar-profile-icon');
-  
-  const profileMap = {
-    gamer: { name: 'Gamer', icon: 'gamepad-2', toast: 'Perfil Gamer: Modo Juego activado, HUD y telemetría listos.' },
-    streamer: { name: 'Streamer', icon: 'radio', toast: 'Perfil Streamer: Widgets multimedia y monitoreo de audio en vivo.' },
-    studio: { name: 'Estudio', icon: 'terminal', toast: 'Perfil Estudio / Dev: Espacio optimizado para programación con VS Code y Terminal.' }
-  };
+  overlay.classList.remove('hidden');
+  renderStore();
 
-  const pData = profileMap[profileId] || profileMap.gamer;
-  if (profileNameEl) profileNameEl.textContent = pData.name;
-  if (profileIconEl) profileIconEl.innerHTML = `<i data-lucide="${pData.icon}"></i>`;
-
-  document.querySelectorAll('.profile-chip, .p-mini-chip').forEach(chip => {
-    chip.classList.toggle('active', chip.dataset.profile === profileId);
-  });
-
-  if (profileId === 'gamer') {
-    applyThemePreset('cyberpunk');
-    toggleGameMode(true);
-  } else if (profileId === 'streamer') {
-    applyThemePreset('synthwave');
-    toggleGameMode(false);
-  } else if (profileId === 'studio') {
-    applyThemePreset('catppuccin');
-    toggleGameMode(false);
-    switchWorkspace(1);
+  const cats = document.getElementById('store-categories');
+  if (cats) {
+    cats.querySelectorAll('.store-cat-btn').forEach(btn => {
+      btn.onclick = () => {
+        storeFilter = btn.dataset.cat || 'all';
+        renderStore();
+      };
+    });
   }
 
-  try {
-    localStorage.setItem(PROFILE_STORAGE_KEY, profileId);
-  } catch (e) {}
-
-  showToast(`Perfil: ${pData.name}`, pData.toast, pData.icon);
   refreshIcons();
 }
 
-/* ================= FEATURE 3: NOVA AI PROMPT-TO-ACTION ================= */
-function parseAndExecuteNovaAction(query) {
-  const q = query.toLowerCase().trim();
-  let actionTaken = null;
-  let replyText = '';
-  let actionBtnHTML = '';
+function closeStore() {
+  const overlay = document.getElementById('store-overlay');
+  if (!overlay) return;
+  overlay.classList.add('hidden');
+}
 
-  if (q.includes('cyberpunk') || (q.includes('tema') && q.includes('neon'))) {
-    applyThemePreset('cyberpunk');
-    actionTaken = 'Tema Cyberpunk Neón aplicado';
-    replyText = 'He cambiado la paleta visual a Cyberpunk Neón, ajustando acentos turquesa, contraste dinámico y fondo espacial.';
-  } else if (q.includes('catppuccin') || q.includes('minimal')) {
-    applyThemePreset('catppuccin');
-    actionTaken = 'Tema Minimal Catppuccin aplicado';
-    replyText = 'Listo. Apliqué la paleta suave y minimalista Catppuccin con efectos de cristal pulido.';
-  } else if (q.includes('synthwave') || q.includes('retro')) {
-    applyThemePreset('synthwave');
-    actionTaken = 'Tema Retro Synthwave aplicado';
-    replyText = '¡Vibras synthwave! Tema Retro Synthwave activo con tonos magenta y violeta.';
-  } else if (q.includes('stealth') || q.includes('oscuro')) {
-    applyThemePreset('stealth');
-    actionTaken = 'Tema Dark Stealth aplicado';
-    replyText = 'Activé el modo Dark Stealth con bajo contraste y acentos esmeralda para descansar la vista.';
-  } else if (q.includes('nord') || q.includes('arc')) {
-    applyThemePreset('nord-arc');
-    actionTaken = 'Tema Nord Arc aplicado';
-    replyText = 'Listo. Apliqué el tema Nord Arc, con acento cyan y estética sobria.';
-  } else if (q.includes('activa') && (q.includes('modo juego') || q.includes('game mode'))) {
-    toggleGameMode(true);
-    actionTaken = 'Modo Juego Activado';
-    replyText = '¡Modo Juego iniciado! He liberado memoria RAM y ajustado el perfil de CPU/GPU al máximo rendimiento.';
-  } else if (q.includes('desactiva') && (q.includes('modo juego') || q.includes('game mode'))) {
-    toggleGameMode(false);
-    actionTaken = 'Modo Juego Desactivado';
-    replyText = 'Modo Juego apagado. El sistema ha vuelto al perfil energético estándar.';
-  } else if (q.includes('optimiza') || q.includes('limpia') || q.includes('ram') || q.includes('memoria') || q.includes('rendimiento')) {
-    simulateRamBoost();
-    actionTaken = 'RAM Optimizada y Cache Purgada';
-    replyText = 'He ejecutado una limpieza profunda de procesos inactivos y cache. La memoria RAM quedó optimizada.';
-  } else if (q.includes('vpn') || q.includes('conectar vpn')) {
-    toggleVpnConnection();
-    actionTaken = shieldState.vpnConnected ? 'VPN Conectada' : 'VPN Desconectada';
-    replyText = shieldState.vpnConnected ? 'Conexión VPN establecida. Tu tráfico está cifrado.' : 'VPN desconectada.';
-  } else if (q.includes('antivirus') || q.includes('escaneo') || q.includes('escanea') || q.includes('seguridad') || q.includes('virus')) {
-    openApp('settings');
-    settingsState.activeSettingsTab = 'shield';
-    renderSettingsApp();
-    actionTaken = 'Nebula Shield abierto';
-    replyText = 'He abierto el centro de seguridad Nebula Shield. Podés ejecutar un escaneo completo desde ahí.';
-  } else if (q.includes('actualiza') || q.includes('update') || q.includes('version') || q.includes('versión')) {
-    openApp('settings');
-    settingsState.activeSettingsTab = 'updates';
-    renderSettingsApp();
-    actionTaken = 'Centro de Actualizaciones abierto';
-    replyText = 'He abierto el centro de actualizaciones. Podés verificar si hay nuevas versiones disponibles.';
-  } else if (q.includes('musica') || q.includes('música') || q.includes('cancion') || q.includes('canción') || q.includes('spotify') || q.includes('cerati') || q.includes('nirvana')) {
-    toggleMediaPlayback();
-    const track = TRACKS[currentTrackIndex];
-    actionTaken = isPlaying ? `Reproduciendo: ${track.title}` : 'Música en pausa';
-    replyText = isPlaying ? `Reproduciendo "${track.title}" de ${track.artist}. Podés controlar el volumen desde el HUD o centro de control.` : 'He pausado la reproducción de música.';
-  } else if (q.includes('abre steam') || q.includes('juegos')) {
-    openApp('games');
-    actionTaken = 'Abriendo Steam';
-    replyText = 'Abriendo tu biblioteca de Steam.';
-  } else if (q.includes('abre archivos') || q.includes('explorador')) {
-    openApp('files');
-    actionTaken = 'Abriendo Archivos';
-    replyText = 'Abriendo el Gestor Inteligente de Archivos.';
-  } else if (q.includes('abre vs code') || q.includes('código') || q.includes('editor')) {
-    openApp('vscode');
-    actionTaken = 'Abriendo Visual Studio Code';
-    replyText = 'Abriendo Visual Studio Code.';
-  } else if (q.includes('abre terminal')) {
-    openApp('terminal');
-    actionTaken = 'Abriendo WezTerm';
-    replyText = 'Terminal iniciada.';
-  } else if (q.includes('abre ajustes') || q.includes('designer')) {
-    openApp('settings');
-    actionTaken = 'Abriendo Nebula Designer';
-    replyText = 'Abriendo el panel de Ajustes y personalización.';
-  } else if (q.includes('clima') || q.includes('tiempo') || q.includes('temperatura')) {
-    addWeatherWidget();
-    actionTaken = 'Widget de Clima añadido';
-    replyText = 'Añadí el widget de clima. Podés cambiar la ciudad desde el selector dentro del widget.';
-  } else if (q.includes('cyberpunk 2077') || q.includes('fps') || q.includes('consejos') || q.includes('juego') || q.includes('gamer')) {
-    replyText = 'Para maximizar tus FPS y estabilidad en juegos exigentes te recomiendo:\n\n• Activar Modo Juego (fija frecuencia CPU en 4.95 GHz y libera RAM).\n• Habilitar el Gaming HUD (Alt+Z) para monitoreo de temperaturas.\n• Usar tema Cyberpunk de bajo consumo de sombreado.';
-    actionBtnHTML = `<button class="nova-action-btn" type="button" onclick="applyGamerOptimization()"><i data-lucide="zap"></i> Aplicar Optimización Gamer (1-Clic)</button>`;
-  } else if (/^(hola|buenas|hey|buen d[ií]a)/.test(q)) {
-    replyText = '¡Hola! Soy Nova AI, tu copiloto en Nebula OS. Puedo optimizar tu sistema, cambiar temas, poner música, abrir juegos y mucho más. ¿Qué querés configurar?';
-  } else {
-    replyText = `Entendido. He analizado "${query}". Podés pedirme cosas como "Activa el modo juego", "Cambia al tema Cyberpunk", "Optimiza el sistema" o "Pon música".`;
+function renderStore() {
+  const grid = document.getElementById('store-grid');
+  const cats = document.getElementById('store-categories');
+  if (!grid || !cats) return;
+
+  cats.querySelectorAll('.store-cat-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.cat === storeFilter);
+  });
+
+  let filtered = storeProducts;
+  if (storeFilter !== 'all') {
+    filtered = storeProducts.filter(p => p.type === storeFilter);
   }
 
-  return { replyText, actionTaken, actionBtnHTML };
-}
-
-function applyGamerOptimization() {
-  toggleGameMode(true);
-  applyThemePreset('cyberpunk');
-  simulateRamBoost();
-  showToast('Optimización Gamer Lista', 'CPU Turbo activado, RAM purgada y HUD listo para jugar.', 'zap');
-}
-
-function startNovaVoiceInput() {
-  const voiceBtn = document.getElementById('nova-voice-btn');
-  const input = document.querySelector('.nova-input');
-  
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    if (voiceBtn) voiceBtn.classList.add('listening');
-    showToast('Voz a Acción', 'Simulando comando por voz: "Activa el modo juego y optimiza"...', 'mic');
-    setTimeout(() => {
-      if (input) {
-        input.value = 'Activa el modo juego y optimiza el sistema';
-        document.querySelector('.nova-form')?.requestSubmit();
-      }
-      if (voiceBtn) voiceBtn.classList.remove('listening');
-    }, 1200);
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="store-empty">No hay productos en esta categoría.</div>`;
     return;
   }
 
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const recognition = new SpeechRecognition();
-  recognition.lang = 'es-ES';
-  recognition.interimResults = false;
+  grid.innerHTML = filtered.map(product => {
+    const isInstalled = installedProducts.includes(product.id);
+    const progress = storeInstallProgress[product.id] || 0;
 
-  recognition.onstart = () => {
-    if (voiceBtn) voiceBtn.classList.add('listening');
-    showToast('Escuchando...', 'Hablá ahora para pedirle una acción a Nova AI', 'mic');
-  };
-
-  recognition.onresult = (event) => {
-    const transcript = event.results[0][0].transcript;
-    if (input) {
-      input.value = transcript;
-      document.querySelector('.nova-form')?.requestSubmit();
+    let previewHTML = '';
+    if (product.type === 'theme') {
+      previewHTML = `
+        <div class="store-preview-theme">
+          <div class="store-preview-colors">
+            ${product.preview.colors.map(c => `<span class="store-preview-color" style="background:${c};"></span>`).join('')}
+          </div>
+          <div class="store-preview-accent" style="background:${product.preview.accent};"></div>
+        </div>
+      `;
+    } else if (product.type === 'wallpaper') {
+      previewHTML = `
+        <div class="store-preview-wallpaper" style="background: linear-gradient(135deg, ${product.preview.accent}, #1a1a2e);">
+          <i data-lucide="image"></i>
+        </div>
+      `;
+    } else if (product.type === 'widget') {
+      previewHTML = `
+        <div class="store-preview-widget">
+          <i data-lucide="${product.preview.icon}"></i>
+        </div>
+      `;
+    } else if (product.type === 'app') {
+      previewHTML = `
+        <div class="store-preview-app" style="background: ${product.preview.color}20; border-color: ${product.preview.color}60;">
+          <i data-lucide="${product.preview.icon}" style="color: ${product.preview.color};"></i>
+        </div>
+      `;
+    } else if (product.type === 'game') {
+      previewHTML = `
+        <div class="store-preview-game" style="background: ${product.preview.color}20; border-color: ${product.preview.color}60;">
+          <i data-lucide="${product.preview.icon}" style="color: ${product.preview.color};"></i>
+        </div>
+      `;
     }
+
+    let actionHTML = '';
+    if (isInstalled) {
+      actionHTML = `
+        <button class="store-action-btn installed" type="button" onclick="uninstallStoreProduct('${product.id}')">
+          <i data-lucide="check"></i> Instalado
+        </button>
+      `;
+    } else if (progress > 0 && progress < 100) {
+      actionHTML = `
+        <div class="store-progress-bar">
+          <div class="store-progress-fill" style="width: ${progress}%;"></div>
+        </div>
+        <span class="store-progress-text">${Math.round(progress)}%</span>
+      `;
+    } else {
+      actionHTML = `
+        <button class="store-action-btn" type="button" onclick="installStoreProduct('${product.id}')">
+          <i data-lucide="download"></i> Instalar
+        </button>
+      `;
+    }
+
+    return `
+      <div class="store-card" data-product-id="${product.id}">
+        <div class="store-card-preview">
+          ${previewHTML}
+          <span class="store-card-type">${getStoreTypeLabel(product.type)}</span>
+        </div>
+        <div class="store-card-info">
+          <div class="store-card-header">
+            <strong class="store-card-name">${escapeHtml(product.name)}</strong>
+            <span class="store-card-price">${product.price}</span>
+          </div>
+          <p class="store-card-desc">${escapeHtml(product.description)}</p>
+          <div class="store-card-meta">
+            <span class="store-meta-item"><i data-lucide="user"></i> ${escapeHtml(product.author)}</span>
+            <span class="store-meta-item"><i data-lucide="star"></i> ${product.rating}</span>
+            <span class="store-meta-item"><i data-lucide="download"></i> ${(product.downloads / 1000).toFixed(1)}k</span>
+            <span class="store-meta-item"><i data-lucide="hard-drive"></i> ${product.size}</span>
+          </div>
+        </div>
+        <div class="store-card-action">
+          ${actionHTML}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  refreshIcons();
+}
+
+function getStoreTypeLabel(type) {
+  const labels = { theme: 'Tema', widget: 'Widget', wallpaper: 'Wallpaper', app: 'App', game: 'Juego' };
+  return labels[type] || type;
+}
+
+function installStoreProduct(productId) {
+  const product = storeProducts.find(p => p.id === productId);
+  if (!product) return;
+
+  if (storeInstallProgress[productId]) return;
+
+  storeInstallProgress[productId] = 0;
+
+  const tick = () => {
+    storeInstallProgress[productId] += Math.random() * 12 + 5;
+    if (storeInstallProgress[productId] >= 100) {
+      storeInstallProgress[productId] = 100;
+      installedProducts.push(productId);
+      saveInstalledProducts();
+      applyStoreProductEffect(product);
+      delete storeInstallProgress[productId];
+      renderStore();
+      showToast('Instalación Completa', `"${product.name}" se instaló correctamente.`, 'check-circle-2');
+      return;
+    }
+    renderStore();
+    setTimeout(tick, 180 + Math.random() * 120);
   };
 
-  recognition.onend = () => {
-    if (voiceBtn) voiceBtn.classList.remove('listening');
-  };
+  setTimeout(tick, 200);
+}
 
-  recognition.onerror = () => {
-    if (voiceBtn) voiceBtn.classList.remove('listening');
-    showToast('Voz', 'No se detectó audio. Podés escribir tu comando.', 'alert-circle');
-  };
+function uninstallStoreProduct(productId) {
+  const product = storeProducts.find(p => p.id === productId);
+  if (!product) return;
 
-  recognition.start();
+  installedProducts = installedProducts.filter(id => id !== productId);
+  saveInstalledProducts();
+  removeStoreProductEffect(product);
+  renderStore();
+  showToast('Desinstalado', `"${product.name}" fue removido del sistema.`, 'trash-2');
+}
+
+function applyStoreProductEffect(product) {
+  if (product.type === 'theme') {
+    const themeKey = product.id.replace('theme-', '');
+    const preset = STORE_THEMES[themeKey];
+    if (preset) {
+      THEME_PRESETS[themeKey] = preset;
+      applyThemePreset(themeKey);
+    }
+  } else if (product.type === 'widget') {
+    const widgetKey = product.id.replace('widget-', '');
+    if (WIDGET_CATALOG[widgetKey]) {
+      WIDGET_CATALOG[widgetKey].available = true;
+    }
+    if (widgetKey === 'system-monitor-pro') {
+      addDesktopWidget('system-monitor-pro');
+    } else if (widgetKey === 'music-visualizer') {
+      addDesktopWidget('music-visualizer');
+    }
+  } else if (product.type === 'wallpaper') {
+    const wpKey = product.id.replace('wallpaper-', '');
+    const storeWp = STORE_WALLPAPERS.find(w => w.id === wpKey);
+    if (storeWp) {
+      WALLPAPERS.push(storeWp);
+      applyWallpaper(WALLPAPERS.length - 1);
+    }
+  } else if (product.type === 'app') {
+    const appKey = product.id.replace('app-', '');
+    if (!APPS[appKey]) {
+      APPS[appKey] = {
+        title: product.name,
+        sub: product.description,
+        icon: product.preview.icon,
+        image: null,
+        tileClass: 'app-tile-default',
+        accentColor: product.preview.color
+      };
+      if (!DOCK_APPS.includes(appKey)) {
+        DOCK_APPS.push(appKey);
+      }
+      renderDock();
+    }
+  } else if (product.type === 'game') {
+    showToast('Juego Añadido a Steam', `"${product.name}" se agregó a tu biblioteca de Steam.`, 'gamepad-2');
+  }
+}
+
+function removeStoreProductEffect(product) {
+  if (product.type === 'theme') {
+    const themeKey = product.id.replace('theme-', '');
+    if (THEME_PRESETS[themeKey]) {
+      delete THEME_PRESETS[themeKey];
+      if (designerState.activePreset === themeKey) {
+        applyThemePreset('catppuccin');
+      }
+    }
+  } else if (product.type === 'widget') {
+    const widgetKey = product.id.replace('widget-', '');
+    if (WIDGET_CATALOG[widgetKey]) {
+      WIDGET_CATALOG[widgetKey].available = false;
+    }
+    const widgetType = widgetKey;
+    desktopWidgets = desktopWidgets.filter(w => w.type !== widgetType);
+    saveDesktopWidgets();
+    renderDesktopWidgets();
+  } else if (product.type === 'wallpaper') {
+    const wpKey = product.id.replace('wallpaper-', '');
+    const idx = WALLPAPERS.findIndex(w => w.id === wpKey);
+    if (idx !== -1) {
+      WALLPAPERS.splice(idx, 1);
+      if (currentWallpaperIndex >= WALLPAPERS.length) {
+        applyWallpaper(0);
+      }
+    }
+  } else if (product.type === 'app') {
+    const appKey = product.id.replace('app-', '');
+    if (APPS[appKey]) {
+      delete APPS[appKey];
+    }
+    const dockIdx = DOCK_APPS.indexOf(appKey);
+    if (dockIdx !== -1) DOCK_APPS.splice(dockIdx, 1);
+    getInstancesOfApp(appKey).forEach(winId => closeApp(winId));
+    renderDock();
+  }
+}
+
+function saveInstalledProducts() {
+  try {
+    localStorage.setItem(STORE_INSTALLED_STORAGE_KEY, JSON.stringify(installedProducts));
+  } catch (e) {}
+}
+
+function loadInstalledProducts() {
+  try {
+    const raw = localStorage.getItem(STORE_INSTALLED_STORAGE_KEY);
+    if (!raw) {
+      installedProducts = [];
+      return;
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      installedProducts = [];
+      return;
+    }
+    installedProducts = parsed;
+    installedProducts.forEach(id => {
+      const product = storeProducts.find(p => p.id === id);
+      if (product) applyStoreProductEffect(product);
+    });
+  } catch (e) {
+    installedProducts = [];
+  }
 }
 
 /* =====================================================
-   ★ FEATURE 5: SMART FILE EXPLORER
+   ★ FIREFOX HÍBRIDO — con detección robusta de fallos
 ===================================================== */
 
-function getDefaultFileSystem() {
+const browserState = new WeakMap();
+
+function getDefaultBrowserState() {
   return {
-    name: 'Inicio', label: 'Inicio', type: 'folder', children: [
-      {
-        name: 'capturas', label: 'Capturas de Juegos', type: 'folder', children: [
-          { name: 'cyberpunk_night_city_4k.jpg', type: 'image', path: './assets/images/fondosDePantalla/fondoPrincipal.jpg', size: 'JPG · 3840x2160 · 144 FPS Capture' },
-          { name: 'elden_ring_boss_victory.jpg', type: 'image', path: './assets/images/fondosDePantalla/fondo2.jpg', size: 'JPG · 2560x1440 · HDR On' },
-          { name: 'valorant_ace_round.jpg', type: 'image', path: './assets/images/fondosDePantalla/fondo3.jpg', size: 'JPG · 1920x1080 · Clip' }
-        ]
-      },
-      {
-        name: 'mods', label: 'MODs & Configs', type: 'folder', children: [
-          { name: 'cyberpunk_ultra_textures.pak', type: 'text', path: './message.txt', size: 'PAK · Mod gráfico 4K' },
-          { name: 'elden_ring_ultrawide_fov.zip', type: 'text', path: './message.txt', size: 'ZIP · Patch 21:9 support' },
-          { name: 'reshade_cinematic_preset.ini', type: 'text', path: './styles.css', size: 'INI · Preset de post-procesado' }
-        ]
-      },
-      {
-        name: 'juegos', label: 'Juegos & ISOs', type: 'folder', children: [
-          { name: 'Cyberpunk_2077.exe', type: 'image', path: './assets/images/apps/steam/capturaSteam.png', size: 'EXE · Acceso directo' },
-          { name: 'Hollow_Knight_Silksong.iso', type: 'image', path: './assets/images/apps/steam/capturaSteam.png', size: 'ISO · Imagen de disco' },
-          { name: 'Doom_Eternal_Ultra.exe', type: 'image', path: './assets/images/apps/steam/capturaSteam.png', size: 'EXE · Lanzador Vulkan' }
-        ]
-      },
-      {
-        name: 'musica', label: 'Música & Audio', type: 'folder', children: [
-          { name: 'Gustavo_Cerati_Bocanada.mp3', type: 'audio', path: './assets/images/apps/spotify/tapaAlbum2.jpg', size: 'MP3 · 320 kbps · Bocanada' },
-          { name: 'Nirvana_Smells_Like_Teen_Spirit.mp3', type: 'audio', path: './assets/images/apps/spotify/tapaAlbum1.jpg', size: 'MP3 · 320 kbps · Nevermind' },
-          { name: 'Synthwave_Chill_Night.flac', type: 'audio', path: './assets/images/apps/spotify/top50.jpg', size: 'FLAC · 24-bit · Lossless' }
-        ]
-      },
-      { name: 'fondos', label: 'Fondos', type: 'folder', children: WALLPAPERS.map(w => ({ name: w.file, type: 'image', path: `./assets/images/fondosDePantalla/${w.file}`, size: 'JPG · Fondo HD' })) },
-      { name: 'imagenes', label: 'Imágenes', type: 'folder', children: ['archivos.png', 'ajustes.png', 'home.png', 'lupa.png', 'play.png', 'noSignal.png', 'steam.png', 'visualStudioCode.png'].map(name => ({ name, type: 'image', path: `./assets/images/iconos/${name}`, size: 'PNG · Icono UI' })) },
-      { name: 'spotify', label: 'Spotify', type: 'folder', children: ['tapaAlbum1.jpg', 'top50.jpg', 'tapaAlbum2.jpg', 'tapaAlbum3.jpg'].map(name => ({ name, type: 'image', path: `./assets/images/apps/spotify/${name}`, size: 'JPG · Portada Álbum' })) },
-      { name: 'vsc', label: 'Proyectos Dev', type: 'folder', children: [{ name: 'capturaVisualStudio.png', type: 'image', path: './assets/images/apps/visualStudio/capturaVisualStudio.png', size: 'PNG · Workspace' }] },
-      { name: 'index.html', type: 'text', path: './index.html', size: 'HTML · Estructura Nebula OS' },
-      { name: 'styles.css', type: 'text', path: './styles.css', size: 'CSS · Estilos y Variables' },
-      { name: 'script.js', type: 'text', path: './script.js', size: 'JS · Núcleo del sistema' }
-    ]
+    url: 'https://www.google.com',
+    history: [],
+    future: [],
+    iframeLoaded: false,
+    iframeError: false
   };
 }
 
-function loadFileSystem() {
-  try {
-    const raw = localStorage.getItem(FILESYSTEM_STORAGE_KEY);
-    if (!raw) return getDefaultFileSystem();
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.children)) {
-      return getDefaultFileSystem();
-    }
-    return parsed;
-  } catch (e) {
-    return getDefaultFileSystem();
-  }
-}
-
-function saveFileSystem(fs) {
-  try {
-    localStorage.setItem(FILESYSTEM_STORAGE_KEY, JSON.stringify(fs));
-  } catch (e) {}
-}
-
-function resetFileSystem() {
-  try {
-    localStorage.removeItem(FILESYSTEM_STORAGE_KEY);
-  } catch (e) {}
-}
-
-let FILE_SYSTEM = loadFileSystem();
-
-function fsFindFolder(name, folder = FILE_SYSTEM) {
-  if (folder.name === name) return folder;
-  for (const child of folder.children || []) {
-    if (child.type === 'folder') {
-      const result = fsFindFolder(name, child);
-      if (result) return result;
-    }
-  }
-  return null;
-}
-
-function fsFindParent(targetItem, folder = FILE_SYSTEM) {
-  if (!folder.children) return null;
-  for (const child of folder.children) {
-    if (child === targetItem) return folder;
-    if (child.type === 'folder') {
-      const result = fsFindParent(targetItem, child);
-      if (result) return result;
-    }
-  }
-  return null;
-}
-
-function fsFindItemByName(name, folder = FILE_SYSTEM) {
-  for (const child of folder.children || []) {
-    if (child.name === name) return child;
-    if (child.type === 'folder') {
-      const result = fsFindItemByName(name, child);
-      if (result) return result;
-    }
-  }
-  return null;
-}
-
-function fsGenerateUniqueName(baseName, folder) {
-  if (!folder.children) return baseName;
-  const existing = new Set(folder.children.map(c => c.name));
-  if (!existing.has(baseName)) return baseName;
-  const dotIdx = baseName.lastIndexOf('.');
-  const stem = dotIdx > 0 ? baseName.slice(0, dotIdx) : baseName;
-  const ext = dotIdx > 0 ? baseName.slice(dotIdx) : '';
-  let n = 2;
-  while (existing.has(`${stem} (${n})${ext}`)) n++;
-  return `${stem} (${n})${ext}`;
-}
-
-function fsAddItem(parentFolder, newItem) {
-  if (!parentFolder.children) parentFolder.children = [];
-  parentFolder.children.push(newItem);
-  saveFileSystem(FILE_SYSTEM);
-}
-
-function fsRemoveItem(item) {
-  const parent = fsFindParent(item);
-  if (!parent || !parent.children) return false;
-  const idx = parent.children.indexOf(item);
-  if (idx === -1) return false;
-  parent.children.splice(idx, 1);
-  saveFileSystem(FILE_SYSTEM);
-  return true;
-}
-
-function fsRenameItem(item, newName) {
-  if (!newName || !newName.trim()) {
-    showToast('Nombre vacío', 'Escribí un nombre válido.', 'alert-circle');
-    return false;
-  }
-  const parent = fsFindParent(item);
-  if (!parent) {
-    showToast('Error', 'No se encontró el elemento padre.', 'alert-circle');
-    return false;
-  }
-  const clean = newName.trim();
-  if (parent.children.some(c => c !== item && c.name === clean)) {
-    showToast('Nombre duplicado', `Ya existe "${clean}" en esta carpeta.`, 'alert-circle');
-    return false;
-  }
-
-  item.name = clean;
-  if (Object.prototype.hasOwnProperty.call(item, 'label')) {
-    item.label = clean;
-  }
-
-  saveFileSystem(FILE_SYSTEM);
-  return true;
-}
-
-function fsMoveItem(item, targetFolder) {
-  if (!item || !targetFolder || item === targetFolder) return false;
-  if (targetFolder.type !== 'folder') return false;
-
-  const parent = fsFindParent(item);
-  if (!parent) return false;
-  if (parent === targetFolder) return false;
-
-  if (item.type === 'folder') {
-    let cursor = targetFolder;
-    while (cursor) {
-      if (cursor === item) return false;
-      cursor = fsFindParent(cursor);
-    }
-  }
-
-  parent.children = parent.children.filter(c => c !== item);
-  if (!targetFolder.children) targetFolder.children = [];
-  targetFolder.children.push(item);
-  saveFileSystem(FILE_SYSTEM);
-  return true;
-}
-
-function getFsPanelState(panel) {
-  if (!filesPanelStates.has(panel)) {
-    filesPanelStates.set(panel, {
-      current: FILE_SYSTEM,
-      trail: [FILE_SYSTEM],
-      history: [],
-      future: [],
-      query: '',
-      selected: new Set(),
-      lastClickedIndex: -1,
-      visibleItems: []
-    });
-  }
-  return filesPanelStates.get(panel);
-}
-
-function ensureFsRenameModal() {
-  if (fsRenameModalEl) return fsRenameModalEl;
-  const modal = document.createElement('div');
-  modal.className = 'fs-rename-modal';
-  modal.innerHTML = `
-    <div class="fs-rename-dialog">
-      <div class="fs-rename-header">
-        <div class="fs-rename-icon"><i data-lucide="pencil"></i></div>
-        <div>
-          <strong id="fs-rename-title">Renombrar</strong>
-          <small id="fs-rename-sub">Escribí el nuevo nombre</small>
+function getBrowserContentHTML(winId) {
+  const state = browserState.get(winId) || getDefaultBrowserState();
+  return `
+    <div class="browser-app">
+      <div class="browser-toolbar">
+        <div class="browser-nav-btns">
+          <button class="browser-nav-btn" data-browser-back title="Atrás" ${state.history.length === 0 ? 'disabled' : ''}><i data-lucide="arrow-left"></i></button>
+          <button class="browser-nav-btn" data-browser-forward title="Adelante" ${state.future.length === 0 ? 'disabled' : ''}><i data-lucide="arrow-right"></i></button>
+          <button class="browser-nav-btn" data-browser-reload title="Recargar"><i data-lucide="refresh-cw"></i></button>
+          <button class="browser-nav-btn" data-browser-home title="Inicio"><i data-lucide="home"></i></button>
+        </div>
+        <div class="browser-url-bar">
+          <i data-lucide="lock" class="browser-url-icon"></i>
+          <input type="text" class="browser-url-input" value="${escapeHtml(state.url)}" placeholder="Escribí una URL o buscá en Google..." />
+        </div>
+        <div class="browser-bookmarks">
+          <button class="browser-bookmark" data-bookmark="google" title="Google"><i data-lucide="search"></i></button>
+          <button class="browser-bookmark" data-bookmark="youtube" title="YouTube"><i data-lucide="youtube"></i></button>
+          <button class="browser-bookmark" data-bookmark="github" title="GitHub"><i data-lucide="github"></i></button>
+          <button class="browser-bookmark" data-bookmark="wikipedia" title="Wikipedia"><i data-lucide="book-open"></i></button>
         </div>
       </div>
-      <input class="fs-rename-input" id="fs-rename-input" type="text" maxlength="120" autocomplete="off">
-      <div class="fs-rename-actions">
-        <button class="fs-rename-btn" id="fs-rename-cancel" type="button">Cancelar</button>
-        <button class="fs-rename-btn primary" id="fs-rename-confirm" type="button">Confirmar</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-  fsRenameModalEl = modal;
-
-  const input = modal.querySelector('#fs-rename-input');
-  const cancel = modal.querySelector('#fs-rename-cancel');
-  const confirm = modal.querySelector('#fs-rename-confirm');
-
-  cancel.onclick = () => closeFsRenameModal();
-
-  modal.onmousedown = (e) => {
-    if (e.target === modal) closeFsRenameModal();
-  };
-
-  confirm.onclick = () => {
-    const value = input.value.trim();
-    const cb = fsRenameCallback;
-    if (typeof cb === 'function') {
-      const ok = cb(value);
-      if (ok !== false) closeFsRenameModal();
-    } else {
-      closeFsRenameModal();
-    }
-  };
-
-  input.addEventListener('keydown', (e) => {
-    e.stopPropagation();
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      confirm.click();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      closeFsRenameModal();
-    }
-  });
-  input.addEventListener('keyup', (e) => e.stopPropagation());
-  input.addEventListener('keypress', (e) => e.stopPropagation());
-
-  refreshIcons();
-  return modal;
-}
-
-function openFsRenameModal(opts) {
-  const { title = 'Renombrar', sub = 'Escribí el nuevo nombre', initial = '', onConfirm } = opts || {};
-  const modal = ensureFsRenameModal();
-  modal.querySelector('#fs-rename-title').textContent = title;
-  modal.querySelector('#fs-rename-sub').textContent = sub;
-  const input = modal.querySelector('#fs-rename-input');
-  input.value = initial;
-  fsRenameCallback = onConfirm;
-
-  modal.classList.add('open');
-  setTimeout(() => {
-    input.focus();
-    input.select();
-  }, 60);
-}
-
-function closeFsRenameModal() {
-  if (fsRenameModalEl) fsRenameModalEl.classList.remove('open');
-  fsRenameCallback = null;
-}
-
-function ensureFsContextMenu() {
-  if (fsContextMenuEl) return fsContextMenuEl;
-  const el = document.createElement('div');
-  el.className = 'fs-context-menu';
-  document.body.appendChild(el);
-  fsContextMenuEl = el;
-  return el;
-}
-
-function hideFsContextMenu() {
-  if (fsContextMenuEl) {
-    fsContextMenuEl.classList.remove('open');
-    setTimeout(() => {
-      if (fsContextMenuEl) fsContextMenuEl.innerHTML = '';
-    }, 160);
-  }
-}
-
-function showFsContextMenu(ev, panel, targetItem, win) {
-  ev.preventDefault();
-  ev.stopPropagation();
-
-  const state = getFsPanelState(panel);
-
-  const menu = ensureFsContextMenu();
-  menu.innerHTML = '';
-
-  const isMulti = state.selected.size > 1;
-  const itemsCount = state.selected.size;
-
-  if (targetItem && !isMulti) {
-    const icon = targetItem.type === 'folder' ? 'folder' : targetItem.type === 'image' ? 'image' : targetItem.type === 'audio' ? 'music' : 'file-text';
-    const header = document.createElement('div');
-    header.className = 'fs-ctx-header';
-    header.innerHTML = `
-      <div class="fs-ctx-header-icon">
-        ${targetItem.type === 'image' && targetItem.path ? `<img src="${escapeHtml(targetItem.path)}" alt="" onerror="this.style.display='none';this.parentElement.innerHTML='<i data-lucide=\\'${icon}\\'></i>';" />` : `<i data-lucide="${icon}"></i>`}
-      </div>
-      <div class="fs-ctx-header-meta">
-        <div class="fs-ctx-header-title">${escapeHtml(targetItem.label || targetItem.name)}</div>
-        <div class="fs-ctx-header-sub">${targetItem.type === 'folder' ? 'Carpeta' : (targetItem.size || 'Archivo')}</div>
-      </div>
-    `;
-    menu.appendChild(header);
-  }
-
-  const appendItem = (opts) => {
-    const btn = document.createElement('button');
-    btn.className = 'fs-ctx-item' + (opts.danger ? ' danger' : '');
-    btn.type = 'button';
-    btn.innerHTML = `
-      <span class="fs-ctx-icon"><i data-lucide="${opts.icon}"></i></span>
-      <span class="fs-ctx-label">${escapeHtml(opts.label)}</span>
-      ${opts.shortcut ? `<span class="fs-ctx-shortcut">${escapeHtml(opts.shortcut)}</span>` : ''}
-    `;
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      hideFsContextMenu();
-      opts.action();
-    });
-    menu.appendChild(btn);
-  };
-
-  const appendSep = () => {
-    const sep = document.createElement('div');
-    sep.className = 'fs-ctx-sep';
-    menu.appendChild(sep);
-  };
-
-  if (targetItem && !isMulti) {
-    if (targetItem.type === 'folder') {
-      appendItem({
-        icon: 'folder-open',
-        label: 'Abrir carpeta',
-        action: () => fsOpenFolder(panel, targetItem)
-      });
-    } else if (targetItem.type === 'image') {
-      appendItem({
-        icon: 'image',
-        label: 'Establecer como fondo',
-        action: () => setCustomWallpaperFromFile(targetItem.path)
-      });
-    } else if (targetItem.type === 'audio') {
-      appendItem({
-        icon: 'play',
-        label: 'Reproducir',
-        action: () => toggleMediaPlayback()
-      });
-    }
-
-    appendItem({
-      icon: 'pencil',
-      label: 'Renombrar',
-      shortcut: 'F2',
-      action: () => fsPromptRename(panel, targetItem)
-    });
-
-    appendSep();
-  }
-
-  const moveLabel = isMulti ? `Mover ${itemsCount} elementos a...` : 'Mover a...';
-  appendItem({
-    icon: 'folder-input',
-    label: moveLabel,
-    action: () => fsPromptMove(panel, isMulti ? Array.from(state.selected) : [targetItem])
-  });
-
-  if (targetItem && !isMulti) {
-    appendItem({
-      icon: 'check-square',
-      label: 'Seleccionar',
-      action: () => {
-        state.selected.clear();
-        state.selected.add(targetItem);
-        fsRefresh(panel);
-      }
-    });
-  }
-
-  if (itemsCount > 0) {
-    appendSep();
-    appendItem({
-      icon: 'trash-2',
-      label: isMulti ? `Eliminar ${itemsCount} elementos` : 'Eliminar',
-      shortcut: 'Supr',
-      danger: true,
-      action: () => fsDeleteSelection(panel)
-    });
-  }
-
-  appendSep();
-  appendItem({
-    icon: 'folder-plus',
-    label: 'Nueva carpeta aquí',
-    action: () => fsCreateFolder(panel)
-  });
-  appendItem({
-    icon: 'file-plus',
-    label: 'Nuevo archivo de texto',
-    action: () => fsCreateFile(panel)
-  });
-
-  menu.classList.add('open');
-  refreshIcons();
-
-  const rect = menu.getBoundingClientRect();
-  const margin = 10;
-  let left = ev.clientX;
-  let top = ev.clientY;
-  if (left + rect.width + margin > window.innerWidth) left = window.innerWidth - rect.width - margin;
-  if (top + rect.height + margin > window.innerHeight) top = window.innerHeight - rect.height - margin;
-  left = Math.max(margin, left);
-  top = Math.max(margin, top);
-  menu.style.left = `${left}px`;
-  menu.style.top = `${top}px`;
-}
-
-function fsOpenFolder(panel, folder) {
-  const state = getFsPanelState(panel);
-  state.history.push(state.current);
-  state.future = [];
-  state.current = folder;
-  state.trail = [FILE_SYSTEM, ...fsBuildTrail(folder)];
-  state.query = '';
-  state.selected.clear();
-  const search = panel.querySelector('[data-files-search]');
-  if (search) search.value = '';
-  fsRefresh(panel);
-}
-
-function fsBuildTrail(folder) {
-  const path = [];
-  let cursor = folder;
-  while (cursor && cursor !== FILE_SYSTEM) {
-    path.unshift(cursor);
-    cursor = fsFindParent(cursor);
-  }
-  return path;
-}
-
-function fsPromptRename(panel, item) {
-  openFsRenameModal({
-    title: 'Renombrar',
-    sub: item.type === 'folder' ? 'Carpeta' : 'Archivo',
-    initial: item.name,
-    onConfirm: (value) => {
-      if (!value) return false;
-      const ok = fsRenameItem(item, value);
-      if (ok) {
-        showToast('Renombrado', `"${item.name}" actualizado.`, 'pencil');
-        fsRefresh(panel);
-      }
-      return ok;
-    }
-  });
-}
-
-function fsPromptMove(panel, items) {
-  const state = getFsPanelState(panel);
-  const folders = [];
-  const collectFolders = (folder, depth = 0) => {
-    if (folder !== FILE_SYSTEM) folders.push({ folder, depth });
-    (folder.children || []).forEach(child => {
-      if (child.type === 'folder') collectFolders(child, depth + 1);
-    });
-  };
-  collectFolders(FILE_SYSTEM);
-
-  if (folders.length === 0) {
-    showToast('Sin carpetas', 'No hay carpetas destino disponibles.', 'folder');
-    return;
-  }
-
-  const menu = document.createElement('div');
-  menu.className = 'fs-context-menu';
-  menu.style.position = 'fixed';
-  document.body.appendChild(menu);
-
-  const header = document.createElement('div');
-  header.className = 'fs-ctx-header';
-  header.innerHTML = `
-    <div class="fs-ctx-header-icon"><i data-lucide="folder-input"></i></div>
-    <div class="fs-ctx-header-meta">
-      <div class="fs-ctx-header-title">Mover a...</div>
-      <div class="fs-ctx-header-sub">${items.length} elemento${items.length === 1 ? '' : 's'}</div>
-    </div>
-  `;
-  menu.appendChild(header);
-
-  folders.forEach(({ folder, depth }) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'fs-ctx-item';
-    btn.innerHTML = `
-      <span class="fs-ctx-icon"><i data-lucide="folder"></i></span>
-      <span class="fs-ctx-label" style="padding-left:${depth * 10}px;">${escapeHtml(folder.label || folder.name)}</span>
-    `;
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      let moved = 0;
-      items.forEach(item => {
-        if (fsMoveItem(item, folder)) moved++;
-      });
-      hideAllFsMoveMenus();
-      if (moved > 0) {
-        showToast('Movido', `${moved} elemento${moved === 1 ? '' : 's'} → ${folder.label || folder.name}`, 'folder-input');
-        state.selected.clear();
-        fsRefresh(panel);
-      }
-    });
-    menu.appendChild(btn);
-  });
-
-  const closeHandler = (e) => {
-    if (!menu.contains(e.target)) {
-      hideAllFsMoveMenus();
-      document.removeEventListener('mousedown', closeHandler);
-    }
-  };
-  setTimeout(() => document.addEventListener('mousedown', closeHandler), 50);
-
-  const rect = menu.getBoundingClientRect();
-  const margin = 10;
-  let left = window.innerWidth - rect.width - margin - 20;
-  let top = 80;
-  menu.style.left = `${left}px`;
-  menu.style.top = `${top}px`;
-  menu.style.zIndex = '2760';
-  menu.classList.add('open');
-  refreshIcons();
-}
-
-function hideAllFsMoveMenus() {
-  document.querySelectorAll('.fs-context-menu').forEach(el => {
-    if (el === fsContextMenuEl) {
-      el.classList.remove('open');
-      setTimeout(() => { if (el) el.innerHTML = ''; }, 160);
-    } else {
-      el.remove();
-    }
-  });
-}
-
-function fsDeleteSelection(panel) {
-  const state = getFsPanelState(panel);
-  const items = Array.from(state.selected);
-  if (items.length === 0) return;
-
-  items.forEach(item => fsRemoveItem(item));
-  state.selected.clear();
-
-  showToast('Eliminado', `${items.length} elemento${items.length === 1 ? '' : 's'} eliminado${items.length === 1 ? '' : 's'}.`, 'trash-2');
-  fsRefresh(panel);
-}
-
-function fsCreateFolder(panel) {
-  const state = getFsPanelState(panel);
-  const parent = state.current;
-  const baseName = 'Nueva carpeta';
-  const unique = fsGenerateUniqueName(baseName, parent);
-  fsAddItem(parent, { name: unique, label: unique, type: 'folder', children: [] });
-  showToast('Carpeta creada', `"${unique}" creada.`, 'folder-plus');
-  fsRefresh(panel);
-}
-
-function fsCreateFile(panel) {
-  const state = getFsPanelState(panel);
-  const parent = state.current;
-  const baseName = 'Nuevo archivo.txt';
-  const unique = fsGenerateUniqueName(baseName, parent);
-  fsAddItem(parent, { name: unique, type: 'text', path: './message.txt', size: 'TXT · Documento' });
-  showToast('Archivo creado', `"${unique}" creado.`, 'file-plus');
-  fsRefresh(panel);
-}
-
-function fsRefresh(panel) {
-  if (!panel) return;
-  const state = getFsPanelState(panel);
-
-  const explorer = panel;
-  const grid = explorer.querySelector('.files-grid');
-  const titleEl = explorer.querySelector('[data-files-title]');
-  const pathEl = explorer.querySelector('[data-files-path]');
-  const preview = explorer.querySelector('[data-files-preview]');
-  const toolbar = explorer.querySelector('.files-toolbar');
-  if (!grid) return;
-
-  const q = (state.query || '').toLowerCase();
-  const items = (state.current.children || []).filter(item =>
-    !q || item.name.toLowerCase().includes(q) || (item.label || '').toLowerCase().includes(q)
-  );
-  state.visibleItems = items;
-
-  if (titleEl) titleEl.textContent = state.current.label || state.current.name;
-  if (pathEl) {
-    const trailNames = [FILE_SYSTEM.label || FILE_SYSTEM.name, ...state.trail.slice(1).map(f => f.label || f.name)];
-    pathEl.textContent = trailNames.join(' / ');
-  }
-
-  let counter = toolbar?.querySelector('.files-sel-counter');
-  if (!counter && toolbar) {
-    counter = document.createElement('span');
-    counter.className = 'files-sel-counter';
-    toolbar.appendChild(counter);
-  }
-  if (counter) {
-    if (state.selected.size > 0) {
-      counter.textContent = `${state.selected.size} sel.`;
-      counter.style.display = '';
-    } else {
-      counter.style.display = 'none';
-    }
-  }
-
-  let delBtn = toolbar?.querySelector('[data-files-delete]');
-  if (delBtn) delBtn.disabled = state.selected.size === 0;
-
-  grid.innerHTML = items.length ? items.map((item, idx) => {
-    const isFolder = item.type === 'folder';
-    const isSelected = state.selected.has(item);
-    const iconName = isFolder ? 'folder' : item.type === 'image' ? 'image' : item.type === 'audio' ? 'music' : 'file-text';
-    return `
-      <button class="explorer-item ${isFolder ? 'folder-drop' : ''} ${isSelected ? 'selected' : ''}"
-              type="button"
-              data-fs-item-index="${idx}"
-              draggable="true">
-        <span class="file-visual">
-          ${item.type === 'image' && item.path ? `<img src="${escapeHtml(item.path)}" alt="" onerror="this.style.display='none';this.parentElement.innerHTML='<span class=&quot;file-type-icon&quot;><i data-lucide=&quot;${iconName}&quot;></i></span>';refreshIcons();" />` : `<span class="file-type-icon"><i data-lucide="${iconName}"></i></span>`}
-        </span>
-        <strong>${escapeHtml(item.label || item.name)}</strong>
-        <small>${isFolder ? `${(item.children || []).length} elementos` : escapeHtml((item.size || 'Archivo').split(' · ')[0])}</small>
-      </button>
-    `;
-  }).join('') : '<div class="files-no-results" style="grid-column: 1/-1; padding: 20px; text-align: center; color: var(--text-sub); font-size: 11px;">No hay elementos que coincidan.</div>';
-
-  refreshIcons();
-  fsBindGridEvents(panel);
-
-  if (preview && state.selected.size !== 1) {
-    preview.innerHTML = '<div class="files-empty-preview" style="color: var(--text-sub); font-size: 11px;">Seleccioná un archivo para previsualización interactiva rápida.</div>';
-  }
-}
-
-function fsBindGridEvents(panel) {
-  const state = getFsPanelState(panel);
-  const explorer = panel;
-  if (!explorer) return;
-  const grid = explorer.querySelector('.files-grid');
-  if (!grid) return;
-
-  grid.querySelectorAll('.explorer-item').forEach(el => {
-    const idx = parseInt(el.dataset.fsItemIndex, 10);
-    const item = state.visibleItems[idx];
-    if (!item) return;
-
-    el.addEventListener('dragstart', (e) => {
-      if (!state.selected.has(item)) {
-        state.selected.clear();
-        state.selected.add(item);
-      }
-      const draggingItems = Array.from(state.selected);
-
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('application/x-nebula-fs-items', JSON.stringify(draggingItems.map(i => i.name)));
-
-      el.classList.add('dragging');
-      grid.querySelectorAll('.explorer-item').forEach(otherEl => {
-        const otherIdx = parseInt(otherEl.dataset.fsItemIndex, 10);
-        const otherItem = state.visibleItems[otherIdx];
-        if (otherItem && state.selected.has(otherItem)) otherEl.classList.add('dragging');
-      });
-
-      try {
-        e.dataTransfer.setDragImage(el, el.offsetWidth / 2, el.offsetHeight / 2);
-      } catch (_) {}
-
-      fsRefresh(panel);
-    });
-
-    el.addEventListener('dragend', () => {
-      grid.querySelectorAll('.explorer-item').forEach(x => x.classList.remove('dragging'));
-      grid.querySelectorAll('.explorer-item').forEach(x => x.classList.remove('drag-over'));
-    });
-
-    if (item.type === 'folder') {
-      el.addEventListener('dragover', (e) => {
-        if (!e.dataTransfer.types.includes('application/x-nebula-fs-items')) return;
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        el.classList.add('drag-over');
-      });
-
-      el.addEventListener('dragleave', (e) => {
-        if (!el.contains(e.relatedTarget)) {
-          el.classList.remove('drag-over');
-        }
-      });
-
-      el.addEventListener('drop', (e) => {
-        e.preventDefault();
-        el.classList.remove('drag-over');
-        fsHandleDrop(panel, e, item);
-      });
-    }
-
-    el.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (e.shiftKey && state.lastClickedIndex !== -1) {
-        const from = Math.min(state.lastClickedIndex, idx);
-        const to = Math.max(state.lastClickedIndex, idx);
-        for (let i = from; i <= to; i++) {
-          if (state.visibleItems[i]) state.selected.add(state.visibleItems[i]);
-        }
-      } else if (e.ctrlKey || e.metaKey) {
-        if (state.selected.has(item)) state.selected.delete(item);
-        else state.selected.add(item);
-        state.lastClickedIndex = idx;
-      } else {
-        state.selected.clear();
-        state.selected.add(item);
-        state.lastClickedIndex = idx;
-      }
-      fsRefresh(panel);
-      fsUpdatePreview(panel);
-    });
-
-    el.addEventListener('dblclick', (e) => {
-      e.stopPropagation();
-      if (item.type === 'folder') {
-        fsOpenFolder(panel, item);
-      } else {
-        fsUpdatePreview(panel);
-      }
-    });
-
-    el.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!state.selected.has(item)) {
-        state.selected.clear();
-        state.selected.add(item);
-        fsRefresh(panel);
-      }
-      showFsContextMenu(e, panel, item, openWindows[panel.dataset.winId]?.win);
-    });
-  });
-
-  grid.addEventListener('click', (e) => {
-    if (e.target === grid || e.target.classList.contains('files-no-results')) {
-      state.selected.clear();
-      state.lastClickedIndex = -1;
-      fsRefresh(panel);
-      const preview = explorer.querySelector('[data-files-preview]');
-      if (preview) preview.innerHTML = '<div class="files-empty-preview" style="color: var(--text-sub); font-size: 11px;">Seleccioná un archivo para previsualización interactiva rápida.</div>';
-    }
-  });
-
-  grid.addEventListener('contextmenu', (e) => {
-    if (e.target.closest('.explorer-item')) return;
-    e.preventDefault();
-    e.stopPropagation();
-    state.selected.clear();
-    fsRefresh(panel);
-    showFsContextMenu(e, panel, null, openWindows[panel.dataset.winId]?.win);
-  });
-
-  grid.addEventListener('dragover', (e) => {
-    if (!e.dataTransfer.types.includes('application/x-nebula-fs-items')) return;
-    if (e.target.closest('.explorer-item')) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    grid.classList.add('drag-over-empty');
-  });
-  grid.addEventListener('dragleave', (e) => {
-    if (!grid.contains(e.relatedTarget)) {
-      grid.classList.remove('drag-over-empty');
-    }
-  });
-  grid.addEventListener('drop', (e) => {
-    if (!e.dataTransfer.types.includes('application/x-nebula-fs-items')) return;
-    if (e.target.closest('.explorer-item')) return;
-    e.preventDefault();
-    grid.classList.remove('drag-over-empty');
-    fsHandleDropToCurrent(panel, e);
-  });
-
-  const pathEl = explorer.querySelector('[data-files-path]');
-  if (pathEl) {
-    pathEl.addEventListener('dragover', (e) => {
-      if (!e.dataTransfer.types.includes('application/x-nebula-fs-items')) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      pathEl.classList.add('drop-target');
-    });
-    pathEl.addEventListener('dragleave', () => {
-      pathEl.classList.remove('drop-target');
-    });
-    pathEl.addEventListener('drop', (e) => {
-      e.preventDefault();
-      pathEl.classList.remove('drop-target');
-      fsHandleDropToFolder(panel, e, FILE_SYSTEM);
-    });
-  }
-}
-
-function fsHandleDrop(panel, e, targetFolder) {
-  fsHandleDropToFolder(panel, e, targetFolder);
-}
-
-function fsHandleDropToCurrent(panel, e) {
-  const state = getFsPanelState(panel);
-  fsHandleDropToFolder(panel, e, state.current);
-}
-
-function fsHandleDropToFolder(panel, e, targetFolder) {
-  const state = getFsPanelState(panel);
-  let names = [];
-  try {
-    names = JSON.parse(e.dataTransfer.getData('application/x-nebula-fs-items') || '[]');
-  } catch (_) {}
-
-  if (!Array.isArray(names) || names.length === 0) {
-    names = Array.from(state.selected).map(i => i.name);
-  }
-
-  let moved = 0;
-  let failed = 0;
-
-  names.forEach(name => {
-    const item = fsFindItemByName(name);
-    if (!item) { failed++; return; }
-    if (item === targetFolder) { failed++; return; }
-    if (item.type === 'folder') {
-      let cursor = targetFolder;
-      while (cursor) {
-        if (cursor === item) { failed++; return; }
-        cursor = fsFindParent(cursor);
-      }
-    }
-    if (fsMoveItem(item, targetFolder)) moved++;
-    else failed++;
-  });
-
-  if (moved > 0) {
-    showToast('Movido', `${moved} elemento${moved === 1 ? '' : 's'} → ${targetFolder.label || targetFolder.name}${failed ? ` (${failed} fallaron)` : ''}`, 'folder-input');
-  } else if (failed > 0) {
-    showToast('No se pudo mover', 'El destino no es válido o ya contiene esos elementos.', 'alert-circle');
-  }
-
-  state.selected.clear();
-  fsRefresh(panel);
-}
-
-function fsUpdatePreview(panel) {
-  const state = getFsPanelState(panel);
-  const explorer = panel;
-  if (!explorer) return;
-  const preview = explorer.querySelector('[data-files-preview]');
-  if (!preview) return;
-
-  const items = Array.from(state.selected);
-  if (items.length === 0) {
-    preview.innerHTML = '<div class="files-empty-preview" style="color: var(--text-sub); font-size: 11px;">Seleccioná un archivo para previsualización interactiva rápida.</div>';
-    return;
-  }
-  if (items.length > 1) {
-    preview.innerHTML = `
-      <div style="color: var(--text-sub); font-size: 11px;">
-        <strong style="color:#fff; font-size:12px; display:block; margin-bottom:4px;">${items.length} elementos seleccionados</strong>
-        Usá <kbd style="font-family:'JetBrains Mono',monospace; font-size:10px; background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:4px; color:var(--accent);">Supr</kbd> para eliminar o <kbd style="font-family:'JetBrains Mono',monospace; font-size:10px; background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:4px; color:var(--accent);">click derecho</kbd> para más acciones.
-      </div>
-    `;
-    return;
-  }
-
-  const item = items[0];
-  if (item.type === 'image') {
-    preview.innerHTML = `
-      <div style="display:flex; gap:12px; align-items:center;">
-        <img src="${escapeHtml(item.path || '')}" alt="${escapeHtml(item.name)}" style="width:75px; height:60px; border-radius:6px; object-fit:cover;">
-        <div>
-          <strong style="color:#fff; font-size:12px;">${escapeHtml(item.name)}</strong>
-          <small style="display:block; color:var(--text-sub); font-size:10px;">${escapeHtml(item.size || '')}</small>
-          ${item.path ? `<button class="preview-set-wall-btn" type="button" onclick="setCustomWallpaperFromFile('${item.path.replace(/'/g, "\\'")}')"><i data-lucide="image"></i> Establecer de fondo</button>` : ''}
-        </div>
-      </div>
-    `;
-  } else if (item.type === 'audio') {
-    preview.innerHTML = `
-      <div>
-        <strong style="color:#fff; font-size:12px;"><i data-lucide="music" style="width:14px; height:14px; color:var(--accent);"></i> ${escapeHtml(item.name)}</strong>
-        <small style="display:block; color:var(--text-sub); font-size:10px;">${escapeHtml(item.size || '')}</small>
-        <div class="preview-audio-player">
-          <button class="preview-play-btn" type="button" onclick="toggleMediaPlayback()"><i data-lucide="play"></i></button>
-          <div class="preview-audio-wave">
-            <span style="height:40%;"></span><span style="height:80%;"></span><span style="height:60%;"></span>
-            <span style="height:100%;"></span><span style="height:50%;"></span><span style="height:70%;"></span>
+      <div class="browser-content">
+        <div class="browser-iframe-container" id="browser-iframe-${winId}">
+          <div class="browser-loading">
+            <div class="browser-loading-spinner"></div>
+            <p>Cargando página...</p>
           </div>
         </div>
       </div>
-    `;
-  } else if (item.type === 'folder') {
-    preview.innerHTML = `
-      <div>
-        <strong style="color:#fff; font-size:12px;"><i data-lucide="folder" style="width:14px; height:14px; color:var(--accent);"></i> ${escapeHtml(item.label || item.name)}</strong>
-        <small style="display:block; color:var(--text-sub); font-size:10px;">Carpeta · ${(item.children || []).length} elementos</small>
-      </div>
-    `;
-  } else {
-    preview.innerHTML = `
-      <div>
-        <strong style="color:#fff; font-size:12px;"><i data-lucide="file-text" style="width:14px; height:14px; color:var(--accent);"></i> ${escapeHtml(item.name)}</strong>
-        <small style="display:block; color:var(--text-sub); font-size:10px;">${escapeHtml(item.size || '')} · Solo lectura</small>
-        <div style="margin-top:6px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-sub); background:rgba(0,0,0,0.3); padding:6px; border-radius:4px; max-height:80px; overflow:hidden;">
-          // Nebula OS File Descriptor\\n// Archivo listo para ejecución y lectura
+    </div>
+  `;
+}
+
+function setupBrowserApp(win) {
+  const winId = win.dataset.winId;
+  const state = getDefaultBrowserState();
+  browserState.set(winId, state);
+
+  const urlInput = win.querySelector('.browser-url-input');
+  const iframeContainer = win.querySelector('.browser-iframe-container');
+  const backBtn = win.querySelector('[data-browser-back]');
+  const forwardBtn = win.querySelector('[data-browser-forward]');
+  const reloadBtn = win.querySelector('[data-browser-reload]');
+  const homeBtn = win.querySelector('[data-browser-home]');
+  const bookmarks = win.querySelectorAll('.browser-bookmark');
+
+  if (!urlInput || !iframeContainer) return;
+
+  let currentTimeout = null;
+
+  function clearTimers() {
+    if (currentTimeout) {
+      clearTimeout(currentTimeout);
+      currentTimeout = null;
+    }
+  }
+
+  function showBrowserFallback(container, url) {
+    clearTimers();
+    container.innerHTML = `
+      <div class="browser-fallback">
+        <div class="browser-fallback-icon"><i data-lucide="globe"></i></div>
+        <h3>Nebula Web</h3>
+        <p>No se puede mostrar <strong>${escapeHtml(url)}</strong> dentro del navegador.</p>
+        <p class="browser-fallback-hint">El sitio puede tener restricciones de seguridad (X-Frame-Options).</p>
+        <div class="browser-fallback-actions">
+          <button class="browser-fallback-btn" onclick="window.open('${escapeHtml(url)}', '_blank')">
+            <i data-lucide="external-link"></i> Abrir en pestaña externa
+          </button>
+          <button class="browser-fallback-btn" onclick="window.open('https://www.google.com/search?q=${encodeURIComponent(url)}', '_blank')">
+            <i data-lucide="search"></i> Buscar en Google
+          </button>
+        </div>
+        <div class="browser-fallback-search">
+          <i data-lucide="search"></i>
+          <input type="text" placeholder="Buscar en la web..." onkeydown="if(event.key==='Enter'){window.open('https://www.google.com/search?q='+encodeURIComponent(this.value),'_blank')}">
         </div>
       </div>
     `;
-  }
-  refreshIcons();
-}
-
-function setupFiles(panel) {
-  if (!panel) return;
-
-  if (!FILE_SYSTEM || typeof FILE_SYSTEM !== 'object' || !Array.isArray(FILE_SYSTEM.children)) {
-    FILE_SYSTEM = getDefaultFileSystem();
+    refreshIcons();
   }
 
-  const state = getFsPanelState(panel);
-  state.current = FILE_SYSTEM;
-  state.trail = [FILE_SYSTEM];
-  state.selected = new Set();
+  function loadUrl(url) {
+    if (!url) return;
+    clearTimers();
 
-  const grid = panel.querySelector('.files-grid');
-  const search = panel.querySelector('[data-files-search]');
-  const back = panel.querySelector('[data-files-back]');
-  const forward = panel.querySelector('[data-files-forward]');
+    let normalized = url.trim();
+    if (!/^https?:\/\//i.test(normalized)) {
+      if (normalized.includes('.') && !normalized.includes(' ')) {
+        normalized = 'https://' + normalized;
+      } else {
+        normalized = 'https://www.google.com/search?q=' + encodeURIComponent(normalized);
+      }
+    }
 
-  const toolbar = panel.querySelector('.files-toolbar');
-  if (toolbar && !toolbar.querySelector('[data-files-toolbar-extras]')) {
-    const extras = document.createElement('div');
-    extras.setAttribute('data-files-toolbar-extras', '');
-    extras.style.display = 'flex';
-    extras.style.gap = '6px';
-    extras.style.marginLeft = 'auto';
-    extras.innerHTML = `
-      <button class="files-toolbar-btn" type="button" data-files-newfolder title="Nueva carpeta (Ctrl+Shift+N)">
-        <i data-lucide="folder-plus"></i> Nueva carpeta
-      </button>
-      <button class="files-toolbar-btn danger" type="button" data-files-delete title="Eliminar seleccionados (Supr)" disabled>
-        <i data-lucide="trash-2"></i> Eliminar
-      </button>
+    state.url = normalized;
+    urlInput.value = normalized;
+
+    iframeContainer.innerHTML = `
+      <div class="browser-loading">
+        <div class="browser-loading-spinner"></div>
+        <p>Cargando página...</p>
+      </div>
     `;
-    const searchEl = toolbar.querySelector('.files-search');
-    if (searchEl) toolbar.insertBefore(extras, searchEl);
-    else toolbar.appendChild(extras);
 
-    if (searchEl) searchEl.style.marginLeft = '8px';
+    const iframe = document.createElement('iframe');
+    iframe.className = 'browser-iframe';
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups');
+    iframe.setAttribute('referrerpolicy', 'no-referrer');
 
-    extras.querySelector('[data-files-newfolder]')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      fsCreateFolder(panel);
-    });
-    extras.querySelector('[data-files-delete]')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      fsDeleteSelection(panel);
-    });
+    let resolved = false;
+
+    const resolveFallback = (reason) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimers();
+      state.iframeError = true;
+      state.iframeLoaded = false;
+      showBrowserFallback(iframeContainer, normalized);
+    };
+
+    const resolveSuccess = () => {
+      if (resolved) return;
+      resolved = true;
+      clearTimers();
+      state.iframeError = false;
+      state.iframeLoaded = true;
+      iframeContainer.innerHTML = '';
+      iframeContainer.appendChild(iframe);
+    };
+
+    iframe.onload = () => {
+      // El iframe cargó pero puede que esté vacío o bloqueado
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        // Si es cross-origin, acceder va a tirar error -> catch => fallback
+        if (doc && doc.body && doc.body.innerHTML.trim().length > 0) {
+          resolveSuccess();
+        } else {
+          // Sin contenido visible: puede ser X-Frame-Options
+          resolveFallback('empty');
+        }
+      } catch (e) {
+        // Bloqueado por X-Frame-Options / cross-origin
+        resolveFallback('cross-origin');
+      }
+    };
+
+    iframe.onerror = () => {
+      resolveFallback('error');
+    };
+
+    // Timeout de seguridad: si en 2.5s no resolvió, asumimos fallback
+    currentTimeout = setTimeout(() => {
+      resolveFallback('timeout');
+    }, 2500);
+
+    // Empezamos a cargar
+    iframe.src = normalized;
   }
 
-  if (search) {
-    search.addEventListener('input', () => {
-      state.query = search.value.trim().toLowerCase();
-      fsRefresh(panel);
-    });
+  function goBack() {
+    if (state.history.length === 0) return;
+    state.future.unshift(state.url);
+    const prev = state.history.pop();
+    loadUrl(prev);
+    updateNavButtons();
   }
 
-  if (back) {
-    back.addEventListener('click', () => {
-      if (state.history.length === 0) return;
-      const prev = state.history.pop();
-      state.future.unshift(state.current);
-      state.current = prev;
-      state.trail = [FILE_SYSTEM, ...fsBuildTrail(prev)];
-      state.query = '';
-      if (search) search.value = '';
-      state.selected.clear();
-      fsRefresh(panel);
-    });
-  }
-  if (forward) {
-    forward.addEventListener('click', () => {
-      if (state.future.length === 0) return;
-      const next = state.future.shift();
-      state.history.push(state.current);
-      state.current = next;
-      state.trail = [FILE_SYSTEM, ...fsBuildTrail(next)];
-      state.query = '';
-      if (search) search.value = '';
-      state.selected.clear();
-      fsRefresh(panel);
-    });
+  function goForward() {
+    if (state.future.length === 0) return;
+    state.history.push(state.url);
+    const next = state.future.shift();
+    loadUrl(next);
+    updateNavButtons();
   }
 
-  panel.querySelectorAll('[data-files-location]').forEach(button => {
-    button.addEventListener('click', () => {
-      const folder = fsFindFolder(button.dataset.filesLocation);
-      if (!folder) return;
-      panel.querySelectorAll('[data-files-location]').forEach(b => b.classList.remove('active'));
-      button.classList.add('active');
-      state.history.push(state.current);
+  function updateNavButtons() {
+    if (backBtn) backBtn.disabled = state.history.length === 0;
+    if (forwardBtn) forwardBtn.disabled = state.future.length === 0;
+  }
+
+  urlInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      state.history.push(state.url);
       state.future = [];
-      state.current = folder;
-      state.trail = [FILE_SYSTEM, ...fsBuildTrail(folder)];
-      state.query = '';
-      if (search) search.value = '';
-      state.selected.clear();
-      fsRefresh(panel);
+      loadUrl(urlInput.value);
+      updateNavButtons();
+    }
+  });
+
+  urlInput.addEventListener('focus', () => urlInput.select());
+
+  if (backBtn) backBtn.addEventListener('click', goBack);
+  if (forwardBtn) forwardBtn.addEventListener('click', goForward);
+  if (reloadBtn) reloadBtn.addEventListener('click', () => loadUrl(state.url));
+  if (homeBtn) homeBtn.addEventListener('click', () => {
+    state.history.push(state.url);
+    state.future = [];
+    loadUrl('https://www.google.com');
+    updateNavButtons();
+  });
+
+  bookmarks.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const site = btn.dataset.bookmark;
+      const urls = {
+        google: 'https://www.google.com',
+        youtube: 'https://www.youtube.com',
+        github: 'https://www.github.com',
+        wikipedia: 'https://www.wikipedia.org'
+      };
+      if (urls[site]) {
+        state.history.push(state.url);
+        state.future = [];
+        loadUrl(urls[site]);
+        updateNavButtons();
+      }
     });
   });
 
-  panel.addEventListener('keydown', (e) => {
-    const tag = document.activeElement?.tagName?.toLowerCase();
-    const isInput = tag === 'input' || tag === 'textarea';
-    if (e.target.closest('.fs-rename-modal')) return;
-
-    if (e.key === 'F2' && state.selected.size === 1) {
-      e.preventDefault();
-      const item = Array.from(state.selected)[0];
-      fsPromptRename(panel, item);
-    } else if (e.key === 'Delete' && state.selected.size > 0 && !isInput) {
-      e.preventDefault();
-      fsDeleteSelection(panel);
-    } else if (e.key === 'a' && (e.ctrlKey || e.metaKey) && !isInput) {
-      e.preventDefault();
-      state.visibleItems.forEach(item => state.selected.add(item));
-      fsRefresh(panel);
-    } else if (e.key === 'n' && e.shiftKey && (e.ctrlKey || e.metaKey) && !isInput) {
-      e.preventDefault();
-      fsCreateFolder(panel);
-    }
-  });
-
-  fsRefresh(panel);
-}
-
-function searchFilesInSystem(query, folder = FILE_SYSTEM, trail = []) {
-  const results = [];
-  const q = (query || '').toLowerCase();
-  const children = folder.children || [];
-
-  children.forEach(child => {
-    const pathHere = [...trail, child.label || child.name];
-    if (child.type === 'folder') {
-      if (child.name.toLowerCase().includes(q)) {
-        results.push({
-          id: 'file-' + pathHere.join('/'),
-          title: child.label || child.name,
-          sub: 'Carpeta · ' + pathHere.join(' / '),
-          icon: 'folder',
-          category: 'Archivo',
-          keywords: [child.name],
-          run: () => { openApp('files'); showToast('Archivo encontrado', `Carpeta en ${pathHere.join(' / ')}`, 'folder'); }
-        });
-      }
-      const sub = searchFilesInSystem(query, child, pathHere);
-      sub.forEach(r => results.push(r));
-    } else {
-      if (child.name.toLowerCase().includes(q)) {
-        results.push({
-          id: 'file-' + pathHere.join('/'),
-          title: child.name,
-          sub: (child.size || 'Archivo') + ' · ' + pathHere.join(' / '),
-          icon: child.type === 'image' ? 'image' : child.type === 'audio' ? 'music' : 'file-text',
-          category: 'Archivo',
-          keywords: [child.name],
-          run: () => {
-            openApp('files');
-            showToast('Archivo encontrado', `Abriendo ${child.name}`, 'folder');
-          }
-        });
-      }
-    }
-  });
-
-  return results;
-}
-
-function setCustomWallpaperFromFile(imgPath) {
-  const screen = document.getElementById('screen');
-  if (screen) {
-    screen.style.backgroundImage = `linear-gradient(rgba(8, 9, 17, 0.42), rgba(8, 9, 17, 0.58)), url("${imgPath}")`;
-    showToast('Fondo Actualizado', 'Nueva imagen establecida como fondo de pantalla.', 'image');
-  }
+  loadUrl(state.url);
+  updateNavButtons();
 }
 
 /* ================= CONTROL MULTIMEDIA ================= */
@@ -3766,7 +3096,7 @@ function loadPersistedState() {
 
     const savedWidgets = JSON.parse(localStorage.getItem(WIDGETS_STORAGE_KEY));
     if (Array.isArray(savedWidgets)) {
-      const validTypes = new Set(['clock', 'weather', 'gaming-hub']);
+      const validTypes = new Set(['clock', 'weather', 'gaming-hub', 'system-monitor-pro', 'music-visualizer']);
       desktopWidgets = savedWidgets
         .filter(w => w && typeof w === 'object' && validTypes.has(w.type))
         .map(w => {
@@ -3783,6 +3113,8 @@ function loadPersistedState() {
           return w;
         });
     }
+
+    loadInstalledProducts();
 
     const wpIndex = Number.parseInt(localStorage.getItem(WALLPAPER_STORAGE_KEY), 10);
     if (Number.isInteger(wpIndex) && WALLPAPERS[wpIndex]) currentWallpaperIndex = wpIndex;
@@ -5928,6 +5260,7 @@ function openApp(appId, forceNew = false, restoreData = null) {
     if (appId === 'nova') setupNovaAI(win);
     if (appId === 'settings') renderSettingsApp();
     if (appId === 'music') setupSpotifyApp(win);
+    if (appId === 'browser') setupBrowserApp(win);
   }
 
   setupWindowResize(win);
@@ -7196,7 +6529,7 @@ function getAppContent(id) {
   }
 
   if (id === 'browser') {
-    return `<div class="firefox-preview"><img src="./assets/images/apps/mozilaFirefox/capturaFirefox.jpg" alt="Vista de Firefox"></div>`;
+    return getBrowserContentHTML('browser-0');
   }
 
   if (id === 'vscode') {
@@ -7506,6 +6839,30 @@ function getWidgetsGalleryHTML() {
         </div>
       </div>
 
+      ${Object.values(WIDGET_CATALOG).filter(w => w.available && !['gaming-hub', 'weather'].includes(w.id)).map(widget => `
+        <div class="widget-gallery-card ${desktopWidgets.some(dw => dw.type === widget.type) ? 'active' : ''}">
+          <div class="widget-gallery-preview">
+            <div class="widget-gallery-preview-inner">
+              <div class="widget-gallery-preview-tile" style="grid-column: span 2;"><i data-lucide="${widget.icon}" style="color:var(--accent);"></i></div>
+            </div>
+          </div>
+          <div class="widget-gallery-info">
+            <strong>${widget.name}</strong>
+            <small>${widget.description}</small>
+          </div>
+          <div class="widget-gallery-action">
+            <span class="widget-gallery-status">
+              <span class="status-dot"></span>
+              ${desktopWidgets.some(dw => dw.type === widget.type) ? 'Activo' : 'Inactivo'}
+            </span>
+            ${desktopWidgets.some(dw => dw.type === widget.type)
+              ? `<button class="widget-gallery-btn danger" type="button" onclick="removeDesktopWidget('${desktopWidgets.find(dw => dw.type === widget.type)?.id}')"><i data-lucide="trash-2"></i> Quitar</button>`
+              : `<button class="widget-gallery-btn" type="button" onclick="addDesktopWidget('${widget.type}')"><i data-lucide="plus"></i> Agregar</button>`
+            }
+          </div>
+        </div>
+      `).join('')}
+
     </div>
   `;
 }
@@ -7527,55 +6884,15 @@ function getDesignerStylesHTML() {
 
     <div class="settings-section-label">Paletas de Color & Estilos de UI</div>
     <div class="designer-presets-grid">
-      <div class="theme-preset-card ${designerState.activePreset === 'cyberpunk' ? 'selected' : ''}" onclick="applyThemePreset('cyberpunk')">
-        <div class="preset-colors-row">
-          <span class="preset-color-chip" style="background:#00ffcc;"></span>
-          <span class="preset-color-chip" style="background:#ff007f;"></span>
-          <span class="preset-color-chip" style="background:#7928ca;"></span>
+      ${Object.entries(THEME_PRESETS).map(([key, preset]) => `
+        <div class="theme-preset-card ${designerState.activePreset === key ? 'selected' : ''}" onclick="applyThemePreset('${key}')">
+          <div class="preset-colors-row">
+            ${preset.colors.map(c => `<span class="preset-color-chip" style="background:${c};"></span>`).join('')}
+          </div>
+          <strong>${preset.name}</strong>
+          <small>${preset.name.includes('Cyberpunk') ? 'Cyan neón, sombras optimizadas y alto contraste' : preset.name.includes('Catppuccin') ? 'Tonos pastel lavanda, desenfoque suave y relajante' : preset.name.includes('Synthwave') ? 'Magenta brillante, estética 80s arcade' : preset.name.includes('Stealth') ? 'Carbón táctico y esmeralda de bajo consumo visual' : 'Acento cyan con fondo neutro oscuro, estética limpia y sobria'}</small>
         </div>
-        <strong>Cyberpunk Neón</strong>
-        <small>Cyan neón, sombras optimizadas y alto contraste</small>
-      </div>
-
-      <div class="theme-preset-card ${designerState.activePreset === 'catppuccin' ? 'selected' : ''}" onclick="applyThemePreset('catppuccin')">
-        <div class="preset-colors-row">
-          <span class="preset-color-chip" style="background:#cba6f7;"></span>
-          <span class="preset-color-chip" style="background:#89b4fa;"></span>
-          <span class="preset-color-chip" style="background:#f5c2e7;"></span>
-        </div>
-        <strong>Minimal Catppuccin</strong>
-        <small>Tonos pastel lavanda, desenfoque suave y relajante</small>
-      </div>
-
-      <div class="theme-preset-card ${designerState.activePreset === 'synthwave' ? 'selected' : ''}" onclick="applyThemePreset('synthwave')">
-        <div class="preset-colors-row">
-          <span class="preset-color-chip" style="background:#ff71ce;"></span>
-          <span class="preset-color-chip" style="background:#01cdfe;"></span>
-          <span class="preset-color-chip" style="background:#05ffa1;"></span>
-        </div>
-        <strong>Retro Synthwave</strong>
-        <small>Magenta brillante, estética 80s arcade</small>
-      </div>
-
-      <div class="theme-preset-card ${designerState.activePreset === 'stealth' ? 'selected' : ''}" onclick="applyThemePreset('stealth')">
-        <div class="preset-colors-row">
-          <span class="preset-color-chip" style="background:#10b981;"></span>
-          <span class="preset-color-chip" style="background:#3b82f6;"></span>
-          <span class="preset-color-chip" style="background:#1e293b;"></span>
-        </div>
-        <strong>Dark Stealth</strong>
-        <small>Carbón táctico y esmeralda de bajo consumo visual</small>
-      </div>
-
-      <div class="theme-preset-card ${designerState.activePreset === 'nord-arc' ? 'selected' : ''}" onclick="applyThemePreset('nord-arc')">
-        <div class="preset-colors-row">
-          <span class="preset-color-chip" style="background:#30B0C7;"></span>
-          <span class="preset-color-chip" style="background:#5856D6;"></span>
-          <span class="preset-color-chip" style="background:#AF52DE;"></span>
-        </div>
-        <strong>Nord Arc</strong>
-        <small>Acento cyan con fondo neutro oscuro, estética limpia y sobria</small>
-      </div>
+      `).join('')}
     </div>
 
     <div class="settings-section-label">Ajuste Fino en Vivo (CSS Variables)</div>
@@ -7715,6 +7032,7 @@ function getDesignerStylesHTML() {
 
 /* ★ Sub-tab "Fondos de Pantalla" del Designer */
 function getDesignerWallpapersHTML() {
+  const allWallpapers = [...WALLPAPERS];
   return `
     <div class="settings-heading">
       <div>
@@ -7727,21 +7045,13 @@ function getDesignerWallpapersHTML() {
 
     <div class="settings-section-label">Galería de Fondos Disponibles</div>
     <div class="designer-presets-grid">
-      <div class="theme-preset-card ${currentWallpaperIndex === 0 ? 'selected' : ''}" onclick="applyWallpaper(0)">
-        <div style="height:65px; border-radius:8px; background:url('./assets/images/fondosDePantalla/fondoPrincipal.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
-        <strong>Fondo Nebula</strong>
-        <small>Violeta espacial profundo y nebulosas estelares</small>
-      </div>
-      <div class="theme-preset-card ${currentWallpaperIndex === 1 ? 'selected' : ''}" onclick="applyWallpaper(1)">
-        <div style="height:65px; border-radius:8px; background:url('./assets/images/fondosDePantalla/fondo2.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
-        <strong>Fondo Aurora</strong>
-        <small>Azul ártico cósmico y resplandor polar</small>
-      </div>
-      <div class="theme-preset-card ${currentWallpaperIndex === 2 ? 'selected' : ''}" onclick="applyWallpaper(2)">
-        <div style="height:65px; border-radius:8px; background:url('./assets/images/fondosDePantalla/fondo3.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
-        <strong>Fondo Solar</strong>
-        <small>Dorado estelar cálido y destellos solares</small>
-      </div>
+      ${allWallpapers.map((wp, index) => `
+        <div class="theme-preset-card ${currentWallpaperIndex === index ? 'selected' : ''}" onclick="applyWallpaper(${index})">
+          <div style="height:65px; border-radius:8px; background:url('./assets/images/fondosDePantalla/${wp.file}') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
+          <strong>${wp.name}</strong>
+          <small>${wp.name === 'Nebula' ? 'Violeta espacial profundo y nebulosas estelares' : wp.name === 'Aurora' ? 'Azul ártico cósmico y resplandor polar' : wp.name === 'Solar' ? 'Dorado estelar cálido y destellos solares' : wp.name}</small>
+        </div>
+      `).join('')}
     </div>
   `;
 }
@@ -7904,6 +7214,7 @@ function buildLauncherActions() {
     { id: 'action-shield-scan', title: 'Escaneo de Seguridad (Nebula Shield)', sub: 'Inicia un análisis completo del sistema', icon: 'shield-check', category: 'Acción', keywords: ['escanear', 'seguridad', 'shield', 'virus', 'antivirus', 'scan'], run: () => { openApp('settings'); settingsState.activeSettingsTab = 'shield'; renderSettingsApp(); setTimeout(() => runShieldScan(), 400); } },
     { id: 'action-check-updates', title: 'Buscar actualizaciones', sub: 'Verifica si hay nuevas versiones del sistema', icon: 'download', category: 'Acción', keywords: ['actualizar', 'update', 'version', 'updates'], run: () => { openApp('settings'); settingsState.activeSettingsTab = 'updates'; renderSettingsApp(); setTimeout(() => simulateUpdateCheck(), 400); } },
     { id: 'action-notif-center', title: 'Abrir Centro de Notificaciones', sub: 'Ver historial de notificaciones del sistema', icon: 'bell', category: 'Acción', keywords: ['notificaciones', 'notif', 'historial', 'centro'], run: () => openNotificationCenter() },
+    { id: 'action-open-store', title: 'Abrir Nebula Store', sub: 'Tienda de temas, widgets, apps y juegos', icon: 'shopping-bag', category: 'Acción', keywords: ['tienda', 'store', 'temas', 'widgets', 'apps', 'juegos'], run: () => openStore() },
     { id: 'action-profile-gamer', title: 'Perfil: Gamer', sub: 'Aplica tema Cyberpunk + Game Mode + telemetría', icon: 'gamepad-2', category: 'Perfil', keywords: ['perfil', 'gamer', 'profile'], run: () => switchProfile('gamer') },
     { id: 'action-profile-streamer', title: 'Perfil: Streamer', sub: 'Aplica tema Synthwave + widget multimedia', icon: 'radio', category: 'Perfil', keywords: ['perfil', 'streamer', 'profile'], run: () => switchProfile('streamer') },
     { id: 'action-profile-studio', title: 'Perfil: Estudio', sub: 'Aplica tema Catppuccin + workspace 1', icon: 'terminal', category: 'Perfil', keywords: ['perfil', 'estudio', 'studio', 'dev'], run: () => switchProfile('studio') },
