@@ -8,7 +8,7 @@ const APPS = {
   vscode:   { title: 'VS Code', sub: 'Editor de Código', icon: 'code-2', image: './assets/images/iconos/visualStudioCode.png', tileClass: 'app-tile-vscode', accentColor: '#0284c7' },
   settings: { title: 'Ajustes', sub: 'Panel de Control & Designer', icon: 'sliders', image: './assets/images/iconos/ajustes.png', tileClass: 'app-tile-settings', accentColor: '#94a3b8' },
   nova:     { title: 'Nova AI', sub: 'Asistente Gamer & Tweaker', icon: 'sparkles', image: './assets/images/logosSO/novaLogo.png', tileClass: 'app-tile-nova', accentColor: '#c026d3' },
-  store:    { title: 'Nebula Store', sub: 'Tienda de Personalización', icon: 'shopping-bag', image: null, tileClass: 'app-tile-store', accentColor: '#f59e0b' }
+  store:    { title: 'Nebula Store', sub: 'Tienda de Personalización', icon: 'shopping-cart', image: null, tileClass: 'app-tile-store', accentColor: '#f59e0b' }
 };
 
 const DOCK_APPS = ['browser', 'terminal', 'nova', 'files', 'vscode', 'music', 'games', 'store', 'settings'];
@@ -17,7 +17,6 @@ const TOTAL_WORKSPACES = 5;
 
 const TABBED_APPS = new Set(['terminal', 'files']);
 
-/* Catálogo de widgets disponibles para el Designer */
 const WIDGET_CATALOG = {
   'gaming-hub': {
     id: 'gaming-hub',
@@ -51,9 +50,6 @@ const WIDGET_CATALOG = {
   }
 };
 
-/* =====================================================
-   CIUDADES DISPONIBLES PARA EL WIDGET DE CLIMA
-===================================================== */
 const WEATHER_CITIES = [
   { id: 'rosario',     name: 'Rosario',     region: 'Santa Fe, Argentina',  lat: -32.9468, lon: -60.6393, timezone: 'America/Argentina/Cordoba' },
   { id: 'buenos-aires',name: 'Buenos Aires',region: 'Argentina',            lat: -34.6037, lon: -58.3816, timezone: 'America/Argentina/Buenos_Aires' },
@@ -66,7 +62,6 @@ const WEATHER_CITIES = [
 
 const DEFAULT_WEATHER_CITY_ID = 'rosario';
 
-/* Mapeo de WMO Weather Codes (Open-Meteo) a íconos Lucide + label + color */
 const WMO_CODE_MAP = {
   0:  { icon: 'sun',                label: 'Despejado',              color: '#fab387' },
   1:  { icon: 'sun',                label: 'Mayormente despejado',   color: '#f9e2af' },
@@ -306,9 +301,6 @@ const VPN_SERVERS = [
   { id: 'buenosaires', name: 'Buenos Aires', country: 'Argentina', flag: '🇦🇷', ping: 18 }
 ];
 
-/* =====================================================
-   ★ NEBULA STORE — Catálogo de productos
-===================================================== */
 const STORE_PRODUCTS = [
   { id: 'theme-sunset-vibes', type: 'theme', name: 'Sunset Vibes', description: 'Paleta cálida con tonos atardecer y acentos coral.', author: 'Nebula Design', rating: 4.8, downloads: 12500, size: '2.4 MB', price: 'Gratis', preview: { accent: '#ff6b6b', colors: ['#ff6b6b', '#ff9f43', '#feca57'] } },
   { id: 'theme-matrix-green', type: 'theme', name: 'Matrix Green', description: 'Estilo hacker con verde fósforo y fondo negro.', author: 'CodeMaster', rating: 4.6, downloads: 8900, size: '1.8 MB', price: 'Gratis', preview: { accent: '#00ff41', colors: ['#00ff41', '#00cc33', '#003300'] } },
@@ -335,7 +327,6 @@ let fullscreenWindowId = null;
 const widgetStartedAt = Date.now();
 const calendarState = { date: new Date(), selectedDate: null, notes: {} };
 const systemMetrics = { ram: 38, cpu: 24, temp: 42, gpu: 62, vram: 4.8, fps: 144 };
-
 const pingHistory = [23, 24, 22, 25, 23, 21, 24, 22, 23, 24];
 
 let gameModeActive = false;
@@ -345,19 +336,15 @@ let currentTrackIndex = 0;
 let isPlaying = false;
 let playbackProgress = 32;
 let systemVolume = 80;
-
 let wifiEnabled = true;
 let bluetoothEnabled = false;
 let dndEnabled = false;
 let currentBrightness = 100;
-
 let currentPlaybackTime = 0;
 let shuffleEnabled = false;
 let repeatEnabled = false;
-
 let editingNoteKey = null;
 let editingNoteIndex = null;
-
 let lastClockSecond = null;
 let lastClockMinute = null;
 
@@ -419,35 +406,26 @@ let updatesState = {
 let notifications = [];
 let unreadCount = 0;
 let notifIdCounter = 0;
-
 let desktopWidgets = [];
-
 let storeProducts = [...STORE_PRODUCTS];
 let installedProducts = [];
 let storeFilter = 'all';
 let storeInstallProgress = {};
-
 let dockPreviewEl = null;
 let dockPreviewTimeout = null;
-
 let windowManagerOpen = false;
-
 let wmDragState = null;
-
 let wmCardContextMenuEl = null;
 let wmCardContextMenuWinId = null;
-
 let dockContextMenuEl = null;
 let dockContextMenuAppId = null;
-
 let sessionSaveTimeout = null;
 let isRestoringSession = false;
-
 let isResizing = false;
 
 const windowTabsState = new WeakMap();
 const terminalPanelStates = new WeakMap();
-const filesPanelStates = new WeakMap();
+const fsPanelStates = {};
 
 const launcherState = {
   query: '',
@@ -481,7 +459,6 @@ const STORE_INSTALLED_STORAGE_KEY = 'nebula-os:store-installed';
 
 const Z_INDEX_NORMALIZE_THRESHOLD = 800;
 const Z_INDEX_BASE = 100;
-
 const ANIM_OPEN_MS = 340;
 const ANIM_CLOSE_MS = 220;
 const ANIM_MIN_MS = 300;
@@ -497,14 +474,16 @@ let settingsState = {
   designerExpanded: true
 };
 
-/* ================= HELPER DE ICONOGRAFÍA LUCIDE ================= */
 function refreshIcons() {
   if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
     lucide.createIcons();
   }
 }
 
-/* ================= HELPERS DE INSTANCIAS ================= */
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character]));
+}
+
 function generateWinId(appId) {
   if (!appInstanceCounter[appId]) appInstanceCounter[appId] = 0;
   appInstanceCounter[appId]++;
@@ -525,15 +504,6 @@ function getLastInstanceOfApp(appId) {
   })[0];
 }
 
-function countInstancesByApp() {
-  const counts = {};
-  Object.values(openWindows).forEach(entry => {
-    if (!entry?.appId) return;
-    counts[entry.appId] = (counts[entry.appId] || 0) + 1;
-  });
-  return counts;
-}
-
 function getInstanceNumber(winId) {
   if (!openWindows[winId]) return 1;
   const appId = openWindows[winId].appId;
@@ -545,9 +515,6 @@ function getInstanceNumber(winId) {
   return ids.indexOf(winId) + 1;
 }
 
-/* =====================================================
-   ★ NORMALIZACIÓN DE Z-INDEX
-===================================================== */
 function normalizeZIndexes() {
   const sorted = Object.keys(openWindows)
     .map(winId => {
@@ -570,7 +537,6 @@ function normalizeZIndexes() {
   scheduleSaveSession();
 }
 
-/* ================= SLIDERS: FILL DINÁMICO ================= */
 function syncSliderFill(slider) {
   if (!slider || slider.type !== 'range') return;
   const min = Number(slider.min) || 0;
@@ -591,7 +557,6 @@ document.addEventListener('input', (e) => {
   }
 });
 
-/* ================= RELOJ CON SEGUNDOS Y ANIMACIÓN ================= */
 function updateClock() {
   const clockWrap = document.getElementById('clock');
   const timeEl = document.getElementById('clock-time');
@@ -639,7 +604,6 @@ function updateClock() {
   }
 }
 
-/* ================= POSICIÓN DINÁMICA DE TOASTS ================= */
 function updateToastPosition() {
   const container = document.getElementById('toast-container');
   const quickCenter = document.getElementById('quick-center');
@@ -649,7 +613,6 @@ function updateToastPosition() {
   container.classList.toggle('shifted', isQuickCenterOpen);
 }
 
-/* ================= CIERRE DE PANELES ================= */
 function closeControlCenter() {
   const cc = document.getElementById('control-center');
   if (!cc || cc.classList.contains('hidden')) return;
@@ -664,7 +627,6 @@ function closeQuickCenter() {
   updateToastPosition();
 }
 
-/* ================= MIGRACIÓN DE NOTAS ================= */
 function migrateNotesFormat(notes) {
   if (!notes || typeof notes !== 'object') return {};
   const migrated = {};
@@ -678,10 +640,6 @@ function migrateNotesFormat(notes) {
   });
   return migrated;
 }
-
-/* =====================================================
-   ★ PERSISTENCIA DE SESIÓN DE VENTANAS (CON TABS)
-===================================================== */
 
 function saveSessionState(immediate = false) {
   if (isRestoringSession || isResizing) return;
@@ -865,7 +823,6 @@ function restoreSessionState() {
   }
 }
 
-/* ================= INICIALIZACIÓN DEL SISTEMA ================= */
 document.addEventListener('DOMContentLoaded', () => {
   const bootScreen = document.getElementById('boot-screen');
   setTimeout(() => bootScreen && bootScreen.classList.add('boot-complete'), 850);
@@ -1057,9 +1014,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   setupWmTrashZone();
-
   restoreSessionState();
-
   syncVpnQuickCenterState();
 
   window.addEventListener('beforeunload', () => {
@@ -1067,7 +1022,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-/* ================= SHORTCUTS GLOBALES ================= */
 function setupShortcuts() {
   document.addEventListener('keydown', (e) => {
     if ((e.altKey && (e.key === 'z' || e.key === 'Z' || e.key === 'g' || e.key === 'G')) ||
@@ -1078,7 +1032,6 @@ function setupShortcuts() {
   });
 }
 
-/* ================= FEATURE: CONECTIVIDAD ================= */
 function toggleWifi(explicitState = null) {
   wifiEnabled = explicitState !== null ? explicitState : !wifiEnabled;
 
@@ -1172,7 +1125,6 @@ function renderConnectivityState() {
   }
 
   syncVpnQuickCenterState();
-
   refreshIcons();
 }
 
@@ -1181,10 +1133,6 @@ function syncVpnQuickCenterState() {
   if (vpnToggle) {
     vpnToggle.classList.toggle('active', shieldState.vpnConnected);
     vpnToggle.setAttribute('aria-pressed', String(shieldState.vpnConnected));
-    const label = vpnToggle.querySelector('strong');
-    if (label) {
-      label.textContent = shieldState.vpnConnected ? 'VPN Shield' : 'VPN Shield';
-    }
   }
 }
 
@@ -1192,7 +1140,6 @@ function toggleVpnFromQuickCenter() {
   toggleVpnConnection();
 }
 
-/* ================= FEATURE: NO MOLESTAR (DND) ================= */
 function toggleDnd(explicitState = null) {
   dndEnabled = explicitState !== null ? explicitState : !dndEnabled;
 
@@ -1222,7 +1169,6 @@ function renderDndState() {
   }
 }
 
-/* ================= FEATURE: BRILLO ================= */
 function applyBrightness(val) {
   currentBrightness = Number(val);
   const screen = document.getElementById('screen');
@@ -1239,7 +1185,6 @@ function applyBrightness(val) {
   } catch (e) {}
 }
 
-/* ================= FEATURE: REPRODUCTOR QUICK CENTER + HUD ================= */
 function formatTime(seconds) {
   const s = Math.max(0, Math.floor(seconds));
   const m = Math.floor(s / 60);
@@ -1343,7 +1288,6 @@ function syncSpotifyShuffleRepeatUI() {
   });
 }
 
-/* ================= FEATURE 1: GAME MODE & GAMING OVERLAY ================= */
 function toggleGameMode(explicitState = null) {
   gameModeActive = explicitState !== null ? explicitState : !gameModeActive;
   document.body.classList.toggle('game-mode-active', gameModeActive);
@@ -1434,7 +1378,6 @@ function setupTelemetryLoop() {
     updateGamingHubWidget();
   }, 1200);
 }
-
 function takeGamerScreenshot() {
   const screen = document.getElementById('screen');
   screen.style.filter = 'brightness(1.5)';
@@ -1456,7 +1399,7 @@ function simulateCleanRam() {
 }
 
 /* =====================================================
-   ★ FEATURE 2: NEBULA DESIGNER — Temas y controles en vivo
+   ★ FEATURE 2: NEBULA DESIGNER
 ===================================================== */
 
 function applyShadowStrength(value) {
@@ -1685,10 +1628,6 @@ function addDesktopWidget(type, x = null, y = null) {
   showToast('Widget Añadido', `Widget de ${label} colocado en el escritorio.`, 'plus');
   hideContextMenu();
 }
-
-/* =====================================================
-   ★ WEATHER WIDGET — Clima real con Open-Meteo + Luxon
-===================================================== */
 
 function getCityById(cityId) {
   return WEATHER_CITIES.find(c => c.id === cityId) || WEATHER_CITIES[0];
@@ -1976,15 +1915,9 @@ async function selectCityForWidget(widgetId, cityId) {
   const result = await fetchWeatherForCity(cityId, { force: false });
   const data = result.ok ? result.data : null;
 
-  const titlebar = el.querySelector('.widget-titlebar');
   const body2 = el.querySelector('.weather-body');
   if (body2) {
     body2.outerHTML = renderWeatherWidgetHTML(widget, data);
-  }
-
-  if (titlebar) {
-    const strong = titlebar.querySelector('strong');
-    if (strong) strong.innerHTML = `<i data-lucide="cloud-sun"></i> CLIMA`;
   }
 
   refreshIcons();
@@ -2050,7 +1983,6 @@ function removeAllWeatherWidgets() {
   showToast('Widgets Removidos', `${ids.length} widget${ids.length === 1 ? '' : 's'} de clima retirado${ids.length === 1 ? '' : 's'}.`, 'trash-2');
 }
 
-/* ================= GAMING HUB WIDGET ================= */
 function addGamingHubWidget() {
   addDesktopWidget('gaming-hub');
   renderSettingsApp();
@@ -2218,536 +2150,1107 @@ function updateWidgetStats() {
 }
 
 /* =====================================================
-   ★ FEATURE 3: NEBULA STORE
+   ★ FEATURE 5: SMART FILE EXPLORER
 ===================================================== */
 
-function openStore() {
-  const overlay = document.getElementById('store-overlay');
-  if (!overlay) return;
-
-  overlay.classList.remove('hidden');
-  renderStore();
-
-  const cats = document.getElementById('store-categories');
-  if (cats) {
-    cats.querySelectorAll('.store-cat-btn').forEach(btn => {
-      btn.onclick = () => {
-        storeFilter = btn.dataset.cat || 'all';
-        renderStore();
-      };
-    });
-  }
-
-  refreshIcons();
-}
-
-function closeStore() {
-  const overlay = document.getElementById('store-overlay');
-  if (!overlay) return;
-  overlay.classList.add('hidden');
-}
-
-function renderStore() {
-  const grid = document.getElementById('store-grid');
-  const cats = document.getElementById('store-categories');
-  if (!grid || !cats) return;
-
-  cats.querySelectorAll('.store-cat-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.cat === storeFilter);
-  });
-
-  let filtered = storeProducts;
-  if (storeFilter !== 'all') {
-    filtered = storeProducts.filter(p => p.type === storeFilter);
-  }
-
-  if (filtered.length === 0) {
-    grid.innerHTML = `<div class="store-empty">No hay productos en esta categoría.</div>`;
-    return;
-  }
-
-  grid.innerHTML = filtered.map(product => {
-    const isInstalled = installedProducts.includes(product.id);
-    const progress = storeInstallProgress[product.id] || 0;
-
-    let previewHTML = '';
-    if (product.type === 'theme') {
-      previewHTML = `
-        <div class="store-preview-theme">
-          <div class="store-preview-colors">
-            ${product.preview.colors.map(c => `<span class="store-preview-color" style="background:${c};"></span>`).join('')}
-          </div>
-          <div class="store-preview-accent" style="background:${product.preview.accent};"></div>
-        </div>
-      `;
-    } else if (product.type === 'wallpaper') {
-      previewHTML = `
-        <div class="store-preview-wallpaper" style="background: linear-gradient(135deg, ${product.preview.accent}, #1a1a2e);">
-          <i data-lucide="image"></i>
-        </div>
-      `;
-    } else if (product.type === 'widget') {
-      previewHTML = `
-        <div class="store-preview-widget">
-          <i data-lucide="${product.preview.icon}"></i>
-        </div>
-      `;
-    } else if (product.type === 'app') {
-      previewHTML = `
-        <div class="store-preview-app" style="background: ${product.preview.color}20; border-color: ${product.preview.color}60;">
-          <i data-lucide="${product.preview.icon}" style="color: ${product.preview.color};"></i>
-        </div>
-      `;
-    } else if (product.type === 'game') {
-      previewHTML = `
-        <div class="store-preview-game" style="background: ${product.preview.color}20; border-color: ${product.preview.color}60;">
-          <i data-lucide="${product.preview.icon}" style="color: ${product.preview.color};"></i>
-        </div>
-      `;
-    }
-
-    let actionHTML = '';
-    if (isInstalled) {
-      actionHTML = `
-        <button class="store-action-btn installed" type="button" onclick="uninstallStoreProduct('${product.id}')">
-          <i data-lucide="check"></i> Instalado
-        </button>
-      `;
-    } else if (progress > 0 && progress < 100) {
-      actionHTML = `
-        <div class="store-progress-bar">
-          <div class="store-progress-fill" style="width: ${progress}%;"></div>
-        </div>
-        <span class="store-progress-text">${Math.round(progress)}%</span>
-      `;
-    } else {
-      actionHTML = `
-        <button class="store-action-btn" type="button" onclick="installStoreProduct('${product.id}')">
-          <i data-lucide="download"></i> Instalar
-        </button>
-      `;
-    }
-
-    return `
-      <div class="store-card" data-product-id="${product.id}">
-        <div class="store-card-preview">
-          ${previewHTML}
-          <span class="store-card-type">${getStoreTypeLabel(product.type)}</span>
-        </div>
-        <div class="store-card-info">
-          <div class="store-card-header">
-            <strong class="store-card-name">${escapeHtml(product.name)}</strong>
-            <span class="store-card-price">${product.price}</span>
-          </div>
-          <p class="store-card-desc">${escapeHtml(product.description)}</p>
-          <div class="store-card-meta">
-            <span class="store-meta-item"><i data-lucide="user"></i> ${escapeHtml(product.author)}</span>
-            <span class="store-meta-item"><i data-lucide="star"></i> ${product.rating}</span>
-            <span class="store-meta-item"><i data-lucide="download"></i> ${(product.downloads / 1000).toFixed(1)}k</span>
-            <span class="store-meta-item"><i data-lucide="hard-drive"></i> ${product.size}</span>
-          </div>
-        </div>
-        <div class="store-card-action">
-          ${actionHTML}
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  refreshIcons();
-}
-
-function getStoreTypeLabel(type) {
-  const labels = { theme: 'Tema', widget: 'Widget', wallpaper: 'Wallpaper', app: 'App', game: 'Juego' };
-  return labels[type] || type;
-}
-
-function installStoreProduct(productId) {
-  const product = storeProducts.find(p => p.id === productId);
-  if (!product) return;
-
-  if (storeInstallProgress[productId]) return;
-
-  storeInstallProgress[productId] = 0;
-
-  const tick = () => {
-    storeInstallProgress[productId] += Math.random() * 12 + 5;
-    if (storeInstallProgress[productId] >= 100) {
-      storeInstallProgress[productId] = 100;
-      installedProducts.push(productId);
-      saveInstalledProducts();
-      applyStoreProductEffect(product);
-      delete storeInstallProgress[productId];
-      renderStore();
-      showToast('Instalación Completa', `"${product.name}" se instaló correctamente.`, 'check-circle-2');
-      return;
-    }
-    renderStore();
-    setTimeout(tick, 180 + Math.random() * 120);
+function getDefaultFileSystem() {
+  return {
+    name: 'Inicio', label: 'Inicio', type: 'folder', children: [
+      {
+        name: 'capturas', label: 'Capturas de Juegos', type: 'folder', children: [
+          { name: 'cyberpunk_night_city_4k.jpg', type: 'image', path: './assets/images/fondosDePantalla/fondoPrincipal.jpg', size: 'JPG · 3840x2160 · 144 FPS Capture' },
+          { name: 'elden_ring_boss_victory.jpg', type: 'image', path: './assets/images/fondosDePantalla/fondo2.jpg', size: 'JPG · 2560x1440 · HDR On' },
+          { name: 'valorant_ace_round.jpg', type: 'image', path: './assets/images/fondosDePantalla/fondo3.jpg', size: 'JPG · 1920x1080 · Clip' }
+        ]
+      },
+      {
+        name: 'mods', label: 'MODs & Configs', type: 'folder', children: [
+          { name: 'cyberpunk_ultra_textures.pak', type: 'text', path: './message.txt', size: 'PAK · Mod gráfico 4K' },
+          { name: 'elden_ring_ultrawide_fov.zip', type: 'text', path: './message.txt', size: 'ZIP · Patch 21:9 support' },
+          { name: 'reshade_cinematic_preset.ini', type: 'text', path: './styles.css', size: 'INI · Preset de post-procesado' }
+        ]
+      },
+      {
+        name: 'juegos', label: 'Juegos & ISOs', type: 'folder', children: [
+          { name: 'Cyberpunk_2077.exe', type: 'image', path: './assets/images/apps/steam/capturaSteam.png', size: 'EXE · Acceso directo' },
+          { name: 'Hollow_Knight_Silksong.iso', type: 'image', path: './assets/images/apps/steam/capturaSteam.png', size: 'ISO · Imagen de disco' },
+          { name: 'Doom_Eternal_Ultra.exe', type: 'image', path: './assets/images/apps/steam/capturaSteam.png', size: 'EXE · Lanzador Vulkan' }
+        ]
+      },
+      {
+        name: 'musica', label: 'Música & Audio', type: 'folder', children: [
+          { name: 'Gustavo_Cerati_Bocanada.mp3', type: 'audio', path: './assets/images/apps/spotify/tapaAlbum2.jpg', size: 'MP3 · 320 kbps · Bocanada' },
+          { name: 'Nirvana_Smells_Like_Teen_Spirit.mp3', type: 'audio', path: './assets/images/apps/spotify/tapaAlbum1.jpg', size: 'MP3 · 320 kbps · Nevermind' },
+          { name: 'Synthwave_Chill_Night.flac', type: 'audio', path: './assets/images/apps/spotify/top50.jpg', size: 'FLAC · 24-bit · Lossless' }
+        ]
+      },
+      { name: 'fondos', label: 'Fondos', type: 'folder', children: WALLPAPERS.map(w => ({ name: w.file, type: 'image', path: `./assets/images/fondosDePantalla/${w.file}`, size: 'JPG · Fondo HD' })) },
+      { name: 'imagenes', label: 'Imágenes', type: 'folder', children: ['archivos.png', 'ajustes.png', 'home.png', 'lupa.png', 'play.png', 'noSignal.png', 'steam.png', 'visualStudioCode.png'].map(name => ({ name, type: 'image', path: `./assets/images/iconos/${name}`, size: 'PNG · Icono UI' })) },
+      { name: 'spotify', label: 'Spotify', type: 'folder', children: ['tapaAlbum1.jpg', 'top50.jpg', 'tapaAlbum2.jpg', 'tapaAlbum3.jpg'].map(name => ({ name, type: 'image', path: `./assets/images/apps/spotify/${name}`, size: 'JPG · Portada Álbum' })) },
+      { name: 'vsc', label: 'Proyectos Dev', type: 'folder', children: [{ name: 'capturaVisualStudio.png', type: 'image', path: './assets/images/apps/visualStudio/capturaVisualStudio.png', size: 'PNG · Workspace' }] },
+      { name: 'index.html', type: 'text', path: './index.html', size: 'HTML · Estructura Nebula OS' },
+      { name: 'styles.css', type: 'text', path: './styles.css', size: 'CSS · Estilos y Variables' },
+      { name: 'script.js', type: 'text', path: './script.js', size: 'JS · Núcleo del sistema' }
+    ]
   };
-
-  setTimeout(tick, 200);
 }
 
-function uninstallStoreProduct(productId) {
-  const product = storeProducts.find(p => p.id === productId);
-  if (!product) return;
-
-  installedProducts = installedProducts.filter(id => id !== productId);
-  saveInstalledProducts();
-  removeStoreProductEffect(product);
-  renderStore();
-  showToast('Desinstalado', `"${product.name}" fue removido del sistema.`, 'trash-2');
-}
-
-function applyStoreProductEffect(product) {
-  if (product.type === 'theme') {
-    const themeKey = product.id.replace('theme-', '');
-    const preset = STORE_THEMES[themeKey];
-    if (preset) {
-      THEME_PRESETS[themeKey] = preset;
-      applyThemePreset(themeKey);
-    }
-  } else if (product.type === 'widget') {
-    const widgetKey = product.id.replace('widget-', '');
-    if (WIDGET_CATALOG[widgetKey]) {
-      WIDGET_CATALOG[widgetKey].available = true;
-    }
-    if (widgetKey === 'system-monitor-pro') {
-      addDesktopWidget('system-monitor-pro');
-    } else if (widgetKey === 'music-visualizer') {
-      addDesktopWidget('music-visualizer');
-    }
-  } else if (product.type === 'wallpaper') {
-    const wpKey = product.id.replace('wallpaper-', '');
-    const storeWp = STORE_WALLPAPERS.find(w => w.id === wpKey);
-    if (storeWp) {
-      WALLPAPERS.push(storeWp);
-      applyWallpaper(WALLPAPERS.length - 1);
-    }
-  } else if (product.type === 'app') {
-    const appKey = product.id.replace('app-', '');
-    if (!APPS[appKey]) {
-      APPS[appKey] = {
-        title: product.name,
-        sub: product.description,
-        icon: product.preview.icon,
-        image: null,
-        tileClass: 'app-tile-default',
-        accentColor: product.preview.color
-      };
-      if (!DOCK_APPS.includes(appKey)) {
-        DOCK_APPS.push(appKey);
-      }
-      renderDock();
-    }
-  } else if (product.type === 'game') {
-    showToast('Juego Añadido a Steam', `"${product.name}" se agregó a tu biblioteca de Steam.`, 'gamepad-2');
-  }
-}
-
-function removeStoreProductEffect(product) {
-  if (product.type === 'theme') {
-    const themeKey = product.id.replace('theme-', '');
-    if (THEME_PRESETS[themeKey]) {
-      delete THEME_PRESETS[themeKey];
-      if (designerState.activePreset === themeKey) {
-        applyThemePreset('catppuccin');
-      }
-    }
-  } else if (product.type === 'widget') {
-    const widgetKey = product.id.replace('widget-', '');
-    if (WIDGET_CATALOG[widgetKey]) {
-      WIDGET_CATALOG[widgetKey].available = false;
-    }
-    const widgetType = widgetKey;
-    desktopWidgets = desktopWidgets.filter(w => w.type !== widgetType);
-    saveDesktopWidgets();
-    renderDesktopWidgets();
-  } else if (product.type === 'wallpaper') {
-    const wpKey = product.id.replace('wallpaper-', '');
-    const idx = WALLPAPERS.findIndex(w => w.id === wpKey);
-    if (idx !== -1) {
-      WALLPAPERS.splice(idx, 1);
-      if (currentWallpaperIndex >= WALLPAPERS.length) {
-        applyWallpaper(0);
-      }
-    }
-  } else if (product.type === 'app') {
-    const appKey = product.id.replace('app-', '');
-    if (APPS[appKey]) {
-      delete APPS[appKey];
-    }
-    const dockIdx = DOCK_APPS.indexOf(appKey);
-    if (dockIdx !== -1) DOCK_APPS.splice(dockIdx, 1);
-    getInstancesOfApp(appKey).forEach(winId => closeApp(winId));
-    renderDock();
-  }
-}
-
-function saveInstalledProducts() {
+function loadFileSystem() {
   try {
-    localStorage.setItem(STORE_INSTALLED_STORAGE_KEY, JSON.stringify(installedProducts));
+    const raw = localStorage.getItem(FILESYSTEM_STORAGE_KEY);
+    if (!raw) return getDefaultFileSystem();
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.children)) {
+      return getDefaultFileSystem();
+    }
+    return parsed;
+  } catch (e) {
+    return getDefaultFileSystem();
+  }
+}
+
+function saveFileSystem(fs) {
+  try {
+    localStorage.setItem(FILESYSTEM_STORAGE_KEY, JSON.stringify(fs));
   } catch (e) {}
 }
 
-function loadInstalledProducts() {
+function resetFileSystem() {
   try {
-    const raw = localStorage.getItem(STORE_INSTALLED_STORAGE_KEY);
-    if (!raw) {
-      installedProducts = [];
-      return;
+    localStorage.removeItem(FILESYSTEM_STORAGE_KEY);
+  } catch (e) {}
+}
+
+let FILE_SYSTEM = loadFileSystem();
+
+function fsFindFolder(name, folder = FILE_SYSTEM) {
+  if (folder.name === name) return folder;
+  for (const child of folder.children || []) {
+    if (child.type === 'folder') {
+      const result = fsFindFolder(name, child);
+      if (result) return result;
     }
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      installedProducts = [];
-      return;
-    }
-    installedProducts = parsed;
-    installedProducts.forEach(id => {
-      const product = storeProducts.find(p => p.id === id);
-      if (product) applyStoreProductEffect(product);
-    });
-  } catch (e) {
-    installedProducts = [];
   }
+  return null;
 }
 
-/* =====================================================
-   ★ FIREFOX HÍBRIDO — con detección robusta de fallos
-===================================================== */
-
-const browserState = new WeakMap();
-
-function getDefaultBrowserState() {
-  return {
-    url: 'https://www.google.com',
-    history: [],
-    future: [],
-    iframeLoaded: false,
-    iframeError: false
-  };
+function fsFindParent(targetItem, folder = FILE_SYSTEM) {
+  if (!folder.children) return null;
+  for (const child of folder.children) {
+    if (child === targetItem) return folder;
+    if (child.type === 'folder') {
+      const result = fsFindParent(targetItem, child);
+      if (result) return result;
+    }
+  }
+  return null;
 }
 
-function getBrowserContentHTML(winId) {
-  const state = browserState.get(winId) || getDefaultBrowserState();
-  return `
-    <div class="browser-app">
-      <div class="browser-toolbar">
-        <div class="browser-nav-btns">
-          <button class="browser-nav-btn" data-browser-back title="Atrás" ${state.history.length === 0 ? 'disabled' : ''}><i data-lucide="arrow-left"></i></button>
-          <button class="browser-nav-btn" data-browser-forward title="Adelante" ${state.future.length === 0 ? 'disabled' : ''}><i data-lucide="arrow-right"></i></button>
-          <button class="browser-nav-btn" data-browser-reload title="Recargar"><i data-lucide="refresh-cw"></i></button>
-          <button class="browser-nav-btn" data-browser-home title="Inicio"><i data-lucide="home"></i></button>
-        </div>
-        <div class="browser-url-bar">
-          <i data-lucide="lock" class="browser-url-icon"></i>
-          <input type="text" class="browser-url-input" value="${escapeHtml(state.url)}" placeholder="Escribí una URL o buscá en Google..." />
-        </div>
-        <div class="browser-bookmarks">
-          <button class="browser-bookmark" data-bookmark="google" title="Google"><i data-lucide="search"></i></button>
-          <button class="browser-bookmark" data-bookmark="youtube" title="YouTube"><i data-lucide="youtube"></i></button>
-          <button class="browser-bookmark" data-bookmark="github" title="GitHub"><i data-lucide="github"></i></button>
-          <button class="browser-bookmark" data-bookmark="wikipedia" title="Wikipedia"><i data-lucide="book-open"></i></button>
+function fsFindItemByName(name, folder = FILE_SYSTEM) {
+  for (const child of folder.children || []) {
+    if (child.name === name) return child;
+    if (child.type === 'folder') {
+      const result = fsFindItemByName(name, child);
+      if (result) return result;
+    }
+  }
+  return null;
+}
+
+function fsGenerateUniqueName(baseName, folder) {
+  if (!folder.children) return baseName;
+  const existing = new Set(folder.children.map(c => c.name));
+  if (!existing.has(baseName)) return baseName;
+  const dotIdx = baseName.lastIndexOf('.');
+  const stem = dotIdx > 0 ? baseName.slice(0, dotIdx) : baseName;
+  const ext = dotIdx > 0 ? baseName.slice(dotIdx) : '';
+  let n = 2;
+  while (existing.has(`${stem} (${n})${ext}`)) n++;
+  return `${stem} (${n})${ext}`;
+}
+
+function fsAddItem(parentFolder, newItem) {
+  if (!parentFolder.children) parentFolder.children = [];
+  parentFolder.children.push(newItem);
+  saveFileSystem(FILE_SYSTEM);
+}
+
+function fsRemoveItem(item) {
+  const parent = fsFindParent(item);
+  if (!parent || !parent.children) return false;
+  const idx = parent.children.indexOf(item);
+  if (idx === -1) return false;
+  parent.children.splice(idx, 1);
+  saveFileSystem(FILE_SYSTEM);
+  return true;
+}
+
+function fsRenameItem(item, newName) {
+  if (!newName || !newName.trim()) {
+    showToast('Nombre vacío', 'Escribí un nombre válido.', 'alert-circle');
+    return false;
+  }
+  const parent = fsFindParent(item);
+  if (!parent) {
+    showToast('Error', 'No se encontró el elemento padre.', 'alert-circle');
+    return false;
+  }
+  const clean = newName.trim();
+  if (parent.children.some(c => c !== item && c.name === clean)) {
+    showToast('Nombre duplicado', `Ya existe "${clean}" en esta carpeta.`, 'alert-circle');
+    return false;
+  }
+
+  item.name = clean;
+  if (Object.prototype.hasOwnProperty.call(item, 'label')) {
+    item.label = clean;
+  }
+
+  saveFileSystem(FILE_SYSTEM);
+  return true;
+}
+
+function fsMoveItem(item, targetFolder) {
+  if (!item || !targetFolder || item === targetFolder) return false;
+  if (targetFolder.type !== 'folder') return false;
+
+  const parent = fsFindParent(item);
+  if (!parent) return false;
+  if (parent === targetFolder) return false;
+
+  if (item.type === 'folder') {
+    let cursor = targetFolder;
+    while (cursor) {
+      if (cursor === item) return false;
+      cursor = fsFindParent(cursor);
+    }
+  }
+
+  parent.children = parent.children.filter(c => c !== item);
+  if (!targetFolder.children) targetFolder.children = [];
+  targetFolder.children.push(item);
+  saveFileSystem(FILE_SYSTEM);
+  return true;
+}
+
+function getFsPanelState(panel) {
+  if (!panel) return null;
+  const key = panel.dataset.tabId || 'default';
+  if (!fsPanelStates[key]) {
+    fsPanelStates[key] = {
+      current: FILE_SYSTEM,
+      trail: [FILE_SYSTEM],
+      history: [],
+      future: [],
+      query: '',
+      selected: new Set(),
+      lastClickedIndex: -1,
+      visibleItems: []
+    };
+  }
+  return fsPanelStates[key];
+}
+
+function ensureFsRenameModal() {
+  if (fsRenameModalEl) return fsRenameModalEl;
+  const modal = document.createElement('div');
+  modal.className = 'fs-rename-modal';
+  modal.innerHTML = `
+    <div class="fs-rename-dialog">
+      <div class="fs-rename-header">
+        <div class="fs-rename-icon"><i data-lucide="pencil"></i></div>
+        <div>
+          <strong id="fs-rename-title">Renombrar</strong>
+          <small id="fs-rename-sub">Escribí el nuevo nombre</small>
         </div>
       </div>
-      <div class="browser-content">
-        <div class="browser-iframe-container" id="browser-iframe-${winId}">
-          <div class="browser-loading">
-            <div class="browser-loading-spinner"></div>
-            <p>Cargando página...</p>
-          </div>
-        </div>
+      <input class="fs-rename-input" id="fs-rename-input" type="text" maxlength="120" autocomplete="off">
+      <div class="fs-rename-actions">
+        <button class="fs-rename-btn" id="fs-rename-cancel" type="button">Cancelar</button>
+        <button class="fs-rename-btn primary" id="fs-rename-confirm" type="button">Confirmar</button>
       </div>
     </div>
   `;
-}
+  document.body.appendChild(modal);
+  fsRenameModalEl = modal;
 
-function setupBrowserApp(win) {
-  const winId = win.dataset.winId;
-  const state = getDefaultBrowserState();
-  browserState.set(winId, state);
+  const input = modal.querySelector('#fs-rename-input');
+  const cancel = modal.querySelector('#fs-rename-cancel');
+  const confirm = modal.querySelector('#fs-rename-confirm');
 
-  const urlInput = win.querySelector('.browser-url-input');
-  const iframeContainer = win.querySelector('.browser-iframe-container');
-  const backBtn = win.querySelector('[data-browser-back]');
-  const forwardBtn = win.querySelector('[data-browser-forward]');
-  const reloadBtn = win.querySelector('[data-browser-reload]');
-  const homeBtn = win.querySelector('[data-browser-home]');
-  const bookmarks = win.querySelectorAll('.browser-bookmark');
+  cancel.onclick = () => closeFsRenameModal();
 
-  if (!urlInput || !iframeContainer) return;
+  modal.onmousedown = (e) => {
+    if (e.target === modal) closeFsRenameModal();
+  };
 
-  let currentTimeout = null;
-
-  function clearTimers() {
-    if (currentTimeout) {
-      clearTimeout(currentTimeout);
-      currentTimeout = null;
+  confirm.onclick = () => {
+    const value = input.value.trim();
+    const cb = fsRenameCallback;
+    if (typeof cb === 'function') {
+      const ok = cb(value);
+      if (ok !== false) closeFsRenameModal();
+    } else {
+      closeFsRenameModal();
     }
-  }
+  };
 
-  function showBrowserFallback(container, url) {
-    clearTimers();
-    container.innerHTML = `
-      <div class="browser-fallback">
-        <div class="browser-fallback-icon"><i data-lucide="globe"></i></div>
-        <h3>Nebula Web</h3>
-        <p>No se puede mostrar <strong>${escapeHtml(url)}</strong> dentro del navegador.</p>
-        <p class="browser-fallback-hint">El sitio puede tener restricciones de seguridad (X-Frame-Options).</p>
-        <div class="browser-fallback-actions">
-          <button class="browser-fallback-btn" onclick="window.open('${escapeHtml(url)}', '_blank')">
-            <i data-lucide="external-link"></i> Abrir en pestaña externa
-          </button>
-          <button class="browser-fallback-btn" onclick="window.open('https://www.google.com/search?q=${encodeURIComponent(url)}', '_blank')">
-            <i data-lucide="search"></i> Buscar en Google
-          </button>
-        </div>
-        <div class="browser-fallback-search">
-          <i data-lucide="search"></i>
-          <input type="text" placeholder="Buscar en la web..." onkeydown="if(event.key==='Enter'){window.open('https://www.google.com/search?q='+encodeURIComponent(this.value),'_blank')}">
-        </div>
-      </div>
-    `;
-    refreshIcons();
-  }
-
-  function loadUrl(url) {
-    if (!url) return;
-    clearTimers();
-
-    let normalized = url.trim();
-    if (!/^https?:\/\//i.test(normalized)) {
-      if (normalized.includes('.') && !normalized.includes(' ')) {
-        normalized = 'https://' + normalized;
-      } else {
-        normalized = 'https://www.google.com/search?q=' + encodeURIComponent(normalized);
-      }
-    }
-
-    state.url = normalized;
-    urlInput.value = normalized;
-
-    iframeContainer.innerHTML = `
-      <div class="browser-loading">
-        <div class="browser-loading-spinner"></div>
-        <p>Cargando página...</p>
-      </div>
-    `;
-
-    const iframe = document.createElement('iframe');
-    iframe.className = 'browser-iframe';
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups');
-    iframe.setAttribute('referrerpolicy', 'no-referrer');
-
-    let resolved = false;
-
-    const resolveFallback = (reason) => {
-      if (resolved) return;
-      resolved = true;
-      clearTimers();
-      state.iframeError = true;
-      state.iframeLoaded = false;
-      showBrowserFallback(iframeContainer, normalized);
-    };
-
-    const resolveSuccess = () => {
-      if (resolved) return;
-      resolved = true;
-      clearTimers();
-      state.iframeError = false;
-      state.iframeLoaded = true;
-      iframeContainer.innerHTML = '';
-      iframeContainer.appendChild(iframe);
-    };
-
-    iframe.onload = () => {
-      try {
-        const doc = iframe.contentDocument || iframe.contentWindow.document;
-        if (doc && doc.body && doc.body.innerHTML.trim().length > 0) {
-          resolveSuccess();
-        } else {
-          resolveFallback('empty');
-        }
-      } catch (e) {
-        resolveFallback('cross-origin');
-      }
-    };
-
-    iframe.onerror = () => {
-      resolveFallback('error');
-    };
-
-    currentTimeout = setTimeout(() => {
-      resolveFallback('timeout');
-    }, 2500);
-
-    iframe.src = normalized;
-  }
-
-  function goBack() {
-    if (state.history.length === 0) return;
-    state.future.unshift(state.url);
-    const prev = state.history.pop();
-    loadUrl(prev);
-    updateNavButtons();
-  }
-
-  function goForward() {
-    if (state.future.length === 0) return;
-    state.history.push(state.url);
-    const next = state.future.shift();
-    loadUrl(next);
-    updateNavButtons();
-  }
-
-  function updateNavButtons() {
-    if (backBtn) backBtn.disabled = state.history.length === 0;
-    if (forwardBtn) forwardBtn.disabled = state.future.length === 0;
-  }
-
-  urlInput.addEventListener('keydown', (e) => {
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
     if (e.key === 'Enter') {
       e.preventDefault();
-      state.history.push(state.url);
-      state.future = [];
-      loadUrl(urlInput.value);
-      updateNavButtons();
+      confirm.click();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeFsRenameModal();
     }
   });
+  input.addEventListener('keyup', (e) => e.stopPropagation());
+  input.addEventListener('keypress', (e) => e.stopPropagation());
 
-  urlInput.addEventListener('focus', () => urlInput.select());
+  refreshIcons();
+  return modal;
+}
 
-  if (backBtn) backBtn.addEventListener('click', goBack);
-  if (forwardBtn) forwardBtn.addEventListener('click', goForward);
-  if (reloadBtn) reloadBtn.addEventListener('click', () => loadUrl(state.url));
-  if (homeBtn) homeBtn.addEventListener('click', () => {
-    state.history.push(state.url);
-    state.future = [];
-    loadUrl('https://www.google.com');
-    updateNavButtons();
+function openFsRenameModal(opts) {
+  const { title = 'Renombrar', sub = 'Escribí el nuevo nombre', initial = '', onConfirm } = opts || {};
+  const modal = ensureFsRenameModal();
+  modal.querySelector('#fs-rename-title').textContent = title;
+  modal.querySelector('#fs-rename-sub').textContent = sub;
+  const input = modal.querySelector('#fs-rename-input');
+  input.value = initial;
+  fsRenameCallback = onConfirm;
+
+  modal.classList.add('open');
+  setTimeout(() => {
+    input.focus();
+    input.select();
+  }, 60);
+}
+
+function closeFsRenameModal() {
+  if (fsRenameModalEl) fsRenameModalEl.classList.remove('open');
+  fsRenameCallback = null;
+}
+
+function ensureFsContextMenu() {
+  if (fsContextMenuEl) return fsContextMenuEl;
+  const el = document.createElement('div');
+  el.className = 'fs-context-menu';
+  document.body.appendChild(el);
+  fsContextMenuEl = el;
+  return el;
+}
+
+function hideFsContextMenu() {
+  if (fsContextMenuEl) {
+    fsContextMenuEl.classList.remove('open');
+    setTimeout(() => {
+      if (fsContextMenuEl) fsContextMenuEl.innerHTML = '';
+    }, 160);
+  }
+}
+
+function showFsContextMenu(ev, panel, targetItem, win) {
+  ev.preventDefault();
+  ev.stopPropagation();
+
+  const state = getFsPanelState(panel);
+
+  const menu = ensureFsContextMenu();
+  menu.innerHTML = '';
+
+  const isMulti = state.selected.size > 1;
+  const itemsCount = state.selected.size;
+
+  if (targetItem && !isMulti) {
+    const icon = targetItem.type === 'folder' ? 'folder' : targetItem.type === 'image' ? 'image' : targetItem.type === 'audio' ? 'music' : 'file-text';
+    const header = document.createElement('div');
+    header.className = 'fs-ctx-header';
+    header.innerHTML = `
+      <div class="fs-ctx-header-icon">
+        ${targetItem.type === 'image' && targetItem.path ? `<img src="${escapeHtml(targetItem.path)}" alt="" onerror="this.style.display='none';this.parentElement.innerHTML='<i data-lucide=\\'${icon}\\'></i>';" />` : `<i data-lucide="${icon}"></i>`}
+      </div>
+      <div class="fs-ctx-header-meta">
+        <div class="fs-ctx-header-title">${escapeHtml(targetItem.label || targetItem.name)}</div>
+        <div class="fs-ctx-header-sub">${targetItem.type === 'folder' ? 'Carpeta' : (targetItem.size || 'Archivo')}</div>
+      </div>
+    `;
+    menu.appendChild(header);
+  }
+
+  const appendItem = (opts) => {
+    const btn = document.createElement('button');
+    btn.className = 'fs-ctx-item' + (opts.danger ? ' danger' : '');
+    btn.type = 'button';
+    btn.innerHTML = `
+      <span class="fs-ctx-icon"><i data-lucide="${opts.icon}"></i></span>
+      <span class="fs-ctx-label">${escapeHtml(opts.label)}</span>
+      ${opts.shortcut ? `<span class="fs-ctx-shortcut">${escapeHtml(opts.shortcut)}</span>` : ''}
+    `;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hideFsContextMenu();
+      opts.action();
+    });
+    menu.appendChild(btn);
+  };
+
+  const appendSep = () => {
+    const sep = document.createElement('div');
+    sep.className = 'fs-ctx-sep';
+    menu.appendChild(sep);
+  };
+
+  if (targetItem && !isMulti) {
+    if (targetItem.type === 'folder') {
+      appendItem({
+        icon: 'folder-open',
+        label: 'Abrir carpeta',
+        action: () => fsOpenFolder(panel, targetItem)
+      });
+    } else if (targetItem.type === 'image') {
+      appendItem({
+        icon: 'image',
+        label: 'Establecer como fondo',
+        action: () => setCustomWallpaperFromFile(targetItem.path)
+      });
+    } else if (targetItem.type === 'audio') {
+      appendItem({
+        icon: 'play',
+        label: 'Reproducir',
+        action: () => toggleMediaPlayback()
+      });
+    }
+
+    appendItem({
+      icon: 'pencil',
+      label: 'Renombrar',
+      shortcut: 'F2',
+      action: () => fsPromptRename(panel, targetItem)
+    });
+
+    appendSep();
+  }
+
+  const moveLabel = isMulti ? `Mover ${itemsCount} elementos a...` : 'Mover a...';
+  appendItem({
+    icon: 'folder-input',
+    label: moveLabel,
+    action: () => fsPromptMove(panel, isMulti ? Array.from(state.selected) : [targetItem])
   });
 
-  bookmarks.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const site = btn.dataset.bookmark;
-      const urls = {
-        google: 'https://www.google.com',
-        youtube: 'https://www.youtube.com',
-        github: 'https://www.github.com',
-        wikipedia: 'https://www.wikipedia.org'
-      };
-      if (urls[site]) {
-        state.history.push(state.url);
-        state.future = [];
-        loadUrl(urls[site]);
-        updateNavButtons();
+  if (targetItem && !isMulti) {
+    appendItem({
+      icon: 'check-square',
+      label: 'Seleccionar',
+      action: () => {
+        state.selected.clear();
+        state.selected.add(targetItem);
+        fsRefresh(panel);
       }
+    });
+  }
+
+  if (itemsCount > 0) {
+    appendSep();
+    appendItem({
+      icon: 'trash-2',
+      label: isMulti ? `Eliminar ${itemsCount} elementos` : 'Eliminar',
+      shortcut: 'Supr',
+      danger: true,
+      action: () => fsDeleteSelection(panel)
+    });
+  }
+
+  appendSep();
+  appendItem({
+    icon: 'folder-plus',
+    label: 'Nueva carpeta aquí',
+    action: () => fsCreateFolder(panel)
+  });
+  appendItem({
+    icon: 'file-plus',
+    label: 'Nuevo archivo de texto',
+    action: () => fsCreateFile(panel)
+  });
+
+  menu.classList.add('open');
+  refreshIcons();
+
+  const rect = menu.getBoundingClientRect();
+  const margin = 10;
+  let left = ev.clientX;
+  let top = ev.clientY;
+  if (left + rect.width + margin > window.innerWidth) left = window.innerWidth - rect.width - margin;
+  if (top + rect.height + margin > window.innerHeight) top = window.innerHeight - rect.height - margin;
+  left = Math.max(margin, left);
+  top = Math.max(margin, top);
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+}
+
+function fsOpenFolder(panel, folder) {
+  const state = getFsPanelState(panel);
+  state.history.push(state.current);
+  state.future = [];
+  state.current = folder;
+  state.trail = [FILE_SYSTEM, ...fsBuildTrail(folder)];
+  state.query = '';
+  state.selected.clear();
+  const search = panel.querySelector('[data-files-search]');
+  if (search) search.value = '';
+  fsRefresh(panel);
+}
+
+function fsBuildTrail(folder) {
+  const path = [];
+  let cursor = folder;
+  while (cursor && cursor !== FILE_SYSTEM) {
+    path.unshift(cursor);
+    cursor = fsFindParent(cursor);
+  }
+  return path;
+}
+
+function fsPromptRename(panel, item) {
+  openFsRenameModal({
+    title: 'Renombrar',
+    sub: item.type === 'folder' ? 'Carpeta' : 'Archivo',
+    initial: item.name,
+    onConfirm: (value) => {
+      if (!value) return false;
+      const ok = fsRenameItem(item, value);
+      if (ok) {
+        showToast('Renombrado', `"${item.name}" actualizado.`, 'pencil');
+        fsRefresh(panel);
+      }
+      return ok;
+    }
+  });
+}
+
+function fsPromptMove(panel, items) {
+  const state = getFsPanelState(panel);
+  const folders = [];
+  const collectFolders = (folder, depth = 0) => {
+    if (folder !== FILE_SYSTEM) folders.push({ folder, depth });
+    (folder.children || []).forEach(child => {
+      if (child.type === 'folder') collectFolders(child, depth + 1);
+    });
+  };
+  collectFolders(FILE_SYSTEM);
+
+  if (folders.length === 0) {
+    showToast('Sin carpetas', 'No hay carpetas destino disponibles.', 'folder');
+    return;
+  }
+
+  const menu = document.createElement('div');
+  menu.className = 'fs-context-menu';
+  menu.style.position = 'fixed';
+  document.body.appendChild(menu);
+
+  const header = document.createElement('div');
+  header.className = 'fs-ctx-header';
+  header.innerHTML = `
+    <div class="fs-ctx-header-icon"><i data-lucide="folder-input"></i></div>
+    <div class="fs-ctx-header-meta">
+      <div class="fs-ctx-header-title">Mover a...</div>
+      <div class="fs-ctx-header-sub">${items.length} elemento${items.length === 1 ? '' : 's'}</div>
+    </div>
+  `;
+  menu.appendChild(header);
+
+  folders.forEach(({ folder, depth }) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'fs-ctx-item';
+    btn.innerHTML = `
+      <span class="fs-ctx-icon"><i data-lucide="folder"></i></span>
+      <span class="fs-ctx-label" style="padding-left:${depth * 10}px;">${escapeHtml(folder.label || folder.name)}</span>
+    `;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      let moved = 0;
+      items.forEach(item => {
+        if (fsMoveItem(item, folder)) moved++;
+      });
+      hideAllFsMoveMenus();
+      if (moved > 0) {
+        showToast('Movido', `${moved} elemento${moved === 1 ? '' : 's'} → ${folder.label || folder.name}`, 'folder-input');
+        state.selected.clear();
+        fsRefresh(panel);
+      }
+    });
+    menu.appendChild(btn);
+  });
+
+  const closeHandler = (e) => {
+    if (!menu.contains(e.target)) {
+      hideAllFsMoveMenus();
+      document.removeEventListener('mousedown', closeHandler);
+    }
+  };
+  setTimeout(() => document.addEventListener('mousedown', closeHandler), 50);
+
+  const rect = menu.getBoundingClientRect();
+  const margin = 10;
+  let left = window.innerWidth - rect.width - margin - 20;
+  let top = 80;
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+  menu.style.zIndex = '2760';
+  menu.classList.add('open');
+  refreshIcons();
+}
+
+function hideAllFsMoveMenus() {
+  document.querySelectorAll('.fs-context-menu').forEach(el => {
+    if (el === fsContextMenuEl) {
+      el.classList.remove('open');
+      setTimeout(() => { if (el) el.innerHTML = ''; }, 160);
+    } else {
+      el.remove();
+    }
+  });
+}
+
+function fsDeleteSelection(panel) {
+  const state = getFsPanelState(panel);
+  const items = Array.from(state.selected);
+  if (items.length === 0) return;
+
+  items.forEach(item => fsRemoveItem(item));
+  state.selected.clear();
+
+  showToast('Eliminado', `${items.length} elemento${items.length === 1 ? '' : 's'} eliminado${items.length === 1 ? '' : 's'}.`, 'trash-2');
+  fsRefresh(panel);
+}
+
+function fsCreateFolder(panel) {
+  const state = getFsPanelState(panel);
+  const parent = state.current;
+  const baseName = 'Nueva carpeta';
+  const unique = fsGenerateUniqueName(baseName, parent);
+  fsAddItem(parent, { name: unique, label: unique, type: 'folder', children: [] });
+  showToast('Carpeta creada', `"${unique}" creada.`, 'folder-plus');
+  fsRefresh(panel);
+}
+
+function fsCreateFile(panel) {
+  const state = getFsPanelState(panel);
+  const parent = state.current;
+  const baseName = 'Nuevo archivo.txt';
+  const unique = fsGenerateUniqueName(baseName, parent);
+  fsAddItem(parent, { name: unique, type: 'text', path: './message.txt', size: 'TXT · Documento' });
+  showToast('Archivo creado', `"${unique}" creado.`, 'file-plus');
+  fsRefresh(panel);
+}
+
+function fsRefresh(panel) {
+  if (!panel) return;
+  const state = getFsPanelState(panel);
+  if (!state) return;
+
+  const explorer = panel;
+  const grid = explorer.querySelector('.files-grid');
+  const titleEl = explorer.querySelector('[data-files-title]');
+  const pathEl = explorer.querySelector('[data-files-path]');
+  const preview = explorer.querySelector('[data-files-preview]');
+  const toolbar = explorer.querySelector('.files-toolbar');
+  if (!grid) return;
+
+  const q = (state.query || '').toLowerCase();
+  const items = (state.current.children || []).filter(item =>
+    !q || item.name.toLowerCase().includes(q) || (item.label || '').toLowerCase().includes(q)
+  );
+  state.visibleItems = items;
+
+  if (titleEl) titleEl.textContent = state.current.label || state.current.name;
+  if (pathEl) {
+    const trailNames = [FILE_SYSTEM.label || FILE_SYSTEM.name, ...state.trail.slice(1).map(f => f.label || f.name)];
+    pathEl.textContent = trailNames.join(' / ');
+  }
+
+  let counter = toolbar?.querySelector('.files-sel-counter');
+  if (!counter && toolbar) {
+    counter = document.createElement('span');
+    counter.className = 'files-sel-counter';
+    toolbar.appendChild(counter);
+  }
+  if (counter) {
+    if (state.selected.size > 0) {
+      counter.textContent = `${state.selected.size} sel.`;
+      counter.style.display = '';
+    } else {
+      counter.style.display = 'none';
+    }
+  }
+
+  let delBtn = toolbar?.querySelector('[data-files-delete]');
+  if (delBtn) delBtn.disabled = state.selected.size === 0;
+
+  grid.innerHTML = items.length ? items.map((item, idx) => {
+    const isFolder = item.type === 'folder';
+    const isSelected = state.selected.has(item);
+    const iconName = isFolder ? 'folder' : item.type === 'image' ? 'image' : item.type === 'audio' ? 'music' : 'file-text';
+    return `
+      <button class="explorer-item ${isFolder ? 'folder-drop' : ''} ${isSelected ? 'selected' : ''}"
+              type="button"
+              data-fs-item-index="${idx}"
+              draggable="true">
+        <span class="file-visual">
+          ${item.type === 'image' && item.path ? `<img src="${escapeHtml(item.path)}" alt="" onerror="this.style.display='none';this.parentElement.innerHTML='<span class=&quot;file-type-icon&quot;><i data-lucide=&quot;${iconName}&quot;></i></span>';refreshIcons();" />` : `<span class="file-type-icon"><i data-lucide="${iconName}"></i></span>`}
+        </span>
+        <strong>${escapeHtml(item.label || item.name)}</strong>
+        <small>${isFolder ? `${(item.children || []).length} elementos` : escapeHtml((item.size || 'Archivo').split(' · ')[0])}</small>
+      </button>
+    `;
+  }).join('') : '<div class="files-no-results" style="grid-column: 1/-1; padding: 20px; text-align: center; color: var(--text-sub); font-size: 11px;">No hay elementos que coincidan.</div>';
+
+  refreshIcons();
+  fsBindGridEvents(panel);
+
+  if (preview && state.selected.size !== 1) {
+    preview.innerHTML = '<div class="files-empty-preview" style="color: var(--text-sub); font-size: 11px;">Seleccioná un archivo para previsualización interactiva rápida.</div>';
+  }
+}
+
+function fsBindGridEvents(panel) {
+  const state = getFsPanelState(panel);
+  if (!state) return;
+  const explorer = panel;
+  if (!explorer) return;
+  const grid = explorer.querySelector('.files-grid');
+  if (!grid) return;
+
+  grid.querySelectorAll('.explorer-item').forEach(el => {
+    const idx = parseInt(el.dataset.fsItemIndex, 10);
+    const item = state.visibleItems[idx];
+    if (!item) return;
+
+    el.addEventListener('dragstart', (e) => {
+      if (!state.selected.has(item)) {
+        state.selected.clear();
+        state.selected.add(item);
+      }
+      const draggingItems = Array.from(state.selected);
+
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('application/x-nebula-fs-items', JSON.stringify(draggingItems.map(i => i.name)));
+
+      el.classList.add('dragging');
+      grid.querySelectorAll('.explorer-item').forEach(otherEl => {
+        const otherIdx = parseInt(otherEl.dataset.fsItemIndex, 10);
+        const otherItem = state.visibleItems[otherIdx];
+        if (otherItem && state.selected.has(otherItem)) otherEl.classList.add('dragging');
+      });
+
+      try {
+        e.dataTransfer.setDragImage(el, el.offsetWidth / 2, el.offsetHeight / 2);
+      } catch (_) {}
+
+      fsRefresh(panel);
+    });
+
+    el.addEventListener('dragend', () => {
+      grid.querySelectorAll('.explorer-item').forEach(x => x.classList.remove('dragging'));
+      grid.querySelectorAll('.explorer-item').forEach(x => x.classList.remove('drag-over'));
+    });
+
+    if (item.type === 'folder') {
+      el.addEventListener('dragover', (e) => {
+        if (!e.dataTransfer.types.includes('application/x-nebula-fs-items')) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        el.classList.add('drag-over');
+      });
+
+      el.addEventListener('dragleave', (e) => {
+        if (!el.contains(e.relatedTarget)) {
+          el.classList.remove('drag-over');
+        }
+      });
+
+      el.addEventListener('drop', (e) => {
+        e.preventDefault();
+        el.classList.remove('drag-over');
+        fsHandleDrop(panel, e, item);
+      });
+    }
+
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (e.shiftKey && state.lastClickedIndex !== -1) {
+        const from = Math.min(state.lastClickedIndex, idx);
+        const to = Math.max(state.lastClickedIndex, idx);
+        for (let i = from; i <= to; i++) {
+          if (state.visibleItems[i]) state.selected.add(state.visibleItems[i]);
+        }
+      } else if (e.ctrlKey || e.metaKey) {
+        if (state.selected.has(item)) state.selected.delete(item);
+        else state.selected.add(item);
+        state.lastClickedIndex = idx;
+      } else {
+        state.selected.clear();
+        state.selected.add(item);
+        state.lastClickedIndex = idx;
+      }
+      fsRefresh(panel);
+      fsUpdatePreview(panel);
+    });
+
+    el.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      if (item.type === 'folder') {
+        fsOpenFolder(panel, item);
+      } else {
+        fsUpdatePreview(panel);
+      }
+    });
+
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!state.selected.has(item)) {
+        state.selected.clear();
+        state.selected.add(item);
+        fsRefresh(panel);
+      }
+      showFsContextMenu(e, panel, item, openWindows[panel.dataset.winId]?.win);
     });
   });
 
-  loadUrl(state.url);
-  updateNavButtons();
+  grid.addEventListener('click', (e) => {
+    if (e.target === grid || e.target.classList.contains('files-no-results')) {
+      state.selected.clear();
+      state.lastClickedIndex = -1;
+      fsRefresh(panel);
+      const preview = explorer.querySelector('[data-files-preview]');
+      if (preview) preview.innerHTML = '<div class="files-empty-preview" style="color: var(--text-sub); font-size: 11px;">Seleccioná un archivo para previsualización interactiva rápida.</div>';
+    }
+  });
+
+  grid.addEventListener('contextmenu', (e) => {
+    if (e.target.closest('.explorer-item')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    state.selected.clear();
+    fsRefresh(panel);
+    showFsContextMenu(e, panel, null, openWindows[panel.dataset.winId]?.win);
+  });
+
+  grid.addEventListener('dragover', (e) => {
+    if (!e.dataTransfer.types.includes('application/x-nebula-fs-items')) return;
+    if (e.target.closest('.explorer-item')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    grid.classList.add('drag-over-empty');
+  });
+  grid.addEventListener('dragleave', (e) => {
+    if (!grid.contains(e.relatedTarget)) {
+      grid.classList.remove('drag-over-empty');
+    }
+  });
+  grid.addEventListener('drop', (e) => {
+    if (!e.dataTransfer.types.includes('application/x-nebula-fs-items')) return;
+    if (e.target.closest('.explorer-item')) return;
+    e.preventDefault();
+    grid.classList.remove('drag-over-empty');
+    fsHandleDropToCurrent(panel, e);
+  });
+}
+
+function fsHandleDrop(panel, e, targetFolder) {
+  fsHandleDropToFolder(panel, e, targetFolder);
+}
+
+function fsHandleDropToCurrent(panel, e) {
+  const state = getFsPanelState(panel);
+  fsHandleDropToFolder(panel, e, state.current);
+}
+
+function fsHandleDropToFolder(panel, e, targetFolder) {
+  const state = getFsPanelState(panel);
+  let names = [];
+  try {
+    names = JSON.parse(e.dataTransfer.getData('application/x-nebula-fs-items') || '[]');
+  } catch (_) {}
+
+  if (!Array.isArray(names) || names.length === 0) {
+    names = Array.from(state.selected).map(i => i.name);
+  }
+
+  let moved = 0;
+  let failed = 0;
+
+  names.forEach(name => {
+    const item = fsFindItemByName(name);
+    if (!item) { failed++; return; }
+    if (item === targetFolder) { failed++; return; }
+    if (item.type === 'folder') {
+      let cursor = targetFolder;
+      while (cursor) {
+        if (cursor === item) { failed++; return; }
+        cursor = fsFindParent(cursor);
+      }
+    }
+    if (fsMoveItem(item, targetFolder)) moved++;
+    else failed++;
+  });
+
+  if (moved > 0) {
+    showToast('Movido', `${moved} elemento${moved === 1 ? '' : 's'} → ${targetFolder.label || targetFolder.name}${failed ? ` (${failed} fallaron)` : ''}`, 'folder-input');
+  } else if (failed > 0) {
+    showToast('No se pudo mover', 'El destino no es válido o ya contiene esos elementos.', 'alert-circle');
+  }
+
+  state.selected.clear();
+  fsRefresh(panel);
+}
+
+function fsUpdatePreview(panel) {
+  const state = getFsPanelState(panel);
+  const explorer = panel;
+  if (!explorer) return;
+  const preview = explorer.querySelector('[data-files-preview]');
+  if (!preview) return;
+
+  const items = Array.from(state.selected);
+  if (items.length === 0) {
+    preview.innerHTML = '<div class="files-empty-preview" style="color: var(--text-sub); font-size: 11px;">Seleccioná un archivo para previsualización interactiva rápida.</div>';
+    return;
+  }
+  if (items.length > 1) {
+    preview.innerHTML = `
+      <div style="color: var(--text-sub); font-size: 11px;">
+        <strong style="color:#fff; font-size:12px; display:block; margin-bottom:4px;">${items.length} elementos seleccionados</strong>
+        Usá <kbd style="font-family:'JetBrains Mono',monospace; font-size:10px; background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:4px; color:var(--accent);">Supr</kbd> para eliminar o <kbd style="font-family:'JetBrains Mono',monospace; font-size:10px; background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:4px; color:var(--accent);">click derecho</kbd> para más acciones.
+      </div>
+    `;
+    return;
+  }
+
+  const item = items[0];
+  if (item.type === 'image') {
+    preview.innerHTML = `
+      <div style="display:flex; gap:12px; align-items:center;">
+        <img src="${escapeHtml(item.path || '')}" alt="${escapeHtml(item.name)}" style="width:75px; height:60px; border-radius:6px; object-fit:cover;">
+        <div>
+          <strong style="color:#fff; font-size:12px;">${escapeHtml(item.name)}</strong>
+          <small style="display:block; color:var(--text-sub); font-size:10px;">${escapeHtml(item.size || '')}</small>
+          ${item.path ? `<button class="preview-set-wall-btn" type="button" onclick="setCustomWallpaperFromFile('${item.path.replace(/'/g, "\\'")}')"><i data-lucide="image"></i> Establecer de fondo</button>` : ''}
+        </div>
+      </div>
+    `;
+  } else if (item.type === 'audio') {
+    preview.innerHTML = `
+      <div>
+        <strong style="color:#fff; font-size:12px;"><i data-lucide="music" style="width:14px; height:14px; color:var(--accent);"></i> ${escapeHtml(item.name)}</strong>
+        <small style="display:block; color:var(--text-sub); font-size:10px;">${escapeHtml(item.size || '')}</small>
+        <div class="preview-audio-player">
+          <button class="preview-play-btn" type="button" onclick="toggleMediaPlayback()"><i data-lucide="play"></i></button>
+          <div class="preview-audio-wave">
+            <span style="height:40%;"></span><span style="height:80%;"></span><span style="height:60%;"></span>
+            <span style="height:100%;"></span><span style="height:50%;"></span><span style="height:70%;"></span>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (item.type === 'folder') {
+    preview.innerHTML = `
+      <div>
+        <strong style="color:#fff; font-size:12px;"><i data-lucide="folder" style="width:14px; height:14px; color:var(--accent);"></i> ${escapeHtml(item.label || item.name)}</strong>
+        <small style="display:block; color:var(--text-sub); font-size:10px;">Carpeta · ${(item.children || []).length} elementos</small>
+      </div>
+    `;
+  } else {
+    preview.innerHTML = `
+      <div>
+        <strong style="color:#fff; font-size:12px;"><i data-lucide="file-text" style="width:14px; height:14px; color:var(--accent);"></i> ${escapeHtml(item.name)}</strong>
+        <small style="display:block; color:var(--text-sub); font-size:10px;">${escapeHtml(item.size || '')} · Solo lectura</small>
+        <div style="margin-top:6px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-sub); background:rgba(0,0,0,0.3); padding:6px; border-radius:4px; max-height:80px; overflow:hidden;">
+          // Nebula OS File Descriptor\\n// Archivo listo para ejecución y lectura
+        </div>
+      </div>
+    `;
+  }
+  refreshIcons();
+}
+
+function setupFiles(panel) {
+  if (!panel) return;
+
+  if (!FILE_SYSTEM || typeof FILE_SYSTEM !== 'object' || !Array.isArray(FILE_SYSTEM.children)) {
+    FILE_SYSTEM = getDefaultFileSystem();
+  }
+
+  const state = getFsPanelState(panel);
+  state.current = FILE_SYSTEM;
+  state.trail = [FILE_SYSTEM];
+  state.selected = new Set();
+
+  const grid = panel.querySelector('.files-grid');
+  const search = panel.querySelector('[data-files-search]');
+  const back = panel.querySelector('[data-files-back]');
+  const forward = panel.querySelector('[data-files-forward]');
+
+  const toolbar = panel.querySelector('.files-toolbar');
+  if (toolbar && !toolbar.querySelector('[data-files-toolbar-extras]')) {
+    const extras = document.createElement('div');
+    extras.setAttribute('data-files-toolbar-extras', '');
+    extras.style.display = 'flex';
+    extras.style.gap = '6px';
+    extras.style.marginLeft = 'auto';
+    extras.innerHTML = `
+      <button class="files-toolbar-btn" type="button" data-files-newfolder title="Nueva carpeta (Ctrl+Shift+N)">
+        <i data-lucide="folder-plus"></i> Nueva carpeta
+      </button>
+      <button class="files-toolbar-btn danger" type="button" data-files-delete title="Eliminar seleccionados (Supr)" disabled>
+        <i data-lucide="trash-2"></i> Eliminar
+      </button>
+    `;
+    const searchEl = toolbar.querySelector('.files-search');
+    if (searchEl) toolbar.insertBefore(extras, searchEl);
+    else toolbar.appendChild(extras);
+
+    if (searchEl) searchEl.style.marginLeft = '8px';
+
+    extras.querySelector('[data-files-newfolder]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fsCreateFolder(panel);
+    });
+    extras.querySelector('[data-files-delete]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fsDeleteSelection(panel);
+    });
+  }
+
+  if (search) {
+    search.addEventListener('input', () => {
+      state.query = search.value.trim().toLowerCase();
+      fsRefresh(panel);
+    });
+  }
+
+  if (back) {
+    back.addEventListener('click', () => {
+      if (state.history.length === 0) return;
+      const prev = state.history.pop();
+      state.future.unshift(state.current);
+      state.current = prev;
+      state.trail = [FILE_SYSTEM, ...fsBuildTrail(prev)];
+      state.query = '';
+      if (search) search.value = '';
+      state.selected.clear();
+      fsRefresh(panel);
+    });
+  }
+  if (forward) {
+    forward.addEventListener('click', () => {
+      if (state.future.length === 0) return;
+      const next = state.future.shift();
+      state.history.push(state.current);
+      state.current = next;
+      state.trail = [FILE_SYSTEM, ...fsBuildTrail(next)];
+      state.query = '';
+      if (search) search.value = '';
+      state.selected.clear();
+      fsRefresh(panel);
+    });
+  }
+
+  panel.querySelectorAll('[data-files-location]').forEach(button => {
+    button.addEventListener('click', () => {
+      const folder = fsFindFolder(button.dataset.filesLocation);
+      if (!folder) return;
+      panel.querySelectorAll('[data-files-location]').forEach(b => b.classList.remove('active'));
+      button.classList.add('active');
+      state.history.push(state.current);
+      state.future = [];
+      state.current = folder;
+      state.trail = [FILE_SYSTEM, ...fsBuildTrail(folder)];
+      state.query = '';
+      if (search) search.value = '';
+      state.selected.clear();
+      fsRefresh(panel);
+    });
+  });
+
+  panel.addEventListener('keydown', (e) => {
+    const tag = document.activeElement?.tagName?.toLowerCase();
+    const isInput = tag === 'input' || tag === 'textarea';
+    if (e.target.closest('.fs-rename-modal')) return;
+
+    if (e.key === 'F2' && state.selected.size === 1) {
+      e.preventDefault();
+      const item = Array.from(state.selected)[0];
+      fsPromptRename(panel, item);
+    } else if (e.key === 'Delete' && state.selected.size > 0 && !isInput) {
+      e.preventDefault();
+      fsDeleteSelection(panel);
+    } else if (e.key === 'a' && (e.ctrlKey || e.metaKey) && !isInput) {
+      e.preventDefault();
+      state.visibleItems.forEach(item => state.selected.add(item));
+      fsRefresh(panel);
+    } else if (e.key === 'n' && e.shiftKey && (e.ctrlKey || e.metaKey) && !isInput) {
+      e.preventDefault();
+      fsCreateFolder(panel);
+    }
+  });
+
+  fsRefresh(panel);
+}
+
+function searchFilesInSystem(query, folder = FILE_SYSTEM, trail = []) {
+  const results = [];
+  const q = (query || '').toLowerCase();
+  const children = folder.children || [];
+
+  children.forEach(child => {
+    const pathHere = [...trail, child.label || child.name];
+    if (child.type === 'folder') {
+      if (child.name.toLowerCase().includes(q)) {
+        results.push({
+          id: 'file-' + pathHere.join('/'),
+          title: child.label || child.name,
+          sub: 'Carpeta · ' + pathHere.join(' / '),
+          icon: 'folder',
+          category: 'Archivo',
+          keywords: [child.name],
+          run: () => { openApp('files'); showToast('Archivo encontrado', `Carpeta en ${pathHere.join(' / ')}`, 'folder'); }
+        });
+      }
+      const sub = searchFilesInSystem(query, child, pathHere);
+      sub.forEach(r => results.push(r));
+    } else {
+      if (child.name.toLowerCase().includes(q)) {
+        results.push({
+          id: 'file-' + pathHere.join('/'),
+          title: child.name,
+          sub: (child.size || 'Archivo') + ' · ' + pathHere.join(' / '),
+          icon: child.type === 'image' ? 'image' : child.type === 'audio' ? 'music' : 'file-text',
+          category: 'Archivo',
+          keywords: [child.name],
+          run: () => {
+            openApp('files');
+            showToast('Archivo encontrado', `Abriendo ${child.name}`, 'folder');
+          }
+        });
+      }
+    }
+  });
+
+  return results;
+}
+
+function setCustomWallpaperFromFile(imgPath) {
+  const screen = document.getElementById('screen');
+  if (screen) {
+    screen.style.backgroundImage = `linear-gradient(rgba(8, 9, 17, 0.42), rgba(8, 9, 17, 0.58)), url("${imgPath}")`;
+    showToast('Fondo Actualizado', 'Nueva imagen establecida como fondo de pantalla.', 'image');
+  }
 }
 
 /* ================= CONTROL MULTIMEDIA ================= */
@@ -2856,10 +3359,6 @@ function showToast(title, message, iconName = 'sparkles', force = false) {
   refreshIcons();
   setTimeout(() => toast.remove(), 4000);
 }
-
-/* =====================================================
-   ★ CENTRO DE NOTIFICACIONES — Lógica
-===================================================== */
 
 function addNotificationToHistory(title, message, iconName = 'sparkles') {
   notifIdCounter++;
@@ -3057,7 +3556,6 @@ function loadNotifications() {
   } catch (e) {}
 }
 
-/* ================= PERSISTENCIA & CONFIG ================= */
 function loadPersistedState() {
   try {
     const savedGm = localStorage.getItem(GAMEMODE_STORAGE_KEY);
@@ -3161,7 +3659,6 @@ function toggleSetting(setting) {
   } catch (e) {}
 }
 
-/* ================= GESTIÓN DE WORKSPACES ================= */
 function switchWorkspace(num) {
   currentWorkspace = num;
   
@@ -3230,7 +3727,6 @@ function moveWindowToWorkspace(winId, targetWs) {
   return true;
 }
 
-/* ================= SLIDERS FUNCIONALES ================= */
 function setupSliders() {
   const initSlider = (id, callback) => {
     const slider = document.getElementById(id);
@@ -3576,7 +4072,6 @@ function setupMediaPlayer() {
   }, 1000);
 }
 
-/* ================= UTILIDADES VISUALES ================= */
 function createStars() {
   const bg = document.getElementById('background-layer');
   if (!bg) return;
@@ -3669,13 +4164,9 @@ function getAppTileHTML(appId) {
   return `<div class="app-tile ${app.tileClass}" title="${app.title}"><i data-lucide="${app.icon}"></i></div>`;
 }
 
-/* =====================================================
-   ★ DOCK CONTEXT MENU
-===================================================== */
 function showDockContextMenu(appId, event) {
   const app = APPS[appId];
   if (!app) return;
-
   hideDockContextMenu();
 
   const instances = getInstancesOfApp(appId);
@@ -3729,11 +4220,9 @@ function showDockContextMenu(appId, event) {
   }
 
   menu.innerHTML = html;
-
   document.body.appendChild(menu);
   dockContextMenuEl = menu;
   dockContextMenuAppId = appId;
-
   refreshIcons();
 
   const menuRect = menu.getBoundingClientRect();
@@ -3744,11 +4233,7 @@ function showDockContextMenu(appId, event) {
 
   let left = anchorRect.left + (anchorRect.right - anchorRect.left) / 2 - menuRect.width / 2;
   let top = anchorRect.top - menuRect.height - 12;
-
-  if (top < margin) {
-    top = anchorRect.bottom + 12;
-  }
-
+  if (top < margin) top = anchorRect.bottom + 12;
   left = Math.max(margin, Math.min(window.innerWidth - menuRect.width - margin, left));
   top = Math.max(margin, Math.min(window.innerHeight - menuRect.height - margin, top));
 
@@ -3758,24 +4243,17 @@ function showDockContextMenu(appId, event) {
   menu.querySelectorAll('.dock-context-item[data-action]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const action = btn.dataset.action;
-      handleDockContextAction(action, appId);
+      handleDockContextAction(btn.dataset.action, appId);
     });
   });
 
-  requestAnimationFrame(() => {
-    menu.classList.add('open');
-  });
-
+  requestAnimationFrame(() => menu.classList.add('open'));
   refreshIcons();
 }
 
 function handleDockContextAction(action, appId) {
   switch (action) {
-    case 'open-new': {
-      openApp(appId, true);
-      break;
-    }
+    case 'open-new': openApp(appId, true); break;
     case 'focus': {
       const lastId = getLastInstanceOfApp(appId);
       if (lastId) {
@@ -3806,7 +4284,6 @@ function hideDockContextMenu() {
   }
 }
 
-/* ================= DOCK ================= */
 function renderDock() {
   const dock = document.getElementById('dock');
   if (!dock) return;
@@ -3847,10 +4324,11 @@ function renderDock() {
       div.appendChild(badge);
     }
 
-    div.onclick = (e) => {
+      div.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
       const forceNew = e.ctrlKey || e.metaKey || e.button === 1;
       if (forceNew) {
-        e.preventDefault();
         openApp(id, true);
       } else {
         openApp(id);
@@ -3865,7 +4343,6 @@ function renderDock() {
     div.onmousedown = (e) => {
       if (e.button === 1) e.preventDefault();
     };
-
     div.oncontextmenu = (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -3885,7 +4362,6 @@ function renderDock() {
   refreshIcons();
 }
 
-/* ================= DOCK HOVER PREVIEW ================= */
 function buildDockPreviewHTML(appId) {
   const app = APPS[appId];
   const instances = getInstancesOfApp(appId);
@@ -3994,7 +4470,6 @@ function showDockPreview(appId, dockItemEl) {
 
     requestAnimationFrame(() => preview.classList.add('visible'));
     refreshIcons();
-
     dockPreviewEl = preview;
   }, 180);
 }
@@ -4032,9 +4507,6 @@ function updateTopBar(winId) {
   }
 }
 
-/* =====================================================
-   WINDOW MANAGER — Administrador de Escritorios
-===================================================== */
 function toggleWindowManager() {
   if (windowManagerOpen) {
     closeWindowManager();
@@ -4059,17 +4531,14 @@ function openWindowManager() {
   hideContextMenu();
   hideDockContextMenu();
   hideWmCardContextMenu();
-
   refreshIcons();
 }
 
 function closeWindowManager() {
   const overlay = document.getElementById('window-manager-overlay');
   if (!overlay) return;
-
   cleanupWmDrag();
   hideWmCardContextMenu();
-
   windowManagerOpen = false;
   overlay.classList.remove('open');
   overlay.setAttribute('aria-hidden', 'true');
@@ -4159,7 +4628,6 @@ function renderWindowManager() {
   });
 
   setupWmDragAndDrop();
-
   const activeWsWinIds = getWindowsInWorkspace(currentWorkspace);
 
   if (sectionTitle) {
@@ -4260,7 +4728,7 @@ function renderWindowManager() {
   grid.querySelectorAll('.wm-card[data-wm-win]').forEach(card => {
     const winId = card.dataset.wmWin;
 
-    card.addEventListener('click', (e) => {
+    card.addEventListener('click', () => {
       if (wmDragState) return;
       focusFromWindowManager(winId);
     });
@@ -4294,13 +4762,9 @@ function focusFromWindowManager(winId) {
   }
 
   focusWindow(winId);
-
   closeWindowManager();
 }
 
-/* =====================================================
-   ★ WM TRASH ZONE
-===================================================== */
 function setupWmTrashZone() {
   const trash = document.getElementById('wm-trash-zone');
   if (!trash) return;
@@ -4322,14 +4786,10 @@ function setupWmTrashZone() {
     e.preventDefault();
     e.stopPropagation();
     trash.classList.remove('drag-over');
-
     if (!wmDragState) return;
-
     const { winId } = wmDragState;
     if (!winId || !openWindows[winId]) return;
-
     deleteWindowFromWm(winId);
-
     wmDragState.justDropped = true;
   });
 }
@@ -4338,7 +4798,6 @@ function setWmDragActive(active) {
   const overlay = document.getElementById('window-manager-overlay');
   const strip = document.getElementById('wm-workspaces-strip');
   if (!overlay) return;
-
   overlay.classList.toggle('wm-drag-active', active);
   if (strip) strip.classList.toggle('wm-dragging', active);
 }
@@ -4347,31 +4806,19 @@ function deleteWindowFromWm(winId) {
   const entry = openWindows[winId];
   if (!entry?.win) return;
 
-  const win = entry.win;
   const appTitle = APPS[entry.appId]?.title || entry.appId;
-
   const card = document.querySelector(`.wm-card[data-wm-win="${winId}"]`);
-  if (card) {
-    card.classList.add('deleting');
-  }
+  if (card) card.classList.add('deleting');
 
   setTimeout(() => {
     closeApp(winId);
-    showToast(
-      'Ventana eliminada',
-      `${appTitle} fue cerrada.`,
-      'trash-2'
-    );
+    showToast('Ventana eliminada', `${appTitle} fue cerrada.`, 'trash-2');
   }, 320);
 }
 
-/* =====================================================
-   ★ WM CARD CONTEXT MENU
-===================================================== */
 function showWmCardContextMenu(winId, event) {
   const entry = openWindows[winId];
   if (!entry?.win) return;
-
   const app = APPS[entry.appId];
   if (!app) return;
 
@@ -4402,9 +4849,7 @@ function showWmCardContextMenu(winId, event) {
         <span class="wm-ctx-sub">Space ${winWs}${isMinimized ? ' · Minimizada' : ''}</span>
       </div>
     </div>
-  `;
 
-  html += `
     <button class="wm-ctx-item" data-action="focus" type="button">
       <span class="wm-ctx-icon-left"><i data-lucide="focus"></i></span>
       <span class="wm-ctx-label">Enfocar ventana</span>
@@ -4459,38 +4904,26 @@ function showWmCardContextMenu(winId, event) {
   `;
 
   menu.innerHTML = html;
-
   document.body.appendChild(menu);
   wmCardContextMenuEl = menu;
   wmCardContextMenuWinId = winId;
-
   refreshIcons();
 
   const menuRect = menu.getBoundingClientRect();
   const margin = 10;
-
   let left = event.clientX;
   let top = event.clientY;
-
-  if (left + menuRect.width + margin > window.innerWidth) {
-    left = window.innerWidth - menuRect.width - margin;
-  }
-
-  if (top + menuRect.height + margin > window.innerHeight) {
-    top = window.innerHeight - menuRect.height - margin;
-  }
-
+  if (left + menuRect.width + margin > window.innerWidth) left = window.innerWidth - menuRect.width - margin;
+  if (top + menuRect.height + margin > window.innerHeight) top = window.innerHeight - menuRect.height - margin;
   left = Math.max(margin, left);
   top = Math.max(margin, top);
-
   menu.style.left = `${left}px`;
   menu.style.top = `${top}px`;
 
   menu.querySelectorAll('.wm-ctx-item[data-action]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const action = btn.dataset.action;
-      handleWmCardAction(action, winId, btn);
+      handleWmCardAction(btn.dataset.action, winId, btn);
     });
   });
 
@@ -4515,44 +4948,13 @@ function handleWmCardAction(action, winId, btnEl, targetWs = null) {
   }
 
   switch (action) {
-    case 'focus': {
-      focusFromWindowManager(winId);
-      break;
-    }
-
-    case 'minimize': {
-      minimizeApp(winId);
-      if (windowManagerOpen) renderWindowManager();
-      break;
-    }
-
-    case 'restore': {
-      entry.win.classList.remove('minimized');
-      entry.win.style.display = 'flex';
-      focusWindow(winId);
-      if (windowManagerOpen) renderWindowManager();
-      break;
-    }
-
-    case 'new-instance': {
-      const appId = entry.appId;
-      openApp(appId, true);
-      if (windowManagerOpen) renderWindowManager();
-      break;
-    }
-
-    case 'move-ws': {
-      if (targetWs === null || Number.isNaN(targetWs)) break;
-      moveWindowToWorkspace(winId, targetWs);
-      break;
-    }
-
-    case 'close': {
-      deleteWindowFromWm(winId);
-      break;
-    }
+    case 'focus': focusFromWindowManager(winId); break;
+    case 'minimize': minimizeApp(winId); if (windowManagerOpen) renderWindowManager(); break;
+    case 'restore': entry.win.classList.remove('minimized'); entry.win.style.display = 'flex'; focusWindow(winId); if (windowManagerOpen) renderWindowManager(); break;
+    case 'new-instance': openApp(entry.appId, true); if (windowManagerOpen) renderWindowManager(); break;
+    case 'move-ws': if (targetWs !== null && !Number.isNaN(targetWs)) moveWindowToWorkspace(winId, targetWs); break;
+    case 'close': deleteWindowFromWm(winId); break;
   }
-
   hideWmCardContextMenu();
 }
 
@@ -4566,9 +4968,6 @@ function hideWmCardContextMenu() {
   }
 }
 
-/* =====================================================
-   DRAG & DROP: mover ventanas entre workspaces + trash
-===================================================== */
 function setupWmDragAndDrop() {
   const strip = document.getElementById('wm-workspaces-strip');
   if (!strip) return;
@@ -4583,18 +4982,13 @@ function setupWmDragAndDrop() {
 
       const sourceWs = parseInt(openWindows[winId].win.dataset.ws, 10);
 
-      wmDragState = {
-        winId,
-        sourceWs,
-        justDropped: false
-      };
+      wmDragState = { winId, sourceWs, justDropped: false };
 
       mini.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', winId);
 
       try { e.dataTransfer.setDragImage(mini, mini.offsetWidth / 2, mini.offsetHeight / 2); } catch (_) {}
-
       setWmDragActive(true);
     });
 
@@ -4625,13 +5019,11 @@ function setupWmDragAndDrop() {
 
     card.addEventListener('dragover', (e) => {
       if (!wmDragState) return;
-
       if (wmDragState.sourceWs === targetWs) {
         e.dataTransfer.dropEffect = 'none';
         card.classList.add('drag-invalid');
         return;
       }
-
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
       card.classList.add('drag-over');
@@ -4646,14 +5038,10 @@ function setupWmDragAndDrop() {
     card.addEventListener('drop', (e) => {
       e.preventDefault();
       card.classList.remove('drag-over', 'drag-invalid');
-
       if (!wmDragState) return;
-
       const { winId, sourceWs } = wmDragState;
       if (sourceWs === targetWs) return;
-
       moveWindowToWorkspace(winId, targetWs);
-
       wmDragState.justDropped = true;
     });
   });
@@ -4676,9 +5064,6 @@ function cleanupWmDrag() {
   setWmDragActive(false);
 }
 
-/* =====================================================
-   ★ SETUP WINDOW RESIZE
-===================================================== */
 function setupWindowResize(win) {
   const MIN_W = 450;
   const MIN_H = 350;
@@ -4789,17 +5174,9 @@ function setupWindowResize(win) {
   });
 }
 
-/* =====================================================
-   ★ WINDOW TABS — Sistema de pestañas internas
-===================================================== */
-
 function getWindowTabsState(win) {
   if (!windowTabsState.has(win)) {
-    windowTabsState.set(win, {
-      tabs: [],
-      activeTabId: null,
-      counter: 0
-    });
+    windowTabsState.set(win, { tabs: [], activeTabId: null, counter: 0 });
   }
   return windowTabsState.get(win);
 }
@@ -4929,6 +5306,8 @@ function renderWindowTabs(winId) {
       const wrap = document.createElement('div');
       wrap.innerHTML = buildTabPanelHTML(appId, tab).trim();
       panel = wrap.firstElementChild;
+      panel.dataset.tabId = tab.id;
+      if (entry?.win) panel.dataset.winId = winId;
       panelsWrap.appendChild(panel);
 
       if (appId === 'terminal') {
@@ -5065,10 +5444,6 @@ function switchWindowTab(winId, tabId) {
   saveSessionState(true);
 }
 
-/* =====================================================
-   ★ ANIMACIONES DE VENTANAS — helpers
-===================================================== */
-
 function prefersReducedMotion() {
   return !settingsState.animations || document.body.classList.contains('no-animations');
 }
@@ -5107,9 +5482,8 @@ function runWindowAnimation(win, className, durationMs, onEnd) {
   win.classList.add(className);
 }
 
-/* ================= GESTIÓN DE VENTANAS ================= */
 function openApp(appId, forceNew = false, restoreData = null) {
-  // ★ NEBULA STORE: se abre como overlay, NUNCA como ventana.
+  // ★ NEBULA STORE: se abre como overlay, NUNCA como ventana
   if (appId === 'store') {
     openStore();
     return;
@@ -5359,9 +5733,7 @@ function focusWindow(winId) {
   }
 
   updateTopBar(winId);
-
   if (windowManagerOpen) renderWindowManager();
-
   scheduleSaveSession();
 }
 
@@ -5377,7 +5749,6 @@ function closeApp(winId) {
 
   const finalize = () => {
     pendingClose.delete(winId);
-
     if (!openWindows[winId]) return;
 
     win.remove();
@@ -5490,7 +5861,6 @@ function minimizeApp(winId) {
   });
 }
 
-/* ================= SETUP NOVA AI ================= */
 function setupNovaAI(win) {
   const history = win.querySelector('.nova-history');
   const form = win.querySelector('.nova-form');
@@ -5504,9 +5874,7 @@ function setupNovaAI(win) {
     if (actionBadge) {
       message.innerHTML += `<div class="nova-action-badge"><i data-lucide="check-circle-2"></i> ${escapeHtml(actionBadge)}</div>`;
     }
-    if (actionBtnHTML) {
-      message.innerHTML += actionBtnHTML;
-    }
+    if (actionBtnHTML) message.innerHTML += actionBtnHTML;
     history.appendChild(message);
     history.scrollTop = history.scrollHeight;
     refreshIcons();
@@ -5543,7 +5911,6 @@ function setupNovaAI(win) {
   refreshIcons();
 }
 
-/* ================= SETUP TERMINAL (por PANEL) ================= */
 function setupTerminalPanel(panel) {
   if (!panel) return;
 
@@ -5623,7 +5990,6 @@ function setupTerminalPanel(panel) {
   input.focus();
 }
 
-/* ================= SETUP SPOTIFY APP ================= */
 function setupSpotifyApp(win) {
   if (!win) return;
 
@@ -5633,9 +5999,7 @@ function setupSpotifyApp(win) {
       if (Number.isNaN(idx)) return;
       currentTrackIndex = idx;
       currentPlaybackTime = 0;
-      if (!isPlaying) {
-        isPlaying = true;
-      }
+      if (!isPlaying) isPlaying = true;
       updateMediaUI();
       updatePlayerBackground();
       updatePlayerProgress();
@@ -5664,7 +6028,6 @@ function setupSpotifyApp(win) {
   if (spShuffle) spShuffle.addEventListener('click', () => {
     shuffleEnabled = !shuffleEnabled;
     syncSpotifyShuffleRepeatUI();
-
     const ccShuffle = document.getElementById('cc-shuffle');
     if (ccShuffle) ccShuffle.classList.toggle('active', shuffleEnabled);
   });
@@ -5673,7 +6036,6 @@ function setupSpotifyApp(win) {
   if (spRepeat) spRepeat.addEventListener('click', () => {
     repeatEnabled = !repeatEnabled;
     syncSpotifyShuffleRepeatUI();
-
     const ccRepeat = document.getElementById('cc-repeat');
     if (ccRepeat) ccRepeat.classList.toggle('active', repeatEnabled);
   });
@@ -5711,11 +6073,9 @@ function setupSpotifyApp(win) {
   if (spPlay) spPlay.innerHTML = `<i data-lucide="${iconName}"></i>`;
 
   setTimeout(syncAllSliders, 0);
-
   refreshIcons();
 }
 
-/* ================= RENDERIZADO DE NEBULA DESIGNER & AJUSTES ================= */
 function renderSettingsApp() {
   const settingsWinIds = getInstancesOfApp('settings');
   settingsWinIds.forEach(winId => {
@@ -5731,13 +6091,11 @@ function renderSettingsApp() {
 
 function setSettingsTab(tabName) {
   settingsState.activeSettingsTab = tabName;
-
   if (tabName === 'designer') {
     settingsState.designerExpanded = true;
   } else {
     settingsState.designerExpanded = false;
   }
-
   saveSettingsState();
   renderSettingsApp();
 }
@@ -5763,10 +6121,6 @@ function saveSettingsState() {
   } catch (e) {}
 }
 
-/* =====================================================
-   ★ NEBULA SHIELD — Lógica y Persistencia
-===================================================== */
-
 function saveShieldState() {
   try {
     const serializable = { ...shieldState, scanInProgress: false, scanProgress: 0, scanCurrentFile: '' };
@@ -5787,13 +6141,11 @@ function toggleShieldFeature(featureId, explicitState = null) {
     newState ? `${feature.description} está ahora en ejecución.` : `${feature.description} fue pausado.`,
     newState ? 'shield-check' : 'shield-off'
   );
-
   renderSettingsApp();
 }
 
 function toggleVpnConnection() {
   const shieldBtn = document.getElementById('shield-vpn-btn');
-  const statusEl = document.getElementById('shield-vpn-status');
 
   if (!shieldState.vpnConnected) {
     if (shieldBtn) {
@@ -5944,10 +6296,6 @@ function getTimeAgo(timestamp) {
   return `Hace ${months} mes${months === 1 ? '' : 'es'}`;
 }
 
-/* =====================================================
-   ★ NEBULA UPDATES — Lógica y Persistencia
-===================================================== */
-
 function saveUpdatesState() {
   try {
     const serializable = { ...updatesState, updateInProgress: false, updateProgress: 0, updateStage: '' };
@@ -6091,17 +6439,12 @@ function toggleBetaChannel() {
   renderSettingsApp();
 }
 
-/* =====================================================
-   ★ HTML DE NEBULA SHIELD (Seguridad)
-===================================================== */
 function getShieldSettingsHTML() {
-  const allActive = shieldState.antivirus && shieldState.firewall && shieldState.encryption;
   const activeCount = ['antivirus', 'firewall', 'encryption', 'behavior'].filter(k => shieldState[k]).length;
   const totalCount = 4;
   const isProtected = activeCount >= 3;
   const statusLabel = isProtected ? 'SISTEMA PROTEGIDO' : (activeCount >= 2 ? 'PROTECCIÓN PARCIAL' : 'PROTECCIÓN BAJA');
   const statusClass = isProtected ? 'protected' : (activeCount >= 2 ? 'warning' : 'danger');
-
   const activeVpn = VPN_SERVERS.find(s => s.id === shieldState.vpnServer) || VPN_SERVERS[0];
 
   return `
@@ -6124,7 +6467,7 @@ function getShieldSettingsHTML() {
           <div class="shield-card ${isOn ? 'active' : 'inactive'}" data-feature="${feature.id}">
             <div class="shield-card-top">
               <div class="shield-card-icon" style="color: ${isOn ? feature.color : 'var(--text-sub)'};">
-                <i data-lucide="${isOn ? feature.icon : feature.icon}"></i>
+                <i data-lucide="${feature.icon}"></i>
               </div>
               <div class="shield-card-state">
                 <span class="shield-card-led ${isOn ? 'on' : 'off'}"></span>
@@ -6248,9 +6591,6 @@ function getShieldSettingsHTML() {
   `;
 }
 
-/* =====================================================
-   ★ HTML DE NEBULA UPDATES (Actualizaciones)
-===================================================== */
 function getUpdatesSettingsHTML() {
   const hasUpdate = updatesState.updateAvailable;
   const statusLabel = hasUpdate
@@ -6388,7 +6728,6 @@ function getUpdatesSettingsHTML() {
   `;
 }
 
-/* ================= CONTENIDO DE APPS (HTML DINÁMICO) ================= */
 function getAppContent(id) {
   if (id === 'nova') {
     return `
@@ -6468,74 +6807,47 @@ function getAppContent(id) {
     const designerSubTab = settingsState.designerSubTab || 'styles';
 
     let mainContent = '';
-    if (activeTab === 'system') {
-      mainContent = getSystemSettingsHTML();
-    } else if (activeTab === 'gaming') {
-      mainContent = getGamingSettingsHTML();
-    } else if (activeTab === 'designer') {
-      mainContent = getDesignerSettingsHTML();
-    } else if (activeTab === 'shield') {
-      mainContent = getShieldSettingsHTML();
-    } else if (activeTab === 'updates') {
-      mainContent = getUpdatesSettingsHTML();
-    }
+    if (activeTab === 'system') mainContent = getSystemSettingsHTML();
+    else if (activeTab === 'gaming') mainContent = getGamingSettingsHTML();
+    else if (activeTab === 'designer') mainContent = getDesignerSettingsHTML();
+    else if (activeTab === 'shield') mainContent = getShieldSettingsHTML();
+    else if (activeTab === 'updates') mainContent = getUpdatesSettingsHTML();
 
     return `
       <div class="settings-preview">
         <aside class="settings-nav">
           <div class="settings-nav-title"><i data-lucide="sliders"></i> Ajustes</div>
-
-          <div class="settings-nav-item ${activeTab === 'system' ? 'active' : ''}" onclick="setSettingsTab('system')">
-            <i data-lucide="monitor"></i> Sistema
-          </div>
-
+          <div class="settings-nav-item ${activeTab === 'system' ? 'active' : ''}" onclick="setSettingsTab('system')"><i data-lucide="monitor"></i> Sistema</div>
           <div class="settings-nav-item ${activeTab === 'shield' ? 'active' : ''}" onclick="setSettingsTab('shield')">
             <i data-lucide="shield-check"></i> Nebula Shield
             ${!shieldState.antivirus || !shieldState.firewall ? '<span class="settings-nav-warn"><i data-lucide="alert-triangle"></i></span>' : ''}
           </div>
-
           <div class="settings-nav-item ${activeTab === 'updates' ? 'active' : ''}" onclick="setSettingsTab('updates')">
             <i data-lucide="download"></i> Actualizaciones
             ${updatesState.updateAvailable ? '<span class="settings-nav-badge">1</span>' : ''}
           </div>
-
           <div class="settings-nav-folder ${activeTab === 'designer' ? 'active' : ''} ${designerExpanded ? 'expanded' : ''}">
             <div class="settings-nav-folder-header" onclick="setSettingsTab('designer')">
-              <span class="settings-nav-folder-label">
-                <i data-lucide="palette"></i> Nebula Designer
-              </span>
+              <span class="settings-nav-folder-label"><i data-lucide="palette"></i> Nebula Designer</span>
               <button type="button" class="settings-nav-folder-toggle" onclick="event.stopPropagation(); toggleDesignerFolder();" aria-label="Expandir/colapsar carpeta">
                 <i data-lucide="chevron-down" class="settings-nav-folder-chevron"></i>
               </button>
             </div>
             <div class="settings-nav-sub ${designerExpanded ? 'expanded' : ''}">
-              <div class="settings-nav-subitem ${activeTab === 'designer' && designerSubTab === 'styles' ? 'active' : ''}" onclick="setDesignerSubTab('styles')">
-                <i data-lucide="paintbrush"></i> Estilos
-              </div>
-              <div class="settings-nav-subitem ${activeTab === 'designer' && designerSubTab === 'wallpapers' ? 'active' : ''}" onclick="setDesignerSubTab('wallpapers')">
-                <i data-lucide="image"></i> Fondos de Pantalla
-              </div>
+              <div class="settings-nav-subitem ${activeTab === 'designer' && designerSubTab === 'styles' ? 'active' : ''}" onclick="setDesignerSubTab('styles')"><i data-lucide="paintbrush"></i> Estilos</div>
+              <div class="settings-nav-subitem ${activeTab === 'designer' && designerSubTab === 'wallpapers' ? 'active' : ''}" onclick="setDesignerSubTab('wallpapers')"><i data-lucide="image"></i> Fondos de Pantalla</div>
             </div>
           </div>
-
-          <div class="settings-nav-item ${activeTab === 'gaming' ? 'active' : ''}" onclick="setSettingsTab('gaming')">
-            <i data-lucide="gamepad-2"></i> Gaming & HUD
-          </div>
+          <div class="settings-nav-item ${activeTab === 'gaming' ? 'active' : ''}" onclick="setSettingsTab('gaming')"><i data-lucide="gamepad-2"></i> Gaming & HUD</div>
         </aside>
-        <section class="settings-main">
-          ${mainContent}
-        </section>
+        <section class="settings-main">${mainContent}</section>
       </div>
     `;
   }
 
-  if (id === 'browser') {
-    return getBrowserContentHTML('browser-0');
-  }
+  if (id === 'browser') return getBrowserContentHTML('browser-0');
 
-  if (id === 'vscode') {
-    return `<div class="vscode-preview"><img src="./assets/images/apps/visualStudio/capturaVisualStudio.png" alt="Captura de Visual Studio Code"></div>`;
-  }
+  if (id === 'vscode') return `<div class="vscode-preview"><img src="./assets/images/apps/visualStudio/capturaVisualStudio.png" alt="Captura de Visual Studio Code"></div>`;
 
   if (id === 'games') {
     return `
@@ -6564,79 +6876,28 @@ function getAppContent(id) {
             <button class="spot-nav-arrow" type="button" disabled aria-label="Atrás"><i data-lucide="chevron-left"></i></button>
             <button class="spot-nav-arrow" type="button" disabled aria-label="Adelante"><i data-lucide="chevron-right"></i></button>
           </div>
-
-          <label class="spot-searchbar">
-            <i data-lucide="search"></i>
-            <input type="search" placeholder="¿Qué querés reproducir?" aria-label="Buscar en Spotify">
-          </label>
-
-          <div class="spot-topbar-right">
-            <div class="spot-topbar-avatar" title="Perfil">N</div>
-          </div>
+          <label class="spot-searchbar"><i data-lucide="search"></i><input type="search" placeholder="¿Qué querés reproducir?" aria-label="Buscar en Spotify"></label>
+          <div class="spot-topbar-right"><div class="spot-topbar-avatar" title="Perfil">N</div></div>
         </div>
-
         <aside class="spot-sidebar">
           <div class="spot-sidebar-header">
             <strong><i data-lucide="library"></i> Tu biblioteca</strong>
-            <button class="spot-sidebar-create" type="button">
-              <i data-lucide="plus"></i> Crear
-            </button>
+            <button class="spot-sidebar-create" type="button"><i data-lucide="plus"></i> Crear</button>
           </div>
-
           <div class="spot-sidebar-filters">
             <button class="spot-filter-chip active" type="button">Playlists</button>
             <button class="spot-filter-chip" type="button">Álbumes</button>
             <button class="spot-filter-chip" type="button">Artistas</button>
           </div>
-
-          <label class="spot-library-search">
-            <i data-lucide="search"></i>
-            <input type="search" placeholder="Buscar en tu biblioteca" aria-label="Buscar en tu biblioteca">
-          </label>
-
+          <label class="spot-library-search"><i data-lucide="search"></i><input type="search" placeholder="Buscar en tu biblioteca" aria-label="Buscar en tu biblioteca"></label>
           <div class="spot-library-list">
-            <button class="spot-lib-item active" type="button">
-              <span class="spot-lib-icon"><i data-lucide="heart"></i></span>
-              <div class="spot-lib-info">
-                <strong>Tus me gusta</strong>
-                <small>Playlist · 42 canciones</small>
-              </div>
-            </button>
-
-            <button class="spot-lib-item" type="button">
-              <span class="spot-lib-icon"><i data-lucide="sparkles"></i></span>
-              <div class="spot-lib-info">
-                <strong>Descubrimiento semanal</strong>
-                <small>Playlist · 30 canciones</small>
-              </div>
-            </button>
-
-            <button class="spot-lib-item" type="button">
-              <span class="spot-lib-icon"><i data-lucide="music"></i></span>
-              <div class="spot-lib-info">
-                <strong>Mix de Rock</strong>
-                <small>Playlist · 50 canciones</small>
-              </div>
-            </button>
-
-            <button class="spot-lib-item" type="button">
-              <span class="spot-lib-icon"><i data-lucide="headphones"></i></span>
-              <div class="spot-lib-info">
-                <strong>Lofi Beats Gaming</strong>
-                <small>Playlist · 25 canciones</small>
-              </div>
-            </button>
-
-            <button class="spot-lib-item" type="button">
-              <span class="spot-lib-icon"><i data-lucide="radio"></i></span>
-              <div class="spot-lib-info">
-                <strong>Cyberpunk Beats</strong>
-                <small>Playlist · 40 canciones</small>
-              </div>
-            </button>
+            <button class="spot-lib-item active" type="button"><span class="spot-lib-icon"><i data-lucide="heart"></i></span><div class="spot-lib-info"><strong>Tus me gusta</strong><small>Playlist · 42 canciones</small></div></button>
+            <button class="spot-lib-item" type="button"><span class="spot-lib-icon"><i data-lucide="sparkles"></i></span><div class="spot-lib-info"><strong>Descubrimiento semanal</strong><small>Playlist · 30 canciones</small></div></button>
+            <button class="spot-lib-item" type="button"><span class="spot-lib-icon"><i data-lucide="music"></i></span><div class="spot-lib-info"><strong>Mix de Rock</strong><small>Playlist · 50 canciones</small></div></button>
+            <button class="spot-lib-item" type="button"><span class="spot-lib-icon"><i data-lucide="headphones"></i></span><div class="spot-lib-info"><strong>Lofi Beats Gaming</strong><small>Playlist · 25 canciones</small></div></button>
+            <button class="spot-lib-item" type="button"><span class="spot-lib-icon"><i data-lucide="radio"></i></span><div class="spot-lib-info"><strong>Cyberpunk Beats</strong><small>Playlist · 40 canciones</small></div></button>
           </div>
         </aside>
-
         <main class="spot-main">
           <div class="spot-hero">
             <div class="spot-hero-info">
@@ -6648,13 +6909,11 @@ function getAppContent(id) {
             </div>
             <img class="spot-hero-cover" src="./assets/images/apps/spotify/top50.jpg" alt="Playlist destacada">
           </div>
-
           <div class="spot-main-chips">
             <button class="spot-main-chip active" type="button">Todo</button>
             <button class="spot-main-chip" type="button">Música</button>
             <button class="spot-main-chip" type="button">Podcasts</button>
           </div>
-
           <div class="spot-section-title">Tus canciones</div>
           <div class="spot-grid">
             ${TRACKS.map((t, i) => `
@@ -6667,33 +6926,13 @@ function getAppContent(id) {
               </button>
             `).join('')}
           </div>
-
           <div class="spot-section-title">Descubrí algo nuevo</div>
           <div class="spot-grid">
-            <button class="spot-card" type="button" data-track-index="2">
-              <img class="spot-card-img" src="./assets/images/apps/spotify/tapaAlbum3.jpg" alt="Callejeros">
-              <div class="spot-card-info">
-                <div class="spot-card-title">Rock Nacional</div>
-                <div class="spot-card-sub">Callejeros · Prohibido</div>
-              </div>
-            </button>
-            <button class="spot-card" type="button" data-track-index="3">
-              <img class="spot-card-img" src="./assets/images/apps/spotify/top50.jpg" alt="Synthwave">
-              <div class="spot-card-info">
-                <div class="spot-card-title">Synthwave Mix</div>
-                <div class="spot-card-sub">Hyper Sound · Night City</div>
-              </div>
-            </button>
-            <button class="spot-card" type="button" data-track-index="1">
-              <img class="spot-card-img" src="./assets/images/apps/spotify/tapaAlbum1.jpg" alt="Nirvana">
-              <div class="spot-card-info">
-                <div class="spot-card-title">Nevermind</div>
-                <div class="spot-card-sub">Nirvana · Smells Like...</div>
-              </div>
-            </button>
+            <button class="spot-card" type="button" data-track-index="2"><img class="spot-card-img" src="./assets/images/apps/spotify/tapaAlbum3.jpg" alt="Callejeros"><div class="spot-card-info"><div class="spot-card-title">Rock Nacional</div><div class="spot-card-sub">Callejeros · Prohibido</div></div></button>
+            <button class="spot-card" type="button" data-track-index="3"><img class="spot-card-img" src="./assets/images/apps/spotify/top50.jpg" alt="Synthwave"><div class="spot-card-info"><div class="spot-card-title">Synthwave Mix</div><div class="spot-card-sub">Hyper Sound · Night City</div></div></button>
+            <button class="spot-card" type="button" data-track-index="1"><img class="spot-card-img" src="./assets/images/apps/spotify/tapaAlbum1.jpg" alt="Nirvana"><div class="spot-card-info"><div class="spot-card-title">Nevermind</div><div class="spot-card-sub">Nirvana · Smells Like...</div></div></button>
           </div>
         </main>
-
         <div class="spot-player">
           <div class="spot-player-left">
             <img src="${track.art}" alt="${escapeHtml(track.title)}" id="spot-player-cover">
@@ -6701,39 +6940,22 @@ function getAppContent(id) {
               <strong id="spot-player-title">${escapeHtml(track.title)}</strong>
               <small id="spot-player-artist">${escapeHtml(track.artist)}</small>
             </div>
-            <button class="spot-player-like" type="button" id="spot-like-btn" title="Me gusta">
-              <i data-lucide="heart"></i>
-            </button>
+            <button class="spot-player-like" type="button" id="spot-like-btn" title="Me gusta"><i data-lucide="heart"></i></button>
           </div>
-
           <div class="spot-player-center">
             <div class="spot-player-controls">
-              <button class="spot-ctrl ${shuffleEnabled ? 'active' : ''}" type="button" id="spot-shuffle" title="Aleatorio">
-                <i data-lucide="shuffle"></i>
-              </button>
-              <button class="spot-ctrl" type="button" id="spot-prev-btn" title="Anterior">
-                <i data-lucide="skip-back"></i>
-              </button>
-              <button class="spot-ctrl main" type="button" id="spot-play-btn" title="Reproducir / Pausar">
-                <i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>
-              </button>
-              <button class="spot-ctrl" type="button" id="spot-next-btn" title="Siguiente">
-                <i data-lucide="skip-forward"></i>
-              </button>
-              <button class="spot-ctrl ${repeatEnabled ? 'active' : ''}" type="button" id="spot-repeat" title="Repetir">
-                <i data-lucide="repeat"></i>
-              </button>
+              <button class="spot-ctrl ${shuffleEnabled ? 'active' : ''}" type="button" id="spot-shuffle" title="Aleatorio"><i data-lucide="shuffle"></i></button>
+              <button class="spot-ctrl" type="button" id="spot-prev-btn" title="Anterior"><i data-lucide="skip-back"></i></button>
+              <button class="spot-ctrl main" type="button" id="spot-play-btn" title="Reproducir / Pausar"><i data-lucide="${isPlaying ? 'pause' : 'play'}"></i></button>
+              <button class="spot-ctrl" type="button" id="spot-next-btn" title="Siguiente"><i data-lucide="skip-forward"></i></button>
+              <button class="spot-ctrl ${repeatEnabled ? 'active' : ''}" type="button" id="spot-repeat" title="Repetir"><i data-lucide="repeat"></i></button>
             </div>
-
             <div class="spot-player-progress">
               <span class="spot-player-time" id="spot-time-current">${currentFormatted}</span>
-              <div class="spot-progress-track" id="spot-progress-track">
-                <span id="spot-progress-fill" style="width: 0%;"></span>
-              </div>
+              <div class="spot-progress-track" id="spot-progress-track"><span id="spot-progress-fill" style="width: 0%;"></span></div>
               <span class="spot-player-time" id="spot-time-total">${totalFormatted}</span>
             </div>
           </div>
-
           <div class="spot-player-right">
             <button class="spot-extra-btn" type="button" title="Letra"><i data-lucide="mic-2"></i></button>
             <button class="spot-extra-btn" type="button" title="Cola de reproducción"><i data-lucide="list-music"></i></button>
@@ -6764,19 +6986,16 @@ function getAppContent(id) {
     </div>`;
   }
   
-  return `<div class="app-pad"><h2>${APPS[id].title}</h2><p>${APPS[id].sub}</p></div>`;
+  return `<div class="app-pad"><h2>${APPS[id]?.title || id}</h2><p>${APPS[id]?.sub || ''}</p></div>`;
 }
 
-/* HTML de la sección de Widgets del Designer */
 function getWidgetsGalleryHTML() {
   const hasGamingHub = desktopWidgets.some(w => w.type === 'gaming-hub');
-  const weatherWidgets = desktopWidgets.filter(w => w.type === 'weather');
-  const weatherCount = weatherWidgets.length;
+  const weatherCount = desktopWidgets.filter(w => w.type === 'weather').length;
 
   return `
     <div class="settings-section-label">Widgets de Escritorio</div>
     <div class="widgets-gallery-grid">
-
       <div class="widget-gallery-card ${hasGamingHub ? 'active' : ''}">
         <div class="widget-gallery-preview">
           <div class="widget-gallery-preview-inner">
@@ -6788,17 +7007,12 @@ function getWidgetsGalleryHTML() {
             <div class="widget-gallery-preview-tile" style="grid-column: span 1;"></div>
           </div>
         </div>
-
         <div class="widget-gallery-info">
           <strong>${WIDGET_CATALOG['gaming-hub'].name}</strong>
           <small>${WIDGET_CATALOG['gaming-hub'].description}</small>
         </div>
-
         <div class="widget-gallery-action">
-          <span class="widget-gallery-status">
-            <span class="status-dot"></span>
-            ${hasGamingHub ? 'Activo' : 'Inactivo'}
-          </span>
+          <span class="widget-gallery-status"><span class="status-dot"></span>${hasGamingHub ? 'Activo' : 'Inactivo'}</span>
           ${hasGamingHub
             ? `<button class="widget-gallery-btn danger" type="button" onclick="removeGamingHubWidget()"><i data-lucide="trash-2"></i> Quitar</button>`
             : `<button class="widget-gallery-btn" type="button" onclick="addGamingHubWidget()"><i data-lucide="plus"></i> Agregar</button>`
@@ -6812,30 +7026,19 @@ function getWidgetsGalleryHTML() {
             <div class="wg-weather-icon"><i data-lucide="cloud-sun"></i></div>
             <div class="wg-weather-temp">27°</div>
             <div class="wg-weather-label">Parcialmente nublado</div>
-            <div class="wg-weather-minmax">
-              <span>H: 31°</span>
-              <span>L: 21°</span>
-            </div>
+            <div class="wg-weather-minmax"><span>H: 31°</span><span>L: 21°</span></div>
           </div>
         </div>
-
         <div class="widget-gallery-info">
           <strong>${WIDGET_CATALOG['weather'].name}</strong>
           <small>${WIDGET_CATALOG['weather'].description}</small>
           ${weatherCount > 0 ? `<small style="color: var(--accent); font-weight: 700; margin-top: 2px;">${weatherCount} activo${weatherCount === 1 ? '' : 's'}</small>` : ''}
         </div>
-
         <div class="widget-gallery-action">
-          <span class="widget-gallery-status">
-            <span class="status-dot"></span>
-            ${weatherCount > 0 ? 'Activo' : 'Inactivo'}
-          </span>
+          <span class="widget-gallery-status"><span class="status-dot"></span>${weatherCount > 0 ? 'Activo' : 'Inactivo'}</span>
           <div style="display:flex; gap:6px;">
             <button class="widget-gallery-btn" type="button" onclick="addWeatherWidget()"><i data-lucide="plus"></i> Agregar</button>
-            ${weatherCount > 0
-              ? `<button class="widget-gallery-btn danger" type="button" onclick="removeAllWeatherWidgets()"><i data-lucide="trash-2"></i></button>`
-              : ''
-            }
+            ${weatherCount > 0 ? `<button class="widget-gallery-btn danger" type="button" onclick="removeAllWeatherWidgets()"><i data-lucide="trash-2"></i></button>` : ''}
           </div>
         </div>
       </div>
@@ -6852,10 +7055,7 @@ function getWidgetsGalleryHTML() {
             <small>${widget.description}</small>
           </div>
           <div class="widget-gallery-action">
-            <span class="widget-gallery-status">
-              <span class="status-dot"></span>
-              ${desktopWidgets.some(dw => dw.type === widget.type) ? 'Activo' : 'Inactivo'}
-            </span>
+            <span class="widget-gallery-status"><span class="status-dot"></span>${desktopWidgets.some(dw => dw.type === widget.type) ? 'Activo' : 'Inactivo'}</span>
             ${desktopWidgets.some(dw => dw.type === widget.type)
               ? `<button class="widget-gallery-btn danger" type="button" onclick="removeDesktopWidget('${desktopWidgets.find(dw => dw.type === widget.type)?.id}')"><i data-lucide="trash-2"></i> Quitar</button>`
               : `<button class="widget-gallery-btn" type="button" onclick="addDesktopWidget('${widget.type}')"><i data-lucide="plus"></i> Agregar</button>`
@@ -6863,12 +7063,10 @@ function getWidgetsGalleryHTML() {
           </div>
         </div>
       `).join('')}
-
     </div>
   `;
 }
 
-/* ★ Sub-tab "Estilos" del Designer */
 function getDesignerStylesHTML() {
   const currentStyle = designerState.dockPreviewStyle || 'blueprint';
   const demoApp = APPS['terminal'];
@@ -6899,51 +7097,32 @@ function getDesignerStylesHTML() {
     <div class="settings-section-label">Ajuste Fino en Vivo (CSS Variables)</div>
     <div class="designer-controls-grid">
       <div class="designer-control-item">
-        <div class="designer-control-info">
-          <strong>Color Primario / Acento (--accent)</strong>
-          <small>Color de botones activos, bordes y brillos</small>
-        </div>
+        <div class="designer-control-info"><strong>Color Primario / Acento (--accent)</strong><small>Color de botones activos, bordes y brillos</small></div>
         <input type="color" class="designer-color-picker" value="${designerState.accent}" onchange="setLiveAccentColor(this.value)">
       </div>
-
       <div class="designer-control-item">
-        <div class="designer-control-info">
-          <strong>Desenfoque Glassmorphism (--blur-amount)</strong>
-          <small>Nivel de blur de ventanas y paneles</small>
-        </div>
+        <div class="designer-control-info"><strong>Desenfoque Glassmorphism (--blur-amount)</strong><small>Nivel de blur de ventanas y paneles</small></div>
         <div class="designer-control-input">
           <input type="range" min="0" max="30" value="${designerState.blurAmount}" oninput="setLiveBlurAmount(this.value)">
           <span id="designer-blur-val">${designerState.blurAmount}px</span>
         </div>
       </div>
-
       <div class="designer-control-item">
-        <div class="designer-control-info">
-          <strong>Redondeo de Bordes (--radius-md)</strong>
-          <small>Curvatura de ventanas y tarjetas</small>
-        </div>
+        <div class="designer-control-info"><strong>Redondeo de Bordes (--radius-md)</strong><small>Curvatura de ventanas y tarjetas</small></div>
         <div class="designer-control-input">
           <input type="range" min="0" max="28" value="${designerState.borderRadius}" oninput="setLiveBorderRadius(this.value)">
           <span id="designer-radius-val">${designerState.borderRadius}px</span>
         </div>
       </div>
-
       <div class="designer-control-item">
-        <div class="designer-control-info">
-          <strong>Opacidad de Paneles (--panel-color)</strong>
-          <small>Translucidez del cristal de la UI</small>
-        </div>
+        <div class="designer-control-info"><strong>Opacidad de Paneles (--panel-color)</strong><small>Translucidez del cristal de la UI</small></div>
         <div class="designer-control-input">
           <input type="range" min="20" max="95" value="${Math.round(designerState.panelAlpha * 100)}" oninput="setLivePanelAlpha(this.value)">
           <span id="designer-alpha-val">${Math.round(designerState.panelAlpha * 100)}%</span>
         </div>
       </div>
-
       <div class="designer-control-item">
-        <div class="designer-control-info">
-          <strong>Sombras de Ventanas (--shadow)</strong>
-          <small>Intensidad de la sombra proyectada por ventanas y paneles</small>
-        </div>
+        <div class="designer-control-info"><strong>Sombras de Ventanas (--shadow)</strong><small>Intensidad de la sombra proyectada por ventanas y paneles</small></div>
         <div class="designer-control-input">
           <input type="range" min="0" max="100" value="${designerState.shadowStrength ?? 55}" oninput="setLiveShadowStrength(this.value)">
           <span id="designer-shadow-val">${designerState.shadowStrength ?? 55}%</span>
@@ -6974,9 +7153,7 @@ function getDesignerStylesHTML() {
               <span class="dock-preview-title">${demoApp.title}</span>
               <span class="dock-preview-sub">${demoApp.sub}</span>
             </div>
-            <button class="dock-preview-close" type="button" aria-label="Cerrar ventana">
-              <i data-lucide="x"></i>
-            </button>
+            <button class="dock-preview-close" type="button" aria-label="Cerrar ventana"><i data-lucide="x"></i></button>
           </div>
           <div class="dock-preview-sketch">
             <div class="dock-preview-sketch-bar ${demoApp.tileClass}">
@@ -7031,7 +7208,6 @@ function getDesignerStylesHTML() {
   `;
 }
 
-/* ★ Sub-tab "Fondos de Pantalla" del Designer */
 function getDesignerWallpapersHTML() {
   const allWallpapers = [...WALLPAPERS];
   return `
@@ -7043,7 +7219,6 @@ function getDesignerWallpapersHTML() {
       </div>
       <div class="settings-status"><span></span> Fondo Activo: ${WALLPAPERS[currentWallpaperIndex]?.name || 'Nebula'}</div>
     </div>
-
     <div class="settings-section-label">Galería de Fondos Disponibles</div>
     <div class="designer-presets-grid">
       ${allWallpapers.map((wp, index) => `
@@ -7057,12 +7232,9 @@ function getDesignerWallpapersHTML() {
   `;
 }
 
-/* ★ Router del contenido del Designer según sub-tab */
 function getDesignerSettingsHTML() {
   const subTab = settingsState.designerSubTab || 'styles';
-  if (subTab === 'wallpapers') {
-    return getDesignerWallpapersHTML();
-  }
+  if (subTab === 'wallpapers') return getDesignerWallpapersHTML();
   return getDesignerStylesHTML();
 }
 
@@ -7076,28 +7248,17 @@ function getGamingSettingsHTML() {
       </div>
       <div class="settings-status"><span></span> ${gameModeActive ? 'Modo Juego: ON' : 'Estándar'}</div>
     </div>
-
     <div class="settings-section-label">Estado de Rendimiento</div>
     <div class="designer-controls-grid">
       <div class="designer-control-item">
-        <div class="designer-control-info">
-          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="gamepad-2" style="color:#00ffcc;"></i> Modo Juego (Game Mode)</strong>
-          <small>Fija el perfil en Máximo Rendimiento y reduce efectos pesados</small>
-        </div>
-        <button class="quick-switch ${gameModeActive ? 'active' : ''}" onclick="toggleGameMode()" style="padding:0; border:0; background:transparent;">
-          <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
-        </button>
+        <div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="gamepad-2" style="color:#00ffcc;"></i> Modo Juego (Game Mode)</strong><small>Fija el perfil en Máximo Rendimiento y reduce efectos pesados</small></div>
+        <button class="quick-switch ${gameModeActive ? 'active' : ''}" onclick="toggleGameMode()" style="padding:0; border:0; background:transparent;"><span class="pill-switch-track"><span class="pill-switch-thumb"></span></span></button>
       </div>
-
       <div class="designer-control-item">
-        <div class="designer-control-info">
-          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="activity" style="color:#3a86ff;"></i> Gaming Overlay (HUD)</strong>
-          <small>Atajo rápido: <kbd style="color:#00ffcc; background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:4px;">Alt + Z</kbd></small>
-        </div>
+        <div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="activity" style="color:#3a86ff;"></i> Gaming Overlay (HUD)</strong><small>Atajo rápido: <kbd style="color:#00ffcc; background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:4px;">Alt + Z</kbd></small></div>
         <button class="hud-tool-btn" onclick="toggleGamerOverlay()" style="margin-left:auto;"><i data-lucide="activity"></i> Abrir HUD</button>
       </div>
     </div>
-
     <div class="settings-section-label">Perfil de Usuario Activo</div>
     <div class="profile-switcher-chips" style="justify-content:flex-start; margin-top:10px;">
       <button class="profile-chip ${currentProfile === 'gamer' ? 'active' : ''}" onclick="switchProfile('gamer')"><i data-lucide="gamepad-2"></i> Gamer</button>
@@ -7117,52 +7278,27 @@ function getSystemSettingsHTML() {
       </div>
       <div class="settings-status"><span></span> Kernel Optimizado</div>
     </div>
-
     <div class="settings-section-label">Especificaciones del Equipo</div>
     <div class="designer-controls-grid">
+      <div class="designer-control-item"><div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="cpu" style="color:var(--accent);"></i> Procesador (CPU)</strong><small>AMD Ryzen 9 7950X · 16 Cores, 32 Threads @ 4.5 - 5.7 GHz</small></div></div>
+      <div class="designer-control-item"><div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="activity" style="color:#00ffcc;"></i> Tarjeta Gráfica (GPU)</strong><small>NVIDIA GeForce RTX 4090 · 24GB GDDR6X · Driver 560.81 GameReady</small></div></div>
       <div class="designer-control-item">
-        <div class="designer-control-info">
-          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="cpu" style="color:var(--accent);"></i> Procesador (CPU)</strong>
-          <small>AMD Ryzen 9 7950X · 16 Cores, 32 Threads @ 4.5 - 5.7 GHz</small>
-        </div>
-      </div>
-      <div class="designer-control-item">
-        <div class="designer-control-info">
-          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="activity" style="color:#00ffcc;"></i> Tarjeta Gráfica (GPU)</strong>
-          <small>NVIDIA GeForce RTX 4090 · 24GB GDDR6X · Driver 560.81 GameReady</small>
-        </div>
-      </div>
-      <div class="designer-control-item">
-        <div class="designer-control-info">
-          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="zap" style="color:#ff71ce;"></i> Memoria RAM</strong>
-          <small>32 GB DDR5 6000MHz Dual-Channel (Uso actual: ${systemMetrics.ram}%)</small>
-        </div>
+        <div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="zap" style="color:#ff71ce;"></i> Memoria RAM</strong><small>32 GB DDR5 6000MHz Dual-Channel (Uso actual: ${systemMetrics.ram}%)</small></div>
         <button class="hud-tool-btn" onclick="simulateCleanRam()" style="margin-left:auto;"><i data-lucide="sparkles"></i> Limpiar</button>
       </div>
-      <div class="designer-control-item">
-        <div class="designer-control-info">
-          <strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="monitor" style="color:#38bdf8;"></i> Pantalla</strong>
-          <small>2560x1440 QHD @ 240Hz OLED HDR · Espacio de trabajo ${currentWorkspace}/5</small>
-        </div>
-      </div>
+      <div class="designer-control-item"><div class="designer-control-info"><strong style="display:flex; align-items:center; gap:6px;"><i data-lucide="monitor" style="color:#38bdf8;"></i> Pantalla</strong><small>2560x1440 QHD @ 240Hz OLED HDR · Espacio de trabajo ${currentWorkspace}/5</small></div></div>
     </div>
   `;
 }
 
-/* =====================================================
-   ★ LAUNCHER OVERLAY — Búsqueda global
-===================================================== */
 const launcherOverlay = document.getElementById('launcher-overlay');
 const launcherInput = document.getElementById('launcher-input');
 const launcherResults = document.getElementById('launcher-results');
 
 function toggleLauncher() {
   if (!launcherOverlay) return;
-  if (launcherOverlay.classList.contains('open')) {
-    closeLauncher();
-  } else {
-    openLauncher();
-  }
+  if (launcherOverlay.classList.contains('open')) closeLauncher();
+  else openLauncher();
 }
 
 function openLauncher() {
@@ -7276,9 +7412,7 @@ function searchCalendarNotes(query) {
           keywords: [noteText],
           run: () => {
             const cc = document.getElementById('control-center');
-            if (cc && cc.classList.contains('hidden')) {
-              cc.classList.remove('hidden');
-            }
+            if (cc && cc.classList.contains('hidden')) cc.classList.remove('hidden');
             calendarState.selectedDate = key;
             const [yy, mm, dd] = key.split('-').map(Number);
             selectCalendarDate(new Date(yy, mm - 1, dd));
@@ -7345,29 +7479,19 @@ function renderLauncherResults(rawQuery) {
   let mode = 'default';
   let query = raw;
 
-  if (raw.startsWith('>')) {
-    mode = 'command';
-    query = raw.slice(1).trim();
-  } else if (raw.startsWith('?')) {
-    mode = 'files';
-    query = raw.slice(1).trim();
-  } else if (raw.startsWith('@')) {
-    mode = 'notes';
-    query = raw.slice(1).trim();
-  }
+  if (raw.startsWith('>')) { mode = 'command'; query = raw.slice(1).trim(); }
+  else if (raw.startsWith('?')) { mode = 'files'; query = raw.slice(1).trim(); }
+  else if (raw.startsWith('@')) { mode = 'notes'; query = raw.slice(1).trim(); }
 
   let items = [];
 
   if (mode === 'command') {
     const commands = buildLauncherCommands();
-    if (!query) {
-      items = commands;
-    } else {
-      items = commands.filter(c => {
-        const haystack = (c.title + ' ' + c.sub + ' ' + (c.keywords || []).join(' ')).toLowerCase();
-        return haystack.includes(query.toLowerCase());
-      });
-    }
+    if (!query) items = commands;
+    else items = commands.filter(c => {
+      const haystack = (c.title + ' ' + c.sub + ' ' + (c.keywords || []).join(' ')).toLowerCase();
+      return haystack.includes(query.toLowerCase());
+    });
   } else if (mode === 'files') {
     if (query) items = searchFilesInSystem(query).slice(0, 30);
   } else if (mode === 'notes') {
@@ -7391,15 +7515,10 @@ function renderLauncherResults(rawQuery) {
   if (items.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'launcher-empty';
-    if (mode === 'files' && !query) {
-      empty.innerHTML = `<strong>Buscá en tu sistema</strong>Escribí algo después de <code>?</code> para buscar archivos, mods, música o fondos.`;
-    } else if (mode === 'notes' && !query) {
-      empty.innerHTML = `<strong>Buscá en tus notas</strong>Escribí algo después de <code>@</code> para buscar en los recordatorios del calendario.`;
-    } else if (mode === 'command' && !query) {
-      empty.innerHTML = `<strong>Comandos disponibles</strong>Escribí <code>&gt; help</code> para ver el listado completo.`;
-    } else {
-      empty.innerHTML = `<strong>Sin resultados</strong>No encontramos nada que coincida con "<em>${escapeHtml(raw)}</em>".`;
-    }
+    if (mode === 'files' && !query) empty.innerHTML = `<strong>Buscá en tu sistema</strong>Escribí algo después de <code>?</code> para buscar archivos, mods, música o fondos.`;
+    else if (mode === 'notes' && !query) empty.innerHTML = `<strong>Buscá en tus notas</strong>Escribí algo después de <code>@</code> para buscar en los recordatorios del calendario.`;
+    else if (mode === 'command' && !query) empty.innerHTML = `<strong>Comandos disponibles</strong>Escribí <code>&gt; help</code> para ver el listado completo.`;
+    else empty.innerHTML = `<strong>Sin resultados</strong>No encontramos nada que coincida con "<em>${escapeHtml(raw)}</em>".`;
     launcherResults.appendChild(empty);
     launcherResults.appendChild(buildLauncherHint(mode));
   } else {
@@ -7412,20 +7531,13 @@ function renderLauncherResults(rawQuery) {
         ? `<div class="app-tile ${item.tileClass || ''}"><img src="${item.image}" alt="${escapeHtml(item.title)}" class="app-tile-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" /><i data-lucide="${item.icon}" style="display:none;"></i></div>`
         : `<div class="app-tile ${item.tileClass || ''}" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12);"><i data-lucide="${item.icon}"></i></div>`;
 
-      res.innerHTML = `
-        ${iconHTML}
-        <div class="meta">
-          <div class="title">${escapeHtml(item.title)}</div>
-          <div class="sub">${escapeHtml(item.sub)}</div>
-        </div>
-      `;
+      res.innerHTML = `${iconHTML}<div class="meta"><div class="title">${escapeHtml(item.title)}</div><div class="sub">${escapeHtml(item.sub)}</div></div>`;
 
       res.addEventListener('click', (e) => {
         e.stopPropagation();
         launcherState.selectedIndex = index;
         executeLauncherItem(item);
       });
-
       res.addEventListener('mouseenter', () => {
         launcherState.selectedIndex = index;
         updateLauncherSelection();
@@ -7433,7 +7545,6 @@ function renderLauncherResults(rawQuery) {
 
       launcherResults.appendChild(res);
     });
-
     launcherResults.appendChild(buildLauncherHint(mode));
   }
 
@@ -7490,10 +7601,6 @@ function handleLauncherKeydown(e) {
   }
 }
 
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character]));
-}
-
 function handleImageError(e) {
   if (!(e.target instanceof HTMLImageElement)) return;
   e.target.classList.add('img-broken');
@@ -7513,7 +7620,6 @@ function setupKeyboardAccessibility() {
   });
 }
 
-/* ================= BATERÍA (real o simulada) ================= */
 function updateBatteryUI(level, charging) {
   const item = document.getElementById('tray-battery-item');
   const icon = document.getElementById('tray-battery-icon');
@@ -7523,28 +7629,17 @@ function updateBatteryUI(level, charging) {
   const lvl = Math.max(0, Math.min(100, Math.round(level)));
 
   item.classList.remove('high', 'medium', 'low', 'charging');
-  if (charging) {
-    item.classList.add('charging');
-  } else if (lvl > 50) {
-    item.classList.add('high');
-  } else if (lvl >= 20) {
-    item.classList.add('medium');
-  } else {
-    item.classList.add('low');
-  }
+  if (charging) item.classList.add('charging');
+  else if (lvl > 50) item.classList.add('high');
+  else if (lvl >= 20) item.classList.add('medium');
+  else item.classList.add('low');
 
   let iconName = 'battery';
-  if (charging) {
-    iconName = 'battery-charging';
-  } else if (lvl >= 90) {
-    iconName = 'battery-full';
-  } else if (lvl >= 50) {
-    iconName = 'battery-medium';
-  } else if (lvl >= 20) {
-    iconName = 'battery-low';
-  } else {
-    iconName = 'battery-warning';
-  }
+  if (charging) iconName = 'battery-charging';
+  else if (lvl >= 90) iconName = 'battery-full';
+  else if (lvl >= 50) iconName = 'battery-medium';
+  else if (lvl >= 20) iconName = 'battery-low';
+  else iconName = 'battery-warning';
 
   if (icon) {
     icon.setAttribute('data-lucide', iconName);
@@ -7559,10 +7654,7 @@ function updateBatteryUI(level, charging) {
   }
 
   num.textContent = `${lvl}%`;
-  item.title = charging
-    ? `Batería: ${lvl}% (Cargando)`
-    : `Batería: ${lvl}%`;
-
+  item.title = charging ? `Batería: ${lvl}% (Cargando)` : `Batería: ${lvl}%`;
   refreshIcons();
 }
 
@@ -7571,15 +7663,11 @@ function setupDeviceStatus() {
 
   if (hasRealBattery) {
     navigator.getBattery().then(battery => {
-      const updateBattery = () => {
-        updateBatteryUI(battery.level * 100, battery.charging);
-      };
+      const updateBattery = () => updateBatteryUI(battery.level * 100, battery.charging);
       updateBattery();
       battery.addEventListener('levelchange', updateBattery);
       battery.addEventListener('chargingchange', updateBattery);
-    }).catch(() => {
-      startSimulatedBattery();
-    });
+    }).catch(() => startSimulatedBattery());
   } else {
     startSimulatedBattery();
   }
@@ -7603,10 +7691,6 @@ function startSimulatedBattery() {
     update();
   }, 30000);
 }
-
-/* =====================================================
-   ★ GAMING HUB WIDGET — Lógica
-===================================================== */
 
 function simulatePing() {
   const last = pingHistory[pingHistory.length - 1] || 23;
@@ -7648,54 +7732,37 @@ function renderGamingHubWidgetHTML() {
         <span class="tile-icon"><i data-lucide="gauge"></i></span>
         <span class="gaming-hub-tile-value" id="gh-fps">${fps}</span>
         <span class="gaming-hub-tile-label">FPS</span>
-        <div class="gaming-hub-tile-bar">
-          <span id="gh-fps-bar" style="width:${fpsBarPct}%;"></span>
-        </div>
+        <div class="gaming-hub-tile-bar"><span id="gh-fps-bar" style="width:${fpsBarPct}%;"></span></div>
       </div>
-
       <div class="gaming-hub-tile ${gpuTempClass}">
         <span class="tile-icon"><i data-lucide="cpu"></i></span>
         <span class="gaming-hub-tile-value" id="gh-gpu-temp">${gpuTemp}°</span>
         <span class="gaming-hub-tile-label">GPU TEMP</span>
-        <div class="gaming-hub-tile-bar">
-          <span id="gh-gpu-bar" style="width:${gpuBarPct}%;"></span>
-        </div>
+        <div class="gaming-hub-tile-bar"><span id="gh-gpu-bar" style="width:${gpuBarPct}%;"></span></div>
       </div>
-
       <div class="gaming-hub-tile ${cpuTempClass}">
         <span class="tile-icon"><i data-lucide="hard-drive"></i></span>
         <span class="gaming-hub-tile-value" id="gh-cpu-temp">${cpuTemp}°</span>
         <span class="gaming-hub-tile-label">CPU TEMP</span>
-        <div class="gaming-hub-tile-bar">
-          <span id="gh-cpu-bar" style="width:${cpuBarPct}%;"></span>
-        </div>
+        <div class="gaming-hub-tile-bar"><span id="gh-cpu-bar" style="width:${cpuBarPct}%;"></span></div>
       </div>
-
       <div class="gaming-hub-tile">
         <span class="tile-icon"><i data-lucide="memory-stick"></i></span>
         <span class="gaming-hub-tile-value" id="gh-vram">${vram.toFixed(1)}</span>
         <span class="gaming-hub-tile-label">VRAM GB</span>
-        <div class="gaming-hub-tile-bar">
-          <span id="gh-vram-bar" style="width:${vramPct}%;"></span>
-        </div>
+        <div class="gaming-hub-tile-bar"><span id="gh-vram-bar" style="width:${vramPct}%;"></span></div>
       </div>
-
       <div class="gaming-hub-tile ${pingClass}" style="grid-column: span 2;">
         <div style="display:flex; align-items:center; gap:6px;">
           <span class="tile-icon"><i data-lucide="wifi"></i></span>
           <span class="gaming-hub-tile-value" id="gh-ping">${ping}<span class="gaming-hub-tile-unit"> ms</span></span>
         </div>
         <span class="gaming-hub-tile-label">LATENCIA DE RED</span>
-        <div class="gaming-hub-ping-spark" id="gh-ping-spark">
-          ${sparkBars}
-        </div>
+        <div class="gaming-hub-ping-spark" id="gh-ping-spark">${sparkBars}</div>
       </div>
     </div>
-
     <div class="gaming-hub-footer">
-      <span class="gaming-hub-footer-label ${gameModeActive ? 'active' : ''}" id="gh-gamemode-label">
-        <i data-lucide="gamepad-2"></i> GAME MODE
-      </span>
+      <span class="gaming-hub-footer-label ${gameModeActive ? 'active' : ''}" id="gh-gamemode-label"><i data-lucide="gamepad-2"></i> GAME MODE</span>
       <button class="quick-switch ${gameModeActive ? 'active' : ''}" onclick="toggleGameMode()" type="button" aria-label="Toggle Game Mode" style="padding:0; border:0; background:transparent;">
         <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
       </button>
@@ -7772,6 +7839,686 @@ function updateGamingHubWidget() {
 
   if (gmLabel) gmLabel.classList.toggle('active', gameModeActive);
   if (gmSwitch) gmSwitch.classList.toggle('active', gameModeActive);
+  refreshIcons();
+}
+
+function parseAndExecuteNovaAction(query) {
+  const q = query.toLowerCase().trim();
+  let actionTaken = null;
+  let replyText = '';
+  let actionBtnHTML = '';
+
+  if (q.includes('cyberpunk') || (q.includes('tema') && q.includes('neon'))) {
+    applyThemePreset('cyberpunk');
+    actionTaken = 'Tema Cyberpunk Neón aplicado';
+    replyText = 'He cambiado la paleta visual a Cyberpunk Neón, ajustando acentos turquesa, contraste dinámico y fondo espacial.';
+  } else if (q.includes('catppuccin') || q.includes('minimal')) {
+    applyThemePreset('catppuccin');
+    actionTaken = 'Tema Minimal Catppuccin aplicado';
+    replyText = 'Listo. Apliqué la paleta suave y minimalista Catppuccin con efectos de cristal pulido.';
+  } else if (q.includes('synthwave') || q.includes('retro')) {
+    applyThemePreset('synthwave');
+    actionTaken = 'Tema Retro Synthwave aplicado';
+    replyText = '¡Vibras synthwave! Tema Retro Synthwave activo con tonos magenta y violeta.';
+  } else if (q.includes('stealth') || q.includes('oscuro')) {
+    applyThemePreset('stealth');
+    actionTaken = 'Tema Dark Stealth aplicado';
+    replyText = 'Activé el modo Dark Stealth con bajo contraste y acentos esmeralda para descansar la vista.';
+  } else if (q.includes('nord') || q.includes('arc')) {
+    applyThemePreset('nord-arc');
+    actionTaken = 'Tema Nord Arc aplicado';
+    replyText = 'Listo. Apliqué el tema Nord Arc, con acento cyan y estética sobria.';
+  } else if (q.includes('activa') && (q.includes('modo juego') || q.includes('game mode'))) {
+    toggleGameMode(true);
+    actionTaken = 'Modo Juego Activado';
+    replyText = '¡Modo Juego iniciado! He liberado memoria RAM y ajustado el perfil de CPU/GPU al máximo rendimiento.';
+  } else if (q.includes('desactiva') && (q.includes('modo juego') || q.includes('game mode'))) {
+    toggleGameMode(false);
+    actionTaken = 'Modo Juego Desactivado';
+    replyText = 'Modo Juego apagado. El sistema ha vuelto al perfil energético estándar.';
+  } else if (q.includes('optimiza') || q.includes('limpia') || q.includes('ram') || q.includes('memoria') || q.includes('rendimiento')) {
+    simulateRamBoost();
+    actionTaken = 'RAM Optimizada y Cache Purgada';
+    replyText = 'He ejecutado una limpieza profunda de procesos inactivos y cache. La memoria RAM quedó optimizada.';
+  } else if (q.includes('vpn') || q.includes('conectar vpn')) {
+    toggleVpnConnection();
+    actionTaken = shieldState.vpnConnected ? 'VPN Conectada' : 'VPN Desconectada';
+    replyText = shieldState.vpnConnected ? 'Conexión VPN establecida. Tu tráfico está cifrado.' : 'VPN desconectada.';
+  } else if (q.includes('antivirus') || q.includes('escaneo') || q.includes('escanea') || q.includes('seguridad') || q.includes('virus')) {
+    openApp('settings');
+    settingsState.activeSettingsTab = 'shield';
+    renderSettingsApp();
+    actionTaken = 'Nebula Shield abierto';
+    replyText = 'He abierto el centro de seguridad Nebula Shield. Podés ejecutar un escaneo completo desde ahí.';
+  } else if (q.includes('actualiza') || q.includes('update') || q.includes('version') || q.includes('versión')) {
+    openApp('settings');
+    settingsState.activeSettingsTab = 'updates';
+    renderSettingsApp();
+    actionTaken = 'Centro de Actualizaciones abierto';
+    replyText = 'He abierto el centro de actualizaciones. Podés verificar si hay nuevas versiones disponibles.';
+  } else if (q.includes('musica') || q.includes('música') || q.includes('cancion') || q.includes('canción') || q.includes('spotify') || q.includes('cerati') || q.includes('nirvana')) {
+    toggleMediaPlayback();
+    const track = TRACKS[currentTrackIndex];
+    actionTaken = isPlaying ? `Reproduciendo: ${track.title}` : 'Música en pausa';
+    replyText = isPlaying ? `Reproduciendo "${track.title}" de ${track.artist}. Podés controlar el volumen desde el HUD o centro de control.` : 'He pausado la reproducción de música.';
+  } else if (q.includes('abre steam') || q.includes('juegos')) {
+    openApp('games');
+    actionTaken = 'Abriendo Steam';
+    replyText = 'Abriendo tu biblioteca de Steam.';
+  } else if (q.includes('abre archivos') || q.includes('explorador')) {
+    openApp('files');
+    actionTaken = 'Abriendo Archivos';
+    replyText = 'Abriendo el Gestor Inteligente de Archivos.';
+  } else if (q.includes('abre vs code') || q.includes('código') || q.includes('editor')) {
+    openApp('vscode');
+    actionTaken = 'Abriendo Visual Studio Code';
+    replyText = 'Abriendo Visual Studio Code.';
+  } else if (q.includes('abre terminal')) {
+    openApp('terminal');
+    actionTaken = 'Abriendo WezTerm';
+    replyText = 'Terminal iniciada.';
+  } else if (q.includes('abre ajustes') || q.includes('designer')) {
+    openApp('settings');
+    actionTaken = 'Abriendo Nebula Designer';
+    replyText = 'Abriendo el panel de Ajustes y personalización.';
+  } else if (q.includes('clima') || q.includes('tiempo') || q.includes('temperatura')) {
+    addWeatherWidget();
+    actionTaken = 'Widget de Clima añadido';
+    replyText = 'Añadí el widget de clima. Podés cambiar la ciudad desde el selector dentro del widget.';
+  } else if (q.includes('cyberpunk 2077') || q.includes('fps') || q.includes('consejos') || q.includes('juego') || q.includes('gamer')) {
+    replyText = 'Para maximizar tus FPS y estabilidad en juegos exigentes te recomiendo:\n\n• Activar Modo Juego (fija frecuencia CPU en 4.95 GHz y libera RAM).\n• Habilitar el Gaming HUD (Alt+Z) para monitoreo de temperaturas.\n• Usar tema Cyberpunk de bajo consumo de sombreado.';
+    actionBtnHTML = `<button class="nova-action-btn" type="button" onclick="applyGamerOptimization()"><i data-lucide="zap"></i> Aplicar Optimización Gamer (1-Clic)</button>`;
+  } else if (/^(hola|buenas|hey|buen d[ií]a)/.test(q)) {
+    replyText = '¡Hola! Soy Nova AI, tu copiloto en Nebula OS. Puedo optimizar tu sistema, cambiar temas, poner música, abrir juegos y mucho más. ¿Qué querés configurar?';
+  } else {
+    replyText = `Entendido. He analizado "${query}". Podés pedirme cosas como "Activa el modo juego", "Cambia al tema Cyberpunk", "Optimiza el sistema" o "Pon música".`;
+  }
+
+  return { replyText, actionTaken, actionBtnHTML };
+}
+
+function applyGamerOptimization() {
+  toggleGameMode(true);
+  applyThemePreset('cyberpunk');
+  simulateRamBoost();
+  showToast('Optimización Gamer Lista', 'CPU Turbo activado, RAM purgada y HUD listo para jugar.', 'zap');
+}
+
+function startNovaVoiceInput() {
+  const voiceBtn = document.getElementById('nova-voice-btn');
+  const input = document.querySelector('.nova-input');
+  
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    if (voiceBtn) voiceBtn.classList.add('listening');
+    showToast('Voz a Acción', 'Simulando comando por voz: "Activa el modo juego y optimiza"...', 'mic');
+    setTimeout(() => {
+      if (input) {
+        input.value = 'Activa el modo juego y optimiza el sistema';
+        document.querySelector('.nova-form')?.requestSubmit();
+      }
+      if (voiceBtn) voiceBtn.classList.remove('listening');
+    }, 1200);
+    return;
+  }
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'es-ES';
+  recognition.interimResults = false;
+
+  recognition.onstart = () => {
+    if (voiceBtn) voiceBtn.classList.add('listening');
+    showToast('Escuchando...', 'Hablá ahora para pedirle una acción a Nova AI', 'mic');
+  };
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    if (input) {
+      input.value = transcript;
+      document.querySelector('.nova-form')?.requestSubmit();
+    }
+  };
+
+  recognition.onend = () => {
+    if (voiceBtn) voiceBtn.classList.remove('listening');
+  };
+
+  recognition.onerror = () => {
+    if (voiceBtn) voiceBtn.classList.remove('listening');
+    showToast('Voz', 'No se detectó audio. Podés escribir tu comando.', 'alert-circle');
+  };
+
+  recognition.start();
+}
+
+/* =====================================================
+   ★ NEBULA STORE — Overlay
+===================================================== */
+
+function openStore() {
+  const overlay = document.getElementById('store-overlay');
+  if (!overlay) return;
+
+  overlay.classList.remove('hidden');
+  renderStore();
+
+  const cats = document.getElementById('store-categories');
+  if (cats) {
+    cats.querySelectorAll('.store-cat-btn').forEach(btn => {
+      btn.onclick = () => {
+        storeFilter = btn.dataset.cat || 'all';
+        renderStore();
+      };
+    });
+  }
 
   refreshIcons();
+}
+
+function closeStore() {
+  const overlay = document.getElementById('store-overlay');
+  if (!overlay) return;
+  overlay.classList.add('hidden');
+}
+
+function renderStore() {
+  const grid = document.getElementById('store-grid');
+  const cats = document.getElementById('store-categories');
+  if (!grid || !cats) return;
+
+  cats.querySelectorAll('.store-cat-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.cat === storeFilter);
+  });
+
+  let filtered = storeProducts;
+  if (storeFilter !== 'all') {
+    filtered = storeProducts.filter(p => p.type === storeFilter);
+  }
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="store-empty">No hay productos en esta categoría.</div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(product => {
+    const isInstalled = installedProducts.includes(product.id);
+    const progress = storeInstallProgress[product.id] || 0;
+
+    let previewHTML = '';
+    if (product.type === 'theme') {
+      previewHTML = `
+        <div class="store-preview-theme">
+          <div class="store-preview-colors">
+            ${product.preview.colors.map(c => `<span class="store-preview-color" style="background:${c};"></span>`).join('')}
+          </div>
+          <div class="store-preview-accent" style="background:${product.preview.accent};"></div>
+        </div>
+      `;
+    } else if (product.type === 'wallpaper') {
+      previewHTML = `
+        <div class="store-preview-wallpaper" style="background: linear-gradient(135deg, ${product.preview.accent}, #1a1a2e);">
+          <i data-lucide="image"></i>
+        </div>
+      `;
+    } else if (product.type === 'widget') {
+      previewHTML = `<div class="store-preview-widget"><i data-lucide="${product.preview.icon}"></i></div>`;
+    } else if (product.type === 'app') {
+      previewHTML = `<div class="store-preview-app" style="background: ${product.preview.color}20; border-color: ${product.preview.color}60;"><i data-lucide="${product.preview.icon}" style="color: ${product.preview.color};"></i></div>`;
+    } else if (product.type === 'game') {
+      previewHTML = `<div class="store-preview-game" style="background: ${product.preview.color}20; border-color: ${product.preview.color}60;"><i data-lucide="${product.preview.icon}" style="color: ${product.preview.color};"></i></div>`;
+    }
+
+    let actionHTML = '';
+    if (isInstalled) {
+      actionHTML = `<button class="store-action-btn installed" type="button" onclick="uninstallStoreProduct('${product.id}')"><i data-lucide="check"></i> Instalado</button>`;
+    } else if (progress > 0 && progress < 100) {
+      actionHTML = `
+        <div class="store-progress-bar"><div class="store-progress-fill" style="width: ${progress}%;"></div></div>
+        <span class="store-progress-text">${Math.round(progress)}%</span>
+      `;
+    } else {
+      actionHTML = `<button class="store-action-btn" type="button" onclick="installStoreProduct('${product.id}')"><i data-lucide="download"></i> Instalar</button>`;
+    }
+
+    return `
+      <div class="store-card" data-product-id="${product.id}">
+        <div class="store-card-preview">
+          ${previewHTML}
+          <span class="store-card-type">${getStoreTypeLabel(product.type)}</span>
+        </div>
+        <div class="store-card-info">
+          <div class="store-card-header">
+            <strong class="store-card-name">${escapeHtml(product.name)}</strong>
+            <span class="store-card-price">${product.price}</span>
+          </div>
+          <p class="store-card-desc">${escapeHtml(product.description)}</p>
+          <div class="store-card-meta">
+            <span class="store-meta-item"><i data-lucide="user"></i> ${escapeHtml(product.author)}</span>
+            <span class="store-meta-item"><i data-lucide="star"></i> ${product.rating}</span>
+            <span class="store-meta-item"><i data-lucide="download"></i> ${(product.downloads / 1000).toFixed(1)}k</span>
+            <span class="store-meta-item"><i data-lucide="hard-drive"></i> ${product.size}</span>
+          </div>
+        </div>
+        <div class="store-card-action">
+          ${actionHTML}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  refreshIcons();
+}
+
+function getStoreTypeLabel(type) {
+  const labels = { theme: 'Tema', widget: 'Widget', wallpaper: 'Wallpaper', app: 'App', game: 'Juego' };
+  return labels[type] || type;
+}
+
+function installStoreProduct(productId) {
+  const product = storeProducts.find(p => p.id === productId);
+  if (!product) return;
+
+  if (storeInstallProgress[productId]) return;
+
+  storeInstallProgress[productId] = 0;
+
+  const tick = () => {
+    storeInstallProgress[productId] += Math.random() * 12 + 5;
+    if (storeInstallProgress[productId] >= 100) {
+      storeInstallProgress[productId] = 100;
+      installedProducts.push(productId);
+      saveInstalledProducts();
+      applyStoreProductEffect(product);
+      delete storeInstallProgress[productId];
+      renderStore();
+      showToast('Instalación Completa', `"${product.name}" se instaló correctamente.`, 'check-circle-2');
+      return;
+    }
+    renderStore();
+    setTimeout(tick, 180 + Math.random() * 120);
+  };
+
+  setTimeout(tick, 200);
+}
+
+function uninstallStoreProduct(productId) {
+  const product = storeProducts.find(p => p.id === productId);
+  if (!product) return;
+
+  installedProducts = installedProducts.filter(id => id !== productId);
+  saveInstalledProducts();
+  removeStoreProductEffect(product);
+  renderStore();
+  showToast('Desinstalado', `"${product.name}" fue removido del sistema.`, 'trash-2');
+}
+
+function applyStoreProductEffect(product) {
+  if (product.type === 'theme') {
+    const themeKey = product.id.replace('theme-', '');
+    const preset = STORE_THEMES[themeKey];
+    if (preset) {
+      THEME_PRESETS[themeKey] = preset;
+      applyThemePreset(themeKey);
+    }
+  } else if (product.type === 'widget') {
+    const widgetKey = product.id.replace('widget-', '');
+    if (WIDGET_CATALOG[widgetKey]) WIDGET_CATALOG[widgetKey].available = true;
+    if (widgetKey === 'system-monitor-pro') addDesktopWidget('system-monitor-pro');
+    else if (widgetKey === 'music-visualizer') addDesktopWidget('music-visualizer');
+  } else if (product.type === 'wallpaper') {
+    const wpKey = product.id.replace('wallpaper-', '');
+    const storeWp = STORE_WALLPAPERS.find(w => w.id === wpKey);
+    if (storeWp) {
+      WALLPAPERS.push(storeWp);
+      applyWallpaper(WALLPAPERS.length - 1);
+    }
+  } else if (product.type === 'app') {
+    const appKey = product.id.replace('app-', '');
+    if (!APPS[appKey]) {
+      APPS[appKey] = {
+        title: product.name,
+        sub: product.description,
+        icon: product.preview.icon,
+        image: null,
+        tileClass: 'app-tile-default',
+        accentColor: product.preview.color
+      };
+      if (!DOCK_APPS.includes(appKey)) DOCK_APPS.push(appKey);
+      renderDock();
+    }
+  } else if (product.type === 'game') {
+    showToast('Juego Añadido a Steam', `"${product.name}" se agregó a tu biblioteca de Steam.`, 'gamepad-2');
+  }
+}
+
+function removeStoreProductEffect(product) {
+  if (product.type === 'theme') {
+    const themeKey = product.id.replace('theme-', '');
+    if (THEME_PRESETS[themeKey]) {
+      delete THEME_PRESETS[themeKey];
+      if (designerState.activePreset === themeKey) applyThemePreset('catppuccin');
+    }
+  } else if (product.type === 'widget') {
+    const widgetKey = product.id.replace('widget-', '');
+    if (WIDGET_CATALOG[widgetKey]) WIDGET_CATALOG[widgetKey].available = false;
+    desktopWidgets = desktopWidgets.filter(w => w.type !== widgetKey);
+    saveDesktopWidgets();
+    renderDesktopWidgets();
+  } else if (product.type === 'wallpaper') {
+    const wpKey = product.id.replace('wallpaper-', '');
+    const idx = WALLPAPERS.findIndex(w => w.id === wpKey);
+    if (idx !== -1) {
+      WALLPAPERS.splice(idx, 1);
+      if (currentWallpaperIndex >= WALLPAPERS.length) applyWallpaper(0);
+    }
+  } else if (product.type === 'app') {
+    const appKey = product.id.replace('app-', '');
+    if (APPS[appKey]) delete APPS[appKey];
+    const dockIdx = DOCK_APPS.indexOf(appKey);
+    if (dockIdx !== -1) DOCK_APPS.splice(dockIdx, 1);
+    getInstancesOfApp(appKey).forEach(winId => closeApp(winId));
+    renderDock();
+  }
+}
+
+function saveInstalledProducts() {
+  try {
+    localStorage.setItem(STORE_INSTALLED_STORAGE_KEY, JSON.stringify(installedProducts));
+  } catch (e) {}
+}
+
+function loadInstalledProducts() {
+  try {
+    const raw = localStorage.getItem(STORE_INSTALLED_STORAGE_KEY);
+    if (!raw) { installedProducts = []; return; }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) { installedProducts = []; return; }
+    installedProducts = parsed;
+    installedProducts.forEach(id => {
+      const product = storeProducts.find(p => p.id === id);
+      if (product) applyStoreProductEffect(product);
+    });
+  } catch (e) {
+    installedProducts = [];
+  }
+}
+
+/* =====================================================
+   ★ FIREFOX HÍBRIDO
+===================================================== */
+
+const browserState = new WeakMap();
+
+function getDefaultBrowserState() {
+  return {
+    url: 'https://www.google.com',
+    history: [],
+    future: [],
+    iframeLoaded: false,
+    iframeError: false
+  };
+}
+
+function getBrowserContentHTML(winId) {
+  const state = browserState.get(winId) || getDefaultBrowserState();
+  return `
+    <div class="browser-app">
+      <div class="browser-toolbar">
+        <div class="browser-nav-btns">
+          <button class="browser-nav-btn" data-browser-back title="Atrás" ${state.history.length === 0 ? 'disabled' : ''}><i data-lucide="arrow-left"></i></button>
+          <button class="browser-nav-btn" data-browser-forward title="Adelante" ${state.future.length === 0 ? 'disabled' : ''}><i data-lucide="arrow-right"></i></button>
+          <button class="browser-nav-btn" data-browser-reload title="Recargar"><i data-lucide="refresh-cw"></i></button>
+          <button class="browser-nav-btn" data-browser-home title="Inicio"><i data-lucide="home"></i></button>
+        </div>
+        <div class="browser-url-bar">
+          <i data-lucide="lock" class="browser-url-icon"></i>
+          <input type="text" class="browser-url-input" value="${escapeHtml(state.url)}" placeholder="Escribí una URL o buscá en Google..." />
+        </div>
+        <div class="browser-bookmarks">
+          <button class="browser-bookmark" data-bookmark="google" title="Google"><i data-lucide="search"></i></button>
+          <button class="browser-bookmark" data-bookmark="youtube" title="YouTube"><i data-lucide="youtube"></i></button>
+          <button class="browser-bookmark" data-bookmark="github" title="GitHub"><i data-lucide="github"></i></button>
+          <button class="browser-bookmark" data-bookmark="wikipedia" title="Wikipedia"><i data-lucide="book-open"></i></button>
+        </div>
+      </div>
+      <div class="browser-content">
+        <div class="browser-iframe-container" id="browser-iframe-${winId}">
+          <div class="browser-loading">
+            <div class="browser-loading-spinner"></div>
+            <p>Cargando página...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function setupBrowserApp(win) {
+  const winId = win.dataset.winId;
+  const state = getDefaultBrowserState();
+  browserState.set(winId, state);
+
+  const urlInput = win.querySelector('.browser-url-input');
+  const iframeContainer = win.querySelector('.browser-iframe-container');
+  const backBtn = win.querySelector('[data-browser-back]');
+  const forwardBtn = win.querySelector('[data-browser-forward]');
+  const reloadBtn = win.querySelector('[data-browser-reload]');
+  const homeBtn = win.querySelector('[data-browser-home]');
+  const bookmarks = win.querySelectorAll('.browser-bookmark');
+
+  if (!urlInput || !iframeContainer) return;
+
+  let currentTimeout = null;
+
+  function clearTimers() {
+    if (currentTimeout) {
+      clearTimeout(currentTimeout);
+      currentTimeout = null;
+    }
+  }
+
+  function showBrowserFallback(container, url) {
+    clearTimers();
+    container.innerHTML = `
+      <div class="browser-fallback">
+        <div class="browser-fallback-icon"><i data-lucide="globe"></i></div>
+        <h3>Nebula Web</h3>
+        <p>No se puede mostrar <strong>${escapeHtml(url)}</strong> dentro del navegador.</p>
+        <p class="browser-fallback-hint">El sitio puede tener restricciones de seguridad (X-Frame-Options).</p>
+        <div class="browser-fallback-actions">
+          <button class="browser-fallback-btn" onclick="window.open('${escapeHtml(url)}', '_blank')">
+            <i data-lucide="external-link"></i> Abrir en pestaña externa
+          </button>
+          <button class="browser-fallback-btn" onclick="window.open('https://www.google.com/search?q=${encodeURIComponent(url)}', '_blank')">
+            <i data-lucide="search"></i> Buscar en Google
+          </button>
+        </div>
+        <div class="browser-fallback-search">
+          <i data-lucide="search"></i>
+          <input type="text" placeholder="Buscar en la web..." onkeydown="if(event.key==='Enter'){window.open('https://www.google.com/search?q='+encodeURIComponent(this.value),'_blank')}">
+        </div>
+      </div>
+    `;
+    refreshIcons();
+  }
+
+  function loadUrl(url) {
+    if (!url) return;
+    clearTimers();
+
+    let normalized = url.trim();
+    if (!/^https?:\/\//i.test(normalized)) {
+      if (normalized.includes('.') && !normalized.includes(' ')) {
+        normalized = 'https://' + normalized;
+      } else {
+        normalized = 'https://www.google.com/search?q=' + encodeURIComponent(normalized);
+      }
+    }
+
+    state.url = normalized;
+    urlInput.value = normalized;
+
+    iframeContainer.innerHTML = `
+      <div class="browser-loading">
+        <div class="browser-loading-spinner"></div>
+        <p>Cargando página...</p>
+      </div>
+    `;
+
+    const iframe = document.createElement('iframe');
+    iframe.className = 'browser-iframe';
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups');
+    iframe.setAttribute('referrerpolicy', 'no-referrer');
+
+    let resolved = false;
+
+    const resolveFallback = (reason) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimers();
+      state.iframeError = true;
+      state.iframeLoaded = false;
+      showBrowserFallback(iframeContainer, normalized);
+    };
+
+    const resolveSuccess = () => {
+      if (resolved) return;
+      resolved = true;
+      clearTimers();
+      state.iframeError = false;
+      state.iframeLoaded = true;
+      iframeContainer.innerHTML = '';
+      iframeContainer.appendChild(iframe);
+    };
+
+    iframe.onload = () => {
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        if (doc && doc.body && doc.body.innerHTML.trim().length > 0) {
+          resolveSuccess();
+        } else {
+          resolveFallback('empty');
+        }
+      } catch (e) {
+        resolveFallback('cross-origin');
+      }
+    };
+
+    iframe.onerror = () => resolveFallback('error');
+
+    currentTimeout = setTimeout(() => resolveFallback('timeout'), 2500);
+
+    iframe.src = normalized;
+  }
+
+  function goBack() {
+    if (state.history.length === 0) return;
+    state.future.unshift(state.url);
+    const prev = state.history.pop();
+    loadUrl(prev);
+    updateNavButtons();
+  }
+
+  function goForward() {
+    if (state.future.length === 0) return;
+    state.history.push(state.url);
+    const next = state.future.shift();
+    loadUrl(next);
+    updateNavButtons();
+  }
+
+  function updateNavButtons() {
+    if (backBtn) backBtn.disabled = state.history.length === 0;
+    if (forwardBtn) forwardBtn.disabled = state.future.length === 0;
+  }
+
+  urlInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      state.history.push(state.url);
+      state.future = [];
+      loadUrl(urlInput.value);
+      updateNavButtons();
+    }
+  });
+
+  urlInput.addEventListener('focus', () => urlInput.select());
+
+  if (backBtn) backBtn.addEventListener('click', goBack);
+  if (forwardBtn) forwardBtn.addEventListener('click', goForward);
+  if (reloadBtn) reloadBtn.addEventListener('click', () => loadUrl(state.url));
+  if (homeBtn) homeBtn.addEventListener('click', () => {
+    state.history.push(state.url);
+    state.future = [];
+    loadUrl('https://www.google.com');
+    updateNavButtons();
+  });
+
+  bookmarks.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const site = btn.dataset.bookmark;
+      const urls = {
+        google: 'https://www.google.com',
+        youtube: 'https://www.youtube.com',
+        github: 'https://www.github.com',
+        wikipedia: 'https://www.wikipedia.org'
+      };
+      if (urls[site]) {
+        state.history.push(state.url);
+        state.future = [];
+        loadUrl(urls[site]);
+        updateNavButtons();
+      }
+    });
+  });
+
+  loadUrl(state.url);
+  updateNavButtons();
+}
+
+function switchProfile(profileId) {
+  closeAllOpenApps();
+
+  currentProfile = profileId;
+  
+  const profileNameEl = document.getElementById('topbar-profile-name');
+  const profileIconEl = document.getElementById('topbar-profile-icon');
+  
+  const profileMap = {
+    gamer: { name: 'Gamer', icon: 'gamepad-2', toast: 'Perfil Gamer: Modo Juego activado, HUD y telemetría listos.' },
+    streamer: { name: 'Streamer', icon: 'radio', toast: 'Perfil Streamer: Widgets multimedia y monitoreo de audio en vivo.' },
+    studio: { name: 'Estudio', icon: 'terminal', toast: 'Perfil Estudio / Dev: Espacio optimizado para programación con VS Code y Terminal.' }
+  };
+
+  const pData = profileMap[profileId] || profileMap.gamer;
+  if (profileNameEl) profileNameEl.textContent = pData.name;
+  if (profileIconEl) profileIconEl.innerHTML = `<i data-lucide="${pData.icon}"></i>`;
+
+  document.querySelectorAll('.profile-chip, .p-mini-chip').forEach(chip => {
+    chip.classList.toggle('active', chip.dataset.profile === profileId);
+  });
+
+  if (profileId === 'gamer') {
+    applyThemePreset('cyberpunk');
+    toggleGameMode(true);
+  } else if (profileId === 'streamer') {
+    applyThemePreset('synthwave');
+    toggleGameMode(false);
+  } else if (profileId === 'studio') {
+    applyThemePreset('catppuccin');
+    toggleGameMode(false);
+    switchWorkspace(1);
+  }
+
+  try {
+    localStorage.setItem(PROFILE_STORAGE_KEY, profileId);
+  } catch (e) {}
+
+  showToast(`Perfil: ${pData.name}`, pData.toast, pData.icon);
+  refreshIcons();
+}
+
+function closeAllOpenApps() {
+  const ids = Object.keys(openWindows);
+  ids.forEach(winId => closeApp(winId));
 }
