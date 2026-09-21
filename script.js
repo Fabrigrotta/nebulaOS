@@ -372,6 +372,32 @@ let isPlaying = false;
 let playbackProgress = 32;
 let systemVolume = 80;
 let wifiEnabled = true;
+let connectedWifiId = null;
+let wifiPasswordVisible = null;
+let wifiScanInProgress = false;
+let btScanInProgress = false;
+
+const WIFI_NETWORKS = [
+  { id: 'nebula-5g',     ssid: 'Nebula_5G',         security: 'wpa3', signal: 4, frequency: '5 GHz', password: 'N3bul4_2026#5G' },
+  { id: 'nebula-24g',    ssid: 'Nebula_2.4G',       security: 'wpa2', signal: 3, frequency: '2.4 GHz', password: 'N3bul4_2026' },
+  { id: 'vecino-24g',    ssid: 'TP-Link_2.4G',      security: 'wpa2', signal: 2, frequency: '2.4 GHz', password: null },
+  { id: 'cafe-free',     ssid: 'Cafeteria_Free',    security: 'open', signal: 3, frequency: '2.4 GHz', password: null },
+  { id: 'fibertel',      ssid: 'Fibertel-2.4G',     security: 'wpa2', signal: 1, frequency: '2.4 GHz', password: null },
+  { id: 'movistar-5g',   ssid: 'MOVISTAR_5G',       security: 'wpa2', signal: 4, frequency: '5 GHz', password: null },
+  { id: 'vecino-5g',     ssid: 'DIRECT-ROKU',       security: 'wpa2', signal: 2, frequency: '5 GHz', password: null },
+  { id: 'guest-network', ssid: 'Invitados',         security: 'open', signal: 3, frequency: '2.4 GHz', password: null }
+];
+
+const BLUETOOTH_DEVICES = [
+  { id: 'hyperx-cloud',   name: 'HyperX Cloud II',     type: 'headset', icon: 'headphones',  battery: 78, paired: true,  connected: true  },
+  { id: 'mx-master-3',    name: 'Logitech MX Master 3', type: 'mouse',   icon: 'mouse',       battery: 45, paired: true,  connected: true  },
+  { id: 'keychron-k8',    name: 'Keychron K8 Pro',      type: 'keyboard',icon: 'keyboard',    battery: 92, paired: true,  connected: false },
+  { id: 'xbox-controller',name: 'Xbox Controller',      type: 'gamepad', icon: 'gamepad-2',   battery: 15, paired: true,  connected: false },
+  { id: 'jbl-flip',       name: 'JBL Flip 6',           type: 'speaker', icon: 'speaker',     battery: 0,  paired: false, connected: false },
+  { id: 'airpods-pro',    name: 'AirPods Pro',          type: 'headset', icon: 'headphones',  battery: 0,  paired: false, connected: false },
+  { id: 'mi-band-8',      name: 'Xiaomi Mi Band 8',     type: 'watch',   icon: 'watch',       battery: 0,  paired: false, connected: false },
+  { id: 'logi-k380',      name: 'Logitech K380',        type: 'keyboard',icon: 'keyboard',    battery: 0,  paired: false, connected: false }
+];
 let bluetoothEnabled = false;
 let dndEnabled = false;
 let currentBrightness = 100;
@@ -884,6 +910,8 @@ document.addEventListener('DOMContentLoaded', () => {
   renderDesktopWidgets();
   renderConnectivityState();
   renderDndState();
+  renderWifiPanel(); 
+  renderBluetoothPanel();
   applyBrightness(currentBrightness);
   setupQuickCenterPlayer();
   updatePlayerBackground();
@@ -933,6 +961,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('#tray-hud-toggle')) return;
     toggleQuickCenter();
   });
+
+  const trayWifiItem = document.getElementById('tray-wifi-item');
+  if (trayWifiItem) {
+    trayWifiItem.style.cursor = 'pointer';
+    trayWifiItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleWifiPanel();
+    });
+  }
+
+  const trayBtItem = document.getElementById('tray-bt-item');
+  if (trayBtItem) {
+    trayBtItem.style.cursor = 'pointer';
+    trayBtItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleBluetoothPanel();
+    });
+  }
   if (clockCenter) clockCenter.addEventListener('click', toggleControlCenter);
   if (trayHudToggle) trayHudToggle.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -971,6 +1017,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const isNotifPanelClick = e.target.closest('#notification-center');
     const isNotifBtnClick = e.target.closest('#tray-notif-btn');
     const isStoreClick = e.target.closest('#store-overlay');
+    const isWifiPanelClick = e.target.closest('#wifi-panel');
+    const isWifiBtnClick = e.target.closest('#tray-wifi-item');
+    const isBtPanelClick = e.target.closest('#bluetooth-panel');
+    const isBtBtnClick = e.target.closest('#tray-bt-item');
 
     if (!isDockCtxClick) hideDockContextMenu();
     if (!isWmCardCtxClick) hideWmCardContextMenu();
@@ -992,11 +1042,17 @@ document.addEventListener('DOMContentLoaded', () => {
         && !isCitySelectorClick
         && !isNotifPanelClick
         && !isNotifBtnClick
-        && !isStoreClick) {
+        && !isStoreClick
+        && !isWifiPanelClick
+        && !isWifiBtnClick
+        && !isBtPanelClick
+        && !isBtBtnClick) {
       closeControlCenter();
       closeQuickCenter();
       closeNotificationCenter();
       closeStore();
+      closeWifiPanel();
+      closeBluetoothPanel();
     }
     hideContextMenu();
   });
@@ -1012,6 +1068,8 @@ document.addEventListener('DOMContentLoaded', () => {
       closeQuickCenter();
       closeNotificationCenter();
       closeStore();
+      closeWifiPanel();
+      closeBluetoothPanel();
       if (gamerOverlayVisible) toggleGamerOverlay();
       if (windowManagerOpen) closeWindowManager();
       hideDockContextMenu();
@@ -1055,7 +1113,7 @@ document.addEventListener('DOMContentLoaded', () => {
   syncVpnQuickCenterState();
 
   window.addEventListener('beforeunload', () => {
-    saveSessionState(true);
+  saveSessionState(true);
   });
 });
 
@@ -1072,10 +1130,21 @@ function setupShortcuts() {
 function toggleWifi(explicitState = null) {
   wifiEnabled = explicitState !== null ? explicitState : !wifiEnabled;
 
+  if (!wifiEnabled) {
+    connectedWifiId = null;
+    wifiPasswordVisible = null;
+  }
+
   const wifiToggle = document.getElementById('wifi-toggle');
   if (wifiToggle) {
     wifiToggle.classList.toggle('active', wifiEnabled);
     wifiToggle.setAttribute('aria-pressed', String(wifiEnabled));
+  }
+
+  const panelToggle = document.getElementById('wifi-panel-toggle');
+  if (panelToggle) {
+    panelToggle.classList.toggle('active', wifiEnabled);
+    panelToggle.setAttribute('aria-pressed', String(wifiEnabled));
   }
 
   try {
@@ -1083,16 +1152,25 @@ function toggleWifi(explicitState = null) {
   } catch (e) {}
 
   renderConnectivityState();
+  renderWifiPanel();
 
   showToast(
     wifiEnabled ? 'WiFi Activado' : 'WiFi Desactivado',
-    wifiEnabled ? 'Conexión inalámbrica establecida.' : 'Sin conexión inalámbrica.',
+    wifiEnabled ? 'Buscando redes inalámbricas disponibles...' : 'Sin conexión inalámbrica.',
     wifiEnabled ? 'wifi' : 'wifi-off'
   );
+
+  if (wifiEnabled) {
+    rescanWifiNetworks();
+  }
 }
 
 function toggleBluetooth(explicitState = null) {
   bluetoothEnabled = explicitState !== null ? explicitState : !bluetoothEnabled;
+
+  if (!bluetoothEnabled) {
+    BLUETOOTH_DEVICES.forEach(d => { d.connected = false; });
+  }
 
   const btToggle = document.getElementById('bt-toggle');
   if (btToggle) {
@@ -1100,17 +1178,28 @@ function toggleBluetooth(explicitState = null) {
     btToggle.setAttribute('aria-pressed', String(bluetoothEnabled));
   }
 
+  const panelToggle = document.getElementById('bt-panel-toggle');
+  if (panelToggle) {
+    panelToggle.classList.toggle('active', bluetoothEnabled);
+    panelToggle.setAttribute('aria-pressed', String(bluetoothEnabled));
+  }
+
   try {
     localStorage.setItem(BT_STORAGE_KEY, JSON.stringify(bluetoothEnabled));
   } catch (e) {}
 
   renderConnectivityState();
+  renderBluetoothPanel();
 
   showToast(
     bluetoothEnabled ? 'Bluetooth Activado' : 'Bluetooth Desactivado',
-    bluetoothEnabled ? 'Listo para emparejar dispositivos.' : 'Bluetooth apagado.',
+    bluetoothEnabled ? 'Buscando dispositivos cercanos...' : 'Bluetooth apagado.',
     'bluetooth'
   );
+
+  if (bluetoothEnabled) {
+    rescanBluetoothDevices();
+  }
 }
 
 function renderConnectivityState() {
@@ -9718,3 +9807,521 @@ document.addEventListener('mousemove', () => {
 document.addEventListener('keydown', () => {
   if (vaultState.unlocked) resetVaultLockTimer();
 }, { passive: true });
+/* ═══════════════════════════════════════════════════════════════
+   ★ PANEL DE REDES WIFI + BLUETOOTH
+═══════════════════════════════════════════════════════════════ */
+
+function getWifiSignalClass(signal) {
+  if (signal >= 4) return 'excellent';
+  if (signal >= 3) return 'good';
+  if (signal >= 2) return 'fair';
+  return 'weak';
+}
+
+function getWifiSecurityIcon(security) {
+  if (security === 'open') return 'wifi';
+  if (security === 'wpa3') return 'shield-check';
+  return 'lock';
+}
+
+function getWifiSecurityLabel(security) {
+  if (security === 'open') return 'Red abierta';
+  if (security === 'wpa3') return 'WPA3 · Segura';
+  return 'WPA2 · Segura';
+}
+
+function getWifiNetworkById(id) {
+  return WIFI_NETWORKS.find(n => n.id === id) || null;
+}
+
+function getWifiNetworkHTML(network) {
+  const isConnected = connectedWifiId === network.id;
+  const signalClass = getWifiSignalClass(network.signal);
+  const isWeak = network.signal <= 1;
+  const signalBarsHTML = [1, 2, 3, 4].map(i =>
+    `<span class="${i <= network.signal ? 'on' : ''}"></span>`
+  ).join('');
+
+  const securityIcon = getWifiSecurityIcon(network.security);
+  const isOpen = network.security === 'open';
+
+  let actionHTML = '';
+  if (isConnected) {
+    actionHTML = `
+      <button class="network-connect-btn disconnect" type="button" onclick="event.stopPropagation(); disconnectWifi()">
+        Desconectar
+      </button>
+    `;
+  } else {
+    actionHTML = `
+      <button class="network-connect-btn" type="button" onclick="event.stopPropagation(); connectToWifi('${network.id}')">
+        Conectar
+      </button>
+    `;
+  }
+
+  let passwordHTML = '';
+  if (isConnected && wifiPasswordVisible === network.id && network.password) {
+    passwordHTML = `
+      <div class="network-password-row">
+        <span>${escapeHtml(network.password)}</span>
+        <button class="network-item-btn" type="button" title="Copiar contraseña" onclick="event.stopPropagation(); copyWifiPassword('${network.id}')">
+          <i data-lucide="copy"></i>
+        </button>
+      </div>
+    `;
+  }
+
+  const actionBtnsHTML = isConnected ? `
+    <button class="network-item-btn" type="button" title="${wifiPasswordVisible === network.id ? 'Ocultar contraseña' : 'Ver contraseña'}"
+            onclick="event.stopPropagation(); toggleWifiPassword('${network.id}')">
+      <i data-lucide="${wifiPasswordVisible === network.id ? 'eye-off' : 'eye'}"></i>
+    </button>
+    <button class="network-item-btn danger" type="button" title="Olvidar red"
+            onclick="event.stopPropagation(); forgetWifi('${network.id}')">
+      <i data-lucide="trash-2"></i>
+    </button>
+  ` : '';
+
+  return `
+    <div class="network-item ${isConnected ? 'connected' : ''} ${isWeak ? 'weak-signal' : ''}"
+         data-wifi-id="${network.id}"
+         onclick="connectToWifi('${network.id}')">
+      <div class="network-item-icon">
+        <i data-lucide="${isOpen ? 'wifi' : 'wifi'}"></i>
+      </div>
+      <div class="network-item-meta">
+        <div class="network-item-title">
+          ${escapeHtml(network.ssid)}
+          ${!isOpen ? `<i data-lucide="${securityIcon}" class="network-lock-icon"></i>` : ''}
+        </div>
+        <div class="network-item-sub">
+          ${isConnected ? 'Conectada · ' + network.frequency : getWifiSecurityLabel(network.security) + ' · ' + network.frequency}
+        </div>
+      </div>
+      <div class="network-signal-bars" title="Señal: ${network.signal}/4">
+        ${signalBarsHTML}
+      </div>
+      <div class="network-item-actions">
+        ${actionBtnsHTML}
+        ${actionHTML}
+      </div>
+    </div>
+    ${passwordHTML}
+  `;
+}
+
+function renderWifiPanel() {
+  const body = document.getElementById('wifi-panel-body');
+  const footer = document.getElementById('wifi-panel-footer');
+  const subtitle = document.getElementById('wifi-panel-subtitle');
+
+  if (!body) return;
+
+  // 1) Si WiFi está apagado → mostrar estado vacío (destruye la lista si existe)
+  if (!wifiEnabled) {
+    body.innerHTML = `
+      <div class="network-empty-state">
+        <div class="network-empty-icon"><i data-lucide="wifi-off"></i></div>
+        <strong>WiFi está desactivado</strong>
+        <small>Activá WiFi para ver las redes disponibles en tu zona.</small>
+      </div>
+    `;
+    if (subtitle) subtitle.textContent = 'WiFi desactivado';
+    if (footer) footer.hidden = true;
+    refreshIcons();
+    return;
+  }
+
+  // 2) WiFi prendido → asegurar que existe la estructura (loading + lista)
+  let list = document.getElementById('wifi-networks-list');
+  let loading = document.getElementById('wifi-loading');
+  if (!list) {
+    body.innerHTML = `
+      <div class="network-loading" id="wifi-loading" hidden>
+        <i data-lucide="loader-circle" class="network-spinner"></i>
+        <span>Escaneando redes...</span>
+      </div>
+      <div class="network-list" id="wifi-networks-list"></div>
+    `;
+    list = document.getElementById('wifi-networks-list');
+    loading = document.getElementById('wifi-loading');
+  }
+
+  if (!list) return;
+
+  // 3) Footer visible cuando WiFi está prendido
+  if (footer) footer.hidden = false;
+
+  // 4) Si está escaneando → mostrar spinner y salir
+  if (wifiScanInProgress) {
+    if (loading) loading.hidden = false;
+    list.innerHTML = '';
+    if (subtitle) subtitle.textContent = 'Escaneando redes...';
+    refreshIcons();
+    return;
+  }
+
+  // 5) Renderizar la lista de redes
+  if (loading) loading.hidden = true;
+
+  const sorted = [...WIFI_NETWORKS].sort((a, b) => {
+    if (connectedWifiId === a.id) return -1;
+    if (connectedWifiId === b.id) return 1;
+    return b.signal - a.signal;
+  });
+
+  list.innerHTML = sorted.map(getWifiNetworkHTML).join('');
+
+  if (subtitle) {
+    const count = WIFI_NETWORKS.length;
+    subtitle.textContent = connectedWifiId
+      ? `Conectada a ${getWifiNetworkById(connectedWifiId)?.ssid || '—'}`
+      : `${count} red${count === 1 ? '' : 'es'} disponible${count === 1 ? '' : 's'}`;
+  }
+
+  refreshIcons();
+}
+
+function rescanWifiNetworks() {
+  if (!wifiEnabled) return;
+  wifiScanInProgress = true;
+  renderWifiPanel();
+
+  setTimeout(() => {
+    // Simulamos que las señales varían levemente
+    WIFI_NETWORKS.forEach(n => {
+      if (n.signal < 4) {
+        const delta = Math.random() > 0.5 ? 1 : -1;
+        n.signal = Math.max(1, Math.min(4, n.signal + delta));
+      }
+    });
+    wifiScanInProgress = false;
+    renderWifiPanel();
+  }, 1200 + Math.random() * 600);
+}
+
+function connectToWifi(networkId) {
+  if (!wifiEnabled) return;
+  const network = getWifiNetworkById(networkId);
+  if (!network) return;
+  if (connectedWifiId === networkId) return;
+
+  // Mostrar estado "conectando" en el botón
+  const item = document.querySelector(`.network-item[data-wifi-id="${networkId}"]`);
+  const connectBtn = item?.querySelector('.network-connect-btn');
+  if (connectBtn) {
+    connectBtn.classList.add('connecting');
+    connectBtn.textContent = 'Conectando...';
+  }
+
+  setTimeout(() => {
+    connectedWifiId = networkId;
+    wifiPasswordVisible = null;
+    renderWifiPanel();
+    showToast('WiFi Conectada', `Conectado a "${network.ssid}".`, 'wifi');
+  }, 900 + Math.random() * 600);
+}
+
+function disconnectWifi() {
+  const network = getWifiNetworkById(connectedWifiId);
+  connectedWifiId = null;
+  wifiPasswordVisible = null;
+  renderWifiPanel();
+  if (network) {
+    showToast('WiFi Desconectada', `Te desconectaste de "${network.ssid}".`, 'wifi-off');
+  }
+}
+
+function forgetWifi(networkId) {
+  const network = getWifiNetworkById(networkId);
+  if (!network) return;
+  if (connectedWifiId === networkId) {
+    connectedWifiId = null;
+    wifiPasswordVisible = null;
+  }
+  showToast('Red Olvidada', `Se olvidó la red "${network.ssid}".`, 'trash-2');
+  renderWifiPanel();
+}
+
+function toggleWifiPassword(networkId) {
+  wifiPasswordVisible = wifiPasswordVisible === networkId ? null : networkId;
+  renderWifiPanel();
+}
+
+async function copyWifiPassword(networkId) {
+  const network = getWifiNetworkById(networkId);
+  if (!network || !network.password) return;
+  try {
+    await navigator.clipboard.writeText(network.password);
+    showToast('Contraseña Copiada', `Contraseña de "${network.ssid}" copiada.`, 'clipboard-check');
+  } catch (e) {
+    showToast('Copiado', 'Contraseña copiada (fallback).', 'clipboard');
+  }
+}
+
+function openWifiPanel() {
+  const panel = document.getElementById('wifi-panel');
+  if (!panel) return;
+  closeQuickCenter();
+  closeControlCenter();
+  closeNotificationCenter();
+  closeBluetoothPanel();
+  panel.classList.remove('hidden');
+  renderWifiPanel();
+  refreshIcons();
+  if (wifiEnabled && !connectedWifiId) {
+    rescanWifiNetworks();
+  }
+}
+
+function closeWifiPanel() {
+  const panel = document.getElementById('wifi-panel');
+  if (!panel) return;
+  panel.classList.add('hidden');
+}
+
+function toggleWifiPanel() {
+  const panel = document.getElementById('wifi-panel');
+  if (!panel) return;
+  if (panel.classList.contains('hidden')) openWifiPanel();
+  else closeWifiPanel();
+}
+
+/* ───────── Bluetooth ───────── */
+
+function getBluetoothDeviceById(id) {
+  return BLUETOOTH_DEVICES.find(d => d.id === id) || null;
+}
+
+function getBatteryClass(battery) {
+  if (battery <= 20) return 'low';
+  if (battery <= 50) return 'medium';
+  return 'high';
+}
+
+function getBluetoothDeviceHTML(device, mode = 'paired') {
+  const isConnected = device.connected;
+  const batteryClass = getBatteryClass(device.battery);
+
+  const iconHTML = `<i data-lucide="${device.icon}"></i>`;
+
+  const batteryHTML = (device.paired && device.battery > 0) ? `
+    <div class="network-battery ${batteryClass}" title="Batería: ${device.battery}%">
+      <div class="network-battery-bar">
+        <span class="network-battery-fill" style="width: ${device.battery}%;"></span>
+      </div>
+      <span>${device.battery}%</span>
+    </div>
+  ` : '';
+
+  let actionHTML = '';
+  if (mode === 'paired') {
+    if (isConnected) {
+      actionHTML = `
+        <button class="network-connect-btn disconnect" type="button"
+                onclick="event.stopPropagation(); disconnectBluetoothDevice('${device.id}')">
+          Desconectar
+        </button>
+      `;
+    } else {
+      actionHTML = `
+        <button class="network-connect-btn" type="button"
+                onclick="event.stopPropagation(); connectBluetoothDevice('${device.id}')">
+          Conectar
+        </button>
+      `;
+    }
+  } else {
+    actionHTML = `
+      <button class="network-connect-btn" type="button"
+              onclick="event.stopPropagation(); pairBluetoothDevice('${device.id}')">
+        Emparejar
+      </button>
+    `;
+  }
+
+  const forgetBtn = (mode === 'paired' && !isConnected) ? `
+    <button class="network-item-btn danger" type="button" title="Olvidar dispositivo"
+            onclick="event.stopPropagation(); forgetBluetoothDevice('${device.id}')">
+      <i data-lucide="trash-2"></i>
+    </button>
+  ` : '';
+
+  return `
+    <div class="network-item ${isConnected ? 'connected' : ''}" data-bt-id="${device.id}">
+      <div class="network-item-icon">${iconHTML}</div>
+      <div class="network-item-meta">
+        <div class="network-item-title">${escapeHtml(device.name)}</div>
+        <div class="network-item-sub">
+          ${isConnected ? 'Conectado' : (mode === 'paired' ? 'Emparejado' : 'Dispositivo cercano')}
+          ${batteryHTML ? ' · ' : ''}
+          ${batteryHTML}
+        </div>
+      </div>
+      <div class="network-item-actions">
+        ${forgetBtn}
+        ${actionHTML}
+      </div>
+    </div>
+  `;
+}
+
+function renderBluetoothPanel() {
+  const empty = document.getElementById('bt-empty-state');
+  const content = document.getElementById('bt-panel-content');
+  const pairedList = document.getElementById('bt-paired-list');
+  const availableList = document.getElementById('bt-available-list');
+  const subtitle = document.getElementById('bt-panel-subtitle');
+  const footer = document.getElementById('bt-panel-footer');
+  if (!content) return;
+
+  if (!bluetoothEnabled) {
+    if (empty) empty.hidden = false;
+    content.hidden = true;
+    if (footer) footer.hidden = true;
+    if (subtitle) subtitle.textContent = 'Bluetooth desactivado';
+    refreshIcons();
+    return;
+  }
+
+  if (empty) empty.hidden = true;
+  content.hidden = false;
+  if (footer) footer.hidden = false;
+
+  const paired = BLUETOOTH_DEVICES.filter(d => d.paired);
+  const available = BLUETOOTH_DEVICES.filter(d => !d.paired);
+
+  if (pairedList) {
+    pairedList.innerHTML = paired.length
+      ? paired.map(d => getBluetoothDeviceHTML(d, 'paired')).join('')
+      : `<div class="network-empty-state" style="padding:20px 12px;"><small>No hay dispositivos emparejados.</small></div>`;
+  }
+
+  if (availableList) {
+    if (btScanInProgress) {
+      availableList.innerHTML = `
+        <div class="network-loading">
+          <i data-lucide="loader-circle" class="network-spinner"></i>
+          <span>Buscando dispositivos...</span>
+        </div>
+      `;
+    } else {
+      availableList.innerHTML = available.length
+        ? available.map(d => getBluetoothDeviceHTML(d, 'available')).join('')
+        : `<div class="network-empty-state" style="padding:20px 12px;"><small>No se encontraron dispositivos nuevos.</small></div>`;
+    }
+  }
+
+  if (subtitle) {
+    const connectedCount = BLUETOOTH_DEVICES.filter(d => d.connected).length;
+    subtitle.textContent = connectedCount > 0
+      ? `${connectedCount} dispositivo${connectedCount === 1 ? '' : 's'} conectado${connectedCount === 1 ? '' : 's'}`
+      : `${paired.length} emparejado${paired.length === 1 ? '' : 's'}`;
+  }
+
+  refreshIcons();
+}
+
+function rescanBluetoothDevices() {
+  if (!bluetoothEnabled) return;
+  btScanInProgress = true;
+  renderBluetoothPanel();
+
+  setTimeout(() => {
+    btScanInProgress = false;
+    renderBluetoothPanel();
+  }, 1400 + Math.random() * 800);
+}
+
+function connectBluetoothDevice(id) {
+  const device = getBluetoothDeviceById(id);
+  if (!device || !device.paired) return;
+  if (device.connected) return;
+
+  const item = document.querySelector(`.network-item[data-bt-id="${id}"]`);
+  const btn = item?.querySelector('.network-connect-btn');
+  if (btn) {
+    btn.classList.add('connecting');
+    btn.textContent = 'Conectando...';
+  }
+
+  setTimeout(() => {
+    device.connected = true;
+    renderBluetoothPanel();
+    showToast('Dispositivo Conectado', `"${device.name}" conectado por Bluetooth.`, 'bluetooth');
+  }, 800 + Math.random() * 600);
+}
+
+function disconnectBluetoothDevice(id) {
+  const device = getBluetoothDeviceById(id);
+  if (!device) return;
+  device.connected = false;
+  renderBluetoothPanel();
+  showToast('Desconectado', `"${device.name}" fue desconectado.`, 'bluetooth');
+}
+
+function forgetBluetoothDevice(id) {
+  const device = getBluetoothDeviceById(id);
+  if (!device) return;
+  device.paired = false;
+  device.connected = false;
+  device.battery = 0;
+  renderBluetoothPanel();
+  showToast('Dispositivo Olvidado', `"${device.name}" fue removido de la lista.`, 'trash-2');
+}
+
+function pairBluetoothDevice(id) {
+  const device = getBluetoothDeviceById(id);
+  if (!device || device.paired) return;
+
+  const item = document.querySelector(`.network-item[data-bt-id="${id}"]`);
+  const btn = item?.querySelector('.network-connect-btn');
+  if (btn) {
+    btn.classList.add('connecting');
+    btn.textContent = 'Emparejando...';
+  }
+
+  setTimeout(() => {
+    device.paired = true;
+    device.connected = true;
+    device.battery = Math.floor(60 + Math.random() * 40);
+    renderBluetoothPanel();
+    showToast('Dispositivo Emparejado', `"${device.name}" emparejado y conectado.`, 'check-circle-2');
+  }, 1200 + Math.random() * 800);
+}
+
+function openBluetoothPanel() {
+  const panel = document.getElementById('bluetooth-panel');
+  if (!panel) return;
+  closeQuickCenter();
+  closeControlCenter();
+  closeNotificationCenter();
+  closeWifiPanel();
+  panel.classList.remove('hidden');
+  renderBluetoothPanel();
+  refreshIcons();
+  if (bluetoothEnabled) {
+    rescanBluetoothDevices();
+  }
+}
+
+function closeBluetoothPanel() {
+  const panel = document.getElementById('bluetooth-panel');
+  if (!panel) return;
+  panel.classList.add('hidden');
+}
+
+function toggleBluetoothPanel() {
+  const panel = document.getElementById('bluetooth-panel');
+  if (!panel) return;
+  if (panel.classList.contains('hidden')) openBluetoothPanel();
+  else closeBluetoothPanel();
+}
+
+function openNetworkSettings() {
+  closeWifiPanel();
+  openApp('settings');
+  settingsState.activeSettingsTab = 'system';
+  renderSettingsApp();
+}

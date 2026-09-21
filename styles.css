@@ -7307,3 +7307,523 @@ body.no-animations .window {
   color: var(--text-sub);
   font-style: italic;
 }
+/* =====================================================
+   ★ PANEL DE REDES WIFI + BLUETOOTH
+===================================================== */
+
+#wifi-panel,
+#bluetooth-panel {
+  position: absolute;
+  top: 52px;
+  right: 8px;
+  width: min(380px, calc(100vw - 20px));
+  max-height: calc(100vh - 68px);
+  padding: 0;
+  z-index: 955;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  background: rgba(18, 21, 33, 0.92);
+  backdrop-filter: blur(var(--blur-amount)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-amount)) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.65),
+    0 0 40px color-mix(in srgb, var(--accent) 8%, transparent);
+  transition:
+    opacity .24s cubic-bezier(0.22, 1, 0.36, 1),
+    transform .24s cubic-bezier(0.22, 1, 0.36, 1),
+    visibility .24s;
+  transform-origin: top right;
+  overflow: hidden;
+}
+
+#bluetooth-panel {
+  z-index: 954;
+}
+
+#wifi-panel.hidden,
+#bluetooth-panel.hidden {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px) scale(.95);
+  pointer-events: none;
+}
+
+/* ─── Header ─── */
+
+.network-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.network-panel-header > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.network-panel-header strong {
+  display: block;
+  margin-top: 2px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.network-panel-header #wifi-panel-subtitle,
+.network-panel-header #bt-panel-subtitle {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-sub);
+  font-size: 10px;
+}
+
+.network-panel-toggle {
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  width: auto;
+}
+.network-panel-toggle:hover {
+  background: transparent;
+  border: 0;
+}
+
+/* ─── Body ─── */
+
+.network-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 12px 12px;
+}
+.network-panel-body::-webkit-scrollbar { width: 5px; }
+.network-panel-body::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 10px;
+}
+.network-panel-body::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* ─── Loading ─── */
+
+.network-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 20px;
+  color: var(--text-sub);
+  font-size: 11px;
+}
+
+.network-spinner {
+  width: 22px !important;
+  height: 22px !important;
+  color: var(--accent);
+  animation: network-spin 0.9s linear infinite;
+}
+@keyframes network-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Empty State ─── */
+
+.network-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 24px 32px;
+  text-align: center;
+}
+
+.network-empty-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  color: var(--text-sub);
+  margin-bottom: 4px;
+}
+.network-empty-icon svg,
+.network-empty-icon i {
+  width: 22px !important;
+  height: 22px !important;
+  opacity: 0.5;
+}
+.network-empty-state strong {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+.network-empty-state small {
+  color: var(--text-sub);
+  font-size: 10.5px;
+  line-height: 1.4;
+  max-width: 240px;
+}
+
+/* ─── Section Label ─── */
+
+.network-section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 8px;
+  color: var(--text-sub);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.network-section-label svg,
+.network-section-label i {
+  width: 12px !important;
+  height: 12px !important;
+  color: var(--accent);
+}
+
+/* ─── Lista de redes / dispositivos ─── */
+
+.network-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.network-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  width: 100%;
+}
+.network-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateX(2px);
+}
+.network-item.connected {
+  background: color-mix(in srgb, var(--accent) 8%, rgba(255,255,255,0.03));
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* ─── Ícono de red / dispositivo ─── */
+
+.network-item-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--accent);
+  transition: all 0.2s ease;
+}
+.network-item-icon svg,
+.network-item-icon i {
+  width: 16px !important;
+  height: 16px !important;
+}
+.network-item.connected .network-item-icon {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+.network-item.weak-signal .network-item-icon {
+  color: var(--accent-orange);
+  border-color: color-mix(in srgb, var(--accent-orange) 30%, transparent);
+}
+
+/* ─── Meta ─── */
+
+.network-item-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.network-item-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.network-item-sub {
+  color: var(--text-sub);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.network-item.connected .network-item-sub {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ─── Señal / Lock badges ─── */
+
+.network-signal-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+.network-signal-bars span {
+  display: block;
+  width: 3px;
+  border-radius: 1px;
+  background: rgba(255,255,255,0.18);
+}
+.network-signal-bars span:nth-child(1) { height: 25%; }
+.network-signal-bars span:nth-child(2) { height: 50%; }
+.network-signal-bars span:nth-child(3) { height: 75%; }
+.network-signal-bars span:nth-child(4) { height: 100%; }
+.network-signal-bars span.on {
+  background: var(--accent);
+  box-shadow: 0 0 4px var(--accent-glow);
+}
+.network-item.weak-signal .network-signal-bars span.on {
+  background: var(--accent-orange);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--accent-orange) 60%, transparent);
+}
+
+.network-lock-icon {
+  width: 11px !important;
+  height: 11px !important;
+  color: var(--text-sub);
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+/* ─── Acciones ─── */
+
+.network-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.network-item-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-sub);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.15s ease;
+}
+.network-item-btn svg,
+.network-item-btn i {
+  width: 13px !important;
+  height: 13px !important;
+}
+.network-item-btn:hover {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--accent);
+}
+.network-item-btn.danger:hover {
+  background: color-mix(in srgb, var(--accent-red) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent-red) 50%, transparent);
+  color: var(--accent-red);
+}
+
+.network-connect-btn {
+  padding: 5px 12px;
+  border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+.network-connect-btn:hover {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  border-color: var(--accent);
+}
+.network-connect-btn.connecting {
+  border-color: color-mix(in srgb, var(--accent-orange) 50%, transparent);
+  background: color-mix(in srgb, var(--accent-orange) 12%, transparent);
+  color: var(--accent-orange);
+  pointer-events: none;
+}
+.network-connect-btn.disconnect {
+  border-color: color-mix(in srgb, var(--accent-red) 40%, transparent);
+  background: color-mix(in srgb, var(--accent-red) 10%, transparent);
+  color: var(--accent-red);
+}
+.network-connect-btn.disconnect:hover {
+  background: color-mix(in srgb, var(--accent-red) 22%, transparent);
+  border-color: var(--accent-red);
+}
+
+/* ─── Password reveal ─── */
+
+.network-password-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 6px 8px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: var(--accent);
+  animation: network-password-slide .25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes network-password-slide {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.network-password-row span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
+/* ─── Batería de dispositivos BT ─── */
+
+.network-battery {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9.5px;
+  color: var(--text-sub);
+  font-weight: 700;
+}
+.network-battery-bar {
+  width: 26px;
+  height: 6px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 1px;
+  position: relative;
+}
+.network-battery-bar::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 3px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 0 1px 1px 0;
+}
+.network-battery-fill {
+  display: block;
+  height: 100%;
+  border-radius: 1px;
+  background: var(--accent-green);
+  transition: width 0.3s ease, background 0.3s ease;
+}
+.network-battery.low .network-battery-fill { background: var(--accent-red); }
+.network-battery.medium .network-battery-fill { background: var(--accent-orange); }
+.network-battery.low { color: var(--accent-red); }
+.network-battery.medium { color: var(--accent-orange); }
+
+/* ─── Footer ─── */
+
+.network-panel-footer {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.network-footer-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+.network-footer-btn:hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.network-footer-btn svg,
+.network-footer-btn i {
+  width: 12px !important;
+  height: 12px !important;
+}
+.network-footer-btn.ghost {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-main);
+}
+.network-footer-btn.ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* ─── Responsive ─── */
+
+@media (max-width: 700px) {
+  #wifi-panel,
+  #bluetooth-panel {
+    width: calc(100vw - 20px);
+  }
+}

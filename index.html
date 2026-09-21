@@ -242,6 +242,80 @@
     </div>
   </div>
 
+    <!-- PANEL DE REDES WIFI -->
+  <div id="wifi-panel" class="hidden" aria-label="Panel de Redes WiFi">
+    <div class="network-panel-header">
+      <div>
+        <div class="widget-kicker">NEBULA NETWORK</div>
+        <strong>Redes WiFi</strong>
+        <span id="wifi-panel-subtitle">Buscando redes cercanas...</span>
+      </div>
+      <button class="network-panel-toggle quick-switch active" id="wifi-panel-toggle" type="button" aria-pressed="true" onclick="toggleWifi()">
+        <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
+      </button>
+    </div>
+
+    <div class="network-panel-body" id="wifi-panel-body">
+      <div class="network-loading" id="wifi-loading">
+        <i data-lucide="loader-circle" class="network-spinner"></i>
+        <span>Escaneando redes...</span>
+      </div>
+
+      <div class="network-list" id="wifi-networks-list">
+        <!-- Items dinámicos -->
+      </div>
+    </div>
+
+    <div class="network-panel-footer" id="wifi-panel-footer">
+      <button class="network-footer-btn" type="button" onclick="rescanWifiNetworks()">
+        <i data-lucide="refresh-cw"></i> Volver a escanear
+      </button>
+      <button class="network-footer-btn ghost" type="button" onclick="openNetworkSettings()">
+        <i data-lucide="settings-2"></i> Ajustes de red
+      </button>
+    </div>
+  </div>
+
+  <!-- PANEL DE DISPOSITIVOS BLUETOOTH -->
+  <div id="bluetooth-panel" class="hidden" aria-label="Gestor de Dispositivos Bluetooth">
+    <div class="network-panel-header">
+      <div>
+        <div class="widget-kicker">NEBULA BLUETOOTH</div>
+        <strong>Dispositivos Bluetooth</strong>
+        <span id="bt-panel-subtitle">Bluetooth desactivado</span>
+      </div>
+      <button class="network-panel-toggle quick-switch" id="bt-panel-toggle" type="button" aria-pressed="false" onclick="toggleBluetooth()">
+        <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
+      </button>
+    </div>
+
+    <div class="network-panel-body" id="bt-panel-body">
+      <div class="network-empty-state" id="bt-empty-state">
+        <div class="network-empty-icon"><i data-lucide="bluetooth-off"></i></div>
+        <strong>Bluetooth está desactivado</strong>
+        <small>Activá Bluetooth para ver y emparejar dispositivos cercanos.</small>
+      </div>
+
+      <div id="bt-panel-content" hidden>
+        <div class="network-section-label">
+          <i data-lucide="link"></i> Dispositivos emparejados
+        </div>
+        <div class="network-list" id="bt-paired-list"></div>
+
+        <div class="network-section-label" style="margin-top:14px;">
+          <i data-lucide="radar"></i> Dispositivos disponibles
+        </div>
+        <div class="network-list" id="bt-available-list"></div>
+      </div>
+    </div>
+
+    <div class="network-panel-footer" id="bt-panel-footer" hidden>
+      <button class="network-footer-btn" type="button" onclick="rescanBluetoothDevices()">
+        <i data-lucide="refresh-cw"></i> Buscar dispositivos
+      </button>
+    </div>
+  </div>
+
   <!-- CENTRO DE NOTIFICACIONES -->
   <div id="notification-center" class="hidden" aria-label="Centro de notificaciones">
     <div class="notif-panel-header">
