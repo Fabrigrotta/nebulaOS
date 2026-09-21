@@ -1494,7 +1494,10 @@ function toggleGameMode(explicitState = null) {
     systemMetrics.cpu = Math.min(85, systemMetrics.cpu + 15);
     systemMetrics.fps = 144;
     updateMetrics();
-    showToast('Modo Juego Activado', 'Recursos optimizados: RAM liberada y perfil de alto rendimiento fijado.', 'gamepad-2');
+    showToast('Modo Juego Activado', 'Recursos optimizados: RAM liberada y perfil de alto rendimiento fijado.', {
+      icon: 'gamepad-2',
+      level: 'success'
+    });
     logActivity({
       category: 'gaming',
       level: 'info',
@@ -1510,7 +1513,10 @@ function toggleGameMode(explicitState = null) {
       }
     });
   } else {
-    showToast('Modo Juego Desactivado', 'Perfil estándar balanceado restablecido.', 'zap');
+    showToast('Modo Juego Desactivado', 'Perfil estándar balanceado restablecido.', {
+      icon: 'zap',
+      level: 'info'
+    });
     logActivity({
       category: 'gaming',
       level: 'info',
@@ -1613,7 +1619,10 @@ function simulateRamBoost() {
   updateMetrics();
   updateHUDTelemetry();
   updateGamingHubWidget();
-  showToast('Memoria Optimizada', `RAM liberada de ${previous}% a 17%. 4.8 GB liberados.`, 'sparkles');
+  showToast('Memoria Optimizada', `RAM liberada de ${previous}% a 17%. 4.8 GB liberados.`, {
+    icon: 'sparkles',
+    level: 'success'
+  });
 }
 
 function simulateCleanRam() {
@@ -3558,28 +3567,274 @@ function setSystemVolume(val) {
   });
 }
 
-/* ================= SISTEMA DE NOTIFICACIONES TOAST ================= */
-function showToast(title, message, iconName = 'sparkles', force = false) {
+/* ═══════════════════════════════════════════════════════════════
+   ★ SISTEMA DE TOASTS ENRIQUECIDO
+═══════════════════════════════════════════════════════════════ */
+
+// Mapa de duración por nivel (ms)
+const TOAST_DURATIONS = {
+  info:    3500,
+  success: 3500,
+  warning: 5000,
+  danger:  8000
+};
+
+// Cómo se infiere el nivel a partir del ícono (fallback)
+const TOAST_ICON_LEVEL_MAP = {
+  'check-circle-2': 'success',
+  'check': 'success',
+  'shield-check': 'success',
+  'alert-triangle': 'danger',
+  'alert-circle': 'danger',
+  'x-circle': 'danger',
+  'shield-off': 'danger',
+  'info': 'info',
+  'bell': 'info',
+  'zap': 'warning',
+  'moon': 'warning',
+  'wifi-off': 'warning',
+  'battery-warning': 'warning'
+};
+
+// Instancias activas (para agrupación)
+const activeToasts = [];   // [{ id, level, title, message, icon, el, timer, remaining, startedAt, actions }]
+
+function inferToastLevel(iconName) {
+  return TOAST_ICON_LEVEL_MAP[iconName] || 'info';
+}
+
+function showToast(title, message, iconName = 'sparkles', force = false, options = {}) {
   if (dndEnabled && !force) return;
 
+  // Permitir firma alternativa: showToast(title, message, { level, icon, actions, ... })
+  let opts = options;
+  if (typeof iconName === 'object' && iconName !== null) {
+    opts = iconName;
+    iconName = opts.icon || 'sparkles';
+  }
+
+  const level = opts.level || inferToastLevel(iconName);
+  const actions = Array.isArray(opts.actions) ? opts.actions : [];
+  const duration = typeof opts.duration === 'number' ? opts.duration : TOAST_DURATIONS[level] || 4000;
+  const isPersistent = duration === 0 || (level === 'danger' && actions.length > 0);
+
+  // Guardar en historial de notificaciones
   addNotificationToHistory(title, message, iconName);
 
   const container = document.getElementById('toast-container');
   if (!container) return;
 
+  // ─── Intentar agrupar con un toast similar ya visible ───
+  const groupMatch = activeToasts.find(t =>
+    t.title === title &&
+    t.level === level &&
+    t.icon === iconName &&
+    !t.closing &&
+    t.actions.length === 0 &&
+    actions.length === 0
+  );
+
+  if (groupMatch) {
+    groupMatch.groupCount = (groupMatch.groupCount || 1) + 1;
+    groupMatch.message = message;
+    groupMatch.updatedAt = Date.now();
+
+    const strongEl = groupMatch.el.querySelector('.toast-content strong');
+    const smallEl = groupMatch.el.querySelector('.toast-content small');
+    if (strongEl) {
+      strongEl.dataset.groupCount = String(groupMatch.groupCount);
+    }
+    if (smallEl) smallEl.textContent = message;
+    groupMatch.el.classList.add('grouped');
+
+    // Reiniciar animación de entrada para dar feedback visual
+    groupMatch.el.style.animation = 'none';
+    void groupMatch.el.offsetWidth;
+    groupMatch.el.style.animation = '';
+
+    // Reiniciar timer de cierre
+    if (!isPersistent && groupMatch.timer) {
+      clearTimeout(groupMatch.timer);
+      resetToastTimer(groupMatch, duration);
+    }
+    return;
+  }
+
+  // ─── Crear nuevo toast ───
+  const id = 'toast-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+
   const toast = document.createElement('div');
   toast.className = 'toast-notification';
+  toast.dataset.level = level;
+  toast.dataset.toastId = id;
+
+  const actionsHTML = actions.length > 0 ? `
+    <div class="toast-actions">
+      ${actions.map(a => `
+        <button class="toast-action-btn ${a.variant === 'primary' ? 'primary' : ''}"
+                type="button"
+                data-action-id="${escapeHtml(a.id || '')}">
+          ${a.icon ? `<i data-lucide="${escapeHtml(a.icon)}"></i>` : ''}
+          ${escapeHtml(a.label || 'Acción')}
+        </button>
+      `).join('')}
+    </div>
+  ` : '';
+
   toast.innerHTML = `
     <span class="toast-icon"><i data-lucide="${iconName}"></i></span>
     <div class="toast-content">
       <strong>${escapeHtml(title)}</strong>
       <small>${escapeHtml(message)}</small>
+      ${actionsHTML}
     </div>
+    <button class="toast-close-btn" type="button" title="Cerrar" data-toast-close>
+      <i data-lucide="x"></i>
+    </button>
+    ${!isPersistent ? `
+      <div class="toast-progress">
+        <div class="toast-progress-fill"></div>
+      </div>
+    ` : ''}
   `;
 
   container.appendChild(toast);
+
+  const entry = {
+    id,
+    level,
+    title,
+    message,
+    icon: iconName,
+    el: toast,
+    timer: null,
+    remaining: duration,
+    startedAt: Date.now(),
+    duration,
+    actions,
+    groupCount: 1,
+    isPersistent,
+    paused: false,
+    progressFill: toast.querySelector('.toast-progress-fill'),
+    progressAnim: null
+  };
+
+  activeToasts.push(entry);
+
+  // ─── Animación de la barra de progreso ───
+  if (!isPersistent && entry.progressFill) {
+    startProgressBar(entry, duration);
+  }
+
+  // ─── Timer de auto-cierre ───
+  if (!isPersistent) {
+    resetToastTimer(entry, duration);
+  }
+
+  // ─── Pausar al hover ───
+  toast.addEventListener('mouseenter', () => {
+    if (isPersistent || entry.closing) return;
+    entry.paused = true;
+    entry.remaining -= (Date.now() - entry.startedAt);
+    if (entry.timer) {
+      clearTimeout(entry.timer);
+      entry.timer = null;
+    }
+    if (entry.progressAnim) {
+      entry.progressAnim.pause();
+    }
+  });
+
+  toast.addEventListener('mouseleave', () => {
+    if (isPersistent || entry.closing || !entry.paused) return;
+    entry.paused = false;
+    entry.startedAt = Date.now();
+    resetToastTimer(entry, entry.remaining);
+    if (entry.progressAnim) {
+      entry.progressAnim.play();
+    }
+  });
+
+  // ─── Click en el toast → abrir Centro de Notificaciones ───
+  toast.addEventListener('click', (e) => {
+    if (e.target.closest('.toast-close-btn')) return;
+    if (e.target.closest('.toast-action-btn')) return;
+    closeToast(id);
+    openNotificationCenter();
+  });
+
+  // ─── Botón de cerrar ───
+  toast.querySelector('[data-toast-close]')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeToast(id);
+  });
+
+  // ─── Botones de acción ───
+  toast.querySelectorAll('.toast-action-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const actionId = btn.dataset.actionId;
+      const action = actions.find(a => String(a.id) === String(actionId));
+      if (action && typeof action.onClick === 'function') {
+        try { action.onClick(); } catch (err) {}
+      }
+      if (action && action.close !== false) {
+        closeToast(id);
+      }
+    });
+  });
+
   refreshIcons();
-  setTimeout(() => toast.remove(), 4000);
+}
+
+function resetToastTimer(entry, duration) {
+  if (entry.timer) clearTimeout(entry.timer);
+  entry.startedAt = Date.now();
+  entry.remaining = duration;
+  entry.timer = setTimeout(() => closeToast(entry.id), duration);
+}
+
+function startProgressBar(entry, duration) {
+  const fill = entry.progressFill;
+  if (!fill) return;
+
+  fill.style.transition = 'none';
+  fill.style.transform = 'scaleX(1)';
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      fill.style.transition = `transform ${duration}ms linear`;
+      fill.style.transform = 'scaleX(0)';
+    });
+  });
+}
+
+function closeToast(id) {
+  const idx = activeToasts.findIndex(t => t.id === id);
+  if (idx === -1) return;
+
+  const entry = activeToasts[idx];
+  if (entry.closing) return;
+  entry.closing = true;
+
+  if (entry.timer) {
+    clearTimeout(entry.timer);
+    entry.timer = null;
+  }
+  if (entry.progressAnim) {
+    try { entry.progressAnim.cancel(); } catch (e) {}
+  }
+
+  entry.el.classList.add('closing');
+  setTimeout(() => {
+    entry.el.remove();
+    const i = activeToasts.indexOf(entry);
+    if (i !== -1) activeToasts.splice(i, 1);
+  }, 300);
+}
+
+function closeAllToasts() {
+  [...activeToasts].forEach(t => closeToast(t.id));
 }
 
 function addNotificationToHistory(title, message, iconName = 'sparkles') {
@@ -6414,7 +6669,10 @@ function toggleVpnConnection() {
       shieldState.vpnConnected = true;
       saveShieldState();
       const vpnServer = VPN_SERVERS.find(s => s.id === shieldState.vpnServer) || VPN_SERVERS[0];
-      showToast('VPN Conectada', `Servidor: ${vpnServer.name}`, 'globe');
+      showToast('VPN Conectada', `Servidor: ${vpnServer.name}`, {
+        icon: 'globe',
+        level: 'success'
+      });
       renderConnectivityState();
       renderSettingsApp();
       logActivity({
@@ -6435,7 +6693,10 @@ function toggleVpnConnection() {
   } else {
     shieldState.vpnConnected = false;
     saveShieldState();
-    showToast('VPN Desconectada', 'Conexión segura finalizada.', 'globe-off');
+    showToast('VPN Desconectada', 'Conexión segura finalizada.', {
+      icon: 'globe-off',
+      level: 'warning'
+    });
     renderConnectivityState();
     renderSettingsApp();
     logActivity({
@@ -6532,8 +6793,16 @@ function runShieldScan() {
           showToast(
             '¡Amenaza Detectada!',
             `${shieldState.threatsFound} archivo${shieldState.threatsFound === 1 ? '' : 's'} sospechoso${shieldState.threatsFound === 1 ? '' : 's'} en cuarentena.`,
-            'alert-triangle',
-            true
+            {
+              icon: 'alert-triangle',
+              level: 'danger',
+              duration: 0,  // no auto-cierra
+              actions: [
+                { id: 'open-center', label: 'Ver amenazas', icon: 'list-checks', variant: 'primary', onClick: () => { openApp('activity'); } },
+                { id: 'dismiss', label: 'Ignorar' }
+              ]
+            },
+            true   // force (ignora DND)
           );
           shieldState.threatsQuarantined += shieldState.threatsFound;
 
@@ -6714,7 +6983,10 @@ function installUpdate() {
         if (updatesState.updateHistory.length > 6) updatesState.updateHistory.pop();
         saveUpdatesState();
         renderSettingsApp();
-        showToast('¡Actualización Completa!', `Nebula OS v${updatesState.currentVersion} instalada correctamente. Reiniciando subsistemas...`, 'check-circle-2');
+        showToast('¡Actualización Completa!', `Nebula OS v${updatesState.currentVersion} instalada correctamente. Reiniciando subsistemas...`, {
+          icon: 'check-circle-2',
+          level: 'success'
+        });
         logActivity({
           category: 'system',
           level: 'success',
