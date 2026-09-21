@@ -8734,3 +8734,562 @@ body.no-animations .window {
   .shield-history-detail-actions { flex-direction: column; }
   .shield-history-btn { width: 100%; justify-content: center; }
 }
+/* =====================================================
+   ★ ADMINISTRADOR DE TAREAS (Task Manager)
+===================================================== */
+
+.taskmgr-app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: linear-gradient(145deg, rgba(58, 134, 255, 0.03), transparent 45%);
+  color: var(--text-main);
+  font-family: "Inter", sans-serif;
+}
+
+/* ─── Header ─── */
+
+.taskmgr-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.12);
+}
+.taskmgr-header-left {
+  min-width: 0;
+  flex: 1;
+}
+.taskmgr-header-kicker {
+  display: block;
+  color: var(--accent);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-shadow: 0 0 8px var(--accent-glow);
+}
+.taskmgr-header-title {
+  margin: 3px 0 3px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+.taskmgr-header-sub {
+  color: var(--text-sub);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+.taskmgr-header-sub strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+.taskmgr-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.taskmgr-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+.taskmgr-action-btn svg, .taskmgr-action-btn i {
+  width: 13px !important;
+  height: 13px !important;
+}
+.taskmgr-action-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-red) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent-red) 50%, transparent);
+  color: var(--accent-red);
+  transform: translateY(-1px);
+}
+.taskmgr-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ─── Panel de métricas (gráfico en vivo) ─── */
+
+.taskmgr-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.taskmgr-metric-card {
+  position: relative;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.taskmgr-metric-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.taskmgr-metric-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-sub);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.taskmgr-metric-label svg, .taskmgr-metric-label i {
+  width: 11px !important;
+  height: 11px !important;
+}
+.taskmgr-metric-value {
+  color: #fff;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+.taskmgr-metric-value.cpu { color: #60a5fa; }
+.taskmgr-metric-value.ram { color: #a78bfa; }
+.taskmgr-metric-value.gpu { color: #00ffcc; }
+
+.taskmgr-sparkline {
+  height: 28px;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  gap: 1.5px;
+  margin-top: 2px;
+}
+.taskmgr-spark-bar {
+  flex: 1;
+  min-height: 2px;
+  background: rgba(96, 165, 250, 0.5);
+  border-radius: 1px;
+  transition: height 0.2s ease, background 0.2s ease;
+}
+.taskmgr-metric-card.cpu .taskmgr-spark-bar {
+  background: linear-gradient(180deg, #60a5fa, rgba(96, 165, 250, 0.35));
+}
+.taskmgr-metric-card.ram .taskmgr-spark-bar {
+  background: linear-gradient(180deg, #a78bfa, rgba(167, 139, 250, 0.35));
+}
+.taskmgr-metric-card.gpu .taskmgr-spark-bar {
+  background: linear-gradient(180deg, #00ffcc, rgba(0, 255, 204, 0.35));
+}
+
+/* ─── Toolbar (búsqueda + filtro) ─── */
+
+.taskmgr-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.taskmgr-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  max-width: 320px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text-sub);
+  transition: all 0.15s ease;
+}
+.taskmgr-search:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-glow) 30%, transparent);
+}
+.taskmgr-search svg, .taskmgr-search i {
+  width: 13px !important;
+  height: 13px !important;
+  flex-shrink: 0;
+}
+.taskmgr-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 11px;
+}
+.taskmgr-search input::placeholder {
+  color: var(--text-sub);
+  opacity: 0.7;
+}
+
+.taskmgr-toolbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-sub);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+}
+
+/* ─── Tabla ─── */
+
+.taskmgr-table {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 12px 12px;
+}
+.taskmgr-table::-webkit-scrollbar { width: 6px; }
+.taskmgr-table::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+}
+.taskmgr-table::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+.taskmgr-table-head {
+  display: grid;
+  grid-template-columns: minmax(180px, 2.2fr) 80px 90px 90px 110px 40px;
+  gap: 10px;
+  padding: 8px 12px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgba(13, 15, 23, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-sub);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.taskmgr-col-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 2px 0;
+  transition: color 0.15s ease;
+  text-align: left;
+}
+.taskmgr-col-btn:hover {
+  color: #fff;
+}
+.taskmgr-col-btn svg, .taskmgr-col-btn i {
+  width: 10px !important;
+  height: 10px !important;
+  opacity: 0.5;
+  transition: opacity 0.15s ease, transform 0.2s ease;
+}
+.taskmgr-col-btn.sorted-asc svg,
+.taskmgr-col-btn.sorted-desc svg {
+  opacity: 1;
+  color: var(--accent);
+}
+.taskmgr-col-btn.sorted-desc svg {
+  transform: rotate(180deg);
+}
+
+.taskmgr-table-body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Filas ─── */
+
+.taskmgr-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 2.2fr) 80px 90px 90px 110px 40px;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+  position: relative;
+}
+.taskmgr-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.taskmgr-row.selected {
+  background: color-mix(in srgb, var(--accent) 12%, rgba(255, 255, 255, 0.02));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.taskmgr-row.selected .taskmgr-name-text {
+  color: var(--accent);
+}
+.taskmgr-row.system {
+  opacity: 0.75;
+}
+.taskmgr-row.system:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.03);
+}
+.taskmgr-row.system .taskmgr-kill-btn {
+  display: none;
+}
+
+/* ─── Columna: nombre ─── */
+
+.taskmgr-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.taskmgr-name-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--accent);
+  overflow: hidden;
+}
+.taskmgr-name-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 3px;
+}
+.taskmgr-name-icon svg, .taskmgr-name-icon i {
+  width: 13px !important;
+  height: 13px !important;
+}
+.taskmgr-name-text {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.taskmgr-name-sub {
+  color: var(--text-sub);
+  font-size: 9.5px;
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── Columna: valores ─── */
+
+.taskmgr-col-pid,
+.taskmgr-col-cpu,
+.taskmgr-col-ram,
+.taskmgr-col-status {
+  color: var(--text-sub);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.taskmgr-col-cpu.high { color: var(--accent-orange); }
+.taskmgr-col-cpu.critical { color: var(--accent-red); font-weight: 800; }
+.taskmgr-col-ram.high { color: var(--accent-orange); }
+.taskmgr-col-ram.critical { color: var(--accent-red); font-weight: 800; }
+
+.taskmgr-col-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  font-size: 10px;
+}
+.taskmgr-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 6px var(--accent-green);
+  flex-shrink: 0;
+}
+.taskmgr-row.system .taskmgr-status-dot {
+  background: var(--accent-orange);
+  box-shadow: 0 0 6px var(--accent-orange);
+}
+
+/* ─── Botón Finalizar (por fila) ─── */
+
+.taskmgr-col-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.taskmgr-kill-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-sub);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition: all 0.15s ease;
+}
+.taskmgr-kill-btn svg, .taskmgr-kill-btn i {
+  width: 12px !important;
+  height: 12px !important;
+}
+.taskmgr-row:hover .taskmgr-kill-btn {
+  opacity: 0.7;
+}
+.taskmgr-kill-btn:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--accent-red) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent-red) 50%, transparent);
+  color: var(--accent-red);
+}
+
+/* ─── Separador de sistema ─── */
+
+.taskmgr-section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 12px 6px;
+  color: var(--text-sub);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+}
+.taskmgr-section-label svg, .taskmgr-section-label i {
+  width: 11px !important;
+  height: 11px !important;
+  color: var(--accent);
+}
+.taskmgr-section-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.1), transparent);
+}
+
+/* ─── Estado vacío ─── */
+
+.taskmgr-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--text-sub);
+}
+.taskmgr-empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px dashed rgba(255, 255, 255, 0.12);
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.taskmgr-empty-icon svg, .taskmgr-empty-icon i {
+  width: 24px !important;
+  height: 24px !important;
+  opacity: 0.7;
+}
+.taskmgr-empty strong {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+.taskmgr-empty small {
+  font-size: 11px;
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+/* ─── Tile del dock/launcher ─── */
+
+.app-tile-taskmgr {
+  background: linear-gradient(135deg, #3a86ff, #1e40af);
+  border-color: rgba(96, 165, 250, 0.5);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(58, 134, 255, 0.35);
+}
+
+/* ─── Responsive ─── */
+
+@media (max-width: 700px) {
+  .taskmgr-metrics {
+    grid-template-columns: 1fr;
+    padding: 10px 14px;
+  }
+  .taskmgr-header { padding: 12px 14px 10px; }
+  .taskmgr-header-title { font-size: 15px; }
+  .taskmgr-toolbar { padding: 8px 14px; }
+  .taskmgr-search { max-width: none; }
+  .taskmgr-table { padding: 0 8px 12px; }
+  .taskmgr-table-head,
+  .taskmgr-row {
+    grid-template-columns: minmax(140px, 1.6fr) 60px 70px 70px 80px 32px;
+    gap: 6px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .taskmgr-col-status { font-size: 9px; }
+}

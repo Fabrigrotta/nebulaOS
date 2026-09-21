@@ -10,7 +10,8 @@ const APPS = {
   nova:     { title: 'Nova AI', sub: 'Asistente Gamer & Tweaker', icon: 'sparkles', image: './assets/images/logosSO/novaLogo.png', tileClass: 'app-tile-nova', accentColor: '#c026d3' },
   store:    { title: 'Nebula Store', sub: 'Tienda de Personalización', icon: 'shopping-cart', image: null, tileClass: 'app-tile-store', accentColor: '#f59e0b' },
   vault:    { title: 'Nebula Vault', sub: 'Gestor de Contraseñas Seguro', icon: 'key-round', image: null, tileClass: 'app-tile-vault', accentColor: '#a855f7' },
-  activity: { title: 'Centro de Actividad', sub: 'Historial y gestión de eventos del sistema', icon: 'list-checks', image: null, tileClass: 'app-tile-activity', accentColor: '#60a5fa' }
+  activity: { title: 'Centro de Actividad', sub: 'Historial y gestión de eventos del sistema', icon: 'list-checks', image: null, tileClass: 'app-tile-activity', accentColor: '#60a5fa' },
+  taskmgr:  { title: 'Administrador de Tareas', sub: 'Monitor de procesos y recursos', icon: 'cpu', image: null, tileClass: 'app-tile-taskmgr', accentColor: '#3a86ff' }
 };
 
 const DOCK_APPS = ['browser', 'terminal', 'nova', 'files', 'vscode', 'music', 'games', 'store', 'settings'];
@@ -474,6 +475,30 @@ let shieldState = {
 };
 
 let shieldHistoryExpandedId = null;
+/* ═══════════════════════════════════════════════════════════════
+   ★ ADMINISTRADOR DE TAREAS — Estado global
+═══════════════════════════════════════════════════════════════ */
+
+let taskmgrSearchQuery = '';
+let taskmgrSortKey = 'cpu';
+let taskmgrSortDir = 'desc';
+let taskmgrSelectedPid = null;
+let taskmgrProcessPids = {}; // winId → PID estable
+let taskmgrMetricsHistory = {
+  cpu: Array(30).fill(20),
+  ram: Array(30).fill(30),
+  gpu: Array(30).fill(40)
+};
+let taskmgrMetricsInterval = null;
+
+const TASKMGR_SYSTEM_PROCESSES = [
+  { pid: 1,   name: 'nebula-core',       sub: 'Kernel principal',            icon: 'cpu',         cpuBase: 3,  ramBase: 180 },
+  { pid: 84,  name: 'gpu-driver',        sub: 'NVIDIA 560.81',               icon: 'activity',    cpuBase: 5,  ramBase: 340 },
+  { pid: 112, name: 'audio-service',     sub: 'PipeWire',                    icon: 'audio-waveform', cpuBase: 1, ramBase: 90 },
+  { pid: 156, name: 'network-manager',   sub: 'NetworkManager',              icon: 'wifi',        cpuBase: 1,  ramBase: 75 },
+  { pid: 203, name: 'nebula-shield',     sub: 'Antivirus en tiempo real',    icon: 'shield-check', cpuBase: 4, ramBase: 220 },
+  { pid: 421, name: 'window-compositor', sub: 'Nebula Compositor',           icon: 'layers',      cpuBase: 6,  ramBase: 260 }
+];
 
 let updatesState = {
   currentVersion: '2.5.0 Ultimate',
@@ -5835,6 +5860,7 @@ function openApp(appId, forceNew = false, restoreData = null) {
     if (appId === 'browser') setupBrowserApp(win);
     if (appId === 'vault') setupVaultApp(win);
     if (appId === 'activity') setupActivityApp(win);
+    if (appId === 'taskmgr') setupTaskmgrApp(win);
   }
 
   setupWindowResize(win);
@@ -6282,7 +6308,21 @@ function renderSettingsApp() {
     if (!win) return;
     const content = win.querySelector('.wcontent');
     if (!content) return;
+
+    // ★ Guardar posición de scroll antes de reemplazar
+    const prevMain = content.querySelector('.settings-main');
+    const prevNav = content.querySelector('.settings-nav');
+    const scrollMain = prevMain ? prevMain.scrollTop : 0;
+    const scrollNav = prevNav ? prevNav.scrollTop : 0;
+
+    // Re-render
     content.innerHTML = getAppContent('settings');
+
+    // ★ Restaurar posición de scroll después de re-renderizar
+    const newMain = content.querySelector('.settings-main');
+    const newNav = content.querySelector('.settings-nav');
+    if (newMain && scrollMain > 0) newMain.scrollTop = scrollMain;
+    if (newNav && scrollNav > 0) newNav.scrollTop = scrollNav;
   });
   refreshIcons();
   setTimeout(syncAllSliders, 0);
@@ -7780,6 +7820,8 @@ function getAppContent(id) {
       return getVaultAppHTML();
     case 'activity':
       return getActivityAppHTML();
+    case 'taskmgr':
+      return getTaskmgrAppHTML();
     case 'terminal':
       return `
         <div class="term-body">
@@ -10665,6 +10707,436 @@ function openNetworkSettings() {
   settingsState.activeSettingsTab = 'system';
   renderSettingsApp();
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ ADMINISTRADOR DE TAREAS — Lógica completa
+═══════════════════════════════════════════════════════════════ */
+
+/* ─── Gestión de PIDs ─── */
+
+function getTaskmgrPid(winId) {
+  if (!taskmgrProcessPids[winId]) {
+    taskmgrProcessPids[winId] = 1000 + Math.floor(Math.random() * 8000);
+  }
+  return taskmgrProcessPids[winId];
+}
+
+/* ─── Generación de procesos ─── */
+
+function buildTaskmgrProcesses() {
+  const processes = [];
+
+  // Apps reales abiertas
+  Object.keys(openWindows).forEach(winId => {
+    const entry = openWindows[winId];
+    if (!entry?.win) return;
+
+    const appId = entry.appId;
+    const app = APPS[appId];
+    if (!app) return;
+
+    const instances = getInstancesOfApp(appId);
+    const hasMultiple = instances.length > 1;
+    const instNum = hasMultiple ? getInstanceNumber(winId) : 1;
+
+    // CPU y RAM simulados: cada app tiene un "perfil" base
+    const appCpuBase = {
+      browser: 12, music: 3, games: 18, vscode: 8, nova: 5,
+      settings: 1, files: 2, terminal: 1, vault: 1,
+      activity: 1, taskmgr: 2, store: 0
+    }[appId] || 3;
+
+    const appRamBase = {
+      browser: 480, music: 220, games: 820, vscode: 340, nova: 180,
+      settings: 90, files: 120, terminal: 80, vault: 60,
+      activity: 70, taskmgr: 85, store: 50
+    }[appId] || 120;
+
+    const jitter = () => (Math.random() - 0.5) * 2;
+    const cpu = Math.max(0, Math.round(appCpuBase + jitter() * appCpuBase * 0.3));
+    const ram = Math.max(20, Math.round(appRamBase + jitter() * appRamBase * 0.15));
+
+    processes.push({
+      pid: getTaskmgrPid(winId),
+      winId,
+      appId,
+      name: hasMultiple ? `${app.title} · #${instNum}` : app.title,
+      sub: app.sub || '',
+      icon: app.icon,
+      image: app.image,
+      cpu,
+      ram,
+      status: 'running',
+      isSystem: false
+    });
+  });
+
+  // Procesos de sistema (mock)
+  TASKMGR_SYSTEM_PROCESSES.forEach(sysProc => {
+    const jitter = () => (Math.random() - 0.5) * 2;
+    processes.push({
+      pid: sysProc.pid,
+      winId: null,
+      appId: null,
+      name: sysProc.name,
+      sub: sysProc.sub,
+      icon: sysProc.icon,
+      image: null,
+      cpu: Math.max(0, Math.round(sysProc.cpuBase + jitter() * sysProc.cpuBase * 0.4)),
+      ram: Math.max(20, Math.round(sysProc.ramBase + jitter() * sysProc.ramBase * 0.1)),
+      status: 'system',
+      isSystem: true
+    });
+  });
+
+  return processes;
+}
+
+/* ─── Filtros y ordenamiento ─── */
+
+function getTaskmgrFilteredProcesses() {
+  let processes = buildTaskmgrProcesses();
+
+  if (taskmgrSearchQuery) {
+    const q = taskmgrSearchQuery.toLowerCase();
+    processes = processes.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      p.sub.toLowerCase().includes(q) ||
+      String(p.pid).includes(q)
+    );
+  }
+
+  const sortMult = taskmgrSortDir === 'asc' ? 1 : -1;
+  processes.sort((a, b) => {
+    if (a.isSystem !== b.isSystem) return a.isSystem ? 1 : -1;
+    switch (taskmgrSortKey) {
+      case 'name': return a.name.localeCompare(b.name) * sortMult;
+      case 'pid':  return (a.pid - b.pid) * sortMult;
+      case 'cpu':  return (a.cpu - b.cpu) * sortMult;
+      case 'ram':  return (a.ram - b.ram) * sortMult;
+      case 'status': return a.status.localeCompare(b.status) * sortMult;
+      default: return 0;
+    }
+  });
+
+  return processes;
+}
+
+function getTaskmgrTotals() {
+  const processes = buildTaskmgrProcesses();
+  const totalCpu = processes.reduce((sum, p) => sum + p.cpu, 0);
+  const totalRam = processes.reduce((sum, p) => sum + p.ram, 0);
+  const totalProcesses = processes.length;
+
+  const cpuPct = Math.min(100, Math.round(totalCpu * 0.8));
+  const ramPct = Math.min(100, Math.round(totalRam / 32768 * 100));
+  const gpuPct = gameModeActive
+    ? 55 + Math.floor(Math.random() * 25)
+    : 25 + Math.floor(Math.random() * 30);
+
+  return {
+    cpu: cpuPct,
+    ram: ramPct,
+    ramGB: (totalRam / 1024).toFixed(1),
+    gpu: gpuPct,
+    totalProcesses
+  };
+}
+
+/* ─── Render ─── */
+
+function getTaskmgrAppHTML() {
+  const totals = getTaskmgrTotals();
+  const processes = getTaskmgrFilteredProcesses();
+
+  const cpuHistory = taskmgrMetricsHistory.cpu.map(v => Math.max(4, v));
+  const ramHistory = taskmgrMetricsHistory.ram.map(v => Math.max(4, v));
+  const gpuHistory = taskmgrMetricsHistory.gpu.map(v => Math.max(4, v));
+
+  const sparkHTML = (history) => history.map(v =>
+    `<span class="taskmgr-spark-bar" style="height:${Math.max(8, Math.min(100, v))}%;"></span>`
+  ).join('');
+
+  const metricsHTML = `
+    <div class="taskmgr-metrics">
+      <div class="taskmgr-metric-card cpu">
+        <div class="taskmgr-metric-top">
+          <span class="taskmgr-metric-label"><i data-lucide="cpu"></i> CPU</span>
+          <span class="taskmgr-metric-value cpu">${totals.cpu}%</span>
+        </div>
+        <div class="taskmgr-sparkline">${sparkHTML(cpuHistory)}</div>
+      </div>
+      <div class="taskmgr-metric-card ram">
+        <div class="taskmgr-metric-top">
+          <span class="taskmgr-metric-label"><i data-lucide="memory-stick"></i> RAM</span>
+          <span class="taskmgr-metric-value ram">${totals.ramGB} GB</span>
+        </div>
+        <div class="taskmgr-sparkline">${sparkHTML(ramHistory)}</div>
+      </div>
+      <div class="taskmgr-metric-card gpu">
+        <div class="taskmgr-metric-top">
+          <span class="taskmgr-metric-label"><i data-lucide="activity"></i> GPU</span>
+          <span class="taskmgr-metric-value gpu">${totals.gpu}%</span>
+        </div>
+        <div class="taskmgr-sparkline">${sparkHTML(gpuHistory)}</div>
+      </div>
+    </div>
+  `;
+
+  const userProcesses = processes.filter(p => !p.isSystem);
+  const systemProcesses = processes.filter(p => p.isSystem);
+
+  let bodyHTML = '';
+
+  if (processes.length === 0) {
+    bodyHTML = `
+      <div class="taskmgr-empty">
+        <div class="taskmgr-empty-icon"><i data-lucide="search"></i></div>
+        <strong>Sin resultados</strong>
+        <small>No hay procesos que coincidan con "${escapeHtml(taskmgrSearchQuery)}".</small>
+      </div>
+    `;
+  } else {
+    if (userProcesses.length > 0) {
+      bodyHTML += userProcesses.map(p => renderTaskmgrRowHTML(p)).join('');
+    }
+
+    if (systemProcesses.length > 0) {
+      bodyHTML += `
+        <div class="taskmgr-section-label">
+          <i data-lucide="cpu"></i> Procesos del sistema
+        </div>
+        ${systemProcesses.map(p => renderTaskmgrRowHTML(p)).join('')}
+      `;
+    }
+  }
+
+  return `
+    <div class="taskmgr-app">
+      <header class="taskmgr-header">
+        <div class="taskmgr-header-left">
+          <span class="taskmgr-header-kicker">NEBULA TASK MANAGER</span>
+          <h2 class="taskmgr-header-title">Administrador de Tareas</h2>
+          <div class="taskmgr-header-sub">
+            <strong>${totals.totalProcesses}</strong> procesos activos · CPU <strong>${totals.cpu}%</strong> · RAM <strong>${totals.ramGB} GB</strong>
+          </div>
+        </div>
+        <div class="taskmgr-header-actions">
+          <button class="taskmgr-action-btn" type="button"
+                  onclick="taskmgrKillSelected()"
+                  ${taskmgrSelectedPid === null ? 'disabled' : ''}>
+            <i data-lucide="x-circle"></i> Finalizar
+          </button>
+        </div>
+      </header>
+
+      ${metricsHTML}
+
+      <div class="taskmgr-toolbar">
+        <label class="taskmgr-search">
+          <i data-lucide="search"></i>
+          <input type="search"
+                 placeholder="Buscar proceso..."
+                 value="${escapeHtml(taskmgrSearchQuery)}"
+                 oninput="setTaskmgrSearch(this.value)">
+        </label>
+        <div class="taskmgr-toolbar-right">
+          <i data-lucide="info"></i> Click en las columnas para ordenar
+        </div>
+      </div>
+
+      <div class="taskmgr-table">
+        <div class="taskmgr-table-head">
+          <button class="taskmgr-col-btn ${taskmgrSortKey === 'name' ? 'sorted-' + taskmgrSortDir : ''}"
+                  type="button" onclick="setTaskmgrSort('name')">
+            Nombre <i data-lucide="chevron-down"></i>
+          </button>
+          <button class="taskmgr-col-btn ${taskmgrSortKey === 'pid' ? 'sorted-' + taskmgrSortDir : ''}"
+                  type="button" onclick="setTaskmgrSort('pid')">
+            PID <i data-lucide="chevron-down"></i>
+          </button>
+          <button class="taskmgr-col-btn ${taskmgrSortKey === 'cpu' ? 'sorted-' + taskmgrSortDir : ''}"
+                  type="button" onclick="setTaskmgrSort('cpu')">
+            CPU <i data-lucide="chevron-down"></i>
+          </button>
+          <button class="taskmgr-col-btn ${taskmgrSortKey === 'ram' ? 'sorted-' + taskmgrSortDir : ''}"
+                  type="button" onclick="setTaskmgrSort('ram')">
+            RAM <i data-lucide="chevron-down"></i>
+          </button>
+          <button class="taskmgr-col-btn ${taskmgrSortKey === 'status' ? 'sorted-' + taskmgrSortDir : ''}"
+                  type="button" onclick="setTaskmgrSort('status')">
+            Estado <i data-lucide="chevron-down"></i>
+          </button>
+          <span></span>
+        </div>
+        <div class="taskmgr-table-body">
+          ${bodyHTML}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderTaskmgrRowHTML(p) {
+  const isSelected = taskmgrSelectedPid === p.pid;
+  const cpuClass = p.cpu >= 30 ? 'critical' : p.cpu >= 15 ? 'high' : '';
+  const ramClass = p.ram >= 800 ? 'critical' : p.ram >= 400 ? 'high' : '';
+
+  const iconHTML = p.image
+    ? `<img src="${p.image}" alt="${escapeHtml(p.name)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" /><i data-lucide="${p.icon}" style="display:none;"></i>`
+    : `<i data-lucide="${p.icon}"></i>`;
+
+  const ramDisplay = p.ram >= 1024
+    ? `${(p.ram / 1024).toFixed(1)} GB`
+    : `${p.ram} MB`;
+
+  const statusLabel = p.isSystem ? 'Sistema' : 'Ejecutándose';
+
+  return `
+    <div class="taskmgr-row ${isSelected ? 'selected' : ''} ${p.isSystem ? 'system' : ''}"
+         data-pid="${p.pid}"
+         onclick="setTaskmgrSelected(${p.pid})"
+         ondblclick="taskmgrKillProcess(${p.pid})">
+      <div class="taskmgr-name">
+        <div class="taskmgr-name-icon">${iconHTML}</div>
+        <div style="min-width:0;">
+          <div class="taskmgr-name-text">${escapeHtml(p.name)}</div>
+          <div class="taskmgr-name-sub">${escapeHtml(p.sub)}</div>
+        </div>
+      </div>
+      <span class="taskmgr-col-pid">${p.pid}</span>
+      <span class="taskmgr-col-cpu ${cpuClass}">${p.cpu}%</span>
+      <span class="taskmgr-col-ram ${ramClass}">${ramDisplay}</span>
+      <span class="taskmgr-col-status">
+        <span class="taskmgr-status-dot"></span>${statusLabel}
+      </span>
+      <div class="taskmgr-col-actions">
+        <button class="taskmgr-kill-btn" type="button" title="Finalizar tarea"
+                onclick="event.stopPropagation(); taskmgrKillProcess(${p.pid})">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+/* ─── Interacciones ─── */
+
+function setTaskmgrSearch(query) {
+  taskmgrSearchQuery = query;
+  renderTaskmgrApp();
+}
+
+function setTaskmgrSort(key) {
+  if (taskmgrSortKey === key) {
+    taskmgrSortDir = taskmgrSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    taskmgrSortKey = key;
+    taskmgrSortDir = key === 'name' ? 'asc' : 'desc';
+  }
+  renderTaskmgrApp();
+}
+
+function setTaskmgrSelected(pid) {
+  taskmgrSelectedPid = taskmgrSelectedPid === pid ? null : pid;
+  renderTaskmgrApp();
+}
+
+function taskmgrKillSelected() {
+  if (taskmgrSelectedPid === null) return;
+  taskmgrKillProcess(taskmgrSelectedPid);
+}
+
+function taskmgrKillProcess(pid) {
+  const processes = buildTaskmgrProcesses();
+  const proc = processes.find(p => p.pid === pid);
+  if (!proc) return;
+
+  if (proc.isSystem) {
+    showToast('No se puede finalizar', `"${proc.name}" es un proceso del sistema.`, 'alert-circle');
+    return;
+  }
+
+  if (!proc.winId || !openWindows[proc.winId]) return;
+
+  const appTitle = APPS[proc.appId]?.title || proc.appId;
+
+  closeApp(proc.winId);
+  taskmgrSelectedPid = null;
+
+  showToast(
+    'Proceso finalizado',
+    `"${appTitle}" (PID ${pid}) fue cerrado.`,
+    'x-circle'
+  );
+
+  logActivity({
+    category: 'system',
+    level: 'warning',
+    icon: 'x-circle',
+    title: 'Proceso finalizado',
+    subtitle: `${appTitle} · PID ${pid}`,
+    detail: {
+      'Aplicación': appTitle,
+      'PID': String(pid),
+      'Acción': 'Finalizar tarea',
+      'Fecha': new Date().toLocaleString('es-AR'),
+      description: 'El proceso fue terminado manualmente desde el Administrador de Tareas.'
+    }
+  });
+}
+
+/* ─── Loop de métricas en vivo ─── */
+
+function startTaskmgrMetricsLoop() {
+  if (taskmgrMetricsInterval) return;
+
+  taskmgrMetricsInterval = setInterval(() => {
+    if (getInstancesOfApp('taskmgr').length === 0) {
+      stopTaskmgrMetricsLoop();
+      return;
+    }
+
+    const totals = getTaskmgrTotals();
+
+    taskmgrMetricsHistory.cpu.push(totals.cpu);
+    taskmgrMetricsHistory.ram.push(totals.ram);
+    taskmgrMetricsHistory.gpu.push(totals.gpu);
+
+    if (taskmgrMetricsHistory.cpu.length > 30) taskmgrMetricsHistory.cpu.shift();
+    if (taskmgrMetricsHistory.ram.length > 30) taskmgrMetricsHistory.ram.shift();
+    if (taskmgrMetricsHistory.gpu.length > 30) taskmgrMetricsHistory.gpu.shift();
+
+    renderTaskmgrApp();
+  }, 1500);
+}
+
+function stopTaskmgrMetricsLoop() {
+  if (taskmgrMetricsInterval) {
+    clearInterval(taskmgrMetricsInterval);
+    taskmgrMetricsInterval = null;
+  }
+}
+
+/* ─── Render y bootstrap ─── */
+
+function renderTaskmgrApp() {
+  const winIds = getInstancesOfApp('taskmgr');
+  winIds.forEach(winId => {
+    const win = openWindows[winId]?.win;
+    if (!win) return;
+    const content = win.querySelector('.wcontent');
+    if (!content) return;
+    content.innerHTML = getTaskmgrAppHTML();
+  });
+  refreshIcons();
+}
+
+function setupTaskmgrApp(win) {
+  if (!win) return;
+  startTaskmgrMetricsLoop();
+}
+
 /* ═══════════════════════════════════════════════════════════════
    ★ CENTRO DE ACTIVIDAD — Lógica completa
 ═══════════════════════════════════════════════════════════════ */
