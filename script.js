@@ -844,6 +844,7 @@ document.addEventListener('DOMContentLoaded', () => {
     quickCenter?.classList.toggle('hidden');
     updateToastPosition();
     syncAllSliders();
+    syncVpnQuickCenterState();
     refreshIcons();
   };
 
@@ -946,6 +947,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   restoreSessionState();
 
+  /* ★ Sincronizar el switch de VPN del Quick Center al iniciar */
+  syncVpnQuickCenterState();
+
   window.addEventListener('beforeunload', () => {
     saveSessionState(true);
   });
@@ -1044,7 +1048,28 @@ function renderConnectivityState() {
     btToggle.setAttribute('aria-pressed', String(bluetoothEnabled));
   }
 
+  /* ★ Sincronizar también el switch de VPN */
+  syncVpnQuickCenterState();
+
   refreshIcons();
+}
+
+/* ★ Sincroniza el estado visual del switch de VPN del Quick Center */
+function syncVpnQuickCenterState() {
+  const vpnToggle = document.getElementById('vpn-toggle');
+  if (vpnToggle) {
+    vpnToggle.classList.toggle('active', shieldState.vpnConnected);
+    vpnToggle.setAttribute('aria-pressed', String(shieldState.vpnConnected));
+    const label = vpnToggle.querySelector('strong');
+    if (label) {
+      label.textContent = shieldState.vpnConnected ? 'VPN Shield' : 'VPN Shield';
+    }
+  }
+}
+
+/* ★ Toggle de VPN desde el Quick Center */
+function toggleVpnFromQuickCenter() {
+  toggleVpnConnection();
 }
 
 /* ================= FEATURE: NO MOLESTAR (DND) ================= */
@@ -3708,7 +3733,6 @@ function setupAdvancedWidget() {
       saveCalendarNote();
     }
   });
-  setupQuickSwitch('battery-toggle');
   setupMediaPlayer();
 
   renderConnectivityState();
@@ -3992,15 +4016,6 @@ function simulateMetrics() {
     systemMetrics.temp = Math.max(30, Math.min(68, systemMetrics.temp + Math.round((Math.random() - 0.5) * 8)));
   }
   updateMetrics();
-}
-
-function setupQuickSwitch(id) {
-  const button = document.getElementById(id);
-  if (!button) return;
-  button.addEventListener('click', () => {
-    const active = button.classList.toggle('active');
-    button.setAttribute('aria-pressed', String(active));
-  });
 }
 
 function setupMediaPlayer() {
@@ -6235,16 +6250,22 @@ function toggleVpnConnection() {
       shieldBtn.innerHTML = '<i data-lucide="loader-circle" class="shield-spinner"></i> Conectando...';
       refreshIcons();
     }
+    /* Sincronizar el switch del Quick Center con el estado "conectando" */
+    const vpnToggle = document.getElementById('vpn-toggle');
+    if (vpnToggle) vpnToggle.classList.add('active');
+
     setTimeout(() => {
       shieldState.vpnConnected = true;
       saveShieldState();
       showToast('VPN Conectada', `Servidor: ${VPN_SERVERS.find(s => s.id === shieldState.vpnServer)?.name || 'Ámsterdam'}`, 'globe');
+      syncVpnQuickCenterState();
       renderSettingsApp();
     }, 1400);
   } else {
     shieldState.vpnConnected = false;
     saveShieldState();
     showToast('VPN Desconectada', 'Conexión segura finalizada.', 'globe-off');
+    syncVpnQuickCenterState();
     renderSettingsApp();
   }
 }
@@ -7663,13 +7684,13 @@ function buildLauncherActions() {
   return [
     { id: 'action-gamemode', title: 'Activar / Desactivar Modo Juego', sub: 'Boost de CPU/GPU, libera RAM y activa HUD', icon: 'gamepad-2', category: 'Acción', keywords: ['modo juego', 'game mode', 'gamemode', 'boost', 'gamer'], run: () => toggleGameMode() },
     { id: 'action-hud', title: 'Alternar Gaming HUD', sub: 'Overlay con telemetría de hardware (Alt+Z)', icon: 'activity', category: 'Acción', keywords: ['hud', 'overlay', 'telemetria', 'gaming', 'alt z'], run: () => toggleGamerOverlay() },
+    { id: 'action-vpn', title: 'Alternar VPN Nebula Shield', sub: 'Conectar / desconectar la VPN', icon: 'globe', category: 'Acción', keywords: ['vpn', 'shield', 'privacidad'], run: () => toggleVpnConnection() },
     { id: 'action-wallpaper-next', title: 'Siguiente fondo de pantalla', sub: 'Rota al siguiente wallpaper disponible', icon: 'image', category: 'Acción', keywords: ['wallpaper', 'fondo', 'siguiente', 'rotar'], run: () => applyWallpaper((currentWallpaperIndex + 1) % WALLPAPERS.length) },
     { id: 'action-ram-boost', title: 'Optimizar RAM', sub: 'Libera memoria y limpia cache', icon: 'sparkles', category: 'Acción', keywords: ['optimizar', 'ram', 'limpiar', 'memoria', 'boost'], run: () => simulateRamBoost() },
     { id: 'action-weather-widget', title: 'Añadir Widget de Clima', sub: 'Widget meteorológico con datos reales (Open-Meteo)', icon: 'cloud-sun', category: 'Acción', keywords: ['clima', 'weather', 'widget', 'tiempo', 'temperatura'], run: () => addWeatherWidget() },
     { id: 'action-clear-widgets', title: 'Limpiar widgets del escritorio', sub: 'Remueve todos los widgets flotantes', icon: 'trash-2', category: 'Acción', keywords: ['limpiar', 'widgets', 'escritorio', 'borrar'], run: () => clearDesktopWidgets() },
     { id: 'action-close-all', title: 'Cerrar todas las ventanas', sub: 'Cierra todas las apps abiertas', icon: 'x-circle', category: 'Acción', keywords: ['cerrar', 'close', 'todas', 'ventanas', 'apps'], run: () => { Object.keys(openWindows).forEach(id => closeApp(id)); showToast('Ventanas cerradas', 'Se cerraron todas las apps abiertas.', 'x-circle'); } },
     { id: 'action-shield-scan', title: 'Escaneo de Seguridad (Nebula Shield)', sub: 'Inicia un análisis completo del sistema', icon: 'shield-check', category: 'Acción', keywords: ['escanear', 'seguridad', 'shield', 'virus', 'antivirus', 'scan'], run: () => { openApp('settings'); settingsState.activeSettingsTab = 'shield'; renderSettingsApp(); setTimeout(() => runShieldScan(), 400); } },
-    { id: 'action-shield-vpn', title: 'Alternar VPN Nebula Shield', sub: 'Conectar / desconectar la VPN', icon: 'globe', category: 'Acción', keywords: ['vpn', 'shield', 'privacidad'], run: () => { openApp('settings'); settingsState.activeSettingsTab = 'shield'; renderSettingsApp(); setTimeout(() => toggleVpnConnection(), 400); } },
     { id: 'action-check-updates', title: 'Buscar actualizaciones', sub: 'Verifica si hay nuevas versiones del sistema', icon: 'download', category: 'Acción', keywords: ['actualizar', 'update', 'version', 'updates'], run: () => { openApp('settings'); settingsState.activeSettingsTab = 'updates'; renderSettingsApp(); setTimeout(() => simulateUpdateCheck(), 400); } },
     { id: 'action-profile-gamer', title: 'Perfil: Gamer', sub: 'Aplica tema Cyberpunk + Game Mode + telemetría', icon: 'gamepad-2', category: 'Perfil', keywords: ['perfil', 'gamer', 'profile'], run: () => switchProfile('gamer') },
     { id: 'action-profile-streamer', title: 'Perfil: Streamer', sub: 'Aplica tema Synthwave + widget multimedia', icon: 'radio', category: 'Perfil', keywords: ['perfil', 'streamer', 'profile'], run: () => switchProfile('streamer') },

@@ -72,6 +72,9 @@
         <div class="item hidden-tray" id="tray-bt-item" title="Bluetooth">
           <i data-lucide="bluetooth" class="tray-icon"></i>
         </div>
+        <div class="item hidden-tray" id="tray-vpn-item" title="VPN Shield">
+          <i data-lucide="shield-check" class="tray-icon"></i>
+        </div>
         <div class="item" title="Volumen">
           <i data-lucide="volume-2" class="tray-icon"></i>
           <span id="tray-volume-num">80%</span>
@@ -156,10 +159,11 @@
         <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
       </button>
 
-      <button class="quick-switch" id="battery-toggle" type="button" aria-pressed="false">
+      <!-- ★ VPN reemplaza a Alto Ahorro -->
+      <button class="quick-switch" id="vpn-toggle" type="button" aria-pressed="false" onclick="toggleVpnFromQuickCenter()">
         <div class="switch-meta">
-          <i data-lucide="zap"></i>
-          <strong>Alto Ahorro</strong>
+          <i data-lucide="shield-check"></i>
+          <strong>VPN Shield</strong>
         </div>
         <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
       </button>
