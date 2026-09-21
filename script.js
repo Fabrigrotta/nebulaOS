@@ -517,6 +517,337 @@ const GAMELIB_GAMES = [
 
 let gamelibGames = [];
 
+/* ═══════════════════════════════════════════════════════════════
+   ★ VISUAL STUDIO CODE — Estado global
+═══════════════════════════════════════════════════════════════ */
+
+let vscOpenTabs = [];       // ['index.html', 'styles.css', ...]
+let vscActiveTab = null;    // 'index.html'
+let vscExpandedFolders = { 'nebula-os': true, 'src': true, 'assets': true };
+let vscSearchOpen = false;
+let vscSearchQuery = '';
+let vscSearchMatches = [];
+let vscSearchCurrentIndex = 0;
+let vscPanelOpen = true;
+let vscActivePanel = 'terminal';  // 'terminal' | 'problems' | 'output' | 'ports'
+let vscSidebarView = 'explorer';  // 'explorer' | 'search' | 'git' | 'debug' | 'extensions'
+
+const VSC_FILE_TREE = [
+  {
+    name: 'nebula-os',
+    type: 'folder',
+    children: [
+      { name: 'index.html', type: 'file', language: 'html' },
+      { name: 'styles.css', type: 'file', language: 'css' },
+      { name: 'script.js',  type: 'file', language: 'js' },
+      {
+        name: 'src',
+        type: 'folder',
+        children: [
+          { name: 'main.js', type: 'file', language: 'js' },
+          { name: 'components.js', type: 'file', language: 'js' },
+          { name: 'utils.js', type: 'file', language: 'js' }
+        ]
+      },
+      {
+        name: 'assets',
+        type: 'folder',
+        children: [
+          { name: 'logo.png', type: 'file', language: 'img' },
+          { name: 'icon.svg', type: 'file', language: 'svg' }
+        ]
+      },
+      { name: 'package.json', type: 'file', language: 'json' },
+      { name: 'README.md', type: 'file', language: 'md' },
+      { name: '.gitignore', type: 'file', language: 'git' }
+    ]
+  }
+];
+
+// Contenido de los archivos (extractos cortos y realistas)
+const VSC_FILE_CONTENTS = {
+  'index.html': `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nebula OS - Web Edition</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+<div id="boot-screen">
+  <div class="boot-logo-mark">
+    <img src="./assets/images/logosSO/nebulaLogo.png" alt="Nebula OS">
+  </div>
+  <div class="boot-wordmark">NEBULA OS</div>
+  <div class="boot-status">Iniciando entorno gráfico Gamer & IA</div>
+</div>
+
+<div id="screen">
+  <div id="background-layer"></div>
+  <div id="desktop-widgets-layer"></div>
+
+  <div id="topbar">
+    <div class="waybar-module left">
+      <div class="logo" onclick="toggleWindowManager()">
+        <img src="./assets/images/logosSO/nebulaLogo.png" alt="Nebula" width="18" height="18">
+      </div>
+      <div class="ws" id="ws-switcher">
+        <button class="active" onclick="switchWorkspace(1)"></button>
+        <button onclick="switchWorkspace(2)"></button>
+        <button onclick="switchWorkspace(3)"></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>`,
+
+  'styles.css': `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --bg-dark: #0d0f17;
+  --accent: #b4befe;
+  --accent-glow: rgba(180, 190, 254, 0.45);
+  --accent-green: #a6e3a1;
+  --accent-red: #f38ba8;
+  --text-main: #cdd6f4;
+  --text-sub: #9399b2;
+  --radius-lg: 18px;
+  --radius-md: 12px;
+  --panel-color: rgba(18, 21, 33, 0.72);
+  --blur-amount: 18px;
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+
+body.game-mode-active {
+  --accent: #00ffcc;
+  --accent-glow: rgba(0, 255, 204, 0.5);
+  --panel-color: rgba(10, 14, 22, 0.88);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; }
+
+#screen {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg-dark);
+  transition: filter 0.25s ease;
+}
+
+.glass-panel {
+  background: var(--panel-color);
+  backdrop-filter: blur(var(--blur-amount)) saturate(1.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow);
+}`,
+
+  'script.js': `/* ================= CONFIGURACIÓN DE APPS ================= */
+const APPS = {
+  files:    { title: 'Archivos',  icon: 'folder' },
+  terminal: { title: 'Terminal',  icon: 'terminal' },
+  browser:  { title: 'Firefox',   icon: 'globe' },
+  music:    { title: 'Spotify',   icon: 'music' },
+  games:    { title: 'Steam',     icon: 'gamepad-2' },
+  vscode:   { title: 'VS Code',   icon: 'code-2' },
+  settings: { title: 'Ajustes',   icon: 'sliders' },
+  nova:     { title: 'Nova AI',   icon: 'sparkles' }
+};
+
+const DOCK_APPS = [
+  'browser', 'terminal', 'nova', 'files', 'vscode',
+  'music', 'games', 'store', 'activity', 'taskmgr', 'settings'
+];
+
+const TOTAL_WORKSPACES = 5;
+const TABBED_APPS = new Set(['terminal', 'files']);
+
+/* ================= VARIABLES GLOBALES ================= */
+let openWindows = {};
+let appInstanceCounter = {};
+let zIndexCounter = 100;
+let activeWinId = null;
+let currentWorkspace = 1;
+
+/* ================= FUNCIONES PRINCIPALES ================= */
+function openApp(appId, forceNew = false) {
+  if (appId === 'store') {
+    openStore();
+    return;
+  }
+
+  const app = APPS[appId];
+  if (!app) return;
+
+  const instances = getInstancesOfApp(appId);
+
+  if (!forceNew && instances.length > 0) {
+    const lastWinId = getLastInstanceOfApp(appId);
+    if (lastWinId) {
+      focusWindow(lastWinId);
+      return;
+    }
+  }
+
+  const winId = generateWinId(appId);
+  const win = document.createElement('div');
+  win.className = 'window';
+  win.dataset.appId = appId;
+  win.dataset.winId = winId;
+
+  document.getElementById('windows-container').appendChild(win);
+  openWindows[winId] = { appId, win };
+
+  renderDock();
+  focusWindow(winId);
+}`,
+
+  'src/main.js': `/* Nebula OS — Entry point */
+
+import { initKernel } from './components.js';
+import { setupEventBus } from './utils.js';
+
+const kernel = initKernel({
+  name: 'Nebula',
+  version: '2.5.0',
+  mode: 'gaming'
+});
+
+setupEventBus(kernel);
+
+kernel.on('ready', () => {
+  console.log('🚀 Nebula OS ready');
+  kernel.boot();
+});
+
+export default kernel;`,
+
+  'src/components.js': `/* Componentes core del sistema */
+
+export function initKernel(config) {
+  const listeners = new Map();
+
+  return {
+    config,
+    boot() {
+      this.emit('boot');
+      this.emit('ready');
+    },
+    on(event, fn) {
+      if (!listeners.has(event)) listeners.set(event, []);
+      listeners.get(event).push(fn);
+    },
+    emit(event, data) {
+      (listeners.get(event) || []).forEach(fn => fn(data));
+    }
+  };
+}`,
+
+  'src/utils.js': `/* Utilidades generales */
+
+export function setupEventBus(kernel) {
+  window.__nebula = kernel;
+  console.log('[EventBus] conectado');
+}
+
+export function debounce(fn, delay = 200) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
+
+export function throttle(fn, limit = 100) {
+  let last = 0;
+  return (...args) => {
+    const now = Date.now();
+    if (now - last >= limit) {
+      last = now;
+      fn(...args);
+    }
+  };
+}`,
+
+  'package.json': `{
+  "name": "nebula-os-web",
+  "version": "2.5.0",
+  "description": "Sistema operativo web con estética gaming",
+  "main": "script.js",
+  "scripts": {
+    "start": "live-server",
+    "build": "echo 'No build step needed'",
+    "test": "echo 'No tests configured'"
+  },
+  "keywords": ["os", "web", "gaming", "ui"],
+  "author": "Nebula Team",
+  "license": "MIT"
+}`,
+
+  'README.md': `# Nebula OS — Web Edition
+
+Sistema operativo simulado en el navegador con estética gamer & IA.
+
+## Características
+
+- 🎮 **Modo Juego** con HUD overlay
+- 🎨 **Nebula Designer** para personalización total
+- 🛡️ **Nebula Shield** antivirus + VPN
+- 🔑 **Nebula Vault** gestor de contraseñas
+- 🖥️ **Multi-workspace** (5 espacios)
+- 🎯 **Centro de Actividad** con logging
+- 📊 **Administrador de Tareas**
+- 🎮 **Biblioteca de Juegos** estilo Steam
+
+## Uso
+
+Abrir \`index.html\` en un servidor local:
+
+\`\`\`bash
+python -m http.server 8000
+\`\`\`
+
+## Licencia
+
+MIT © Nebula Team`,
+
+  '.gitignore': `# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+dist/
+build/
+*.log
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db`
+};
+
+const VSC_PROBLEMS = [
+  { level: 'warning', message: "'screen' is deprecated. Use 'display' instead.", file: 'styles.css', line: 42 },
+  { level: 'info',    message: "Variable 'zIndexCounter' is never reassigned. Use 'const'.", file: 'script.js', line: 18 },
+  { level: 'warning', message: "Unused variable 'activeWinId'.", file: 'script.js', line: 22 }
+];
+
 function ensureGamelibModal() {
   if (gamelibModalEl) return gamelibModalEl;
   const modal = document.createElement('div');
@@ -2002,6 +2333,21 @@ document.addEventListener('DOMContentLoaded', () => {
   updateToastPosition();
   syncAllSliders();
   refreshIcons();
+
+  // Dentro de setupShortcuts() o donde tengas los keydown globales:
+document.addEventListener('keydown', (e) => {
+  // Solo si VS Code está enfocado
+  if (activeWinId && openWindows[activeWinId]?.appId === 'vscode') {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+      e.preventDefault();
+      toggleVscSearch();
+    }
+    if (e.key === 'Escape' && vscSearchOpen) {
+      e.preventDefault();
+      toggleVscSearch();
+    }
+  }
+});
 
   document.querySelectorAll('.waybar-module, #dock, #control-center, #quick-center, #launcher, #notification-center').forEach(el => {
     el.classList.add('glass-panel');
@@ -7143,6 +7489,7 @@ function openApp(appId, forceNew = false, restoreData = null) {
     if (appId === 'activity') setupActivityApp(win);
     if (appId === 'taskmgr') setupTaskmgrApp(win);
     if (appId === 'games') setupGamelibApp(win);
+    if (appId === 'vscode') setupVscApp(win);
   }
 
   setupWindowResize(win);
@@ -9096,7 +9443,7 @@ function getAppContent(id) {
       return getBrowserContentHTML('browser-0');
 
     case 'vscode':
-      return `<div class="vscode-preview"><img src="./assets/images/apps/visualStudio/capturaVisualStudio.png" alt="Captura de Visual Studio Code"></div>`;
+      return getVscAppHTML();
 
     case 'games':
       return getGamelibAppHTML();
@@ -13062,4 +13409,685 @@ function openActivityFromShield() {
 
   // Toast de feedback
   showToast('Centro de Actividad', 'Abriendo historial de eventos del sistema.', 'list-checks');
+}
+/* ═══════════════════════════════════════════════════════════════
+   ★ VISUAL STUDIO CODE — Lógica completa
+═══════════════════════════════════════════════════════════════ */
+
+/* ─── Helpers ─── */
+
+function getVscFileByName(name) {
+  const walk = (nodes) => {
+    for (const node of nodes) {
+      if (node.type === 'file' && node.name === name) return node;
+      if (node.type === 'folder' && node.children) {
+        const found = walk(node.children);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  return walk(VSC_FILE_TREE);
+}
+
+function getVscFileIcon(name) {
+  if (name.endsWith('.html')) return { icon: 'file-code', cls: 'html' };
+  if (name.endsWith('.css'))  return { icon: 'palette',   cls: 'css' };
+  if (name.endsWith('.js'))   return { icon: 'file-code', cls: 'js' };
+  if (name.endsWith('.json')) return { icon: 'braces',    cls: 'json' };
+  if (name.endsWith('.md'))   return { icon: 'book-open', cls: 'md' };
+  if (name.endsWith('.gitignore')) return { icon: 'git-branch', cls: 'git' };
+  if (name.endsWith('.svg') || name.endsWith('.png')) return { icon: 'image', cls: 'img' };
+  return { icon: 'file', cls: 'default' };
+}
+
+function getVscLanguageLabel(language) {
+  return {
+    html: 'HTML',
+    css: 'CSS',
+    js: 'JavaScript',
+    json: 'JSON',
+    md: 'Markdown',
+    git: 'GitIgnore',
+    svg: 'SVG',
+    img: 'Image'
+  }[language] || 'Plain Text';
+}
+
+function escapeVscHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/* ─── Syntax highlighting simple ─── */
+
+function highlightVscLine(line, language) {
+  // Proteger el HTML crudo antes de procesar
+  let safe = escapeVscHtml(line);
+
+  // Guardamos los spans generados en un array para no re-procesarlos
+  const tokens = [];
+  const store = (html) => {
+    const placeholder = `\u0001TOKEN${tokens.length}\u0001`;
+    tokens.push(html);
+    return placeholder;
+  };
+
+  // 1) COMENTARIOS — `//` hasta fin de línea, o `<!-- -->`, o `/* */`
+  safe = safe.replace(/&lt;!--[\s\S]*?--&gt;/g, m => store(`<span class="vsc-syn-comment">${m}</span>`));
+  safe = safe.replace(/\/\/[^\n]*/g, m => store(`<span class="vsc-syn-comment">${m}</span>`));
+  safe = safe.replace(/(^|\s)#[^\n]*/g, m => store(`<span class="vsc-syn-comment">${m}</span>`));
+
+  // 2) STRINGS — comillas simples, dobles, backticks
+  safe = safe.replace(/&quot;[^&]*?&quot;/g, m => store(`<span class="vsc-syn-string">${m}</span>`));
+  safe = safe.replace(/&#039;[^&]*?&#039;/g, m => store(`<span class="vsc-syn-string">${m}</span>`));
+  safe = safe.replace(/`[^`]*?`/g, m => store(`<span class="vsc-syn-string">${m}</span>`));
+
+  // 3) TAGS HTML — solo si el lenguaje es HTML
+  if (language === 'html') {
+    // Apertura/cierre de tag: <tag, </tag, />, >
+    safe = safe.replace(/(&lt;\/?)([a-zA-Z][a-zA-Z0-9-]*)/g,
+      (m, p1, p2) => store(`<span class="vsc-syn-punct">${p1}</span><span class="vsc-syn-tag">${p2}</span>`));
+    // Atributos
+    safe = safe.replace(/\s([a-zA-Z-]+)=/g,
+      (m, attr) => store(` <span class="vsc-syn-attr">${attr}</span>=`));
+  }
+
+  // 4) KEYWORDS JS
+  const jsKeywords = /\b(const|let|var|function|return|if|else|for|while|class|new|this|import|export|from|default|async|await|try|catch|finally|typeof|instanceof|null|undefined|true|false|switch|case|break|continue|do|throw|void|delete)\b/g;
+  safe = safe.replace(jsKeywords, m => store(`<span class="vsc-syn-keyword">${m}</span>`));
+
+  // 5) CSS PROPS — solo si es CSS
+  if (language === 'css') {
+    safe = safe.replace(/^\s*([a-z-]+)\s*:/gm,
+      (m, prop) => store(`<span class="vsc-syn-property">${prop}</span>:`));
+  }
+
+  // 6) NÚMEROS
+  safe = safe.replace(/\b(\d+\.?\d*)\b/g, m => store(`<span class="vsc-syn-number">${m}</span>`));
+
+  // 7) Restaurar todos los tokens
+  safe = safe.replace(/\u0001TOKEN(\d+)\u0001/g, (m, i) => tokens[parseInt(i, 10)]);
+
+  return safe;
+}
+
+/* ─── Apertura de archivos ─── */
+
+function openVscFile(name) {
+  const file = getVscFileByName(name);
+  if (!file || file.type !== 'file') return;
+
+  if (!vscOpenTabs.includes(name)) {
+    vscOpenTabs.push(name);
+  }
+  vscActiveTab = name;
+  vscSearchOpen = false;
+  vscSearchQuery = '';
+  vscSearchMatches = [];
+  vscSearchCurrentIndex = 0;
+  renderVscApp();
+}
+
+function closeVscTab(name) {
+  const idx = vscOpenTabs.indexOf(name);
+  if (idx === -1) return;
+
+  vscOpenTabs.splice(idx, 1);
+
+  if (vscActiveTab === name) {
+    vscActiveTab = vscOpenTabs[Math.max(0, idx - 1)] || null;
+  }
+  renderVscApp();
+}
+
+function setVscActiveTab(name) {
+  if (!vscOpenTabs.includes(name)) return;
+  vscActiveTab = name;
+  vscSearchOpen = false;
+  vscSearchQuery = '';
+  vscSearchMatches = [];
+  vscSearchCurrentIndex = 0;
+  renderVscApp();
+}
+
+/* ─── Sidebar: cambio de vista ─── */
+
+function setVscSidebarView(view) {
+  if (vscSidebarView === view) {
+    // Toggle: si clickeás el mismo, se oculta
+    const sidebar = document.querySelector('.vsc-sidebar');
+    if (sidebar) sidebar.classList.toggle('hidden');
+  } else {
+    vscSidebarView = view;
+    const sidebar = document.querySelector('.vsc-sidebar');
+    if (sidebar) sidebar.classList.remove('hidden');
+  }
+  renderVscApp();
+}
+
+function toggleVscFolder(name) {
+  vscExpandedFolders[name] = !vscExpandedFolders[name];
+  renderVscApp();
+}
+
+/* ─── Búsqueda ─── */
+
+function toggleVscSearch() {
+  vscSearchOpen = !vscSearchOpen;
+  if (!vscSearchOpen) {
+    vscSearchQuery = '';
+    vscSearchMatches = [];
+  }
+  renderVscApp();
+  if (vscSearchOpen) {
+    setTimeout(() => {
+      const input = document.querySelector('.vsc-search-input');
+      if (input) input.focus();
+    }, 50);
+  }
+}
+
+function setVscSearchQuery(query) {
+  vscSearchQuery = query;
+  vscSearchMatches = [];
+
+  if (!query || !vscActiveTab) {
+    updateVscSearchCount();
+    updateVscHighlightedLines();
+    return;
+  }
+
+  const content = VSC_FILE_CONTENTS[vscActiveTab];
+  if (!content) return;
+
+  const lines = content.split('\n');
+  const q = query.toLowerCase();
+  lines.forEach((line, idx) => {
+    if (line.toLowerCase().includes(q)) {
+      vscSearchMatches.push(idx);
+    }
+  });
+
+  vscSearchCurrentIndex = 0;
+  updateVscSearchCount();
+  updateVscHighlightedLines();
+
+  // Scroll al primer match
+  if (vscSearchMatches.length > 0) {
+    scrollToVscMatch(vscSearchMatches[0]);
+  }
+}
+
+function updateVscSearchCount() {
+  const el = document.querySelector('.vsc-search-count');
+  if (!el) return;
+  if (!vscSearchQuery) {
+    el.textContent = '—';
+    return;
+  }
+  if (vscSearchMatches.length === 0) {
+    el.textContent = 'Sin coincidencias';
+    return;
+  }
+  el.textContent = `${vscSearchCurrentIndex + 1} de ${vscSearchMatches.length}`;
+}
+
+function updateVscHighlightedLines() {
+  const lines = document.querySelectorAll('.vsc-code-line');
+  lines.forEach(line => line.classList.remove('match', 'current'));
+
+  if (!vscSearchQuery) return;
+
+  vscSearchMatches.forEach((matchIdx, i) => {
+    const lineEl = lines[matchIdx];
+    if (!lineEl) return;
+    lineEl.classList.add('match');
+    if (i === vscSearchCurrentIndex) {
+      lineEl.classList.add('current');
+    }
+  });
+}
+
+function scrollToVscMatch(lineIdx) {
+  const lines = document.querySelectorAll('.vsc-code-line');
+  const lineEl = lines[lineIdx];
+  if (lineEl) {
+    lineEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+}
+
+function vscSearchNext() {
+  if (vscSearchMatches.length === 0) return;
+  vscSearchCurrentIndex = (vscSearchCurrentIndex + 1) % vscSearchMatches.length;
+  updateVscSearchCount();
+  updateVscHighlightedLines();
+  scrollToVscMatch(vscSearchMatches[vscSearchCurrentIndex]);
+}
+
+function vscSearchPrev() {
+  if (vscSearchMatches.length === 0) return;
+  vscSearchCurrentIndex = (vscSearchCurrentIndex - 1 + vscSearchMatches.length) % vscSearchMatches.length;
+  updateVscSearchCount();
+  updateVscHighlightedLines();
+  scrollToVscMatch(vscSearchMatches[vscSearchCurrentIndex]);
+}
+
+/* ─── Panel inferior ─── */
+
+function toggleVscPanel() {
+  vscPanelOpen = !vscPanelOpen;
+  const panel = document.querySelector('.vsc-bottom-panel');
+  if (panel) panel.classList.toggle('collapsed', !vscPanelOpen);
+}
+
+function setVscActivePanel(panel) {
+  vscActivePanel = panel;
+  if (!vscPanelOpen) {
+    vscPanelOpen = true;
+    const panelEl = document.querySelector('.vsc-bottom-panel');
+    if (panelEl) panelEl.classList.remove('collapsed');
+  }
+  renderVscApp();
+}
+
+/* ─── Render principal ─── */
+
+function getVscAppHTML() {
+  const activeName = vscActiveTab || (vscOpenTabs[0] || null);
+  const activeFile = activeName ? getVscFileByName(activeName) : null;
+  const activeContent = activeName ? (VSC_FILE_CONTENTS[activeName] || '// Archivo vacío') : '';
+  const activeLanguage = activeFile?.language || 'plain';
+
+  // Tabs
+  const tabsHTML = vscOpenTabs.map(name => {
+    const file = getVscFileByName(name);
+    if (!file) return '';
+    const iconInfo = getVscFileIcon(name);
+    const isActive = name === vscActiveTab;
+    return `
+      <div class="vsc-tab ${isActive ? 'active' : ''}" onclick="setVscActiveTab('${name}')" data-tab-name="${name}">
+        <span class="vsc-tab-icon ${iconInfo.cls}"><i data-lucide="${iconInfo.icon}"></i></span>
+        <span class="vsc-tab-title">${escapeHtml(name)}</span>
+        <button class="vsc-tab-close" type="button" onclick="event.stopPropagation(); closeVscTab('${name}')" aria-label="Cerrar">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+    `;
+  }).join('');
+
+  // Sidebar tree
+  const treeHTML = renderVscTreeHTML(VSC_FILE_TREE, 0);
+
+  // Contenido del editor (con números de línea)
+  const lines = activeContent.split('\n');
+  const linesHTML = lines.map((line, idx) => {
+    const highlighted = highlightVscLine(line, activeLanguage);
+    return `
+      <div class="vsc-code-line" data-line-idx="${idx}">
+        <span class="vsc-line-num">${idx + 1}</span>
+        <span class="vsc-code-text">${highlighted || ' '}</span>
+      </div>
+    `;
+  }).join('');
+
+  // Minimap (representación abstracta del código)
+  const minimapHTML = lines.slice(0, 60).map((line, idx) => {
+    const len = line.length;
+    let widthClass = 'w10';
+    if (len > 60) widthClass = 'w100';
+    else if (len > 50) widthClass = 'w90';
+    else if (len > 40) widthClass = 'w80';
+    else if (len > 30) widthClass = 'w70';
+    else if (len > 22) widthClass = 'w60';
+    else if (len > 14) widthClass = 'w50';
+    else if (len > 8) widthClass = 'w40';
+    else if (len > 4) widthClass = 'w30';
+    else if (len > 0) widthClass = 'w20';
+    const isComment = /^\s*\/\//.test(line) || /^\s*#/.test(line);
+    const isKeyword = /(function|const|let|import|export|class)/.test(line);
+    const extraClass = isComment ? 'accent' : (isKeyword ? 'keyword' : '');
+    return `<div class="vsc-minimap-line ${widthClass} ${extraClass}"></div>`;
+  }).join('');
+
+  // Panel inferior
+  const panelHTML = renderVscPanelHTML();
+
+  // Statusbar
+  const totalLines = lines.length;
+  const gitChanges = 3;
+  const errorCount = VSC_PROBLEMS.filter(p => p.level === 'error').length;
+  const warningCount = VSC_PROBLEMS.filter(p => p.level === 'warning').length;
+
+  return `
+    <div class="vsc-app">
+      <div class="vsc-topbar">
+        <div class="vsc-activity-bar-mini">
+          <div class="vsc-mini-icon" title="Buscar (Ctrl+F)" onclick="toggleVscSearch()"><i data-lucide="search"></i></div>
+          <div class="vsc-mini-icon" title="Cerrar todos los tabs" onclick="closeAllVscTabs()"><i data-lucide="x-circle"></i></div>
+        </div>
+        <div class="vsc-tabs">${tabsHTML}</div>
+      </div>
+
+      <div class="vsc-body">
+        <div class="vsc-activity-bar">
+          <button class="vsc-activity-btn ${vscSidebarView === 'explorer' ? 'active' : ''}" type="button" title="Explorador" onclick="setVscSidebarView('explorer')">
+            <i data-lucide="files"></i>
+          </button>
+          <button class="vsc-activity-btn ${vscSidebarView === 'search' ? 'active' : ''}" type="button" title="Buscar" onclick="setVscSidebarView('search')">
+            <i data-lucide="search"></i>
+          </button>
+          <button class="vsc-activity-btn ${vscSidebarView === 'git' ? 'active' : ''}" type="button" title="Source Control" onclick="setVscSidebarView('git')">
+            <i data-lucide="git-branch"></i>
+            <span class="vsc-badge">${gitChanges}</span>
+          </button>
+          <button class="vsc-activity-btn ${vscSidebarView === 'debug' ? 'active' : ''}" type="button" title="Run & Debug" onclick="setVscSidebarView('debug')">
+            <i data-lucide="play-circle"></i>
+          </button>
+          <button class="vsc-activity-btn ${vscSidebarView === 'extensions' ? 'active' : ''}" type="button" title="Extensiones" onclick="setVscSidebarView('extensions')">
+            <i data-lucide="puzzle"></i>
+            <span class="vsc-badge">${warningCount + errorCount}</span>
+          </button>
+        </div>
+
+        <aside class="vsc-sidebar">
+          <div class="vsc-sidebar-header">${getVscSidebarTitle()}</div>
+          <div class="vsc-sidebar-content">
+            ${getVscSidebarContent()}
+          </div>
+        </aside>
+
+        <main class="vsc-editor-area">
+          ${activeName ? `
+            <div class="vsc-editor-header">
+              <i data-lucide="${getVscFileIcon(activeName).icon}"></i>
+              <span class="vsc-breadcrumb-item">nebula-os</span>
+              <span class="vsc-breadcrumb-sep">›</span>
+              <span class="vsc-breadcrumb-item active">${escapeHtml(activeName)}</span>
+            </div>
+          ` : ''}
+
+          <div class="vsc-editor-main">
+            <div class="vsc-editor-content" id="vsc-editor-content">
+              ${activeName ? linesHTML : `
+                <div style="padding: 60px 20px; text-align: center; color: #555; font-family: 'Inter', sans-serif;">
+                  <i data-lucide="file-code-2" style="width: 40px; height: 40px; margin-bottom: 12px; opacity: 0.4;"></i>
+                  <p style="font-size: 13px; margin: 0;">Seleccioná un archivo del explorador para abrirlo.</p>
+                </div>
+              `}
+            </div>
+            <div class="vsc-minimap">${minimapHTML}</div>
+
+            ${vscSearchOpen ? `
+              <div class="vsc-search-overlay open">
+                <input type="text"
+                       class="vsc-search-input"
+                       placeholder="Buscar..."
+                       value="${escapeHtml(vscSearchQuery)}"
+                       oninput="setVscSearchQuery(this.value)"
+                       onkeydown="if(event.key==='Escape'){toggleVscSearch()} else if(event.key==='Enter'){${'event.shiftKey'} ? vscSearchPrev() : vscSearchNext()}"
+                       autofocus>
+                <span class="vsc-search-count">—</span>
+                <button class="vsc-search-nav-btn" type="button" onclick="vscSearchPrev()" title="Anterior">
+                  <i data-lucide="chevron-up"></i>
+                </button>
+                <button class="vsc-search-nav-btn" type="button" onclick="vscSearchNext()" title="Siguiente">
+                  <i data-lucide="chevron-down"></i>
+                </button>
+                <button class="vsc-search-close-btn" type="button" onclick="toggleVscSearch()" title="Cerrar">
+                  <i data-lucide="x"></i>
+                </button>
+              </div>
+            ` : ''}
+          </div>
+        </main>
+      </div>
+
+      <div class="vsc-bottom-panel ${vscPanelOpen ? '' : 'collapsed'}">
+        <div class="vsc-panel-tabs">
+          <button class="vsc-panel-tab ${vscActivePanel === 'problems' ? 'active' : ''} ${errorCount > 0 ? 'has-errors' : ''}" onclick="setVscActivePanel('problems')">
+            Problemas <span class="vsc-panel-count">${errorCount + warningCount}</span>
+          </button>
+          <button class="vsc-panel-tab ${vscActivePanel === 'output' ? 'active' : ''}" onclick="setVscActivePanel('output')">
+            Salida
+          </button>
+          <button class="vsc-panel-tab ${vscActivePanel === 'terminal' ? 'active' : ''}" onclick="setVscActivePanel('terminal')">
+            Terminal
+          </button>
+          <button class="vsc-panel-tab ${vscActivePanel === 'ports' ? 'active' : ''}" onclick="setVscActivePanel('ports')">
+            Puertos <span class="vsc-panel-count">1</span>
+          </button>
+          <button class="vsc-panel-close" type="button" onclick="toggleVscPanel()" title="Cerrar panel">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <div class="vsc-panel-content">${panelHTML}</div>
+      </div>
+
+      <div class="vsc-statusbar">
+        <div class="vsc-statusbar-left">
+          <span class="vsc-statusbar-item git-branch">
+            <i data-lucide="git-branch"></i> main*
+          </span>
+          <span class="vsc-statusbar-item">
+            <i data-lucide="x-circle"></i> ${errorCount}
+          </span>
+          <span class="vsc-statusbar-item">
+            <i data-lucide="alert-triangle"></i> ${warningCount}
+          </span>
+        </div>
+        <div class="vsc-statusbar-right">
+          <span class="vsc-statusbar-item">Ln ${totalLines}, Col 1</span>
+          <span class="vsc-statusbar-item">Espacios: 2</span>
+          <span class="vsc-statusbar-item">UTF-8</span>
+          <span class="vsc-statusbar-item">${getVscLanguageLabel(activeLanguage)}</span>
+          <span class="vsc-statusbar-item">{ }</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function getVscSidebarTitle() {
+  return {
+    explorer: 'Explorador',
+    search: 'Buscar',
+    git: 'Control de Código Fuente',
+    debug: 'Ejecutar y Depurar',
+    extensions: 'Extensiones'
+  }[vscSidebarView] || 'Explorador';
+}
+
+function getVscSidebarContent() {
+  switch (vscSidebarView) {
+    case 'explorer':
+      return renderVscTreeHTML(VSC_FILE_TREE, 0);
+    case 'search':
+      return `
+        <div style="padding: 10px 12px;">
+          <input type="text" placeholder="Buscar en archivos..." style="width: 100%; padding: 6px 10px; background: #3c3c3c; border: 1px solid #3c3c3c; border-radius: 4px; color: #ccc; font-size: 12px; outline: none;">
+          <p style="margin-top: 12px; font-size: 11px; color: #858585; line-height: 1.5;">Escribí para buscar en todos los archivos del proyecto.</p>
+        </div>
+      `;
+    case 'git':
+      return `
+        <div style="padding: 10px 12px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <span style="font-size: 11px; color: #858585; font-weight: 600;">CAMBIOS (3)</span>
+            <span style="font-size: 10px; color: #858585;">main*</span>
+          </div>
+          ${['index.html', 'styles.css', 'script.js'].map(name => `
+            <div style="display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 12px; color: #ccc;">
+              <span style="color: #e2c08d; font-weight: 800;">M</span>
+              <span>${escapeHtml(name)}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    case 'debug':
+      return `
+        <div style="padding: 10px 12px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <span style="font-size: 11px; color: #858585; font-weight: 600;">VARIABLES</span>
+          </div>
+          <p style="font-size: 11px; color: #858585; line-height: 1.5;">No hay sesiones de debug activas.</p>
+          <button style="margin-top: 12px; padding: 6px 12px; background: #0e639c; border: 0; border-radius: 4px; color: #fff; font-size: 11px; cursor: pointer;">Crear launch.json</button>
+        </div>
+      `;
+    case 'extensions':
+      return `
+        <div style="padding: 10px 12px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <span style="font-size: 11px; color: #858585; font-weight: 600;">INSTALADAS</span>
+          </div>
+          ${[
+            { name: 'Lucide Icons', author: 'Lucide', icon: 'sparkles' },
+            { name: 'Live Server',  author: 'Ritwick Dey', icon: 'radio' },
+            { name: 'Prettier',     author: 'Prettier', icon: 'wand-2' },
+            { name: 'GitLens',      author: 'GitKraken', icon: 'git-branch' }
+          ].map(ext => `
+            <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 12px; color: #ccc;">
+              <i data-lucide="${ext.icon}" style="width: 14px; height: 14px; color: var(--accent);"></i>
+              <div>
+                <div style="font-weight: 600;">${escapeHtml(ext.name)}</div>
+                <div style="font-size: 10px; color: #858585;">${escapeHtml(ext.author)}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    default:
+      return '';
+  }
+}
+
+function renderVscTreeHTML(nodes, depth) {
+  return nodes.map(node => {
+    if (node.type === 'folder') {
+      const isExpanded = vscExpandedFolders[node.name] !== false;
+      const childrenHTML = isExpanded
+        ? renderVscTreeHTML(node.children || [], depth + 1)
+        : '';
+      return `
+        <div class="vsc-tree-folder ${isExpanded ? '' : 'collapsed'}" onclick="toggleVscFolder('${node.name}')">
+          <i data-lucide="chevron-down" class="vsc-tree-chevron"></i>
+          <i data-lucide="folder"></i>
+          <span class="vsc-tree-folder-name">${escapeHtml(node.name)}</span>
+        </div>
+        ${childrenHTML}
+      `;
+    }
+    const iconInfo = getVscFileIcon(node.name);
+    const isActive = node.name === vscActiveTab;
+    return `
+      <div class="vsc-tree-file ${isActive ? 'active' : ''}" onclick="openVscFile('${node.name}')">
+        <span class="vsc-file-icon ${iconInfo.cls}"><i data-lucide="${iconInfo.icon}"></i></span>
+        <span class="vsc-tree-file-name">${escapeHtml(node.name)}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderVscPanelHTML() {
+  switch (vscActivePanel) {
+    case 'terminal':
+      return `
+        <div class="vsc-terminal-line">
+          <span class="vsc-terminal-path">~/nebula-os</span>
+          <span class="vsc-terminal-prompt">❯</span>
+          <span class="vsc-terminal-cmd">npm start<span class="vsc-terminal-cursor"></span></span>
+        </div>
+        <div class="vsc-terminal-line">
+          <span class="vsc-terminal-out">&gt; nebula-os-web@2.5.0 start</span>
+        </div>
+        <div class="vsc-terminal-line">
+          <span class="vsc-terminal-out">&gt; live-server</span>
+        </div>
+        <div class="vsc-terminal-line">
+          <span class="vsc-terminal-out">Serving "~/nebula-os" at http://127.0.0.1:5500</span>
+        </div>
+        <div class="vsc-terminal-line">
+          <span class="vsc-terminal-out">Ready. Press CTRL+C to stop.</span>
+        </div>
+        <div class="vsc-terminal-line" style="margin-top: 6px;">
+          <span class="vsc-terminal-path">~/nebula-os</span>
+          <span class="vsc-terminal-prompt">❯</span>
+          <span class="vsc-terminal-cursor"></span>
+        </div>
+      `;
+    case 'problems':
+      if (VSC_PROBLEMS.length === 0) {
+        return `<div style="color: #858585; font-style: italic;">No hay problemas detectados.</div>`;
+      }
+      return `
+        <div class="vsc-problems-list">
+          ${VSC_PROBLEMS.map(p => `
+            <div class="vsc-problem-item ${p.level}">
+              <span class="vsc-problem-icon">
+                <i data-lucide="${p.level === 'error' ? 'x-circle' : p.level === 'warning' ? 'alert-triangle' : 'info'}"></i>
+              </span>
+              <span class="vsc-problem-msg">${escapeHtml(p.message)}</span>
+              <span class="vsc-problem-file">${escapeHtml(p.file)}:${p.line}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    case 'output':
+      return `
+        <div style="color: #858585; line-height: 1.7;">
+          <div>[Info  - 14:32:18] Nebula Kernel: startup complete</div>
+          <div>[Info  - 14:32:19] Loaded 12 modules</div>
+          <div>[Info  - 14:32:19] GPU detected: RTX 4080 SUPRIM</div>
+          <div>[Info  - 14:32:20] Compositor initialized</div>
+          <div>[Info  - 14:32:21] Session saved to localStorage</div>
+          <div style="color: var(--accent-green);">[OK    - 14:32:21] Nebula OS ready</div>
+        </div>
+      `;
+    case 'ports':
+      return `
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 6px;">
+            <span style="color: var(--accent-green); font-weight: 700;">● 5500</span>
+            <span style="flex: 1; color: #ccc;">Live Server</span>
+            <span style="color: #858585; font-size: 11px;">http://127.0.0.1:5500</span>
+          </div>
+        </div>
+      `;
+    default:
+      return '';
+  }
+}
+
+function closeAllVscTabs() {
+  vscOpenTabs = [];
+  vscActiveTab = null;
+  renderVscApp();
+}
+
+/* ─── Render y bootstrap ─── */
+
+function renderVscApp() {
+  const winIds = getInstancesOfApp('vscode');
+  winIds.forEach(winId => {
+    const win = openWindows[winId]?.win;
+    if (!win) return;
+    const content = win.querySelector('.wcontent');
+    if (!content) return;
+    content.innerHTML = getVscAppHTML();
+  });
+  refreshIcons();
+}
+
+function setupVscApp(win) {
+  if (!win) return;
+  // Si no hay tabs abiertos, abrir index.html por defecto
+  if (vscOpenTabs.length === 0) {
+    vscOpenTabs = ['index.html', 'styles.css', 'script.js'];
+    vscActiveTab = 'index.html';
+    renderVscApp();
+  }
 }
