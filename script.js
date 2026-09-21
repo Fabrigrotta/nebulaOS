@@ -491,6 +491,1032 @@ let taskmgrMetricsHistory = {
 };
 let taskmgrMetricsInterval = null;
 
+/* ═══════════════════════════════════════════════════════════════
+   ★ BIBLIOTECA DE JUEGOS — Estado global
+═══════════════════════════════════════════════════════════════ */
+
+const GAMELIB_STORAGE_KEY = 'nebula-os:game-library';
+let gamelibFilter = 'all';
+let gamelibSearchQuery = '';
+let gamelibModalGameId = null;
+let gamelibPlayingSession = null;
+let gamelibPlayTimer = null;
+
+const GAMELIB_GAMES = [
+  { id: 'cyberpunk-2077', title: 'Cyberpunk 2077', developer: 'CD Projekt Red', year: 2020, genre: 'Acción / RPG', rating: 4.8, cover: './assets/images/APPS/steam/games/cyberpunk-2077.jpg', emoji: '🚀', color: '#f3e600', installed: true, favorite: true, hoursPlayed: 42.25, lastPlayedAt: Date.now() - 2 * 60 * 60 * 1000, achievementsUnlocked: 12, achievementsTotal: 45, avgFps: 142, recentAchievements: [{ name: 'Night City Legend', date: Date.now() - 3 * 60 * 60 * 1000 }, { name: 'Legendary Merc', date: Date.now() - 3 * 24 * 60 * 60 * 1000 }] },
+  { id: 'elden-ring', title: 'Elden Ring', developer: 'FromSoftware', year: 2022, genre: 'Action RPG / Souls-like', rating: 4.9, cover: './assets/images/APPS/steam/games/elden-ring.jpg', emoji: '⚔️', color: '#c9a050', installed: true, favorite: true, hoursPlayed: 128.5, lastPlayedAt: Date.now() - 7 * 24 * 60 * 60 * 1000, achievementsUnlocked: 28, achievementsTotal: 42, avgFps: 118, recentAchievements: [{ name: 'Elden Lord', date: Date.now() - 7 * 24 * 60 * 60 * 1000 }] },
+  { id: 'hollow-knight', title: 'Hollow Knight', developer: 'Team Cherry', year: 2017, genre: 'Metroidvania', rating: 4.9, cover: './assets/images/APPS/steam/games/hollow-knight.jpg', emoji: '🗡️', color: '#3b82f6', installed: true, favorite: true, hoursPlayed: 62.75, lastPlayedAt: Date.now() - 2 * 24 * 60 * 60 * 1000, achievementsUnlocked: 20, achievementsTotal: 63, avgFps: 144, recentAchievements: [{ name: 'Dream No More', date: Date.now() - 2 * 24 * 60 * 60 * 1000 }] },
+  { id: 'cs2', title: 'Counter-Strike 2', developer: 'Valve', year: 2023, genre: 'FPS / Táctico', rating: 4.5, cover: './assets/images/APPS/steam/games/cs2.jpg', emoji: '🎯', color: '#f59e0b', installed: true, favorite: false, hoursPlayed: 856.25, lastPlayedAt: Date.now() - 5 * 60 * 60 * 1000, achievementsUnlocked: 0, achievementsTotal: 1, avgFps: 280, recentAchievements: [] },
+  { id: 'doom-eternal', title: 'DOOM Eternal', developer: 'id Software', year: 2020, genre: 'FPS / Acción', rating: 4.7, cover: './assets/images/APPS/steam/games/doom-eternal.jpg', emoji: '🔥', color: '#dc2626', installed: true, favorite: false, hoursPlayed: 24.5, lastPlayedAt: Date.now() - 14 * 24 * 60 * 60 * 1000, achievementsUnlocked: 15, achievementsTotal: 50, avgFps: 200, recentAchievements: [{ name: 'Rip and Tear', date: Date.now() - 14 * 24 * 60 * 60 * 1000 }] },
+  { id: 'rdr2', title: 'Red Dead Redemption 2', developer: 'Rockstar Games', year: 2018, genre: 'Acción / Aventura', rating: 4.9, cover: './assets/images/APPS/steam/games/rdr2.jpg', emoji: '🤠', color: '#b45309', installed: true, favorite: true, hoursPlayed: 145.75, lastPlayedAt: Date.now() - 10 * 24 * 60 * 60 * 1000, achievementsUnlocked: 32, achievementsTotal: 51, avgFps: 95, recentAchievements: [{ name: 'Best in the West', date: Date.now() - 10 * 24 * 60 * 60 * 1000 }] },
+  { id: 'baldurs-gate-3', title: "Baldur's Gate 3", developer: 'Larian Studios', year: 2023, genre: 'RPG / Turnos', rating: 4.9, cover: './assets/images/APPS/steam/games/baldurs-gate-3.jpg', emoji: '🐉', color: '#a855f7', installed: true, favorite: false, hoursPlayed: 78.25, lastPlayedAt: Date.now() - 4 * 24 * 60 * 60 * 1000, achievementsUnlocked: 22, achievementsTotal: 54, avgFps: 110, recentAchievements: [{ name: 'Hero of the Forgotten Realms', date: Date.now() - 4 * 24 * 60 * 60 * 1000 }] },
+  { id: 'witcher-3', title: 'The Witcher 3: Wild Hunt', developer: 'CD Projekt Red', year: 2015, genre: 'RPG / Mundo abierto', rating: 4.9, cover: './assets/images/APPS/steam/games/witcher-3.jpg', emoji: '🐺', color: '#991b1b', installed: false, favorite: true, hoursPlayed: 0, lastPlayedAt: null, achievementsUnlocked: 0, achievementsTotal: 78, avgFps: 0, recentAchievements: [] },
+  { id: 'hades', title: 'Hades', developer: 'Supergiant Games', year: 2020, genre: 'Roguelike / Acción', rating: 4.8, cover: './assets/images/APPS/steam/games/hades.jpg', emoji: '⚡', color: '#f97316', installed: false, favorite: false, hoursPlayed: 0, lastPlayedAt: null, achievementsUnlocked: 0, achievementsTotal: 49, avgFps: 0, recentAchievements: [] },
+  { id: 'stardew-valley', title: 'Stardew Valley', developer: 'ConcernedApe', year: 2016, genre: 'Simulación / Farming', rating: 4.9, cover: './assets/images/APPS/steam/games/stardew-valley.jpg', emoji: '🌾', color: '#84cc16', installed: false, favorite: false, hoursPlayed: 0, lastPlayedAt: null, achievementsUnlocked: 0, achievementsTotal: 40, avgFps: 0, recentAchievements: [] }
+];
+
+let gamelibGames = [];
+
+function ensureGamelibModal() {
+  if (gamelibModalEl) return gamelibModalEl;
+  const modal = document.createElement('div');
+  modal.className = 'gamelib-modal';
+  modal.id = 'gamelib-modal';
+  modal.innerHTML = `
+    <div class="gamelib-modal-dialog" id="gamelib-modal-dialog">
+      <button class="gamelib-modal-close" type="button" onclick="closeGamelibGameModal()">
+        <i data-lucide="x"></i>
+      </button>
+      <div class="gamelib-modal-body" id="gamelib-modal-content"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  gamelibModalEl = modal;
+
+  modal.addEventListener('mousedown', (e) => {
+    if (e.target === modal) closeGamelibGameModal();
+  });
+
+  return modal;
+}
+
+function openGamelibGameModal(gameId) {
+  const game = getGamelibGame(gameId);
+  if (!game) return;
+  gamelibModalGameId = gameId;
+  const modal = ensureGamelibModal();
+  const dialog = modal.querySelector('#gamelib-modal-dialog');
+  if (dialog) dialog.style.setProperty('--game-accent', game.color);
+  renderGamelibModalContent();
+  modal.classList.add('open');
+  refreshIcons();
+}
+
+function closeGamelibGameModal() {
+  if (!gamelibModalEl) return;
+  gamelibModalEl.classList.remove('open');
+  gamelibModalGameId = null;
+}
+
+function renderGamelibModalContent() {
+  if (!gamelibModalEl || !gamelibModalGameId) return;
+  const game = getGamelibGame(gamelibModalGameId);
+  if (!game) return;
+  const content = gamelibModalEl.querySelector('#gamelib-modal-content');
+  if (!content) return;
+
+  const isPlaying = gamelibPlayingSession?.gameId === game.id;
+  const achievementPct = game.achievementsTotal > 0
+    ? Math.round((game.achievementsUnlocked / game.achievementsTotal) * 100)
+    : 0;
+
+  const coverHTML = game.cover
+    ? `<img src="${game.cover}" alt="${escapeHtml(game.title)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+       <div class="gamelib-modal-cover-fallback" style="display:none; background: linear-gradient(135deg, ${game.color}33, ${game.color}11);">${game.emoji}</div>`
+    : `<div class="gamelib-modal-cover-fallback" style="background: linear-gradient(135deg, ${game.color}33, ${game.color}11);">${game.emoji}</div>`;
+
+  let actionsHTML = '';
+  if (!game.installed) {
+    actionsHTML = `
+      <button class="gamelib-modal-btn install" type="button" onclick="installGamelibGame('${game.id}')">
+        <i data-lucide="download"></i> Instalar
+      </button>
+    `;
+  } else if (isPlaying) {
+    actionsHTML = `
+      <button class="gamelib-modal-btn playing" type="button" onclick="stopGamelibGame()">
+        <i data-lucide="square"></i> Detener sesión
+      </button>
+    `;
+  } else {
+    actionsHTML = `
+      <button class="gamelib-modal-btn play" type="button" onclick="playGamelibGame('${game.id}')">
+        <i data-lucide="play"></i> JUGAR
+      </button>
+    `;
+  }
+
+  actionsHTML += `
+    <button class="gamelib-modal-btn ${game.favorite ? 'fav-active' : ''}" type="button" onclick="toggleGamelibFavorite('${game.id}')">
+      <i data-lucide="star"></i> ${game.favorite ? 'En favoritos' : 'Agregar a favoritos'}
+    </button>
+    <button class="gamelib-modal-btn" type="button" onclick="showToast('Configuración', 'Se abriría el panel de configuración.', 'settings-2')">
+      <i data-lucide="settings-2"></i> Configurar
+    </button>
+  `;
+
+  const recentAchievementsHTML = game.recentAchievements && game.recentAchievements.length > 0
+    ? game.recentAchievements.map(a => `
+        <div class="gamelib-achievement-item">
+          <div class="gamelib-achievement-icon"><i data-lucide="trophy"></i></div>
+          <div class="gamelib-achievement-info">
+            <strong>${escapeHtml(a.name)}</strong>
+            <small>${getGamelibLastPlayedLabel({ lastPlayedAt: a.date })}</small>
+          </div>
+        </div>
+      `).join('')
+    : `<div style="color: var(--text-sub); font-size: 11px; padding: 4px 0;">Todavía no desbloqueaste logros.</div>`;
+
+  content.innerHTML = `
+    <div class="gamelib-modal-hero">
+      <div class="gamelib-modal-cover">${coverHTML}</div>
+      <div class="gamelib-modal-info">
+        <h2 class="gamelib-modal-title">${escapeHtml(game.title)}</h2>
+        <div class="gamelib-modal-dev">${escapeHtml(game.developer)} · ${game.year}</div>
+        <div class="gamelib-modal-genre-row">
+          <span class="gamelib-modal-genre-chip">${escapeHtml(game.genre)}</span>
+          <span class="gamelib-modal-rating"><i data-lucide="star"></i> ${game.rating}</span>
+        </div>
+        <div class="gamelib-modal-actions">${actionsHTML}</div>
+      </div>
+    </div>
+    ${game.installed ? `
+      <div class="gamelib-modal-section">
+        <div class="gamelib-modal-section-title"><i data-lucide="bar-chart-3"></i> Estadísticas</div>
+        <div class="gamelib-stats-grid">
+          <div class="gamelib-stat-card"><span class="gamelib-stat-label">Tiempo jugado</span><span class="gamelib-stat-value accent">${formatGameHours(game.hoursPlayed)}</span></div>
+          <div class="gamelib-stat-card"><span class="gamelib-stat-label">Última sesión</span><span class="gamelib-stat-value">${getGamelibLastPlayedLabel(game)}</span></div>
+          <div class="gamelib-stat-card"><span class="gamelib-stat-label">Logros</span><span class="gamelib-stat-value">${game.achievementsUnlocked}/${game.achievementsTotal}</span></div>
+          <div class="gamelib-stat-card"><span class="gamelib-stat-label">FPS promedio</span><span class="gamelib-stat-value">${game.avgFps || '—'}</span></div>
+        </div>
+        <div class="gamelib-achievements-progress">
+          <div class="gamelib-achievements-bar"><div class="gamelib-achievements-fill" style="width: ${achievementPct}%;"></div></div>
+          <div style="display:flex; justify-content:space-between; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--text-sub); font-weight: 700;">
+            <span>Progreso de logros</span><span>${achievementPct}%</span>
+          </div>
+        </div>
+      </div>
+      ${game.recentAchievements && game.recentAchievements.length > 0 ? `
+        <div class="gamelib-modal-section">
+          <div class="gamelib-modal-section-title"><i data-lucide="trophy"></i> Logros recientes</div>
+          <div class="gamelib-achievements-list">${recentAchievementsHTML}</div>
+        </div>
+      ` : ''}
+    ` : `
+      <div class="gamelib-modal-section">
+        <div class="gamelib-modal-section-title"><i data-lucide="download"></i> No instalado</div>
+        <p style="color: var(--text-sub); font-size: 12px; line-height: 1.6; margin: 0;">Este juego no está instalado. Hacé click en <strong style="color: var(--accent-orange);">"Instalar"</strong> para descargarlo.</p>
+      </div>
+    `}
+  `;
+  refreshIcons();
+}
+
+function toggleGamelibFavorite(id) {
+  const game = getGamelibGame(id);
+  if (!game) return;
+  game.favorite = !game.favorite;
+  saveGamelibState();
+  renderGamelibApp();
+  if (gamelibModalGameId === id) renderGamelibModalContent();
+  showToast(game.favorite ? 'Agregado a favoritos' : 'Quitado de favoritos', game.title, 'star');
+}
+
+function playGamelibGame(id) {
+  const game = getGamelibGame(id);
+  if (!game || !game.installed) return;
+  if (gamelibPlayingSession) stopGamelibGame();
+
+  gamelibPlayingSession = { gameId: id, startedAt: Date.now() };
+
+  if (!gameModeActive) toggleGameMode(true);
+  if (!gamerOverlayVisible) toggleGamerOverlay();
+
+  closeGamelibGameModal();
+  renderGamelibApp();
+  startGamelibPlayTimer();
+
+  showToast('Iniciando juego', `${game.title} · Modo Juego activado`, { icon: 'play', level: 'success' });
+
+  logActivity({
+    category: 'gaming', level: 'info', icon: 'play',
+    title: 'Sesión de juego iniciada',
+    subtitle: game.title,
+    detail: { 'Juego': game.title, 'Desarrollador': game.developer, 'Modo Juego': 'Activado', 'HUD': 'Activado', description: 'Se inició una sesión de juego con Modo Juego y HUD activados automáticamente.' }
+  });
+}
+
+function stopGamelibGame() {
+  if (!gamelibPlayingSession) return;
+  const game = getGamelibGame(gamelibPlayingSession.gameId);
+  const elapsedMs = Date.now() - gamelibPlayingSession.startedAt;
+  const elapsedHours = elapsedMs / (1000 * 60 * 60);
+  const elapsedMin = Math.floor(elapsedMs / 60000);
+
+  if (game) {
+    game.hoursPlayed = (game.hoursPlayed || 0) + elapsedHours;
+    game.lastPlayedAt = Date.now();
+    saveGamelibState();
+  }
+
+  gamelibPlayingSession = null;
+  stopGamelibPlayTimer();
+  renderGamelibApp();
+
+  if (game) {
+    showToast('Sesión finalizada', `${game.title} · ${elapsedMin} min jugados`, { icon: 'square', level: 'info' });
+    logActivity({
+      category: 'gaming', level: 'info', icon: 'square',
+      title: 'Sesión de juego finalizada',
+      subtitle: `${game.title} · ${elapsedMin} min`,
+      detail: { 'Juego': game.title, 'Duración': `${elapsedMin} min`, 'Tiempo total': formatGameHours(game.hoursPlayed), description: 'La sesión de juego se cerró y se actualizó el tiempo total jugado.' }
+    });
+  }
+}
+
+function startGamelibPlayTimer() {
+  if (gamelibPlayTimer) clearInterval(gamelibPlayTimer);
+  gamelibPlayTimer = setInterval(() => {
+    if (!gamelibPlayingSession) { stopGamelibPlayTimer(); return; }
+    const bar = document.querySelector('.gamelib-playing-bar-info small');
+    if (bar) {
+      const elapsed = Math.floor((Date.now() - gamelibPlayingSession.startedAt) / 1000);
+      const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+      const ss = String(elapsed % 60).padStart(2, '0');
+      bar.textContent = `Sesión activa · ${mm}:${ss}`;
+    }
+  }, 1000);
+}
+
+function stopGamelibPlayTimer() {
+  if (gamelibPlayTimer) { clearInterval(gamelibPlayTimer); gamelibPlayTimer = null; }
+}
+
+function installGamelibGame(id) {
+  const game = getGamelibGame(id);
+  if (!game || game.installed) return;
+
+  const modal = ensureGamelibModal();
+  const content = modal.querySelector('#gamelib-modal-content');
+  if (!content) return;
+
+  const installBtn = content.querySelector('.gamelib-modal-btn.install');
+  if (installBtn) {
+    installBtn.disabled = true;
+    installBtn.innerHTML = '<i data-lucide="loader-circle" class="shield-spinner"></i> Instalando...';
+    refreshIcons();
+  }
+
+  let progress = 0;
+  const tick = () => {
+    progress += Math.random() * 8 + 4;
+    if (progress >= 100) {
+      progress = 100;
+      game.installed = true;
+      saveGamelibState();
+      renderGamelibApp();
+      if (gamelibModalGameId === id) renderGamelibModalContent();
+      showToast('Juego instalado', `${game.title} está listo para jugar`, { icon: 'check-circle-2', level: 'success' });
+      logActivity({
+        category: 'gaming', level: 'success', icon: 'download',
+        title: 'Juego instalado',
+        subtitle: game.title,
+        detail: { 'Juego': game.title, 'Desarrollador': game.developer, 'Género': game.genre, description: 'El juego se instaló correctamente y está listo para jugar.' }
+      });
+      return;
+    }
+    const fill = content.querySelector('.gamelib-install-progress-fill');
+    const label = content.querySelector('.gamelib-install-progress-pct');
+    if (fill) fill.style.width = `${progress}%`;
+    if (label) label.textContent = `${Math.round(progress)}%`;
+    setTimeout(tick, 200 + Math.random() * 150);
+  };
+
+  const progressHTML = `
+    <div class="gamelib-install-progress">
+      <div class="gamelib-install-progress-label">
+        <span>Descargando ${escapeHtml(game.title)}...</span>
+        <span class="gamelib-install-progress-pct">0%</span>
+      </div>
+      <div class="gamelib-install-progress-track">
+        <div class="gamelib-install-progress-fill" style="width: 0%;"></div>
+      </div>
+    </div>
+  `;
+  installBtn.insertAdjacentHTML('afterend', progressHTML);
+  setTimeout(tick, 200);
+}
+
+// Cargar estado al inicio
+function loadGamelibState() {
+  try {
+    const raw = localStorage.getItem(GAMELIB_STORAGE_KEY);
+    if (!raw) {
+      gamelibGames = GAMELIB_GAMES.map(g => ({ ...g }));
+      saveGamelibState();
+      return;
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      gamelibGames = GAMELIB_GAMES.map(g => ({ ...g }));
+      saveGamelibState();
+      return;
+    }
+    gamelibGames = GAMELIB_GAMES.map(baseGame => {
+      const saved = parsed.find(g => g.id === baseGame.id);
+      if (!saved) return { ...baseGame };
+      return {
+        ...baseGame,
+        installed: saved.installed ?? baseGame.installed,
+        favorite: saved.favorite ?? baseGame.favorite,
+        hoursPlayed: saved.hoursPlayed ?? baseGame.hoursPlayed,
+        lastPlayedAt: saved.lastPlayedAt ?? baseGame.lastPlayedAt,
+        achievementsUnlocked: saved.achievementsUnlocked ?? baseGame.achievementsUnlocked
+      };
+    });
+  } catch (e) {
+    gamelibGames = GAMELIB_GAMES.map(g => ({ ...g }));
+  }
+}
+
+// Cargar estado al inicio
+loadGamelibState();
+
+/* ─── Helpers de formato ─── */
+
+function formatGameHours(hours) {
+  if (!hours || hours === 0) return 'Sin jugar';
+  if (hours < 1) return `${Math.round(hours * 60)} min`;
+  return `${hours.toFixed(1)}h`;
+}
+
+function getGamelibLastPlayedLabel(game) {
+  if (!game.lastPlayedAt) return 'Nunca';
+  const diff = Date.now() - game.lastPlayedAt;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Ahora';
+  if (mins < 60) return `Hace ${mins}min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `Hoy`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'Ayer';
+  if (days < 7) return `Hace ${days}d`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `Hace ${weeks}sem`;
+  const months = Math.floor(days / 30);
+  return `Hace ${months}mes`;
+}
+
+function getGamelibCategories() {
+  const total = gamelibGames.length;
+  const installed = gamelibGames.filter(g => g.installed).length;
+  const favorites = gamelibGames.filter(g => g.favorite).length;
+  const recent = gamelibGames.filter(g =>
+    g.installed && g.lastPlayedAt &&
+    (Date.now() - g.lastPlayedAt) < 7 * 24 * 60 * 60 * 1000
+  ).length;
+
+  return {
+    all: total,
+    installed,
+    favorites,
+    recent
+  };
+}
+
+/* ─── Filtrado ─── */
+
+function getGamelibFilteredGames() {
+  let games = [...gamelibGames];
+
+  switch (gamelibFilter) {
+    case 'installed':
+      games = games.filter(g => g.installed);
+      break;
+    case 'favorites':
+      games = games.filter(g => g.favorite);
+      break;
+    case 'recent':
+      games = games
+        .filter(g => g.installed && g.lastPlayedAt)
+        .sort((a, b) => (b.lastPlayedAt || 0) - (a.lastPlayedAt || 0));
+      return games;
+    case 'not-installed':
+      games = games.filter(g => !g.installed);
+      break;
+  }
+
+  if (gamelibSearchQuery) {
+    const q = gamelibSearchQuery.toLowerCase();
+    games = games.filter(g =>
+      g.title.toLowerCase().includes(q) ||
+      g.developer.toLowerCase().includes(q) ||
+      g.genre.toLowerCase().includes(q)
+    );
+  }
+
+  // Ordenar: favoritos primero, luego por última jugada
+  games.sort((a, b) => {
+    if (a.favorite !== b.favorite) return a.favorite ? -1 : 1;
+    const ta = a.lastPlayedAt || 0;
+    const tb = b.lastPlayedAt || 0;
+    return tb - ta;
+  });
+
+  return games;
+}
+
+/* ─── Render principal ─── */
+
+function getGamelibAppHTML() {
+  const cats = getGamelibCategories();
+  const games = getGamelibFilteredGames();
+
+  // Barra de "Jugando ahora" (si hay sesión activa)
+  let playingBarHTML = '';
+  if (gamelibPlayingSession) {
+    const game = getGamelibGame(gamelibPlayingSession.gameId);
+    if (game) {
+      const elapsed = Math.floor((Date.now() - gamelibPlayingSession.startedAt) / 1000);
+      const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+      const ss = String(elapsed % 60).padStart(2, '0');
+      const iconHTML = game.cover
+        ? `<img src="${game.cover}" alt="" onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';" /><i data-lucide="gamepad-2" style="display:none;"></i>`
+        : `<i data-lucide="gamepad-2"></i>`;
+
+      playingBarHTML = `
+        <div class="gamelib-playing-bar">
+          <div class="gamelib-playing-bar-icon">${iconHTML}</div>
+          <div class="gamelib-playing-bar-info">
+            <strong>${escapeHtml(game.title)}</strong>
+            <small>Sesión activa · ${mm}:${ss}</small>
+          </div>
+          <button class="gamelib-playing-bar-btn" type="button" onclick="stopGamelibGame()">
+            <i data-lucide="square"></i> Detener
+          </button>
+        </div>
+      `;
+    }
+  }
+
+  const filtersHTML = `
+    <button class="gamelib-filter-chip ${gamelibFilter === 'all' ? 'active' : ''}" onclick="setGamelibFilter('all')">
+      <i data-lucide="layout-grid"></i> Todos <span class="filter-count">${cats.all}</span>
+    </button>
+    <button class="gamelib-filter-chip ${gamelibFilter === 'installed' ? 'active' : ''}" onclick="setGamelibFilter('installed')">
+      <i data-lucide="check-circle-2"></i> Instalados <span class="filter-count">${cats.installed}</span>
+    </button>
+    <button class="gamelib-filter-chip ${gamelibFilter === 'favorites' ? 'active' : ''}" onclick="setGamelibFilter('favorites')">
+      <i data-lucide="star"></i> Favoritos <span class="filter-count">${cats.favorites}</span>
+    </button>
+    <button class="gamelib-filter-chip ${gamelibFilter === 'recent' ? 'active' : ''}" onclick="setGamelibFilter('recent')">
+      <i data-lucide="clock"></i> Recientes <span class="filter-count">${cats.recent}</span>
+    </button>
+    <button class="gamelib-filter-chip ${gamelibFilter === 'not-installed' ? 'active' : ''}" onclick="setGamelibFilter('not-installed')">
+      <i data-lucide="download"></i> No instalados
+    </button>
+  `;
+
+  let bodyHTML = '';
+  if (games.length === 0) {
+    bodyHTML = `
+      <div class="gamelib-empty">
+        <div class="gamelib-empty-icon"><i data-lucide="gamepad-2"></i></div>
+        <strong>Sin juegos para mostrar</strong>
+        <small>Probá con otro filtro o buscá algo distinto.</small>
+      </div>
+    `;
+  } else {
+    bodyHTML = `
+      <div class="gamelib-grid">
+        ${games.map(g => renderGamelibCardHTML(g)).join('')}
+      </div>
+    `;
+  }
+
+  const installedCount = cats.installed;
+  const totalCount = cats.all;
+
+  return `
+    <div class="gamelib-app">
+      ${playingBarHTML}
+
+      <header class="gamelib-header">
+        <div class="gamelib-header-left">
+          <span class="gamelib-header-kicker">NEBULA GAMES LIBRARY</span>
+          <h2 class="gamelib-header-title">Steam Library</h2>
+          <div class="gamelib-header-sub">
+            <strong>${totalCount}</strong> juegos · <strong>${installedCount}</strong> instalados · <strong>${cats.favorites}</strong> favoritos
+          </div>
+        </div>
+        <div class="gamelib-header-actions">
+          <button class="gamelib-action-btn" type="button" onclick="showToast('Tienda', 'La tienda de juegos se abriría en el navegador.', 'shopping-bag')">
+            <i data-lucide="shopping-bag"></i> Tienda
+          </button>
+        </div>
+      </header>
+
+      <div class="gamelib-toolbar">
+        <div class="gamelib-filters">${filtersHTML}</div>
+        <label class="gamelib-search">
+          <i data-lucide="search"></i>
+          <input type="search"
+                 placeholder="Buscar juego..."
+                 value="${escapeHtml(gamelibSearchQuery)}"
+                 oninput="setGamelibSearch(this.value)">
+        </label>
+      </div>
+
+      <div class="gamelib-body">
+        ${bodyHTML}
+      </div>
+    </div>
+  `;
+}
+
+function renderGamelibCardHTML(game) {
+  const isPlaying = gamelibPlayingSession?.gameId === game.id;
+
+  const coverHTML = game.cover
+    ? `<img src="${game.cover}" alt="${escapeHtml(game.title)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+       <div class="gamelib-cover-fallback" style="display:none; background: linear-gradient(135deg, ${game.color}33, ${game.color}11);">
+         <span class="gamelib-cover-fallback-emoji">${game.emoji}</span>
+       </div>`
+    : `<div class="gamelib-cover-fallback" style="background: linear-gradient(135deg, ${game.color}33, ${game.color}11);">
+         <span class="gamelib-cover-fallback-emoji">${game.emoji}</span>
+       </div>`;
+
+  const badgesHTML = `
+    <div class="gamelib-cover-badges">
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        ${game.favorite ? '<span class="gamelib-badge favorite"><i data-lucide="star"></i> FAV</span>' : ''}
+        ${isPlaying ? '<span class="gamelib-badge playing"><i data-lucide="play"></i> JUGANDO</span>' : ''}
+      </div>
+      ${!game.installed ? '<span class="gamelib-badge not-installed"><i data-lucide="download"></i> NO INSTALADO</span>' : ''}
+    </div>
+  `;
+
+  const overlayHTML = game.installed ? `
+    <div class="gamelib-cover-overlay">
+      <span class="gamelib-cover-play">
+        <i data-lucide="play"></i> JUGAR
+      </span>
+      <span class="gamelib-cover-hours">${formatGameHours(game.hoursPlayed)}</span>
+    </div>
+  ` : '';
+
+  return `
+    <button class="gamelib-card ${isPlaying ? 'is-playing' : ''}"
+            type="button"
+            style="--game-accent: ${game.color};"
+            onclick="openGamelibGameModal('${game.id}')">
+      <div class="gamelib-cover">
+        ${coverHTML}
+        ${badgesHTML}
+        ${overlayHTML}
+      </div>
+      <div class="gamelib-info">
+        <div class="gamelib-info-title">${escapeHtml(game.title)}</div>
+        <div class="gamelib-info-dev">${escapeHtml(game.developer)}</div>
+        <div class="gamelib-info-meta">
+          <span class="gamelib-info-rating"><i data-lucide="star"></i> ${game.rating}</span>
+          <span class="gamelib-info-lastplayed">${game.installed ? getGamelibLastPlayedLabel(game) : '—'}</span>
+        </div>
+      </div>
+    </button>
+  `;
+}
+
+/* ─── Filtros y búsqueda ─── */
+
+function setGamelibFilter(filterId) {
+  gamelibFilter = filterId;
+  renderGamelibApp();
+}
+
+function setGamelibSearch(query) {
+  gamelibSearchQuery = query;
+  const body = document.querySelector('.gamelib-body');
+  if (!body) return;
+  const games = getGamelibFilteredGames();
+  if (games.length === 0) {
+    body.innerHTML = `
+      <div class="gamelib-empty">
+        <div class="gamelib-empty-icon"><i data-lucide="gamepad-2"></i></div>
+        <strong>Sin juegos para mostrar</strong>
+        <small>Probá con otro filtro o buscá algo distinto.</small>
+      </div>
+    `;
+  } else {
+    body.innerHTML = `<div class="gamelib-grid">${games.map(g => renderGamelibCardHTML(g)).join('')}</div>`;
+  }
+  refreshIcons();
+}
+
+/* ─── Modal de juego ─── */
+function ensureGamelibModal() {
+  if (gamelibModalEl) return gamelibModalEl;
+
+  const modal = document.createElement('div');
+  modal.className = 'gamelib-modal';
+  modal.id = 'gamelib-modal';
+  modal.innerHTML = `
+    <div class="gamelib-modal-dialog" id="gamelib-modal-dialog">
+      <button class="gamelib-modal-close" type="button" onclick="closeGamelibGameModal()">
+        <i data-lucide="x"></i>
+      </button>
+      <div class="gamelib-modal-body" id="gamelib-modal-content"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  gamelibModalEl = modal;
+
+  modal.addEventListener('mousedown', (e) => {
+    if (e.target === modal) closeGamelibGameModal();
+  });
+
+  return modal;
+}
+
+function openGamelibGameModal(gameId) {
+  const game = getGamelibGame(gameId);
+  if (!game) return;
+
+  gamelibModalGameId = gameId;
+  const modal = ensureGamelibModal();
+
+  const dialog = modal.querySelector('#gamelib-modal-dialog');
+  if (dialog) dialog.style.setProperty('--game-accent', game.color);
+
+  renderGamelibModalContent();
+  modal.classList.add('open');
+  refreshIcons();
+}
+
+function closeGamelibGameModal() {
+  if (!gamelibModalEl) return;
+  gamelibModalEl.classList.remove('open');
+  gamelibModalGameId = null;
+}
+
+function renderGamelibModalContent() {
+  if (!gamelibModalEl || !gamelibModalGameId) return;
+  const game = getGamelibGame(gamelibModalGameId);
+  if (!game) return;
+
+  const content = gamelibModalEl.querySelector('#gamelib-modal-content');
+  if (!content) return;
+
+  const isPlaying = gamelibPlayingSession?.gameId === game.id;
+  const achievementPct = game.achievementsTotal > 0
+    ? Math.round((game.achievementsUnlocked / game.achievementsTotal) * 100)
+    : 0;
+
+  const coverHTML = game.cover
+    ? `<img src="${game.cover}" alt="${escapeHtml(game.title)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+       <div class="gamelib-modal-cover-fallback" style="display:none; background: linear-gradient(135deg, ${game.color}33, ${game.color}11);">${game.emoji}</div>`
+    : `<div class="gamelib-modal-cover-fallback" style="background: linear-gradient(135deg, ${game.color}33, ${game.color}11);">${game.emoji}</div>`;
+
+  // Botones de acción
+  let actionsHTML = '';
+
+  if (!game.installed) {
+    actionsHTML = `
+      <button class="gamelib-modal-btn install" type="button" onclick="installGamelibGame('${game.id}')">
+        <i data-lucide="download"></i> Instalar
+      </button>
+    `;
+  } else if (isPlaying) {
+    actionsHTML = `
+      <button class="gamelib-modal-btn playing" type="button" onclick="stopGamelibGame()">
+        <i data-lucide="square"></i> Detener sesión
+      </button>
+    `;
+  } else {
+    actionsHTML = `
+      <button class="gamelib-modal-btn play" type="button" onclick="playGamelibGame('${game.id}')">
+        <i data-lucide="play"></i> JUGAR
+      </button>
+    `;
+  }
+
+  actionsHTML += `
+    <button class="gamelib-modal-btn ${game.favorite ? 'fav-active' : ''}" type="button" onclick="toggleGamelibFavorite('${game.id}')">
+      <i data-lucide="star"></i> ${game.favorite ? 'En favoritos' : 'Agregar a favoritos'}
+    </button>
+    <button class="gamelib-modal-btn" type="button" onclick="showToast('Configuración', 'Se abriría el panel de configuración de ${escapeHtml(game.title)}.', 'settings-2')">
+      <i data-lucide="settings-2"></i> Configurar
+    </button>
+  `;
+
+  const recentAchievementsHTML = game.recentAchievements && game.recentAchievements.length > 0
+    ? game.recentAchievements.map(a => `
+        <div class="gamelib-achievement-item">
+          <div class="gamelib-achievement-icon"><i data-lucide="trophy"></i></div>
+          <div class="gamelib-achievement-info">
+            <strong>${escapeHtml(a.name)}</strong>
+            <small>${getGamelibLastPlayedLabel({ lastPlayedAt: a.date })}</small>
+          </div>
+        </div>
+      `).join('')
+    : `<div style="color: var(--text-sub); font-size: 11px; padding: 4px 0;">Todavía no desbloqueaste logros.</div>`;
+
+  content.innerHTML = `
+    <div class="gamelib-modal-hero">
+      <div class="gamelib-modal-cover">${coverHTML}</div>
+      <div class="gamelib-modal-info">
+        <h2 class="gamelib-modal-title">${escapeHtml(game.title)}</h2>
+        <div class="gamelib-modal-dev">${escapeHtml(game.developer)} · ${game.year}</div>
+        <div class="gamelib-modal-genre-row">
+          <span class="gamelib-modal-genre-chip">${escapeHtml(game.genre)}</span>
+          <span class="gamelib-modal-rating"><i data-lucide="star"></i> ${game.rating}</span>
+        </div>
+        <div class="gamelib-modal-actions">${actionsHTML}</div>
+      </div>
+    </div>
+
+    ${game.installed ? `
+      <div class="gamelib-modal-section">
+        <div class="gamelib-modal-section-title">
+          <i data-lucide="bar-chart-3"></i> Estadísticas
+        </div>
+        <div class="gamelib-stats-grid">
+          <div class="gamelib-stat-card">
+            <span class="gamelib-stat-label">Tiempo jugado</span>
+            <span class="gamelib-stat-value accent">${formatGameHours(game.hoursPlayed)}</span>
+          </div>
+          <div class="gamelib-stat-card">
+            <span class="gamelib-stat-label">Última sesión</span>
+            <span class="gamelib-stat-value">${getGamelibLastPlayedLabel(game)}</span>
+          </div>
+          <div class="gamelib-stat-card">
+            <span class="gamelib-stat-label">Logros</span>
+            <span class="gamelib-stat-value">${game.achievementsUnlocked}/${game.achievementsTotal}</span>
+          </div>
+          <div class="gamelib-stat-card">
+            <span class="gamelib-stat-label">FPS promedio</span>
+            <span class="gamelib-stat-value">${game.avgFps || '—'}</span>
+          </div>
+        </div>
+        <div class="gamelib-achievements-progress">
+          <div class="gamelib-achievements-bar">
+            <div class="gamelib-achievements-fill" style="width: ${achievementPct}%;"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--text-sub); font-weight: 700;">
+            <span>Progreso de logros</span>
+            <span>${achievementPct}%</span>
+          </div>
+        </div>
+      </div>
+
+      ${game.recentAchievements && game.recentAchievements.length > 0 ? `
+        <div class="gamelib-modal-section">
+          <div class="gamelib-modal-section-title">
+            <i data-lucide="trophy"></i> Logros recientes
+          </div>
+          <div class="gamelib-achievements-list">${recentAchievementsHTML}</div>
+        </div>
+      ` : ''}
+    ` : `
+      <div class="gamelib-modal-section">
+        <div class="gamelib-modal-section-title">
+          <i data-lucide="download"></i> No instalado
+        </div>
+        <p style="color: var(--text-sub); font-size: 12px; line-height: 1.6; margin: 0;">
+          Este juego no está instalado. Hacé click en <strong style="color: var(--accent-orange);">"Instalar"</strong> para descargarlo y empezar a jugar.
+        </p>
+      </div>
+    `}
+  `;
+
+  refreshIcons();
+}
+
+/* ─── Acciones ─── */
+
+function toggleGamelibFavorite(id) {
+  const game = getGamelibGame(id);
+  if (!game) return;
+  game.favorite = !game.favorite;
+  saveGamelibState();
+  renderGamelibApp();
+  if (gamelibModalGameId === id) renderGamelibModalContent();
+  showToast(
+    game.favorite ? 'Agregado a favoritos' : 'Quitado de favoritos',
+    game.title,
+    'star'
+  );
+}
+
+function playGamelibGame(id) {
+  const game = getGamelibGame(id);
+  if (!game || !game.installed) return;
+
+  // Detener sesión previa si existe
+  if (gamelibPlayingSession) {
+    stopGamelibGame();
+  }
+
+  gamelibPlayingSession = {
+    gameId: id,
+    startedAt: Date.now()
+  };
+
+  // Activar Modo Juego automáticamente
+  if (!gameModeActive) {
+    toggleGameMode(true);
+  }
+
+  // Abrir HUD
+  if (!gamerOverlayVisible) {
+    toggleGamerOverlay();
+  }
+
+  // Cerrar el modal
+  closeGamelibGameModal();
+
+  // Re-render para mostrar la barra de "Jugando ahora"
+  renderGamelibApp();
+
+  // Iniciar timer de actualización
+  startGamelibPlayTimer();
+
+  showToast(
+    'Iniciando juego',
+    `${game.title} · Modo Juego activado`,
+    { icon: 'play', level: 'success' }
+  );
+
+  // Log en Centro de Actividad
+  logActivity({
+    category: 'gaming',
+    level: 'info',
+    icon: 'play',
+    title: 'Sesión de juego iniciada',
+    subtitle: `${game.title}`,
+    detail: {
+      'Juego': game.title,
+      'Desarrollador': game.developer,
+      'Modo Juego': 'Activado',
+      'HUD': 'Activado',
+      description: 'Se inició una sesión de juego con Modo Juego y HUD activados automáticamente.'
+    }
+  });
+}
+
+function stopGamelibGame() {
+  if (!gamelibPlayingSession) return;
+
+  const game = getGamelibGame(gamelibPlayingSession.gameId);
+  const elapsedMs = Date.now() - gamelibPlayingSession.startedAt;
+  const elapsedHours = elapsedMs / (1000 * 60 * 60);
+  const elapsedMin = Math.floor(elapsedMs / 60000);
+
+  if (game) {
+    game.hoursPlayed = (game.hoursPlayed || 0) + elapsedHours;
+    game.lastPlayedAt = Date.now();
+    saveGamelibState();
+  }
+
+  gamelibPlayingSession = null;
+  stopGamelibPlayTimer();
+  renderGamelibApp();
+
+  if (game) {
+    showToast(
+      'Sesión finalizada',
+      `${game.title} · ${elapsedMin} min jugados`,
+      { icon: 'square', level: 'info' }
+    );
+
+    logActivity({
+      category: 'gaming',
+      level: 'info',
+      icon: 'square',
+      title: 'Sesión de juego finalizada',
+      subtitle: `${game.title} · ${elapsedMin} min`,
+      detail: {
+        'Juego': game.title,
+        'Duración': `${elapsedMin} min`,
+        'Tiempo total': formatGameHours(game.hoursPlayed),
+        description: 'La sesión de juego se cerró y se actualizó el tiempo total jugado.'
+      }
+    });
+  }
+}
+
+function startGamelibPlayTimer() {
+  if (gamelibPlayTimer) clearInterval(gamelibPlayTimer);
+  gamelibPlayTimer = setInterval(() => {
+    if (!gamelibPlayingSession) {
+      stopGamelibPlayTimer();
+      return;
+    }
+    // Solo actualizamos la barra de la parte superior, sin re-render completo
+    const bar = document.querySelector('.gamelib-playing-bar-info small');
+    if (bar) {
+      const elapsed = Math.floor((Date.now() - gamelibPlayingSession.startedAt) / 1000);
+      const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+      const ss = String(elapsed % 60).padStart(2, '0');
+      bar.textContent = `Sesión activa · ${mm}:${ss}`;
+    }
+  }, 1000);
+}
+
+function stopGamelibPlayTimer() {
+  if (gamelibPlayTimer) {
+    clearInterval(gamelibPlayTimer);
+    gamelibPlayTimer = null;
+  }
+}
+
+function installGamelibGame(id) {
+  const game = getGamelibGame(id);
+  if (!game || game.installed) return;
+
+  const modal = ensureGamelibModal();
+  const content = modal.querySelector('#gamelib-modal-content');
+  if (!content) return;
+
+  // Insertar barra de progreso al lado del botón
+  const installBtn = content.querySelector('.gamelib-modal-btn.install');
+  if (installBtn) {
+    installBtn.disabled = true;
+    installBtn.innerHTML = '<i data-lucide="loader-circle" class="shield-spinner"></i> Instalando...';
+    refreshIcons();
+  }
+
+  let progress = 0;
+  const tick = () => {
+    progress += Math.random() * 8 + 4;
+    if (progress >= 100) {
+      progress = 100;
+      game.installed = true;
+      saveGamelibState();
+      renderGamelibApp();
+      if (gamelibModalGameId === id) renderGamelibModalContent();
+      showToast(
+        'Juego instalado',
+        `${game.title} está listo para jugar`,
+        { icon: 'check-circle-2', level: 'success' }
+      );
+      logActivity({
+        category: 'gaming',
+        level: 'success',
+        icon: 'download',
+        title: 'Juego instalado',
+        subtitle: game.title,
+        detail: {
+          'Juego': game.title,
+          'Desarrollador': game.developer,
+          'Género': game.genre,
+          description: 'El juego se instaló correctamente y está listo para jugar.'
+        }
+      });
+      return;
+    }
+
+    // Actualizar barra de progreso visual
+    const fill = content.querySelector('.gamelib-install-progress-fill');
+    const label = content.querySelector('.gamelib-install-progress-pct');
+    if (fill) fill.style.width = `${progress}%`;
+    if (label) label.textContent = `${Math.round(progress)}%`;
+
+    setTimeout(tick, 200 + Math.random() * 150);
+  };
+
+  // Insertar la barra de progreso en el modal
+  const progressHTML = `
+    <div class="gamelib-install-progress">
+      <div class="gamelib-install-progress-label">
+        <span>Descargando ${game.title}...</span>
+        <span class="gamelib-install-progress-pct">0%</span>
+      </div>
+      <div class="gamelib-install-progress-track">
+        <div class="gamelib-install-progress-fill" style="width: 0%;"></div>
+      </div>
+    </div>
+  `;
+  installBtn.insertAdjacentHTML('afterend', progressHTML);
+
+  setTimeout(tick, 200);
+}
+
+/* ─── Render y bootstrap ─── */
+
+function renderGamelibApp() {
+  const winIds = getInstancesOfApp('games');
+  winIds.forEach(winId => {
+    const win = openWindows[winId]?.win;
+    if (!win) return;
+    const content = win.querySelector('.wcontent');
+    if (!content) return;
+    content.innerHTML = getGamelibAppHTML();
+  });
+  refreshIcons();
+}
+
+function setupGamelibApp(win) {
+  if (!win) return;
+  // Si hay una sesión activa al abrir, re-arrancar el timer
+  if (gamelibPlayingSession) {
+    startGamelibPlayTimer();
+  }
+}
+
+// Cargar estado al inicio
+loadGamelibState();
+
 const TASKMGR_SYSTEM_PROCESSES = [
   { pid: 1,   name: 'nebula-core',       sub: 'Kernel principal',            icon: 'cpu',         cpuBase: 3,  ramBase: 180 },
   { pid: 84,  name: 'gpu-driver',        sub: 'NVIDIA 560.81',               icon: 'activity',    cpuBase: 5,  ramBase: 340 },
@@ -6116,6 +7142,7 @@ function openApp(appId, forceNew = false, restoreData = null) {
     if (appId === 'vault') setupVaultApp(win);
     if (appId === 'activity') setupActivityApp(win);
     if (appId === 'taskmgr') setupTaskmgrApp(win);
+    if (appId === 'games') setupGamelibApp(win);
   }
 
   setupWindowResize(win);
@@ -8072,19 +9099,7 @@ function getAppContent(id) {
       return `<div class="vscode-preview"><img src="./assets/images/apps/visualStudio/capturaVisualStudio.png" alt="Captura de Visual Studio Code"></div>`;
 
     case 'games':
-      return `
-        <div class="steam-preview" style="position:relative;">
-          <div style="position:absolute; top:12px; right:12px; z-index:10; background:rgba(10,14,24,0.85); padding:8px 12px; border-radius:8px; border:1px solid rgba(0,255,204,0.3); display:flex; gap:10px; align-items:center; backdrop-filter:blur(10px);">
-            <span style="font-size:11px; font-weight:700; color:#00ffcc; display:flex; align-items:center; gap:4px;"><i data-lucide="gamepad-2"></i> Modo Juego:</span>
-            <button class="quick-switch ${gameModeActive ? 'active' : ''}" onclick="toggleGameMode()" style="padding:0; margin:0; border:0; background:transparent;">
-              <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
-            </button>
-            <button class="hud-tool-btn" onclick="toggleGamerOverlay()" style="padding:4px 8px;"><i data-lucide="activity"></i> HUD (Alt+Z)</button>
-          </div>
-          <img src="./assets/images/apps/steam/capturaSteam.png" alt="Vista de Steam">
-        </div>
-      `;
-
+      return getGamelibAppHTML();
     case 'music':
       return getSpotifyAppHTML();
 
