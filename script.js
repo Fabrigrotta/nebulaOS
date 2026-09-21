@@ -1,13 +1,13 @@
 /* ================= CONFIGURACIÓN DE APPS & ICONOS ================= */
 const APPS = {
-  files:    { title: 'Archivos', sub: 'Gestor inteligente de archivos', icon: 'folder', image: './imagenes/archivos.png', tileClass: 'app-tile-files', accentColor: '#3a86ff' },
-  terminal: { title: 'Terminal', sub: 'WezTerm Emulator', icon: 'terminal', image: './imagenes/terminal.png', tileClass: 'app-tile-terminal', accentColor: '#38bdf8' },
-  browser:  { title: 'Firefox', sub: 'Navegador Web', icon: 'globe', image: './imagenes/firefox.png', tileClass: 'app-tile-browser', accentColor: '#f59e0b' },
-  music:    { title: 'Spotify', sub: 'Reproductor de Música', icon: 'music', image: './imagenes/spotify.png', tileClass: 'app-tile-music', accentColor: '#1ed760' },
-  games:    { title: 'Steam', sub: 'Librería de Juegos', icon: 'gamepad-2', image: './imagenes/Steam.png', tileClass: 'app-tile-games', accentColor: '#7c3aed' },
-  vscode:   { title: 'VS Code', sub: 'Editor de Código', icon: 'code-2', image: './imagenes/VSC.png', tileClass: 'app-tile-vscode', accentColor: '#0284c7' },
-  settings: { title: 'Ajustes', sub: 'Panel de Control & Designer', icon: 'sliders', image: './imagenes/Ajustes.png', tileClass: 'app-tile-settings', accentColor: '#94a3b8' },
-  nova:     { title: 'Nova AI', sub: 'Asistente Gamer & Tweaker', icon: 'sparkles', image: './NOVA AI/logo nova.png', tileClass: 'app-tile-nova', accentColor: '#c026d3' }
+  files:    { title: 'Archivos', sub: 'Gestor inteligente de archivos', icon: 'folder', image: './assets/images/iconos/archivos.png', tileClass: 'app-tile-files', accentColor: '#3a86ff' },
+  terminal: { title: 'Terminal', sub: 'WezTerm Emulator', icon: 'terminal', image: './assets/images/iconos/terminal.png', tileClass: 'app-tile-terminal', accentColor: '#38bdf8' },
+  browser:  { title: 'Firefox', sub: 'Navegador Web', icon: 'globe', image: './assets/images/iconos/firefox.png', tileClass: 'app-tile-browser', accentColor: '#f59e0b' },
+  music:    { title: 'Spotify', sub: 'Reproductor de Música', icon: 'music', image: './assets/images/iconos/spotify.png', tileClass: 'app-tile-music', accentColor: '#1ed760' },
+  games:    { title: 'Steam', sub: 'Librería de Juegos', icon: 'gamepad-2', image: './assets/images/iconos/steam.png', tileClass: 'app-tile-games', accentColor: '#7c3aed' },
+  vscode:   { title: 'VS Code', sub: 'Editor de Código', icon: 'code-2', image: './assets/images/iconos/visualStudioCode.png', tileClass: 'app-tile-vscode', accentColor: '#0284c7' },
+  settings: { title: 'Ajustes', sub: 'Panel de Control & Designer', icon: 'sliders', image: './assets/images/iconos/ajustes.png', tileClass: 'app-tile-settings', accentColor: '#94a3b8' },
+  nova:     { title: 'Nova AI', sub: 'Asistente Gamer & Tweaker', icon: 'sparkles', image: './assets/images/logosSO/novaLogo.png', tileClass: 'app-tile-nova', accentColor: '#c026d3' }
 };
 
 const DOCK_APPS = ['browser', 'terminal', 'nova', 'files', 'vscode', 'music', 'games', 'settings'];
@@ -93,9 +93,9 @@ const weatherCache = {};
 const weatherWidgetTimers = new WeakMap();
 
 const WALLPAPERS = [
-  { file: 'fondo principal.jpg', name: 'Nebula', accent: '#b4befe', text: '#cdd6f4', sub: '#bac2de', green: '#a6e3a1', panel: 'rgba(18,21,33,0.72)' },
-  { file: 'fondo 2.jpg', name: 'Aurora', accent: '#89dceb', text: '#d9f4ff', sub: '#a9c6d3', green: '#a6e3a1', panel: 'rgba(11,31,39,0.75)' },
-  { file: 'fondo 3.jpg', name: 'Solar', accent: '#f9c784', text: '#fff1dc', sub: '#d7bfa4', green: '#b8e986', panel: 'rgba(43,25,20,0.75)' }
+  { file: 'fondoPrincipal.jpg', name: 'Nebula', accent: '#b4befe', text: '#cdd6f4', sub: '#bac2de', green: '#a6e3a1', panel: 'rgba(18,21,33,0.72)' },
+  { file: 'fondo2.jpg', name: 'Aurora', accent: '#89dceb', text: '#d9f4ff', sub: '#a9c6d3', green: '#a6e3a1', panel: 'rgba(11,31,39,0.75)' },
+  { file: 'fondo3.jpg', name: 'Solar', accent: '#f9c784', text: '#fff1dc', sub: '#d7bfa4', green: '#b8e986', panel: 'rgba(43,25,20,0.75)' }
 ];
 
 /* =====================================================
@@ -189,10 +189,10 @@ const THEME_PRESETS = {
 };
 
 const TRACKS = [
-  { title: 'Bocanada', artist: 'Gustavo Cerati', album: 'Bocanada', art: './spotify/tapa album 2.jpg', duration: 272 },
-  { title: 'Smells Like Teen Spirit', artist: 'Nirvana', album: 'Nevermind', art: './spotify/tapa album 1.jpg', duration: 301 },
-  { title: 'Prohibido', artist: 'Callejeros', album: 'Rock Nacional', art: './spotify/album 3.jpg', duration: 225 },
-  { title: 'Cyberpunk Night City Beat', artist: 'Hyper Sound', album: 'Synthwave Mix', art: './spotify/top 50.jpg', duration: 192 }
+  { title: 'Bocanada', artist: 'Gustavo Cerati', album: 'Bocanada', art: './assets/images/apps/spotify/tapaAlbum2.jpg', duration: 272 },
+  { title: 'Smells Like Teen Spirit', artist: 'Nirvana', album: 'Nevermind', art: './assets/images/apps/spotify/tapaAlbum1.jpg', duration: 301 },
+  { title: 'Prohibido', artist: 'Callejeros', album: 'Rock Nacional', art: './assets/images/apps/spotify/tapaAlbum3.jpg', duration: 225 },
+  { title: 'Cyberpunk Night City Beat', artist: 'Hyper Sound', album: 'Synthwave Mix', art: './assets/images/apps/spotify/top50.jpg', duration: 192 }
 ];
 
 const DOCK_PREVIEW_STYLES = {
@@ -2167,9 +2167,9 @@ function getDefaultFileSystem() {
     name: 'Inicio', label: 'Inicio', type: 'folder', children: [
       {
         name: 'capturas', label: 'Capturas de Juegos', type: 'folder', children: [
-          { name: 'cyberpunk_night_city_4k.jpg', type: 'image', path: './fondos/fondo principal.jpg', size: 'JPG · 3840x2160 · 144 FPS Capture' },
-          { name: 'elden_ring_boss_victory.jpg', type: 'image', path: './fondos/fondo 2.jpg', size: 'JPG · 2560x1440 · HDR On' },
-          { name: 'valorant_ace_round.jpg', type: 'image', path: './fondos/fondo 3.jpg', size: 'JPG · 1920x1080 · Clip' }
+          { name: 'cyberpunk_night_city_4k.jpg', type: 'image', path: './assets/images/fondosDePantalla/fondoPrincipal.jpg', size: 'JPG · 3840x2160 · 144 FPS Capture' },
+          { name: 'elden_ring_boss_victory.jpg', type: 'image', path: './assets/images/fondosDePantalla/fondo2.jpg', size: 'JPG · 2560x1440 · HDR On' },
+          { name: 'valorant_ace_round.jpg', type: 'image', path: './assets/images/fondosDePantalla/fondo3.jpg', size: 'JPG · 1920x1080 · Clip' }
         ]
       },
       {
@@ -2181,22 +2181,22 @@ function getDefaultFileSystem() {
       },
       {
         name: 'juegos', label: 'Juegos & ISOs', type: 'folder', children: [
-          { name: 'Cyberpunk_2077.exe', type: 'image', path: './steam/image.png', size: 'EXE · Acceso directo' },
-          { name: 'Hollow_Knight_Silksong.iso', type: 'image', path: './steam/image.png', size: 'ISO · Imagen de disco' },
-          { name: 'Doom_Eternal_Ultra.exe', type: 'image', path: './steam/image.png', size: 'EXE · Lanzador Vulkan' }
+          { name: 'Cyberpunk_2077.exe', type: 'image', path: './assets/images/apps/steam/capturaSteam.png', size: 'EXE · Acceso directo' },
+          { name: 'Hollow_Knight_Silksong.iso', type: 'image', path: './assets/images/apps/steam/capturaSteam.png', size: 'ISO · Imagen de disco' },
+          { name: 'Doom_Eternal_Ultra.exe', type: 'image', path: './assets/images/apps/steam/capturaSteam.png', size: 'EXE · Lanzador Vulkan' }
         ]
       },
       {
         name: 'musica', label: 'Música & Audio', type: 'folder', children: [
-          { name: 'Gustavo_Cerati_Bocanada.mp3', type: 'audio', path: './spotify/tapa album 2.jpg', size: 'MP3 · 320 kbps · Bocanada' },
-          { name: 'Nirvana_Smells_Like_Teen_Spirit.mp3', type: 'audio', path: './spotify/tapa album 1.jpg', size: 'MP3 · 320 kbps · Nevermind' },
-          { name: 'Synthwave_Chill_Night.flac', type: 'audio', path: './spotify/top 50.jpg', size: 'FLAC · 24-bit · Lossless' }
+          { name: 'Gustavo_Cerati_Bocanada.mp3', type: 'audio', path: './assets/images/apps/spotify/tapaAlbum2.jpg', size: 'MP3 · 320 kbps · Bocanada' },
+          { name: 'Nirvana_Smells_Like_Teen_Spirit.mp3', type: 'audio', path: './assets/images/apps/spotify/tapaAlbum1.jpg', size: 'MP3 · 320 kbps · Nevermind' },
+          { name: 'Synthwave_Chill_Night.flac', type: 'audio', path: './assets/images/apps/spotify/top50.jpg', size: 'FLAC · 24-bit · Lossless' }
         ]
       },
-      { name: 'fondos', label: 'Fondos', type: 'folder', children: WALLPAPERS.map(w => ({ name: w.file, type: 'image', path: `./fondos/${w.file}`, size: 'JPG · Fondo HD' })) },
-      { name: 'imagenes', label: 'Imágenes', type: 'folder', children: ['archivos.png', 'Ajustes.png', 'Home.png', 'Lupa.png', 'Play.png', 'Senial.png', 'Steam.png', 'VSC.png'].map(name => ({ name, type: 'image', path: `./imagenes/${name}`, size: 'PNG · Icono UI' })) },
-      { name: 'spotify', label: 'Spotify', type: 'folder', children: ['tapa album 1.jpg', 'top 50.jpg', 'tapa album 2.jpg', 'album 3.jpg'].map(name => ({ name, type: 'image', path: `./spotify/${name}`, size: 'JPG · Portada Álbum' })) },
-      { name: 'vsc', label: 'Proyectos Dev', type: 'folder', children: [{ name: 'vscimg.png', type: 'image', path: './vsc/vscimg.png', size: 'PNG · Workspace' }] },
+      { name: 'fondos', label: 'Fondos', type: 'folder', children: WALLPAPERS.map(w => ({ name: w.file, type: 'image', path: `./assets/images/fondosDePantalla/${w.file}`, size: 'JPG · Fondo HD' })) },
+      { name: 'imagenes', label: 'Imágenes', type: 'folder', children: ['archivos.png', 'ajustes.png', 'home.png', 'lupa.png', 'play.png', 'noSignal.png', 'steam.png', 'visualStudioCode.png'].map(name => ({ name, type: 'image', path: `./assets/images/iconos/${name}`, size: 'PNG · Icono UI' })) },
+      { name: 'spotify', label: 'Spotify', type: 'folder', children: ['tapaAlbum1.jpg', 'top50.jpg', 'tapaAlbum2.jpg', 'tapaAlbum3.jpg'].map(name => ({ name, type: 'image', path: `./assets/images/apps/spotify/${name}`, size: 'JPG · Portada Álbum' })) },
+      { name: 'vsc', label: 'Proyectos Dev', type: 'folder', children: [{ name: 'capturaVisualStudio.png', type: 'image', path: './assets/images/apps/visualStudio/capturaVisualStudio.png', size: 'PNG · Workspace' }] },
       { name: 'index.html', type: 'text', path: './index.html', size: 'HTML · Estructura Nebula OS' },
       { name: 'styles.css', type: 'text', path: './styles.css', size: 'CSS · Estilos y Variables' },
       { name: 'script.js', type: 'text', path: './script.js', size: 'JS · Núcleo del sistema' }
@@ -3929,7 +3929,7 @@ function applyWallpaper(index) {
   root.style.setProperty('--accent-green', wallpaper.green);
   
   screen.style.setProperty('--wallpaper-old', screen.style.backgroundImage);
-  screen.style.backgroundImage = `linear-gradient(rgba(8, 9, 17, 0.42), rgba(8, 9, 17, 0.58)), url("./fondos/${wallpaper.file}")`;
+  screen.style.backgroundImage = `linear-gradient(rgba(8, 9, 17, 0.42), rgba(8, 9, 17, 0.58)), url("./assets/images/fondosDePantalla/${wallpaper.file}")`;
   screen.classList.remove('wallpaper-transition');
   void screen.offsetWidth;
   screen.classList.add('wallpaper-transition');
@@ -4139,7 +4139,7 @@ function renderDock() {
   lBtn.tabIndex = 0;
   lBtn.setAttribute('role', 'button');
   lBtn.title = 'Lanzador de Aplicaciones (Nebula Menu)';
-  lBtn.innerHTML = `<img src="./logo nebula.png" alt="Nebula" class="dock-launcher-logo" onerror="this.onerror=null; this.outerHTML='<i data-lucide=\\'layout-grid\\'></i>'; refreshIcons();" />`;
+  lBtn.innerHTML = `<img src="./assets/images/logosSO/nebulaLogo.png" alt="Nebula" class="dock-launcher-logo" onerror="this.onerror=null; this.outerHTML='<i data-lucide=\\'layout-grid\\'></i>'; refreshIcons();" />`;
   lBtn.onclick = toggleLauncher;
   dock.appendChild(lBtn);
 
@@ -6210,11 +6210,11 @@ function getAppContent(id) {
   }
 
   if (id === 'browser') {
-    return `<div class="firefox-preview"><img src="./capturafirefox.jpg" alt="Vista de Firefox"></div>`;
+    return `<div class="firefox-preview"><img src="./assets/images/apps/mozilaFirefox/capturaFirefox.jpg" alt="Vista de Firefox"></div>`;
   }
 
   if (id === 'vscode') {
-    return `<div class="vscode-preview"><img src="./vsc/vscimg.png" alt="Captura de Visual Studio Code"></div>`;
+    return `<div class="vscode-preview"><img src="./assets/images/apps/visualStudio/capturaVisualStudio.png" alt="Captura de Visual Studio Code"></div>`;
   }
 
   if (id === 'games') {
@@ -6227,7 +6227,7 @@ function getAppContent(id) {
           </button>
           <button class="hud-tool-btn" onclick="toggleGamerOverlay()" style="padding:4px 8px;"><i data-lucide="activity"></i> HUD (Alt+Z)</button>
         </div>
-        <img src="./steam/image.png" alt="Vista de Steam">
+        <img src="./assets/images/apps/steam/capturaSteam.png" alt="Vista de Steam">
       </div>
     `;
   }
@@ -6326,7 +6326,7 @@ function getAppContent(id) {
                 <i data-lucide="play"></i> Escuchar ahora
               </button>
             </div>
-            <img class="spot-hero-cover" src="./spotify/top 50.jpg" alt="Playlist destacada">
+            <img class="spot-hero-cover" src="./assets/images/apps/spotify/top50.jpg" alt="Playlist destacada">
           </div>
 
           <div class="spot-main-chips">
@@ -6351,21 +6351,21 @@ function getAppContent(id) {
           <div class="spot-section-title">Descubrí algo nuevo</div>
           <div class="spot-grid">
             <button class="spot-card" type="button" data-track-index="2">
-              <img class="spot-card-img" src="./spotify/album 3.jpg" alt="Callejeros">
+              <img class="spot-card-img" src="./assets/images/apps/spotify/tapaAlbum3.jpg" alt="Callejeros">
               <div class="spot-card-info">
                 <div class="spot-card-title">Rock Nacional</div>
                 <div class="spot-card-sub">Callejeros · Prohibido</div>
               </div>
             </button>
             <button class="spot-card" type="button" data-track-index="3">
-              <img class="spot-card-img" src="./spotify/top 50.jpg" alt="Synthwave">
+              <img class="spot-card-img" src="./assets/images/apps/spotify/top50.jpg" alt="Synthwave">
               <div class="spot-card-info">
                 <div class="spot-card-title">Synthwave Mix</div>
                 <div class="spot-card-sub">Hyper Sound · Night City</div>
               </div>
             </button>
             <button class="spot-card" type="button" data-track-index="1">
-              <img class="spot-card-img" src="./spotify/tapa album 1.jpg" alt="Nirvana">
+              <img class="spot-card-img" src="./assets/images/apps/spotify/tapaAlbum1.jpg" alt="Nirvana">
               <div class="spot-card-info">
                 <div class="spot-card-title">Nevermind</div>
                 <div class="spot-card-sub">Nirvana · Smells Like...</div>
@@ -6742,17 +6742,17 @@ function getDesignerWallpapersHTML() {
     <div class="settings-section-label">Galería de Fondos Disponibles</div>
     <div class="designer-presets-grid">
       <div class="theme-preset-card ${currentWallpaperIndex === 0 ? 'selected' : ''}" onclick="applyWallpaper(0)">
-        <div style="height:65px; border-radius:8px; background:url('./fondos/fondo principal.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
+        <div style="height:65px; border-radius:8px; background:url('./assets/images/fondosDePantalla/fondoPrincipal.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
         <strong>Fondo Nebula</strong>
         <small>Violeta espacial profundo y nebulosas estelares</small>
       </div>
       <div class="theme-preset-card ${currentWallpaperIndex === 1 ? 'selected' : ''}" onclick="applyWallpaper(1)">
-        <div style="height:65px; border-radius:8px; background:url('./fondos/fondo 2.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
+        <div style="height:65px; border-radius:8px; background:url('./assets/images/fondosDePantalla/fondo2.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
         <strong>Fondo Aurora</strong>
         <small>Azul ártico cósmico y resplandor polar</small>
       </div>
       <div class="theme-preset-card ${currentWallpaperIndex === 2 ? 'selected' : ''}" onclick="applyWallpaper(2)">
-        <div style="height:65px; border-radius:8px; background:url('./fondos/fondo 3.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
+        <div style="height:65px; border-radius:8px; background:url('./assets/images/fondosDePantalla/fondo3.jpg') center/cover; margin-bottom:8px; border:1px solid rgba(255,255,255,0.15);"></div>
         <strong>Fondo Solar</strong>
         <small>Dorado estelar cálido y destellos solares</small>
       </div>
