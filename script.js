@@ -4962,19 +4962,40 @@ function processTerminalCommand(rawCmd, state) {
 
   // ─── neofetch ───
   if (lower === 'neofetch') {
-    const now = new Date();
     const uptimeMin = Math.floor((Date.now() - widgetStartedAt) / 60000);
-    const uptimeStr = uptimeMin < 60 ? `${uptimeMin} min` : `${Math.floor(uptimeMin/60)}h ${uptimeMin%60}m`;
+    const uptimeStr = uptimeMin < 60
+      ? `${uptimeMin} min`
+      : `${Math.floor(uptimeMin / 60)}h ${uptimeMin % 60}m`;
+
+    const ramUsed = (systemMetrics.ram * 32 / 100).toFixed(1);
+
+    // El logo va en una sola línea por fila para respetar el formato ASCII.
+    // Cada fila se colorea con 'term-accent' y se combina con la info al lado.
     return [
-      { text: '        ▄▄▄▄▄▄▄        ' + 'user@nebula-os', cls: 'term-accent' },
-      { text: '     ▄█████████▄     ' + '─────────────────', cls: 'term-accent' },
-      { text: '   ▄█████████████▄   ' + `OS: Nebula OS v2.5 Ultimate`, cls: 'term-accent' },
-      { text: '  ████████████████   ' + `Kernel: nebula-core 5.15.0`, cls: 'term-accent' },
-      { text: '  ████████████████   ' + `Uptime: ${uptimeStr}`, cls: 'term-accent' },
-      { text: '  ████████████████   ' + `Shell: wezterm 2024.1`, cls: 'term-accent' },
-      { text: '   ▀█████████████▀   ' + `Resolution: ${window.innerWidth}x${window.innerHeight}`, cls: 'term-accent' },
-      { text: '     ▀█████████▀     ' + `Profile: ${currentProfile}`, cls: 'term-accent' },
-      { text: '        ▀▀▀▀▀▀▀        ' + `Game Mode: ${gameModeActive ? 'ON' : 'OFF'}`, cls: 'term-accent' }
+      { text: '  _   _ _____ ____  _   _ _        _       ___  ____  ', cls: 'term-accent' },
+      { text: ' | \\ | | ____| __ )| | | | |      / \\     / _ \\/ ___| ', cls: 'term-accent' },
+      { text: ' |  \\| |  _| |  _ \\| | | | |     / _ \\   | | | \\___ \\ ', cls: 'term-accent' },
+      { text: ' | |\\  | |___| |_) | |_| | |___ / ___ \\  | |_| |___) |', cls: 'term-accent' },
+      { text: ' |_| \\_|_____|____/ \\___/|_____/_/   \\_\\  \\___/|____/ ', cls: 'term-accent' },
+      { text: '', cls: '' },
+      { text: `user@nebula-os`, cls: 'term-cmd-echo' },
+      { text: `─────────────────────`, cls: 'term-hint' },
+      { text: `OS:        Nebula OS v2.5 "Ultimate"`, cls: '' },
+      { text: `Kernel:    nebula-core 5.15.0-gaming`, cls: '' },
+      { text: `Uptime:    ${uptimeStr}`, cls: '' },
+      { text: `Shell:     wezterm 2024.1`, cls: '' },
+      { text: `Resolution: ${window.innerWidth}x${window.innerHeight}`, cls: '' },
+      { text: `DE:        Nebula Desktop`, cls: '' },
+      { text: `WM:        Nebula Compositor`, cls: '' },
+      { text: `Terminal:  WezTerm`, cls: '' },
+      { text: '', cls: '' },
+      { text: `CPU:       AMD Ryzen 9 7950X (16C/32T) @ 4.85 GHz`, cls: '' },
+      { text: `GPU:       NVIDIA GeForce RTX 4080 (16GB VRAM)`, cls: '' },
+      { text: `Memory:    ${ramUsed} GB / 32 GB (${systemMetrics.ram}%)`, cls: '' },
+      { text: `Disk:      982 GB / 2 TB (49%)`, cls: '' },
+      { text: '', cls: '' },
+      { text: `Profile:   ${currentProfile.toUpperCase()}`, cls: 'term-accent' },
+      { text: `Game Mode: ${gameModeActive ? 'ACTIVO (Boost)' : 'Inactivo'}`, cls: gameModeActive ? 'term-accent' : '' }
     ];
   }
 
