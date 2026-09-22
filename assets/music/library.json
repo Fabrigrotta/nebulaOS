@@ -1,0 +1,198 @@
+{
+  "playlists": [
+    {
+      "id": "rock-nacional",
+      "name": "Rock Nacional",
+      "description": "Playlist · Fabricio Grottasanta",
+      "cover": null,
+      "color": "#a855f7",
+      "trackIds": [
+        "gustavo-cerati-bocanada",
+        "gustavo-cerati-puente",
+        "gustavo-cerati-karaoke",
+        "gustavo-cerati-cosas-imposibles",
+        "gustavo-cerati-vivo",
+        "babasonicos-carismatico",
+        "babasonicos-yegua",
+        "babasonicos-puesto",
+        "babasonicos-la-pregunta"
+      ]
+    },
+    {
+      "id": "electronica",
+      "name": "Música Electrónica",
+      "description": "Playlist · Fabricio Grottasanta",
+      "cover": null,
+      "color": "#00d4ff",
+      "trackIds": [
+        "adam-sellouk-carnage",
+        "daft-punk-one-more-time",
+        "innellea-promised-land",
+        "innellea-slave-to-the-hype",
+        "michael-grey-the-weekend"
+      ]
+    },
+    {
+      "id": "noventas",
+      "name": "Clásicos de los 90",
+      "description": "Playlist · Fabricio Grottasanta",
+      "cover": null,
+      "color": "#f59e0b",
+      "trackIds": [
+        "nirvana-smells-like-teen-spirit"
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "gustavo-cerati-bocanada",
+      "title": "Bocanada",
+      "artist": "Gustavo Cerati",
+      "album": "Bocanada",
+      "year": 1999,
+      "duration": 272,
+      "src": "./assets/music/gustavo-cerati/gustavo-cerati-bocanada.mp3",
+      "cover": "./assets/images/apps/spotify/gustavo-cerati-bocanada.jpg"
+    },
+    {
+      "id": "gustavo-cerati-puente",
+      "title": "Puente",
+      "artist": "Gustavo Cerati",
+      "album": "Bocanada",
+      "year": 1999,
+      "duration": 255,
+      "src": "./assets/music/gustavo-cerati/gustavo-cerati-puente.mp3",
+      "cover": "./assets/images/apps/spotify/gustavo-cerati-bocanada.jpg"
+    },
+    {
+      "id": "gustavo-cerati-karaoke",
+      "title": "Karaoke",
+      "artist": "Gustavo Cerati",
+      "album": "Siempre es Hoy",
+      "year": 2002,
+      "duration": 264,
+      "src": "./assets/music/gustavo-cerati/gustavo-cerati-karaoke.mp3",
+      "cover": "./assets/images/apps/spotify/gustavo-cerati-siempre-es-hoy.jpg"
+    },
+    {
+      "id": "gustavo-cerati-cosas-imposibles",
+      "title": "Cosas Imposibles",
+      "artist": "Gustavo Cerati",
+      "album": "Siempre es Hoy",
+      "year": 2002,
+      "duration": 260,
+      "src": "./assets/music/gustavo-cerati/gustavo-cerati-cosas-imposibles.mp3",
+      "cover": "./assets/images/apps/spotify/gustavo-cerati-siempre-es-hoy.jpg"
+    },
+    {
+      "id": "gustavo-cerati-vivo",
+      "title": "Vivo",
+      "artist": "Gustavo Cerati",
+      "album": "Siempre es Hoy",
+      "year": 2002,
+      "duration": 235,
+      "src": "./assets/music/gustavo-cerati/gustavo-cerati-vivo.mp3",
+      "cover": "./assets/images/apps/spotify/gustavo-cerati-siempre-es-hoy.jpg"
+    },
+    {
+      "id": "nirvana-smells-like-teen-spirit",
+      "title": "Smells Like Teen Spirit",
+      "artist": "Nirvana",
+      "album": "Nevermind",
+      "year": 1991,
+      "duration": 301,
+      "src": "./assets/music/nirvana/nirvana-smells-like-teen-spirit.mp3",
+      "cover": "./assets/images/apps/spotify/nirvana-nevermid.jpg"
+    },
+    {
+      "id": "babasonicos-carismatico",
+      "title": "Carismático",
+      "artist": "Babasónicos",
+      "album": "Anoche",
+      "year": 2005,
+      "duration": 200,
+      "src": "./assets/music/babasonicos/babasonicos-carismatico.mp3",
+      "cover": "./assets/images/apps/spotify/babasonicos-anoche.jpg"
+    },
+    {
+      "id": "babasonicos-yegua",
+      "title": "Yegua",
+      "artist": "Babasónicos",
+      "album": "Anoche",
+      "year": 2005,
+      "duration": 220,
+      "src": "./assets/music/babasonicos/babasonicos-yegua.mp3",
+      "cover": "./assets/images/apps/spotify/babasonicos-anoche.jpg"
+    },
+    {
+      "id": "babasonicos-puesto",
+      "title": "Puesto",
+      "artist": "Babasónicos",
+      "album": "Anoche",
+      "year": 2005,
+      "duration": 210,
+      "src": "./assets/music/babasonicos/babasonicos-puesto.mp3",
+      "cover": "./assets/images/apps/spotify/babasonicos-anoche.jpg"
+    },
+    {
+      "id": "babasonicos-la-pregunta",
+      "title": "La Pregunta",
+      "artist": "Babasónicos",
+      "album": "Discutible",
+      "year": 2018,
+      "duration": 245,
+      "src": "./assets/music/babasonicos/babasonicos-la-pregunta.mp3",
+      "cover": "./assets/images/apps/spotify/babasonicos-discutible.jpg"
+    },
+    {
+      "id": "adam-sellouk-carnage",
+      "title": "Carnage",
+      "artist": "Adam Sellouk",
+      "album": "Carnage",
+      "year": 2023,
+      "duration": 340,
+      "src": "./assets/music/musica-electronica/adam-sellouk-carnage.mp3",
+      "cover": "./assets/images/apps/spotify/adam-sellouk-carnage.jpg"
+    },
+    {
+      "id": "daft-punk-one-more-time",
+      "title": "One More Time",
+      "artist": "Daft Punk",
+      "album": "Discovery",
+      "year": 2001,
+      "duration": 320,
+      "src": "./assets/music/musica-electronica/daft-punk-one-more-time.mp3",
+      "cover": "./assets/images/apps/spotify/daft-punk-one-more-time.jpg"
+    },
+    {
+      "id": "innellea-promised-land",
+      "title": "Promised Land",
+      "artist": "Innellea",
+      "album": "Promised Land",
+      "year": 2022,
+      "duration": 380,
+      "src": "./assets/music/musica-electronica/innellea-promised-land.mp3",
+      "cover": "./assets/images/apps/spotify/innellea-promised-land.jpg"
+    },
+    {
+      "id": "innellea-slave-to-the-hype",
+      "title": "Slave to the Hype",
+      "artist": "Innellea",
+      "album": "Slave to the Hype",
+      "year": 2022,
+      "duration": 360,
+      "src": "./assets/music/musica-electronica/innellea-slave-to-the-hype.mp3",
+      "cover": "./assets/images/apps/spotify/innellea-slave-to-the-hype.jpg"
+    },
+    {
+      "id": "michael-grey-the-weekend",
+      "title": "The Weekend",
+      "artist": "Michael Grey",
+      "album": "The Weekend",
+      "year": 2023,
+      "duration": 300,
+      "src": "./assets/music/musica-electronica/michael-grey-the-weekend.mp3",
+      "cover": "./assets/images/apps/spotify/michael-grey-the-weekend.jpg"
+    }
+  ]
+}
