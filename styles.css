@@ -582,17 +582,18 @@ svg, [data-lucide] {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 8px 4px 4px;
+  padding: 4px 10px 4px 4px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   cursor: pointer;
   transition: all 0.2s ease;
-  max-width: 280px;
-  min-width: 180px;
+  max-width: 300px;
+  min-width: 200px;
   margin-right: 8px;
   overflow: hidden;
   position: relative;
+  isolation: isolate;
 }
 
 #topbar-now-playing.hidden {
@@ -601,7 +602,8 @@ svg, [data-lucide] {
 
 #topbar-now-playing:hover {
   background: rgba(255, 255, 255, 0.08);
-  border-color: color-mix(in srgb, var(--sp-green, #1ed760) 45%, transparent);
+  border-color: color-mix(in srgb, var(--sp-green, #1ed760) 55%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--sp-green, #1ed760) 18%, transparent);
 }
 
 #topbar-now-playing.playing {
@@ -609,6 +611,7 @@ svg, [data-lucide] {
   box-shadow: 0 0 12px color-mix(in srgb, var(--sp-green, #1ed760) 25%, transparent);
 }
 
+/* ─── Cover + mini EQ + controles hover ─── */
 .tnp-cover-wrap {
   position: relative;
   width: 24px;
@@ -626,8 +629,10 @@ svg, [data-lucide] {
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: opacity 0.2s ease, transform 0.25s ease;
 }
 
+/* Mini ecualizador (solo visible cuando suena y NO hay hover) */
 .tnp-eq {
   position: absolute;
   inset: 0;
@@ -637,10 +642,16 @@ svg, [data-lucide] {
   gap: 2px;
   padding: 4px;
   background: rgba(0, 0, 0, 0.5);
+  transition: opacity 0.2s ease;
 }
 
 #topbar-now-playing.playing .tnp-eq {
   display: flex;
+}
+
+#topbar-now-playing:hover .tnp-eq {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .tnp-eq i {
@@ -661,6 +672,7 @@ svg, [data-lucide] {
   50% { transform: scaleY(1.1); }
 }
 
+/* Meta (título + artista) */
 .tnp-meta {
   display: flex;
   flex-direction: column;
@@ -691,6 +703,7 @@ svg, [data-lucide] {
   white-space: nowrap;
 }
 
+/* Botón play/pause (siempre visible) */
 .tnp-play {
   width: 22px;
   height: 22px;
@@ -715,8 +728,41 @@ svg, [data-lucide] {
   transform: scale(1.08);
 }
 
-/* ─── Responsive: ocultar now-playing en pantallas chicas ─── */
-@media (max-width: 800px) {
+/* ─── Barra de progreso (línea fina al pie del widget) ─── */
+.tnp-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: 0 0 999px 999px;
+}
+
+.tnp-progress-fill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(
+    90deg,
+    var(--sp-green, #1ed760),
+    color-mix(in srgb, var(--sp-green, #1ed760) 70%, #fff 30%)
+  );
+  box-shadow: 0 0 6px color-mix(in srgb, var(--sp-green, #1ed760) 60%, transparent);
+  transition: width 0.35s linear;
+}
+
+/* Estado pausado: barra más tenue */
+#topbar-now-playing:not(.playing) .tnp-progress-fill {
+  background: rgba(255, 255, 255, 0.35);
+  box-shadow: none;
+}
+
+/* ─── Responsive ─── */
+/* Solo ocultar en pantallas realmente chicas (mobile) */
+@media (max-width: 600px) {
   #topbar-now-playing {
     display: none;
   }
@@ -16540,6 +16586,412 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   #audio-panel {
     width: calc(100vw - 20px);
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ WIDGET: NOW PLAYING (Reproductor de escritorio)
+   ═══════════════════════════════════════════════════════════════ */
+
+.now-playing-widget {
+  width: 260px;
+  padding: 12px 12px 10px;
+  background:
+    linear-gradient(155deg,
+      color-mix(in srgb, var(--sp-green, #1ed760) 6%, transparent) 0%,
+      color-mix(in srgb, var(--panel-color) 92%, transparent) 60%),
+    color-mix(in srgb, var(--panel-color) 90%, transparent);
+  border-color: color-mix(in srgb, var(--sp-green, #1ed760) 22%, rgba(255, 255, 255, 0.12));
+}
+
+.now-playing-widget .widget-titlebar strong {
+  color: var(--sp-green, #1ed760);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--sp-green, #1ed760) 40%, transparent);
+}
+
+.np-widget-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  user-select: none;
+}
+
+/* ─── Estado vacío ─── */
+.np-widget-body.is-empty {
+  align-items: center;
+  justify-content: center;
+  padding: 10px 4px;
+  gap: 6px;
+  text-align: center;
+}
+.np-empty-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  color: var(--text-sub);
+  margin-bottom: 2px;
+}
+.np-empty-icon svg, .np-empty-icon i {
+  width: 18px !important;
+  height: 18px !important;
+  opacity: 0.6;
+}
+.np-empty-title {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.np-empty-sub {
+  color: var(--text-sub);
+  font-size: 10px;
+  line-height: 1.4;
+  max-width: 180px;
+}
+
+/* ─── Hero: cover + meta + like ─── */
+.np-hero {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.np-cover-wrap {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+
+.np-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.np-eq {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.now-playing-widget.is-playing .np-eq {
+  display: flex;
+}
+.np-eq i {
+  display: block;
+  width: 2.5px;
+  background: var(--sp-green, #1ed760);
+  border-radius: 1px;
+  box-shadow: 0 0 4px var(--sp-green, #1ed760);
+  animation: np-eq-bounce 0.85s infinite ease-in-out;
+}
+.np-eq i:nth-child(1) { animation-delay: 0s;    height: 35%; }
+.np-eq i:nth-child(2) { animation-delay: 0.15s; height: 85%; }
+.np-eq i:nth-child(3) { animation-delay: 0.3s;  height: 55%; }
+.np-eq i:nth-child(4) { animation-delay: 0.45s; height: 70%; }
+.np-eq i:nth-child(5) { animation-delay: 0.6s;  height: 40%; }
+
+@keyframes np-eq-bounce {
+  0%, 100% { transform: scaleY(0.5); }
+  50% { transform: scaleY(1.15); }
+}
+
+.np-meta {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.np-title {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.np-artist {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  color: var(--sp-green, #1ed760);
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+  width: fit-content;
+  max-width: 100%;
+}
+.np-artist:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.np-album {
+  color: var(--text-sub);
+  font-size: 9.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.np-like {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--text-sub);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+.np-like svg, .np-like i {
+  width: 15px !important;
+  height: 15px !important;
+}
+.np-like:hover {
+  color: #fff;
+  transform: scale(1.1);
+}
+.np-like.liked {
+  color: var(--sp-green, #1ed760);
+}
+.np-like.liked svg, .np-like.liked i {
+  fill: currentColor;
+}
+
+/* ─── Progreso ─── */
+.np-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.np-time {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-sub);
+  min-width: 30px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.np-progress {
+  flex: 1;
+  min-width: 0;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  touch-action: none;
+}
+
+.np-progress-track {
+  position: relative;
+  width: 100%;
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.np-progress-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg,
+    var(--sp-green, #1ed760),
+    color-mix(in srgb, var(--sp-green, #1ed760) 70%, #fff 30%));
+  box-shadow: 0 0 6px color-mix(in srgb, var(--sp-green, #1ed760) 60%, transparent);
+  transition: width 0.1s linear;
+  pointer-events: none;
+}
+
+.np-progress:hover .np-progress-track {
+  height: 4px;
+}
+
+/* ─── Controles ─── */
+.np-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.np-ctrl {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--text-sub);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.np-ctrl svg, .np-ctrl i {
+  width: 14px !important;
+  height: 14px !important;
+}
+.np-ctrl:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  transform: scale(1.08);
+}
+.np-ctrl.active {
+  color: var(--sp-green, #1ed760);
+}
+.np-ctrl.active::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--sp-green, #1ed760);
+  box-shadow: 0 0 4px var(--sp-green, #1ed760);
+}
+
+.np-ctrl-main {
+  width: 34px;
+  height: 34px;
+  background: #fff;
+  color: #000;
+  margin: 0 4px;
+}
+.np-ctrl-main svg, .np-ctrl-main i {
+  width: 16px !important;
+  height: 16px !important;
+  fill: currentColor;
+}
+.np-ctrl-main:hover {
+  background: var(--sp-green, #1ed760);
+  color: #000;
+  transform: scale(1.08);
+}
+
+/* ─── Preview del widget en la galería del Designer ─── */
+.widget-gallery-preview-nowplaying {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding: 8px 10px;
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 6px 8px;
+  align-items: center;
+  font-family: "Inter", sans-serif;
+}
+
+.wg-np-cover {
+  grid-row: 1 / span 2;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--sp-green, #1ed760) 30%, transparent),
+    rgba(0, 0, 0, 0.5));
+  display: grid;
+  place-items: center;
+  color: var(--sp-green, #1ed760);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+.wg-np-cover svg, .wg-np-cover i {
+  width: 16px !important;
+  height: 16px !important;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--sp-green, #1ed760) 60%, transparent));
+}
+
+.wg-np-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.wg-np-title {
+  height: 5px;
+  width: 80%;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.55);
+}
+.wg-np-artist {
+  height: 4px;
+  width: 55%;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.wg-np-progress {
+  grid-column: 1 / -1;
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+.wg-np-progress span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--sp-green, #1ed760);
+  box-shadow: 0 0 4px var(--sp-green, #1ed760);
+}
+
+.wg-np-controls {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-sub);
+  margin-top: 2px;
+}
+.wg-np-controls svg, .wg-np-controls i {
+  width: 11px !important;
+  height: 11px !important;
+}
+.wg-np-controls svg:nth-child(2),
+.wg-np-controls i:nth-child(2) {
+  width: 14px !important;
+  height: 14px !important;
+  color: var(--sp-green, #1ed760);
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--sp-green, #1ed760) 60%, transparent));
 }
 
 /* ═══════════════════════════════════════════════════════════════

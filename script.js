@@ -38,6 +38,13 @@ const WIDGET_CATALOG = {
     icon: 'cloud-sun',
     type: 'weather'
   },
+  'now-playing': {
+    id: 'now-playing',
+    name: 'Reproductor',
+    description: 'Widget flotante de "Ahora suena" con cover, título, progreso en vivo y controles de reproducción.',
+    icon: 'music',
+    type: 'now-playing'
+  },
   'system-monitor-pro': {
     id: 'system-monitor-pro',
     name: 'System Monitor Pro',
@@ -2951,6 +2958,11 @@ function setupSpotifyIntegration() {
   //    (el index.html lo va a tener, pero por las dudas)
   ensureTopbarNowPlaying();
 
+  // ★ Forzar update inmediato: si Spotify ya tiene un track restaurado
+  //   desde localStorage, el widget debe aparecer sin esperar
+  //   a que se emita un evento 'trackchange'.
+  updateSpotifyTopbar();
+
   // 8. Restaurar volumen del sistema al slider del Control Center
   const volSlider = document.getElementById('volume-slider');
   if (volSlider) {
@@ -3067,7 +3079,7 @@ function ensureTopbarNowPlaying() {
 
   el = document.createElement('div');
   el.id = 'topbar-now-playing';
-  el.className = 'topbar-now-playing hidden';
+  el.className = 'hidden';
   el.setAttribute('role', 'button');
   el.setAttribute('tabindex', '0');
   el.title = 'Reproducción actual — click para abrir Spotify';
@@ -3083,8 +3095,10 @@ function ensureTopbarNowPlaying() {
     <button class="tnp-play" id="tnp-play" type="button" aria-label="Reproducir/Pausar">
       <i data-lucide="play"></i>
     </button>
+    <div class="tnp-progress" aria-hidden="true">
+      <span class="tnp-progress-fill" id="tnp-progress-fill"></span>
+    </div>
   `;
-
   const sysTray = right.querySelector('.sys-tray');
   if (sysTray) {
     right.insertBefore(el, sysTray);
@@ -3379,7 +3393,7 @@ function loadPersistedState() {
 
     const savedWidgets = JSON.parse(localStorage.getItem(WIDGETS_STORAGE_KEY));
     if (Array.isArray(savedWidgets)) {
-      const validTypes = new Set(['clock', 'weather', 'gaming-hub', 'system-monitor-pro', 'music-visualizer']);
+      const validTypes = new Set(['clock', 'weather', 'gaming-hub', 'now-playing', 'system-monitor-pro', 'music-visualizer']);
       desktopWidgets = savedWidgets
         .filter(w => w && typeof w === 'object' && validTypes.has(w.type))
         .map(w => {
@@ -6790,7 +6804,7 @@ function handleImageError(e) {
 ═══════════════════════════════════════════════════════════════ */
 
 function addDesktopWidget(type, x = null, y = null) {
-  const allowsMultiple = type === 'weather';
+  const allowsMultiple = (type === 'weather');
 
   if (!allowsMultiple) {
     const existing = desktopWidgets.find(w => w.type === type);
@@ -6802,9 +6816,10 @@ function addDesktopWidget(type, x = null, y = null) {
 
   const id = 'widget-' + type + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
   const defaultPositions = {
-    clock:        { x: 24, y: 60 },
-    'gaming-hub': { x: window.innerWidth - 400, y: 60 },
-    weather:      { x: window.innerWidth - 280, y: 60 }
+    clock:         { x: 24, y: 60 },
+    'gaming-hub':  { x: window.innerWidth - 400, y: 60 },
+    weather:       { x: window.innerWidth - 280, y: 60 },
+    'now-playing': { x: 24, y: 320 }
   };
 
   const offsetIndex = allowsMultiple ? desktopWidgets.filter(w => w.type === type).length : 0;
@@ -6830,6 +6845,9 @@ function addDesktopWidget(type, x = null, y = null) {
 }
 
 function removeDesktopWidget(id) {
+  const el = document.getElementById(id);
+  if (el) detachNowPlayingWidgetListeners(el);
+
   desktopWidgets = desktopWidgets.filter(w => w.id !== id);
   saveDesktopWidgets();
   renderDesktopWidgets();
@@ -6854,7 +6872,7 @@ function renderDesktopWidgets() {
   if (!layer) return;
   layer.innerHTML = '';
 
-  const validTypes = new Set(['clock', 'weather', 'gaming-hub', 'system-monitor-pro', 'music-visualizer']);
+  const validTypes = new Set(['clock', 'weather', 'gaming-hub', 'now-playing', 'system-monitor-pro', 'music-visualizer']);
   desktopWidgets = desktopWidgets.filter(w => validTypes.has(w.type));
 
   desktopWidgets.forEach(widget => {
@@ -6887,6 +6905,11 @@ function renderDesktopWidgets() {
       iconName = 'gamepad-2';
       extraClass = 'gaming-hub-widget';
       bodyHTML = renderGamingHubWidgetHTML();
+    } else if (widget.type === 'now-playing') {
+      title = 'AHORA SUENA';
+      iconName = 'music';
+      extraClass = 'now-playing-widget';
+      bodyHTML = renderNowPlayingWidgetHTML();
     } else if (widget.type === 'weather') {
       title = 'CLIMA';
       iconName = 'cloud-sun';
@@ -6934,6 +6957,9 @@ function renderDesktopWidgets() {
 
     if (widget.type === 'weather') {
       attachWeatherWidgetListeners(widget.id);
+    }
+    if (widget.type === 'now-playing') {
+      attachNowPlayingWidgetListeners(el);
     }
   });
   refreshIcons();
@@ -7325,6 +7351,284 @@ function updateGamingHubWidget() {
   if (gmLabel) gmLabel.classList.toggle('active', gameModeActive);
   if (gmSwitch) gmSwitch.classList.toggle('active', gameModeActive);
   refreshIcons();
+}
+
+/* ─── Widget: Now Playing (Reproductor) ─── */
+
+/** Mapa de suscripciones por elemento para limpiar al cerrar. */
+const npWidgetSubscriptions = new WeakMap();
+
+function addNowPlayingWidget() {
+  addDesktopWidget('now-playing');
+  renderSettingsApp();
+}
+
+function removeNowPlayingWidget() {
+  const existing = desktopWidgets.find(w => w.type === 'now-playing');
+  if (existing) {
+    removeDesktopWidget(existing.id);
+    showToast('Widget Removido', 'Reproductor retirado del escritorio.', 'trash-2');
+  }
+  renderSettingsApp();
+}
+
+function renderNowPlayingWidgetHTML() {
+  const current = window.SpotifyApp ? SpotifyApp.getCurrentTrack() : null;
+  const isPlaying = window.SpotifyApp ? SpotifyApp.isPlaying() : false;
+
+  if (!current) {
+    return `
+      <div class="np-widget-body is-empty">
+        <div class="np-empty-icon"><i data-lucide="music-4"></i></div>
+        <strong class="np-empty-title">Sin reproducción</strong>
+        <span class="np-empty-sub">Abrí Spotify y elegí una canción.</span>
+      </div>
+    `;
+  }
+
+  const cover = spGetTrackCover(current);
+  const liked = SpotifyApiIsLiked(current.id);
+  const cur = SpotifyApp.getCurrentTime();
+  const dur = SpotifyApp.getDuration() || current.duration || 0;
+  const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
+
+  return `
+    <div class="np-widget-body">
+      <div class="np-hero">
+        <div class="np-cover-wrap">
+          <img class="np-cover" src="${escapeHtml(cover)}" alt="" />
+          <span class="np-eq" aria-hidden="true"><i></i><i></i><i></i></span>
+        </div>
+        <div class="np-meta">
+          <span class="np-title" title="${escapeHtml(current.title)}">${escapeHtml(current.title)}</span>
+          <button class="np-artist" type="button" data-np-go-artist="${escapeHtml(current.artist)}" title="Ir al artista">
+            ${escapeHtml(current.artist)}
+          </button>
+          <span class="np-album" title="${escapeHtml(current.album)}">${escapeHtml(current.album)}</span>
+        </div>
+        <button class="np-like ${liked ? 'liked' : ''}" type="button" data-np-like="${escapeHtml(current.id)}" title="${liked ? 'Quitar de Tus me gusta' : 'Agregar a Tus me gusta'}">
+          <i data-lucide="heart"></i>
+        </button>
+      </div>
+
+      <div class="np-progress-row">
+        <span class="np-time np-time-cur">${spFormatTime(cur)}</span>
+        <div class="np-progress" data-np-progress>
+          <div class="np-progress-track">
+            <span class="np-progress-fill" style="width: ${pct}%"></span>
+          </div>
+        </div>
+        <span class="np-time np-time-total">${spFormatTime(dur)}</span>
+      </div>
+
+      <div class="np-controls">
+        <button class="np-ctrl" type="button" data-np-prev title="Anterior">
+          <i data-lucide="skip-back"></i>
+        </button>
+        <button class="np-ctrl np-ctrl-main" type="button" data-np-play-pause title="${isPlaying ? 'Pausar' : 'Reproducir'}">
+          <i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>
+        </button>
+        <button class="np-ctrl" type="button" data-np-next title="Siguiente">
+          <i data-lucide="skip-forward"></i>
+        </button>
+        <button class="np-ctrl np-ctrl-shuffle ${spotify.shuffle ? 'active' : ''}" type="button" data-np-shuffle title="Aleatorio">
+          <i data-lucide="shuffle"></i>
+        </button>
+        <button class="np-ctrl np-ctrl-repeat ${spotify.repeat !== 'off' ? 'active' : ''}" type="button" data-np-repeat data-np-repeat-mode="${spotify.repeat}" title="Repetir">
+          <i data-lucide="${spotify.repeat === 'one' ? 'repeat-1' : 'repeat'}"></i>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+/** Actualiza en vivo un widget existente SIN re-render completo. */
+function updateNowPlayingWidgetElement(el) {
+  if (!el || !window.SpotifyApp) return;
+
+  const current = SpotifyApp.getCurrentTrack();
+  const isPlaying = SpotifyApp.isPlaying();
+
+  // Si no hay track y estaba vacío, no hacemos nada
+  if (!current && el.querySelector('.np-widget-body.is-empty')) return;
+  if (!current && !el.querySelector('.np-widget-body.is-empty')) {
+    // Volvió a estado vacío: re-render completo
+    const body = el.querySelector('.np-widget-body');
+    if (body) {
+      body.outerHTML = renderNowPlayingWidgetHTML().trim();
+      refreshIcons();
+      attachNowPlayingWidgetListeners(el);
+    }
+    return;
+  }
+
+  // Actualizar cover
+  const coverEl = el.querySelector('.np-cover');
+  if (coverEl) coverEl.src = spGetTrackCover(current);
+
+  // Título / artista / álbum
+  const titleEl = el.querySelector('.np-title');
+  if (titleEl) {
+    titleEl.textContent = current.title;
+    titleEl.title = current.title;
+  }
+  const artistEl = el.querySelector('.np-artist');
+  if (artistEl) {
+    artistEl.textContent = current.artist;
+    artistEl.dataset.npGoArtist = current.artist;
+  }
+  const albumEl = el.querySelector('.np-album');
+  if (albumEl) {
+    albumEl.textContent = current.album;
+    albumEl.title = current.album;
+  }
+
+  // Like
+  const likeEl = el.querySelector('[data-np-like]');
+  if (likeEl) {
+    likeEl.classList.toggle('liked', SpotifyApiIsLiked(current.id));
+    likeEl.dataset.npLike = current.id;
+  }
+
+  // Progreso
+  const cur = SpotifyApp.getCurrentTime();
+  const dur = SpotifyApp.getDuration() || current.duration || 0;
+  const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
+
+  const fill = el.querySelector('.np-progress-fill');
+  if (fill) fill.style.width = `${pct}%`;
+
+  const curTime = el.querySelector('.np-time-cur');
+  if (curTime) curTime.textContent = spFormatTime(cur);
+  const totTime = el.querySelector('.np-time-total');
+  if (totTime) totTime.textContent = spFormatTime(dur);
+
+  // Botón play/pause
+  const ppBtn = el.querySelector('[data-np-play-pause]');
+  if (ppBtn) {
+    const icon = isPlaying ? 'pause' : 'play';
+    if (ppBtn.querySelector('[data-lucide]')?.getAttribute('data-lucide') !== icon) {
+      ppBtn.innerHTML = `<i data-lucide="${icon}"></i>`;
+      ppBtn.title = isPlaying ? 'Pausar' : 'Reproducir';
+    }
+  }
+
+  // Estado "playing" en el root para animar el EQ y estilos
+  el.classList.toggle('is-playing', isPlaying);
+
+  // Shuffle / repeat
+  const shuffleEl = el.querySelector('[data-np-shuffle]');
+  if (shuffleEl) shuffleEl.classList.toggle('active', spotify.shuffle);
+  const repeatEl = el.querySelector('[data-np-repeat]');
+  if (repeatEl) {
+    repeatEl.classList.toggle('active', spotify.repeat !== 'off');
+    repeatEl.dataset.npRepeatMode = spotify.repeat;
+    const icon = spotify.repeat === 'one' ? 'repeat-1' : 'repeat';
+    if (repeatEl.querySelector('[data-lucide]')?.getAttribute('data-lucide') !== icon) {
+      repeatEl.innerHTML = `<i data-lucide="${icon}"></i>`;
+    }
+  }
+
+  refreshIcons();
+}
+
+/** Suscribe el widget a los eventos de Spotify y cablea los controles. */
+function attachNowPlayingWidgetListeners(el) {
+  if (!el || !window.SpotifyApp) return;
+  if (npWidgetSubscriptions.has(el)) return;
+
+  // ─── Cablear botones ───
+  el.addEventListener('click', (e) => {
+    const playPause = e.target.closest('[data-np-play-pause]');
+    if (playPause) { e.stopPropagation(); SpotifyApp.togglePlayPause(); return; }
+
+    const prev = e.target.closest('[data-np-prev]');
+    if (prev) { e.stopPropagation(); SpotifyApp.prev(); return; }
+
+    const next = e.target.closest('[data-np-next]');
+    if (next) { e.stopPropagation(); SpotifyApp.next(); return; }
+
+    const shuffle = e.target.closest('[data-np-shuffle]');
+    if (shuffle) { e.stopPropagation(); SpotifyApp.toggleShuffle(); return; }
+
+    const repeat = e.target.closest('[data-np-repeat]');
+    if (repeat) { e.stopPropagation(); SpotifyApp.cycleRepeat(); return; }
+
+    const like = e.target.closest('[data-np-like]');
+    if (like) { e.stopPropagation(); SpotifyApp.toggleLike(like.dataset.npLike); return; }
+
+    const goArtist = e.target.closest('[data-np-go-artist]');
+    if (goArtist) {
+      e.stopPropagation();
+      openApp('music');
+      setTimeout(() => {
+        spotify.view = 'artist';
+        spotify.viewParams = { artistName: goArtist.dataset.npGoArtist };
+        getInstancesOfApp('music').forEach(id => {
+          const w = openWindows[id]?.win;
+          if (w) refreshSpotifyWindow(w);
+        });
+      }, 60);
+      return;
+    }
+  });
+
+  // ─── Click en barra de progreso → seek ───
+  const progress = el.querySelector('[data-np-progress]');
+  if (progress) {
+    const onSeek = (ev) => {
+      const rect = progress.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+      const dur = SpotifyApp.getDuration() || SpotifyApp.getCurrentTrack()?.duration || 0;
+      SpotifyApp.seek(pct * dur);
+    };
+    progress.style.cursor = 'pointer';
+    progress.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      onSeek(e);
+      const onMove = (ev) => onSeek(ev);
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  // ─── Suscripciones al motor ───
+  const unsubs = [];
+
+  unsubs.push(SpotifyApp.on('trackchange', () => updateNowPlayingWidgetElement(el)));
+  unsubs.push(SpotifyApp.on('play',        () => updateNowPlayingWidgetElement(el)));
+  unsubs.push(SpotifyApp.on('pause',       () => updateNowPlayingWidgetElement(el)));
+  unsubs.push(SpotifyApp.on('liked',       () => updateNowPlayingWidgetElement(el)));
+  unsubs.push(SpotifyApp.on('shuffle',     () => updateNowPlayingWidgetElement(el)));
+  unsubs.push(SpotifyApp.on('repeat',      () => updateNowPlayingWidgetElement(el)));
+  unsubs.push(SpotifyApp.on('progress',    () => {
+    // Actualización rápida solo del progreso (evita re-parsear todo)
+    if (!window.SpotifyApp) return;
+    const cur = SpotifyApp.getCurrentTime();
+    const dur = SpotifyApp.getDuration() || SpotifyApp.getCurrentTrack()?.duration || 0;
+    const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
+
+    const fill = el.querySelector('.np-progress-fill');
+    if (fill) fill.style.width = `${pct}%`;
+    const curEl = el.querySelector('.np-time-cur');
+    if (curEl) curEl.textContent = spFormatTime(cur);
+    const totEl = el.querySelector('.np-time-total');
+    if (totEl) totEl.textContent = spFormatTime(dur);
+  }));
+
+  npWidgetSubscriptions.set(el, unsubs);
+}
+
+/** Desuscribe y limpia. Se llama desde removeDesktopWidget cuando el tipo coincide. */
+function detachNowPlayingWidgetListeners(el) {
+  const unsubs = npWidgetSubscriptions.get(el);
+  if (!unsubs) return;
+  unsubs.forEach(fn => { try { fn(); } catch (_) {} });
+  npWidgetSubscriptions.delete(el);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -11560,15 +11864,20 @@ function updateHUDMediaInfo() {
     if (!window.SpotifyApp) return;
     if (!spotify.isPlaying) return;
 
+    const dur = SpotifyApp.getDuration() || (SpotifyApp.getCurrentTrack()?.duration || 0);
+    const pct = dur > 0 ? Math.min(100, (SpotifyApp.getCurrentTime() / dur) * 100) : 0;
+
     // Control Center: tiempo actual
     const ccCurrent = document.getElementById('cc-time-current');
     if (ccCurrent) ccCurrent.textContent = spFormatTime(SpotifyApp.getCurrentTime());
 
     // Control Center: barra de progreso
-    const dur = SpotifyApp.getDuration() || (SpotifyApp.getCurrentTrack()?.duration || 0);
-    const pct = dur > 0 ? Math.min(100, (SpotifyApp.getCurrentTime() / dur) * 100) : 0;
     const ccFill = document.getElementById('cc-progress-fill');
     if (ccFill) ccFill.style.width = `${pct}%`;
+
+    // ★ Topbar Now Playing: barra de progreso
+    const tnpFill = document.getElementById('tnp-progress-fill');
+    if (tnpFill) tnpFill.style.width = `${pct}%`;
 
     // HUD
     updateHUDMediaInfo();
@@ -13797,12 +14106,45 @@ function getGamingSettingsHTML() {
 
 function getWidgetsGalleryHTML() {
   const hasGamingHub = desktopWidgets.some(w => w.type === 'gaming-hub');
+  const hasNowPlaying = desktopWidgets.some(w => w.type === 'now-playing');
   const weatherCount = desktopWidgets.filter(w => w.type === 'weather').length;
 
   return `
     <div class="settings-section-label">Widgets de Escritorio</div>
     <div class="widgets-gallery-grid">
       <div class="widget-gallery-card ${hasGamingHub ? 'active' : ''}">
+            <div class="widget-gallery-card ${hasNowPlaying ? 'active' : ''}">
+        <div class="widget-gallery-preview">
+          <div class="widget-gallery-preview-nowplaying">
+            <div class="wg-np-cover">
+              <i data-lucide="music"></i>
+            </div>
+            <div class="wg-np-meta">
+              <span class="wg-np-title"></span>
+              <span class="wg-np-artist"></span>
+            </div>
+            <div class="wg-np-progress">
+              <span style="width: 45%;"></span>
+            </div>
+            <div class="wg-np-controls">
+              <i data-lucide="skip-back"></i>
+              <i data-lucide="play"></i>
+              <i data-lucide="skip-forward"></i>
+            </div>
+          </div>
+        </div>
+        <div class="widget-gallery-info">
+          <strong>${WIDGET_CATALOG['now-playing'].name}</strong>
+          <small>${WIDGET_CATALOG['now-playing'].description}</small>
+        </div>
+        <div class="widget-gallery-action">
+          <span class="widget-gallery-status"><span class="status-dot"></span>${hasNowPlaying ? 'Activo' : 'Inactivo'}</span>
+          ${hasNowPlaying
+            ? `<button class="widget-gallery-btn danger" type="button" onclick="removeNowPlayingWidget()"><i data-lucide="trash-2"></i> Quitar</button>`
+            : `<button class="widget-gallery-btn" type="button" onclick="addNowPlayingWidget()"><i data-lucide="plus"></i> Agregar</button>`
+          }
+        </div>
+      </div>
         <div class="widget-gallery-preview">
           <div class="widget-gallery-preview-inner">
             <div class="widget-gallery-preview-tile"></div>
