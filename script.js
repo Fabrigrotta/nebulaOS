@@ -883,12 +883,32 @@ let updatesState = {
   updateStage: '',
   autoUpdate: true,
   betaChannel: false,
-  updateHistory: [
-    { version: '2.5.0', codename: 'Ultimate', date: 'Hace 3 semanas', size: '980 MB' },
-    { version: '2.4.2', codename: 'Gamer',    date: 'Hace 2 meses',   size: '1.1 GB' },
-    { version: '2.4.0', codename: 'Quantum',  date: 'Hace 4 meses',   size: '850 MB' }
-  ]
+    updateHistory: [
+      { version: '2.5.0', codename: 'Ultimate', date: 'Hace 3 semanas', size: '980 MB', changelog: [
+        'Nuevo sistema de fondos animados (Particle, Matrix, Aurora)',
+        'Rediseño completo del Nebula Designer',
+        'Widgets de escritorio arrastrables',
+        'Mejora del 18% en velocidad de arranque',
+        'Corrección de bugs en el Window Manager'
+      ]},
+      { version: '2.4.2', codename: 'Gamer', date: 'Hace 2 meses', size: '1.1 GB', changelog: [
+        'Nuevo Gaming HUD con telemetría en tiempo real',
+        'Modo Juego optimizado (frecuencia CPU turbo)',
+        'Integración de Nebula Shield con VPN WireGuard',
+        'Soporte de perfiles (Gamer / Streamer / Estudio)',
+        'Corrección de bugs en el reproductor multimedia'
+      ]},
+      { version: '2.4.0', codename: 'Quantum', date: 'Hace 4 meses', size: '850 MB', changelog: [
+        'Migración total del core a JavaScript ES2024',
+        'Nuevo motor de renderizado de ventanas',
+        'Sistema multi-workspace (5 espacios virtuales)',
+        'Rediseño del Dock con previews animadas',
+        'Primera versión del Nebula Vault'
+      ]}
+    ]
 };
+
+let updatesHistoryExpandedId = null;
 
 /* ─── Estado del sistema de notificaciones ─── */
 let notifications = [];
@@ -9399,6 +9419,11 @@ function simulateUpdateCheck() {
   }, 2200);
 }
 
+function toggleUpdatesHistoryItem(itemId) {
+  updatesHistoryExpandedId = updatesHistoryExpandedId === itemId ? null : itemId;
+  renderSettingsApp();
+}
+
 function installUpdate() {
   if (updatesState.updateInProgress) return;
   if (!updatesState.updateAvailable) {
@@ -9647,8 +9672,16 @@ function getUpdatesSettingsHTML() {
 
     <div class="settings-section-label">Historial de Versiones</div>
     <div class="updates-history-list">
-      ${updatesState.updateHistory.map(item => `
-        <div class="updates-history-item">
+  ${updatesState.updateHistory.map((item, idx) => {
+    const itemId = `hist-${item.version}`;
+    const isExpanded = updatesHistoryExpandedId === itemId;
+    const hasChangelog = Array.isArray(item.changelog) && item.changelog.length > 0;
+
+    return `
+      <div class="updates-history-item-expandable ${isExpanded ? 'expanded' : ''}"
+           data-history-id="${itemId}">
+        <div class="updates-history-item-header ${hasChangelog ? '' : 'no-expand'}"
+             ${hasChangelog ? `onclick="toggleUpdatesHistoryItem('${itemId}')"` : ''}>
           <div class="updates-history-icon">
             <i data-lucide="package"></i>
           </div>
@@ -9659,9 +9692,19 @@ function getUpdatesSettingsHTML() {
           <span class="updates-history-check">
             <i data-lucide="check-circle-2"></i>
           </span>
+          ${hasChangelog ? `<i data-lucide="chevron-down" class="updates-history-chevron"></i>` : ''}
         </div>
-      `).join('')}
-    </div>
+        ${hasChangelog ? `
+          <div class="updates-history-item-detail">
+            <ul class="updates-history-changelog">
+              ${item.changelog.map(change => `<li><i data-lucide="check"></i> ${escapeHtml(change)}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('')}
+    </div>    
   `;
 }
 
