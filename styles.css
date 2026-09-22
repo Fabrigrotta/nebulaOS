@@ -15103,6 +15103,13 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   width: 100%;
 }
 
+.term-line.term-nova {
+  color: #e879f9;
+  text-shadow: 0 0 10px rgba(232, 121, 249, 0.35);
+  font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
+  letter-spacing: 0;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    ★ NOVA AI
    ═══════════════════════════════════════════════════════════════ */
