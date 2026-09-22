@@ -342,6 +342,33 @@ svg, [data-lucide] {
   transform: translateX(-50%);
   gap: 8px;
   cursor: pointer;
+  /* ★ Zona clickeable ampliada: mucho más fácil de abrir */
+  min-width: 200px;
+  height: 100%;
+  padding: 0 24px;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+  user-select: none;
+}
+
+.waybar-module.center:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.waybar-module.center:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.waybar-module.center:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Feedback visual sutil cuando el Control Center está abierto */
+.waybar-module.center.active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 /* ─── Reloj ─── */

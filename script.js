@@ -2395,8 +2395,18 @@ function setupUIActions() {
   const toggleControlCenter = () => {
     closeQuickCenter();
     closeNotificationCenter();
+    closeAudioPanel?.();
+    closeWifiPanel?.();
+    closeBluetoothPanel?.();
+
     const wasHidden = controlCenter?.classList.contains('hidden');
     controlCenter?.classList.toggle('hidden');
+
+    // Marcar visualmente el topbar
+    if (clockCenter) {
+      clockCenter.classList.toggle('active', wasHidden);
+    }
+
     if (wasHidden) {
       resetCalendarToToday();
     }
@@ -2420,6 +2430,43 @@ function setupUIActions() {
     if (e.target.closest('#tray-hud-toggle')) return;
     toggleQuickCenter();
   });
+
+  /**
+ * ★ Toggle del Control Center desde atajo o desde cualquier click
+ *   en la franja central del topbar.
+ *   Se encarga de:
+ *     - Cerrar otros paneles abiertos
+ *     - Alternar el estado del CC
+ *     - Marcar visualmente el `.active` del topbar
+ */
+function toggleControlCenterFromShortcut() {
+  const controlCenter = document.getElementById('control-center');
+  const clockCenter = document.getElementById('clock-center');
+  const quickCenter = document.getElementById('quick-center');
+
+  if (!controlCenter) return;
+
+  // Cerrar otros paneles
+  if (quickCenter) closeQuickCenter();
+  closeNotificationCenter();
+  closeAudioPanel?.();
+  closeWifiPanel?.();
+  closeBluetoothPanel?.();
+
+  const wasHidden = controlCenter.classList.contains('hidden');
+  controlCenter.classList.toggle('hidden');
+
+  // Marcar visualmente el topbar
+  if (clockCenter) {
+    clockCenter.classList.toggle('active', wasHidden);
+  }
+
+  if (wasHidden) {
+    resetCalendarToToday();
+  }
+
+  refreshIcons();
+}
 
   const trayWifiItem = document.getElementById('tray-wifi-item');
   if (trayWifiItem) {
@@ -2624,6 +2671,34 @@ function setupUIActions() {
       syncSliderFill(e.target);
     }
   });
+    // Slider fills dinámicos
+  document.addEventListener('input', (e) => {
+    if (e.target instanceof HTMLInputElement && e.target.type === 'range') {
+      syncSliderFill(e.target);
+    }
+  });
+
+  // ★ Click extendido en el topbar central:
+  //   si hacés click en cualquier zona vacía del medio del topbar,
+  //   se abre el Control Center. NO interfiere con los módulos
+  //   izquierdo ni derecho.
+  const topbar = document.getElementById('topbar');
+  if (topbar) {
+    topbar.addEventListener('click', (e) => {
+      // Ignorar clicks en módulos interactivos
+      if (e.target.closest('.waybar-module.left')) return;
+      if (e.target.closest('.waybar-module.right')) return;
+      if (e.target.closest('.waybar-module.center')) return; // ya lo maneja el listener propio
+      if (e.target.closest('.topbar-profile-pill')) return;
+      if (e.target.closest('.topbar-gamemode-badge')) return;
+      if (e.target.closest('.ws')) return;
+      if (e.target.closest('.logo')) return;
+      if (e.target.closest('.sys-tray')) return;
+
+      // Si el click fue en la franja vacía del topbar → toggle CC
+      toggleControlCenter();
+    });
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2632,6 +2707,14 @@ function setupUIActions() {
 
 function setupShortcuts() {
   document.addEventListener('keydown', (e) => {
+    // ★ Control Center — Super/Cmd + C
+    //   (evitamos Ctrl+C porque es copiar)
+    if ((e.metaKey || e.key === 'Meta') && (e.key === 'c' || e.key === 'C')) {
+      e.preventDefault();
+      toggleControlCenterFromShortcut();
+      return;
+    }
+
     // HUD (Alt+Z / Alt+G / Meta+G)
     if ((e.altKey && (e.key === 'z' || e.key === 'Z' || e.key === 'g' || e.key === 'G')) ||
         (e.metaKey && (e.key === 'g' || e.key === 'G'))) {
