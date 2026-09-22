@@ -16995,6 +16995,66 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   ★ TERMINAL — Estilos de líneas y estados
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Cursor grab para el tabs bar (permite drag de la ventana) */
+.window-tabs {
+  cursor: grab;
+}
+.window-tabs:active {
+  cursor: grabbing;
+}
+.window-tabs .window-tab,
+.window-tabs .window-tab-add {
+  cursor: pointer;
+}
+
+/* Líneas de la terminal */
+.term-line {
+  margin-top: 3px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.term-line.term-welcome {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.term-line.term-hint {
+  color: var(--text-sub);
+  font-style: italic;
+  font-size: 11px;
+}
+
+.term-line.term-cmd-echo {
+  color: #fff;
+  font-weight: 700;
+  margin-top: 8px;
+}
+
+.term-line.term-accent {
+  color: var(--accent);
+}
+
+.term-line.term-matrix {
+  color: #00ff41;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(0, 255, 65, 0.5);
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* Cursor parpadeante en el prompt */
+.term-input {
+  caret-color: var(--accent);
+}
+.term-input:focus {
+  outline: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
    ★ FIX — Botones utilitarios y clases sueltas
    ═══════════════════════════════════════════════════════════════ */
 

@@ -4010,6 +4010,18 @@ function openApp(appId, forceNew = false, restoreData = null) {
   titlebar.addEventListener('mousedown', startDrag);
   titlebar.addEventListener('touchstart', startDrag, { passive: false });
 
+  // ★ Permitir drag también desde el tabs bar (para ventanas con pestañas)
+  const tabsBar = win.querySelector('.window-tabs');
+  if (tabsBar) {
+    // Solo permitir drag si no se clickeó un tab ni el botón "+"
+    const tabsDragHandler = (e) => {
+      if (e.target.closest('.window-tab') || e.target.closest('.window-tab-add') || e.target.closest('.window-tab-close')) return;
+      startDrag(e);
+    };
+    tabsBar.addEventListener('mousedown', tabsDragHandler);
+    tabsBar.addEventListener('touchstart', tabsDragHandler, { passive: false });
+  }
+
   if (!isRestoring && totalInstances > 1) {
     showToast(
       `${app.title} · Instancia #${newInstNumber}`,
@@ -4655,6 +4667,363 @@ function updateTopBar(winId) {
   } else {
     appNameSpan.textContent = 'Escritorio';
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ TERMINAL — Motor de comandos y setup
+   ═══════════════════════════════════════════════════════════════ */
+
+function setupTerminalPanel(panel) {
+  if (!panel) return;
+
+  const body = panel.querySelector('.term-body');
+  const history = panel.querySelector('.term-history');
+  const input = panel.querySelector('.term-input');
+  if (!body || !history || !input) return;
+
+  // Evitar doble setup
+  if (input.dataset.termBound === '1') {
+    input.focus();
+    return;
+  }
+  input.dataset.termBound = '1';
+
+  // ─── Estado del panel ───
+  const state = {
+    history: [],
+    historyIndex: -1,
+    cwd: '~/nebula-os/gaming-core',
+    profile: currentProfile
+  };
+
+  // ─── Banner de bienvenida ───
+  if (history.children.length === 0) {
+    appendTerminalLine(history, `Nebula OS v2.5 "Ultimate" · WezTerm Emulator`, 'term-welcome');
+    appendTerminalLine(history, `Escribí "help" para ver los comandos disponibles.`, 'term-hint');
+    appendTerminalLine(history, ``, '');
+  }
+
+  // ─── Focus al clickear en cualquier parte del cuerpo ───
+  body.addEventListener('click', (e) => {
+    if (e.target.closest('.term-history')) input.focus();
+  });
+
+  // ★ Scrollear al fondo mientras se escribe
+  //   (así el input nunca queda tapado por el borde inferior)
+  const autoScrollOnType = () => {
+    // requestAnimationFrame para que el layout se recalcule con el texto nuevo
+    requestAnimationFrame(() => scrollTerminalToBottom(body));
+  };
+  input.addEventListener('input', autoScrollOnType);
+  input.addEventListener('focus', autoScrollOnType);
+
+  // ★ Scrollear también al pegar (Ctrl+V) o al cortar texto
+  input.addEventListener('paste', autoScrollOnType);
+  input.addEventListener('cut', autoScrollOnType);
+
+  // ─── Historial con flechas ───
+  input.addEventListener('keydown', (e) => {
+    // Enviar comando
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const cmd = input.value.trim();
+      input.value = '';
+
+      if (cmd.length > 0) {
+        state.history.push(cmd);
+        state.historyIndex = state.history.length;
+      }
+
+      appendTerminalLine(history, buildTerminalEchoLine(state.cwd, cmd), 'term-cmd-echo');
+
+      if (cmd.length === 0) return;
+
+      const result = processTerminalCommand(cmd, state);
+      if (result && typeof result === 'string') {
+        result.split('\n').forEach(line => {
+          appendTerminalLine(history, line, '');
+        });
+      } else if (Array.isArray(result)) {
+        result.forEach(line => {
+          if (typeof line === 'string') appendTerminalLine(history, line, '');
+          else if (line && line.text) appendTerminalLine(history, line.text, line.cls || '');
+        });
+      }
+
+      // Refrescar el prompt del directorio actual
+      const dirEl = body.querySelector('.prompt .dir');
+      if (dirEl) dirEl.textContent = state.cwd;
+
+      scrollTerminalToBottom(body);
+      return;
+    }
+
+    // Navegar historial
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (state.history.length === 0) return;
+      state.historyIndex = Math.max(0, (state.historyIndex === -1 ? state.history.length : state.historyIndex) - 1);
+      input.value = state.history[state.historyIndex] || '';
+      // Cursor al final
+      requestAnimationFrame(() => input.setSelectionRange(input.value.length, input.value.length));
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (state.history.length === 0) return;
+      state.historyIndex = Math.min(state.history.length, state.historyIndex + 1);
+      input.value = state.history[state.historyIndex] || '';
+      requestAnimationFrame(() => input.setSelectionRange(input.value.length, input.value.length));
+      return;
+    }
+
+    // Ctrl+L → clear
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'l' || e.key === 'L')) {
+      e.preventDefault();
+      history.innerHTML = '';
+      return;
+    }
+  });
+
+  // ─── Focus inicial ───
+  setTimeout(() => {
+    input.focus();
+    scrollTerminalToBottom(body);
+  }, 80);
+}
+
+function buildTerminalEchoLine(cwd, cmd) {
+  // Devuelve texto plano que se insertará como una "línea de eco"
+  return `❯ ${cmd}`;
+}
+
+function appendTerminalLine(history, text, cls) {
+  const line = document.createElement('div');
+  line.className = 'term-line' + (cls ? ' ' + cls : '');
+  line.textContent = text;
+  history.appendChild(line);
+}
+
+function scrollTerminalToBottom(body) {
+  if (!body) return;
+
+  // Scrollear el propio body
+  body.scrollTop = body.scrollHeight;
+
+  // Por si el contenedor real con overflow es el ancestro (.window-tab-panel)
+  // o el propio .wcontent en ventanas sin tabs
+  const panel = body.closest('.window-tab-panel');
+  if (panel) panel.scrollTop = panel.scrollHeight;
+
+  const wcontent = body.closest('.wcontent');
+  if (wcontent) wcontent.scrollTop = wcontent.scrollHeight;
+
+  // Y por las dudas, hacer scrollIntoView del último prompt (el input)
+  const prompt = body.querySelector('.prompt:last-of-type');
+  if (prompt) {
+    prompt.scrollIntoView({ block: 'end', behavior: 'auto' });
+  }
+}
+
+/**
+ * Motor de comandos. Devuelve un string (una línea) o un array de líneas.
+ * Acepta también { text, cls } para estilos por línea.
+ */
+function processTerminalCommand(rawCmd, state) {
+  const cmd = rawCmd.trim();
+  const lower = cmd.toLowerCase();
+
+  // ─── help ───
+  if (lower === 'help' || lower === '?') {
+    return [
+      { text: 'Comandos disponibles:', cls: 'term-accent' },
+      '',
+      { text: '  help                  Muestra esta ayuda', cls: '' },
+      { text: '  clear                 Limpia la terminal', cls: '' },
+      { text: '  whoami                Muestra el perfil activo', cls: '' },
+      { text: '  neofetch              Información del sistema', cls: '' },
+      { text: '  ls / dir              Lista archivos del directorio actual', cls: '' },
+      { text: '  cd <carpeta>          Cambia de directorio', cls: '' },
+      { text: '  pwd                   Muestra el directorio actual', cls: '' },
+      { text: '  date                  Fecha y hora actual', cls: '' },
+      { text: '  echo <texto>          Repite el texto', cls: '' },
+      { text: '  gamemode on|off       Activa/desactiva Modo Juego', cls: '' },
+      { text: '  theme <nombre>        Cambia el tema (cyberpunk, catppuccin, synthwave, stealth, nord-arc)', cls: '' },
+      { text: '  wallpaper <0-2>       Cambia el fondo de pantalla', cls: '' },
+      { text: '  workspace <1-5>       Cambia de escritorio virtual', cls: '' },
+      { text: '  open <app>            Abre una app (music, files, settings, games, vscode, nova)', cls: '' },
+      { text: '  hud                   Abre/cierra el Gaming HUD', cls: '' },
+      { text: '  optimize              Libera RAM', cls: '' },
+      { text: '  close-all             Cierra todas las ventanas', cls: '' },
+      { text: '  matrix                Modo Matrix desbloqueado...', cls: 'term-hint' }
+    ];
+  }
+
+  // ─── clear ───
+  if (lower === 'clear' || lower === 'cls') {
+    return null; // El caller ya maneja esto con Ctrl+L
+  }
+
+  // ─── whoami ───
+  if (lower === 'whoami') {
+    return `${currentProfile}@nebula-os`;
+  }
+
+  // ─── pwd ───
+  if (lower === 'pwd') {
+    return state.cwd;
+  }
+
+  // ─── date ───
+  if (lower === 'date') {
+    return new Date().toString();
+  }
+
+  // ─── echo ───
+  if (lower.startsWith('echo ')) {
+    return cmd.slice(5).trim();
+  }
+
+  // ─── ls / dir ───
+  if (lower === 'ls' || lower === 'dir' || lower === 'ls -la') {
+    if (!FILE_SYSTEM) return 'Error: filesystem no inicializado.';
+    const folderName = state.cwd.split('/').pop();
+    const folder = fsFindFolder(folderName) || FILE_SYSTEM;
+    if (!folder || !folder.children) return '(vacío)';
+    return folder.children.map(child => {
+      const isDir = child.type === 'folder';
+      const prefix = isDir ? '📁  ' : '   ';
+      const suffix = isDir ? '/' : '';
+      return `${prefix}${child.name}${suffix}`;
+    });
+  }
+
+  // ─── cd ───
+  if (lower.startsWith('cd ')) {
+    const target = cmd.slice(3).trim();
+    if (!target || target === '~' || target === '/') {
+      state.cwd = '~/nebula-os';
+      return null;
+    }
+    if (target === '..') {
+      const parts = state.cwd.split('/').filter(Boolean);
+      if (parts.length > 1) parts.pop();
+      state.cwd = parts.join('/') || '~';
+      return null;
+    }
+    const folder = fsFindFolder(target);
+    if (!folder) return `cd: no existe el directorio "${target}"`;
+    state.cwd = `~/nebula-os/${folder.name}`;
+    return null;
+  }
+
+  // ─── neofetch ───
+  if (lower === 'neofetch') {
+    const now = new Date();
+    const uptimeMin = Math.floor((Date.now() - widgetStartedAt) / 60000);
+    const uptimeStr = uptimeMin < 60 ? `${uptimeMin} min` : `${Math.floor(uptimeMin/60)}h ${uptimeMin%60}m`;
+    return [
+      { text: '        ▄▄▄▄▄▄▄        ' + 'user@nebula-os', cls: 'term-accent' },
+      { text: '     ▄█████████▄     ' + '─────────────────', cls: 'term-accent' },
+      { text: '   ▄█████████████▄   ' + `OS: Nebula OS v2.5 Ultimate`, cls: 'term-accent' },
+      { text: '  ████████████████   ' + `Kernel: nebula-core 5.15.0`, cls: 'term-accent' },
+      { text: '  ████████████████   ' + `Uptime: ${uptimeStr}`, cls: 'term-accent' },
+      { text: '  ████████████████   ' + `Shell: wezterm 2024.1`, cls: 'term-accent' },
+      { text: '   ▀█████████████▀   ' + `Resolution: ${window.innerWidth}x${window.innerHeight}`, cls: 'term-accent' },
+      { text: '     ▀█████████▀     ' + `Profile: ${currentProfile}`, cls: 'term-accent' },
+      { text: '        ▀▀▀▀▀▀▀        ' + `Game Mode: ${gameModeActive ? 'ON' : 'OFF'}`, cls: 'term-accent' }
+    ];
+  }
+
+  // ─── gamemode ───
+  if (lower === 'gamemode on') {
+    toggleGameMode(true);
+    return 'Modo Juego: ON';
+  }
+  if (lower === 'gamemode off') {
+    toggleGameMode(false);
+    return 'Modo Juego: OFF';
+  }
+  if (lower === 'gamemode') {
+    return `Modo Juego está ${gameModeActive ? 'ON' : 'OFF'}. Usá "gamemode on" u "gamemode off".`;
+  }
+
+  // ─── theme ───
+  if (lower.startsWith('theme ')) {
+    const themeName = cmd.slice(6).trim().toLowerCase();
+    if (THEME_PRESETS[themeName]) {
+      applyThemePreset(themeName);
+      return `Tema aplicado: ${THEME_PRESETS[themeName].name}`;
+    }
+    return `Tema no encontrado: "${themeName}". Disponibles: ${Object.keys(THEME_PRESETS).join(', ')}`;
+  }
+
+  // ─── wallpaper ───
+  if (lower.startsWith('wallpaper ')) {
+    const idx = parseInt(cmd.slice(10).trim(), 10);
+    if (Number.isNaN(idx) || !WALLPAPERS[idx]) {
+      return `Uso: wallpaper <0-${WALLPAPERS.length - 1}>`;
+    }
+    applyWallpaper(idx);
+    return `Fondo aplicado: ${WALLPAPERS[idx].name}`;
+  }
+
+  // ─── workspace ───
+  if (lower.startsWith('workspace ')) {
+    const ws = parseInt(cmd.slice(10).trim(), 10);
+    if (Number.isNaN(ws) || ws < 1 || ws > TOTAL_WORKSPACES) {
+      return `Uso: workspace <1-${TOTAL_WORKSPACES}>`;
+    }
+    switchWorkspace(ws);
+    return `Cambiado al Space ${ws}`;
+  }
+
+  // ─── open ───
+  if (lower.startsWith('open ')) {
+    const appId = cmd.slice(5).trim().toLowerCase();
+    if (APPS[appId]) {
+      openApp(appId);
+      return `Abriendo ${APPS[appId].title}...`;
+    }
+    return `App no encontrada: "${appId}". Probá: ${Object.keys(APPS).join(', ')}`;
+  }
+
+  // ─── hud ───
+  if (lower === 'hud') {
+    toggleGamerOverlay();
+    return `Gaming HUD: ${gamerOverlayVisible ? 'ON' : 'OFF'}`;
+  }
+
+  // ─── optimize ───
+  if (lower === 'optimize' || lower === 'clean') {
+    simulateRamBoost();
+    return 'Optimizando sistema... RAM liberada.';
+  }
+
+  // ─── close-all ───
+  if (lower === 'close-all' || lower === 'exit-all') {
+    const count = Object.keys(openWindows).length;
+    Object.keys(openWindows).forEach(id => closeApp(id));
+    return `${count} ventana${count === 1 ? '' : 's'} cerrada${count === 1 ? '' : 's'}.`;
+  }
+
+  // ─── matrix ───
+  if (lower === 'matrix') {
+    return [
+      { text: 'Wake up, Neo...', cls: 'term-matrix' },
+      { text: 'The Matrix has you...', cls: 'term-matrix' },
+      { text: 'Follow the white rabbit. 🐇', cls: 'term-matrix' },
+      { text: 'Knock, knock, Neo.', cls: 'term-matrix' }
+    ];
+  }
+
+  // ─── sudo ───
+  if (lower.startsWith('sudo ')) {
+    return `[sudo] password for ${currentProfile}: ********\nPermiso denegado: no sos root en Nebula OS. 😉`;
+  }
+
+  // ─── Fallback ───
+  return `comando no encontrado: ${cmd.split(' ')[0]}. Probá "help".`;
 }
 
 /* ═══════════════════════════════════════════════════════════════
