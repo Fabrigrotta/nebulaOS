@@ -15977,5 +15977,370 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   ★ FIX — GAMER OVERLAY (Gaming HUD)
+   ═══════════════════════════════════════════════════════════════ */
+
+.gamer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 7, 14, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: opacity 0.24s ease, visibility 0.24s;
+}
+.gamer-overlay.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.hud-container {
+  width: min(820px, 94vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  background: linear-gradient(135deg, rgba(13, 17, 28, 0.94), rgba(7, 9, 15, 0.96));
+  border: 1px solid rgba(0, 255, 204, 0.35);
+  box-shadow: 0 0 50px rgba(0, 255, 204, 0.15), 0 30px 80px rgba(0, 0, 0, 0.85);
+  position: relative;
+}
+
+.hud-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 16px;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.hud-title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.hud-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(0, 255, 204, 0.15);
+  color: #00ffcc;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+.hud-badge svg, .hud-badge i {
+  width: 11px;
+  height: 11px;
+}
+.hud-title strong {
+  font-size: 17px;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+.hud-shortcut-hint {
+  font-size: 11px;
+  color: var(--text-sub);
+}
+.hud-shortcut-hint kbd {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: "JetBrains Mono", monospace;
+  color: #00ffcc;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.hud-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.hud-gamemode-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.hud-gamemode-btn:hover {
+  background: rgba(0, 255, 204, 0.15);
+  border-color: #00ffcc;
+}
+.hud-gamemode-btn.active {
+  background: rgba(0, 255, 204, 0.2);
+  border-color: #00ffcc;
+  color: #00ffcc;
+  box-shadow: 0 0 15px rgba(0, 255, 204, 0.35);
+}
+.hud-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #666;
+}
+.hud-gamemode-btn.active .hud-pulse-dot {
+  background: #00ffcc;
+  box-shadow: 0 0 8px #00ffcc;
+}
+
+.hud-close-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: 0.2s;
+  flex-shrink: 0;
+}
+.hud-close-btn svg, .hud-close-btn i {
+  width: 14px;
+  height: 14px;
+}
+.hud-close-btn:hover {
+  background: rgba(243, 139, 168, 0.3);
+  border-color: #f38ba8;
+  color: #f38ba8;
+}
+
+.hud-telemetry-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.hud-card {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.hud-fps-card {
+  background: radial-gradient(circle at top left, rgba(0, 255, 204, 0.1), transparent 70%), rgba(255, 255, 255, 0.035);
+  border-color: rgba(0, 255, 204, 0.25);
+}
+.hud-card-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: var(--text-sub);
+}
+.hud-card-header svg, .hud-card-header i {
+  width: 13px;
+  height: 13px;
+  color: var(--accent);
+}
+.hud-fps-val {
+  font-size: 52px;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 800;
+  color: #00ffcc;
+  text-shadow: 0 0 25px rgba(0, 255, 204, 0.5);
+  line-height: 1;
+  margin: 6px 0 2px;
+}
+.hud-fps-label {
+  font-size: 10px;
+  color: #a6adc8;
+  font-weight: 600;
+}
+.hud-fps-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+.hud-fps-fill {
+  height: 100%;
+  width: 95%;
+  background: linear-gradient(90deg, #00ffcc, #a6e3a1);
+}
+.hud-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  margin-top: 6px;
+}
+.hud-stat-row span { color: var(--text-sub); }
+.hud-stat-row strong {
+  color: #fff;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+}
+.hud-mini-meter {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  margin-top: 5px;
+  overflow: hidden;
+}
+.hud-mini-meter .meter-bar {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.4s ease;
+}
+
+.hud-bottom-bar {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.35);
+}
+.hud-media-bg {
+  position: absolute;
+  inset: -20px;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(28px) saturate(1.6) brightness(0.7);
+  opacity: 0.55;
+  transform: scale(1.15);
+  transition: background-image 0.4s ease, opacity 0.4s ease;
+  pointer-events: none;
+}
+.hud-bottom-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(180deg, rgba(10, 12, 20, 0.42) 0%, rgba(10, 12, 20, 0.78) 100%);
+  pointer-events: none;
+}
+.hud-bottom-bar > *:not(.hud-media-bg) {
+  position: relative;
+  z-index: 1;
+}
+.hud-media-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.hud-media-block img {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.hud-media-info {
+  min-width: 0;
+  flex: 1;
+}
+.hud-media-info strong {
+  display: block;
+  font-size: 11px;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hud-media-info small {
+  color: var(--text-sub);
+  font-size: 10px;
+}
+.hud-media-btns { display: flex; gap: 4px; }
+.hud-mbtn {
+  border: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: 0.15s;
+}
+.hud-mbtn svg, .hud-mbtn i {
+  width: 12px;
+  height: 12px;
+}
+.hud-mbtn:hover { background: rgba(255, 255, 255, 0.2); }
+.hud-mbtn.main {
+  background: #00ffcc;
+  color: #0d0f17;
+}
+
+.hud-progress-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hud-progress-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--text-sub);
+  font-family: "JetBrains Mono", monospace;
+}
+.hud-progress-label svg, .hud-progress-label i {
+  width: 12px;
+  height: 12px;
+  color: #00ffcc;
+}
+.hud-progress-track {
+  width: 100%;
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.hud-progress-track span {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #00ffcc, color-mix(in srgb, #00ffcc 70%, #fff 30%));
+  transition: width 0.3s linear;
+}
+
+/* Responsive */
+@media (max-width: 700px) {
+  .hud-telemetry-grid { grid-template-columns: 1fr; }
+  .hud-bottom-bar { grid-template-columns: 1fr; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    ★ FIN DEL BLOQUE 5B/5 — FIN DE STYLES.CSS
    ═══════════════════════════════════════════════════════════════ */
