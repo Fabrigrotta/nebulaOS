@@ -89,7 +89,7 @@
           <i data-lucide="bell" class="tray-icon"></i>
           <span class="notif-badge" id="notif-badge" hidden>0</span>
         </div>
-        <div class="item" title="Volumen">
+        <div class="item" id="tray-volume-item" title="Volumen — Clic para abrir el mezclador" role="button" tabindex="0" style="cursor:pointer;">
           <i data-lucide="volume-2" class="tray-icon"></i>
           <span id="tray-volume-num">80%</span>
         </div>
@@ -549,30 +549,89 @@
 
   <!-- ★ NEBULA STORE OVERLAY -->
   <div id="store-overlay" class="hidden" aria-label="Nebula Store">
-    <div class="store-container">
-      <header class="store-header">
-        <div class="store-header-left">
-          <span class="store-kicker">NEBULA STORE</span>
-          <h2>Tienda de Personalización</h2>
-          <p id="store-subtitle">Descargá temas, widgets, wallpapers, apps y juegos</p>
-        </div>
-        <div class="store-header-right">
-          <button class="store-close-btn" type="button" onclick="closeStore()" aria-label="Cerrar tienda">
-            <i data-lucide="x"></i>
-          </button>
-        </div>
-      </header>
+    ...
+  </div>
 
-      <div class="store-categories" id="store-categories">
-        <button class="store-cat-btn active" data-cat="all">Todos</button>
-        <button class="store-cat-btn" data-cat="theme">Temas</button>
-        <button class="store-cat-btn" data-cat="widget">Widgets</button>
-        <button class="store-cat-btn" data-cat="wallpaper">Wallpapers</button>
-        <button class="store-cat-btn" data-cat="app">Apps</button>
-        <button class="store-cat-btn" data-cat="game">Juegos</button>
+  <!-- ★ PANEL DE AUDIO AVANZADO (MEZCLADOR) -->
+  <div id="audio-panel" class="hidden" aria-label="Panel de Audio Avanzado">
+    <div class="audio-panel-header">
+      <div>
+        <div class="widget-kicker">NEBULA AUDIO</div>
+        <strong>Mezclador de Audio</strong>
+        <span id="audio-panel-subtitle">Sin aplicaciones con audio</span>
+      </div>
+      <button class="audio-panel-close" id="audio-panel-close" type="button" title="Cerrar panel" aria-label="Cerrar panel">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <div class="audio-panel-body" id="audio-panel-body">
+      <!-- Master -->
+      <div class="audio-master-section">
+        <div class="audio-master-head">
+          <div class="audio-master-info">
+            <i data-lucide="volume-2" class="audio-master-icon" id="audio-master-icon"></i>
+            <div>
+              <strong>Master</strong>
+              <small>Volumen general del sistema</small>
+            </div>
+          </div>
+          <div class="audio-master-value">
+            <span id="audio-master-value">80%</span>
+          </div>
+        </div>
+        <div class="audio-slider-row">
+          <button class="audio-mini-btn" id="audio-master-mute" type="button" title="Silenciar sistema">
+            <i data-lucide="volume-2" id="audio-master-mute-icon"></i>
+          </button>
+          <div class="audio-slider-track" id="audio-master-slider">
+            <div class="audio-slider-fill" id="audio-master-fill" style="width: 80%"></div>
+            <div class="audio-slider-knob" id="audio-master-knob" style="left: 80%"></div>
+          </div>
+        </div>
       </div>
 
-      <div class="store-grid" id="store-grid"></div>
+      <!-- Peak meter -->
+      <div class="audio-peak-meter" id="audio-peak-meter">
+        <div class="audio-peak-row">
+          <span class="audio-peak-label">L</span>
+          <div class="audio-peak-track">
+            <div class="audio-peak-fill" id="audio-peak-l" style="width: 0%"></div>
+          </div>
+          <span class="audio-peak-value" id="audio-peak-l-value">-∞ dB</span>
+        </div>
+        <div class="audio-peak-row">
+          <span class="audio-peak-label">R</span>
+          <div class="audio-peak-track">
+            <div class="audio-peak-fill" id="audio-peak-r" style="width: 0%"></div>
+          </div>
+          <span class="audio-peak-value" id="audio-peak-r-value">-∞ dB</span>
+        </div>
+      </div>
+
+      <!-- Apps mixer -->
+      <div class="audio-section-label">
+        <i data-lucide="layers"></i>
+        <span>Aplicaciones</span>
+        <span class="audio-apps-count" id="audio-apps-count">0</span>
+      </div>
+      <div class="audio-mixer-list" id="audio-mixer-list"></div>
+
+      <!-- Output device -->
+      <div class="audio-section-label">
+        <i data-lucide="speaker"></i>
+        <span>Dispositivo de salida</span>
+      </div>
+      <div class="audio-devices-list" id="audio-devices-list"></div>
+    </div>
+
+    <div class="audio-panel-footer">
+      <button class="audio-footer-btn" type="button" onclick="openAudioSettings()">
+        <i data-lucide="settings-2"></i> Ajustes de audio
+      </button>
+      <button class="audio-footer-btn ghost" type="button" onclick="resetAudioMixer()">
+        <i data-lucide="rotate-ccw"></i> Restablecer
+      </button>
     </div>
   </div>
 

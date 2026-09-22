@@ -737,6 +737,42 @@ const TOAST_DURATIONS = {
   danger:  8000
 };
 
+/* ─── Panel de Audio Avanzado ─── */
+const AUDIO_PANEL_STORAGE_KEY = 'nebula-os:audio-mixer';
+const AUDIO_MASTER_STORAGE_KEY = 'nebula-os:audio-master';
+
+const AUDIO_DEVICES = [
+  { id: 'speakers',    name: 'Parlantes',           sub: 'Realtek HD Audio · Sistema', icon: 'speaker',       available: true  },
+  { id: 'headphones',  name: 'Auriculares HyperX',  sub: 'HyperX Cloud II · Bluetooth', icon: 'headphones',    available: true  },
+  { id: 'hdmi',        name: 'Monitor Samsung',     sub: 'HDMI · 48 kHz · Estéreo',     icon: 'monitor',       available: true  }
+];
+
+const AUDIO_APP_DEFAULTS = {
+  music:    { volume: 0.80, muted: false },
+  browser:  { volume: 0.50, muted: false },
+  games:    { volume: 0.70, muted: false },
+  vscode:   { volume: 0.30, muted: false },
+  terminal: { volume: 0.00, muted: true  },
+  files:    { volume: 0.00, muted: true  },
+  settings: { volume: 0.00, muted: true  },
+  nova:     { volume: 0.40, muted: false },
+  taskmgr:  { volume: 0.00, muted: true  },
+  activity: { volume: 0.00, muted: true  },
+  vault:    { volume: 0.00, muted: true  }
+};
+
+const AUDIO_APP_ACCENTS = {
+  music:    '#1ed760',
+  browser:  '#f59e0b',
+  games:    '#7c3aed',
+  vscode:   '#0284c7',
+  terminal: '#38bdf8',
+  nova:     '#c026d3',
+  system:   '#b4befe',
+  files:    '#3a86ff',
+  settings: '#94a3b8'
+};
+
 /* ─── Mapa de ícono → nivel de toast ─── */
 const TOAST_ICON_LEVEL_MAP = {
   'check-circle-2': 'success',
@@ -1188,6 +1224,18 @@ let vaultLockTimer = null;
 let vaultEntryModalEl = null;
 let vaultGeneratorModalEl = null;
 let vaultMasterModalEl = null;
+
+/* ─── Estado del Panel de Audio ─── */
+let audioPanelState = {
+  master: 0.80,
+  masterMuted: false,
+  activeDevice: 'speakers',
+  appVolumes: {},   // { [appId]: { volume: 0.80, muted: false } }
+  lastSpotifyVolume: 0.80,
+  peakRafId: null,
+  peakSmoothL: 0,
+  peakSmoothR: 0
+};
 
 /* ─── Estado del Centro de Actividad ─── */
 let activityLog = [];
@@ -2243,6 +2291,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 2. Cargar estado persistido del sistema
   loadPersistedState();
+  loadAudioMixerState();
   loadNotifications();
   loadGamelibState();
   loadActivityLog();
@@ -2390,6 +2439,24 @@ function setupUIActions() {
     });
   }
 
+  // ★ Panel de Audio — click en el item de volumen del tray
+  const trayVolumeItem = document.getElementById('tray-volume-item');
+  if (trayVolumeItem) {
+    trayVolumeItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof toggleAudioPanel === 'function') toggleAudioPanel();
+    });
+  }
+
+  // ★ Panel de Audio — botón cerrar
+  const audioPanelCloseBtn = document.getElementById('audio-panel-close');
+  if (audioPanelCloseBtn) {
+    audioPanelCloseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof closeAudioPanel === 'function') closeAudioPanel();
+    });
+  }
+
   if (clockCenter) clockCenter.addEventListener('click', toggleControlCenter);
 
   if (trayHudToggle) trayHudToggle.addEventListener('click', (e) => {
@@ -2436,6 +2503,8 @@ function setupUIActions() {
     const isWifiBtnClick = e.target.closest('#tray-wifi-item');
     const isBtPanelClick = e.target.closest('#bluetooth-panel');
     const isBtBtnClick = e.target.closest('#tray-bt-item');
+    const isAudioPanelClick = e.target.closest('#audio-panel');
+    const isAudioBtnClick = e.target.closest('#tray-volume-item');
 
     if (!isDockCtxClick) hideDockContextMenu();
     if (!isWmCardCtxClick) hideWmCardContextMenu();
@@ -2446,6 +2515,8 @@ function setupUIActions() {
         && !clockCenter?.contains(e.target)
         && !controlCenter?.contains(e.target)
         && !quickCenter?.contains(e.target)
+        && !isAudioPanelClick
+        && !isAudioBtnClick
         && !isPlayerClick
         && !isCalendarClick
         && !isHudClick
@@ -2700,6 +2771,9 @@ function setupSpotifyIntegration() {
 
   SpotifyApp.on('volume', ({ volume, muted }) => {
     updateSpotifyVolumeUI(volume, muted);
+    if (typeof syncAudioPanelWithSpotify === 'function') syncAudioPanelWithSpotify();
+    if (typeof updateAudioMasterUI === 'function') updateAudioMasterUI();
+    if (typeof updateTrayVolumeIcon === 'function') updateTrayVolumeIcon();
   });
 
   SpotifyApp.on('shuffle', ({ shuffle }) => {
@@ -3791,6 +3865,15 @@ function openApp(appId, forceNew = false, restoreData = null) {
   syncAllSliders();
   refreshIcons();
 
+  // ★ Actualizar panel de audio si está abierto
+  if (typeof renderAudioPanel === 'function') {
+    const ap = document.getElementById('audio-panel');
+    if (ap && !ap.classList.contains('hidden')) {
+      renderAudioPanel();
+    }
+    if (typeof updateAudioPanelSubtitle === 'function') updateAudioPanelSubtitle();
+  }
+
   // Drag de la titlebar
   const titlebar = win.querySelector('.titlebar');
 
@@ -3928,6 +4011,15 @@ function closeApp(winId) {
 
     renderDock();
     hideDockPreview();
+
+    // ★ Actualizar panel de audio si está abierto
+    if (typeof renderAudioPanel === 'function') {
+      const ap = document.getElementById('audio-panel');
+      if (ap && !ap.classList.contains('hidden')) {
+        renderAudioPanel();
+      }
+      if (typeof updateAudioPanelSubtitle === 'function') updateAudioPanelSubtitle();
+    }
 
     if (windowManagerOpen) renderWindowManager();
 
@@ -5532,7 +5624,8 @@ function buildLauncherActions() {
     { id: 'action-workspace-4', title: 'Ir al Space 4', sub: 'Cambiar al cuarto escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '4'], run: () => switchWorkspace(4) },
     { id: 'action-workspace-5', title: 'Ir al Space 5', sub: 'Cambiar al quinto escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '5'], run: () => switchWorkspace(5) },
     { id: 'action-open-wm', title: 'Abrir Administrador de Escritorios', sub: 'Vista general de spaces y ventanas', icon: 'layout-grid', category: 'Acción', keywords: ['wm', 'window manager', 'administrador', 'escritorios'], run: () => openWindowManager() },
-    { id: 'action-open-settings-designer', title: 'Abrir Nebula Designer', sub: 'Personalizar colores, blur y bordes', icon: 'palette', category: 'Acción', keywords: ['designer', 'ajustes', 'settings', 'personalizar'], run: () => openSettingsTab('designer') }
+    { id: 'action-open-settings-designer', title: 'Abrir Nebula Designer', sub: 'Personalizar colores, blur y bordes', icon: 'palette', category: 'Acción', keywords: ['designer', 'ajustes', 'settings', 'personalizar'], run: () => openSettingsTab('designer') },
+    { id: 'action-audio-panel', title: 'Abrir Panel de Audio', sub: 'Mezclador por aplicación, dispositivos y peak meter', icon: 'volume-2', category: 'Acción', keywords: ['audio', 'volumen', 'mezclador', 'mixer', 'sonido'], run: () => { if (typeof openAudioPanel === 'function') openAudioPanel(); } }
   ];
 }
 
@@ -5555,7 +5648,8 @@ function buildLauncherCommands() {
     { id: 'cmd-theme-catppuccin', title: '> theme catppuccin', sub: 'Aplicar tema Minimal Catppuccin', icon: 'palette', category: 'Comando', keywords: ['theme catppuccin', 'tema catppuccin'], run: () => applyThemePreset('catppuccin') },
     { id: 'cmd-theme-synthwave', title: '> theme synthwave', sub: 'Aplicar tema Retro Synthwave', icon: 'palette', category: 'Comando', keywords: ['theme synthwave', 'tema synthwave'], run: () => applyThemePreset('synthwave') },
     { id: 'cmd-theme-stealth', title: '> theme stealth', sub: 'Aplicar tema Dark Stealth', icon: 'palette', category: 'Comando', keywords: ['theme stealth', 'tema stealth'], run: () => applyThemePreset('stealth') },
-    { id: 'cmd-theme-nord-arc', title: '> theme nord-arc', sub: 'Aplicar tema Nord Arc', icon: 'palette', category: 'Comando', keywords: ['theme nord', 'tema nord', 'nord arc'], run: () => applyThemePreset('nord-arc') }
+    { id: 'cmd-theme-nord-arc', title: '> theme nord-arc', sub: 'Aplicar tema Nord Arc', icon: 'palette', category: 'Comando', keywords: ['theme nord', 'tema nord', 'nord arc'], run: () => applyThemePreset('nord-arc') },
+    { id: 'cmd-audio', title: '> audio', sub: 'Abrir el mezclador de audio', icon: 'volume-2', category: 'Comando', keywords: ['audio', 'mezclador', 'volumen', 'mixer'], run: () => { if (typeof openAudioPanel === 'function') openAudioPanel(); } },
   ];
 }
 
@@ -5906,6 +6000,7 @@ function openWifiPanel() {
   closeControlCenter();
   closeNotificationCenter();
   closeBluetoothPanel();
+  if (typeof closeAudioPanel === 'function') closeAudioPanel();
   panel.classList.remove('hidden');
   renderWifiPanel();
   refreshIcons();
@@ -18726,6 +18821,681 @@ function applyBrightness(val) {
     localStorage.setItem(BRIGHTNESS_STORAGE_KEY, String(currentBrightness));
   } catch (e) {}
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ PANEL DE AUDIO AVANZADO — Helpers y lógica
+   ═══════════════════════════════════════════════════════════════ */
+
+function loadAudioMixerState() {
+  try {
+    const raw = localStorage.getItem(AUDIO_PANEL_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.master === 'number') audioPanelState.master = parsed.master;
+        if (typeof parsed.masterMuted === 'boolean') audioPanelState.masterMuted = parsed.masterMuted;
+        if (parsed.activeDevice) audioPanelState.activeDevice = parsed.activeDevice;
+        if (parsed.appVolumes && typeof parsed.appVolumes === 'object') {
+          audioPanelState.appVolumes = parsed.appVolumes;
+        }
+      }
+    }
+  } catch (e) {}
+}
+
+function saveAudioMixerState() {
+  try {
+    const serializable = {
+      master: audioPanelState.master,
+      masterMuted: audioPanelState.masterMuted,
+      activeDevice: audioPanelState.activeDevice,
+      appVolumes: audioPanelState.appVolumes
+    };
+    localStorage.setItem(AUDIO_PANEL_STORAGE_KEY, JSON.stringify(serializable));
+  } catch (e) {}
+}
+
+function getAudioAppState(appId) {
+  if (!audioPanelState.appVolumes[appId]) {
+    const def = AUDIO_APP_DEFAULTS[appId] || { volume: 0.5, muted: false };
+    audioPanelState.appVolumes[appId] = { volume: def.volume, muted: def.muted };
+  }
+  return audioPanelState.appVolumes[appId];
+}
+
+function getActiveAudioApps() {
+  const apps = [];
+  const seen = new Set();
+
+  // ─── 1. Apps con ventana abierta ───
+  Object.keys(openWindows).forEach(winId => {
+    const entry = openWindows[winId];
+    if (!entry?.win) return;
+    const appId = entry.appId;
+    if (!appId || appId === 'store') return;
+    if (seen.has(appId)) return;
+    const app = APPS[appId];
+    if (!app) return;
+    seen.add(appId);
+    const count = getInstancesOfApp(appId).length;
+    apps.push({
+      id: appId,
+      title: app.title,
+      sub: app.sub || '',
+      icon: app.icon,
+      image: app.image,
+      accent: AUDIO_APP_ACCENTS[appId] || '#b4befe',
+      instances: count
+    });
+  });
+
+  // ─── 2. ★ Spotify "fantasma": aparece si hay track cargado o suena ───
+  //         (aunque no haya ventana abierta de la app music)
+  //         Esto cubre el caso del Topbar Player: si el topbar está
+  //         visible, significa que hay un track cargado → debe aparecer.
+  if (window.SpotifyApp && !seen.has('music')) {
+    const current = SpotifyApp.getCurrentTrack();
+    const hasTrack = !!current;
+    const isPlaying = spotify.isPlaying;
+
+    if (hasTrack || isPlaying) {
+      seen.add('music');
+      const musicApp = APPS.music;
+      apps.push({
+        id: 'music',
+        title: musicApp?.title || 'Spotify',
+        sub: isPlaying
+          ? `Reproduciendo · ${current?.title || 'cargando...'}`
+          : `En pausa · ${current?.title || '—'}`,
+        icon: musicApp?.icon || 'music',
+        image: musicApp?.image || null,
+        accent: AUDIO_APP_ACCENTS.music,
+        instances: 1,
+        virtual: true
+      });
+    }
+  }
+
+  // ─── 3. Sistema siempre presente ───
+  apps.push({
+    id: 'system',
+    title: 'Sistema',
+    sub: 'Sonidos del sistema',
+    icon: 'cpu',
+    image: null,
+    accent: AUDIO_APP_ACCENTS.system,
+    instances: 1,
+    isSystem: true
+  });
+
+  // ─── 4. Ordenar: Spotify primero, luego por instancias, luego alfabético ───
+  apps.sort((a, b) => {
+    if (a.id === 'music') return -1;
+    if (b.id === 'music') return 1;
+    if (a.isSystem) return 1;
+    if (b.isSystem) return -1;
+    return a.title.localeCompare(b.title);
+  });
+
+  return apps;
+}
+
+function setAudioMasterVolume(pct, { fromSpotify = false } = {}) {
+  const v = Math.max(0, Math.min(1, pct / 100));
+  audioPanelState.master = v;
+  audioPanelState.masterMuted = v === 0;
+
+  // Sincronizar con Spotify (fuente única de verdad)
+  if (window.SpotifyApp && !fromSpotify) {
+    if (SpotifyApp.isMuted() && v > 0) {
+      SpotifyApp.toggleMute();
+    }
+    SpotifyApp.setVolume(v);
+  }
+
+  // Sincronizar slider del Quick Center y tray
+  const qVol = document.getElementById('volume-slider');
+  if (qVol && Number(qVol.value) !== Math.round(v * 100)) {
+    qVol.value = String(Math.round(v * 100));
+    if (typeof syncSliderFill === 'function') syncSliderFill(qVol);
+  }
+  const qVal = document.getElementById('quick-volume-value');
+  if (qVal) qVal.textContent = `${Math.round(v * 100)}%`;
+  const trayNum = document.getElementById('tray-volume-num');
+  if (trayNum) trayNum.textContent = `${Math.round(v * 100)}%`;
+
+  updateTrayVolumeIcon();
+  updateAudioMasterUI();
+  saveAudioMixerState();
+}
+
+function toggleAudioMasterMute() {
+  if (audioPanelState.masterMuted || audioPanelState.master === 0) {
+    // Desmutear: restaurar último volumen o 80%
+    const restored = audioPanelState.master > 0 ? audioPanelState.master : 0.8;
+    audioPanelState.masterMuted = false;
+    setAudioMasterVolume(restored * 100);
+  } else {
+    // Mutear
+    audioPanelState.masterMuted = true;
+    if (window.SpotifyApp && !SpotifyApp.isMuted()) {
+      SpotifyApp.toggleMute();
+    }
+    audioPanelState.lastSpotifyVolume = audioPanelState.master;
+    updateAudioMasterUI();
+    updateTrayVolumeIcon();
+    saveAudioMixerState();
+  }
+}
+
+function setAppVolume(appId, pct) {
+  const v = Math.max(0, Math.min(1, pct / 100));
+  const state = getAudioAppState(appId);
+  state.volume = v;
+  if (v > 0 && state.muted) state.muted = false;
+
+  // Si es Spotify, aplicar real (multiplicado por master)
+  if (appId === 'music' && window.SpotifyApp) {
+    // Spotify ya se controla desde master, así que aquí solo guardamos el estado visual
+    // (Spotify solo tiene un volumen real; el master ya lo controla)
+    // Para hacerlo más realista, el volumen de Spotify es el master, así que este slider es decorativo
+  }
+
+  saveAudioMixerState();
+  updateAudioMixerItemUI(appId);
+  updateAudioPanelSubtitle();
+}
+
+function toggleAppMute(appId) {
+  const state = getAudioAppState(appId);
+  state.muted = !state.muted;
+  if (appId === 'music' && window.SpotifyApp) {
+    const isMuted = SpotifyApp.isMuted();
+    if (state.muted && !isMuted) SpotifyApp.toggleMute();
+    if (!state.muted && isMuted) SpotifyApp.toggleMute();
+  }
+  saveAudioMixerState();
+  updateAudioMixerItemUI(appId);
+}
+
+function selectAudioDevice(deviceId) {
+  const device = AUDIO_DEVICES.find(d => d.id === deviceId);
+  if (!device) return;
+  audioPanelState.activeDevice = deviceId;
+  saveAudioMixerState();
+  renderAudioPanel();
+  showToast('Dispositivo de Audio', `Salida → ${device.name}`, 'speaker');
+}
+
+function updateAudioMasterUI() {
+  const pct = Math.round(audioPanelState.master * 100);
+  const isMuted = audioPanelState.masterMuted || audioPanelState.master === 0;
+
+  const valEl = document.getElementById('audio-master-value');
+  if (valEl) valEl.textContent = isMuted ? 'Mute' : `${pct}%`;
+
+  const fill = document.getElementById('audio-master-fill');
+  if (fill) fill.style.width = `${isMuted ? 0 : pct}%`;
+
+  const knob = document.getElementById('audio-master-knob');
+  if (knob) knob.style.left = `${isMuted ? 0 : pct}%`;
+
+  const muteBtn = document.getElementById('audio-master-mute');
+  if (muteBtn) muteBtn.classList.toggle('muted', isMuted);
+
+  const muteIcon = document.getElementById('audio-master-mute-icon');
+  if (muteIcon) {
+    const iconName = isMuted ? 'volume-x' : (pct === 0 ? 'volume' : pct < 50 ? 'volume-1' : 'volume-2');
+    if (muteIcon.getAttribute('data-lucide') !== iconName) {
+      muteIcon.setAttribute('data-lucide', iconName);
+      if (typeof refreshIcons === 'function') refreshIcons();
+    }
+  }
+
+  const masterIcon = document.getElementById('audio-master-icon');
+  if (masterIcon) {
+    const iconName = isMuted ? 'volume-x' : (pct === 0 ? 'volume' : pct < 50 ? 'volume-1' : 'volume-2');
+    if (masterIcon.getAttribute('data-lucide') !== iconName) {
+      masterIcon.setAttribute('data-lucide', iconName);
+      if (typeof refreshIcons === 'function') refreshIcons();
+    }
+  }
+}
+
+function updateAudioMixerItemUI(appId) {
+  const item = document.querySelector(`.audio-mixer-item[data-app-id="${appId}"]`);
+  if (!item) return;
+  const state = getAudioAppState(appId);
+  const pct = Math.round(state.volume * 100);
+  const isMuted = state.muted;
+
+  const fill = item.querySelector('.audio-slider-fill');
+  if (fill) fill.style.width = `${isMuted ? 0 : pct}%`;
+  const knob = item.querySelector('.audio-slider-knob');
+  if (knob) knob.style.left = `${isMuted ? 0 : pct}%`;
+  const pctEl = item.querySelector('.audio-mixer-pct');
+  if (pctEl) pctEl.textContent = isMuted ? 'Mute' : `${pct}%`;
+  const muteBtn = item.querySelector('.audio-mini-btn');
+  if (muteBtn) muteBtn.classList.toggle('muted', isMuted);
+  item.classList.toggle('muted', isMuted);
+}
+
+function updateAudioPanelSubtitle() {
+  const apps = getActiveAudioApps().filter(a => !a.isSystem);
+  const count = apps.length;
+  const el = document.getElementById('audio-panel-subtitle');
+  if (el) {
+    el.textContent = count === 0
+      ? 'Sin aplicaciones abiertas'
+      : `${count} aplicación${count === 1 ? '' : 'es'} con audio`;
+  }
+  const countEl = document.getElementById('audio-apps-count');
+  if (countEl) countEl.textContent = String(count);
+}
+
+function renderAudioPanel() {
+  const listEl = document.getElementById('audio-mixer-list');
+  const devicesEl = document.getElementById('audio-devices-list');
+  if (!listEl || !devicesEl) return;
+
+  // 1. Master
+  updateAudioMasterUI();
+
+  // 2. Apps
+  const apps = getActiveAudioApps();
+  const visibleApps = apps.filter(a => !a.isSystem);
+
+  if (visibleApps.length === 0 && !apps.find(a => a.isSystem)) {
+    listEl.innerHTML = `
+      <div class="audio-mixer-empty">
+        <strong>Sin aplicaciones con audio</strong>
+        Abrí alguna app desde el dock para verla acá.
+      </div>
+    `;
+  } else {
+    // Sistema siempre visible
+    const allToRender = apps;
+
+    listEl.innerHTML = allToRender.map(app => {
+      const state = getAudioAppState(app.id);
+      const pct = Math.round(state.volume * 100);
+      const isMuted = state.muted;
+      const iconHTML = app.image
+        ? `<img src="${escapeHtml(app.image)}" alt="" onerror="this.style.display='none'; this.parentElement.innerHTML='<i data-lucide=\\'${app.icon}\\'></i>'; refreshIcons();" />`
+        : `<i data-lucide="${app.icon}"></i>`;
+      const instancesBadge = app.instances > 1
+        ? `<span class="audio-mixer-instances">${app.instances}×</span>`
+        : '';
+
+      const showVisualizer = app.id === 'music';
+
+      return `
+        <div class="audio-mixer-item ${isMuted ? 'muted' : ''}"
+             data-app-id="${app.id}"
+             style="--app-audio-accent: ${app.accent};">
+          <div class="audio-mixer-head">
+            <div class="audio-mixer-icon">${iconHTML}</div>
+            <div class="audio-mixer-info">
+              <div class="audio-mixer-title">
+                <strong>${escapeHtml(app.title)}</strong>
+                ${instancesBadge}
+              </div>
+              <span class="audio-mixer-sub">${escapeHtml(app.sub || 'Aplicación')}</span>
+            </div>
+            <div class="audio-mixer-value">
+              <span class="audio-mixer-pct">${isMuted ? 'Mute' : `${pct}%`}</span>
+            </div>
+          </div>
+
+          <div class="audio-slider-row">
+            <button class="audio-mini-btn ${isMuted ? 'muted' : ''}"
+                    type="button"
+                    data-app-mute="${app.id}"
+                    title="${isMuted ? 'Activar' : 'Silenciar'}">
+              <i data-lucide="${isMuted ? 'volume-x' : 'volume-2'}"></i>
+            </button>
+            <div class="audio-slider-track" data-app-slider="${app.id}">
+              <div class="audio-slider-fill" style="width: ${isMuted ? 0 : pct}%"></div>
+              <div class="audio-slider-knob" style="left: ${isMuted ? 0 : pct}%"></div>
+            </div>
+          </div>
+
+          ${showVisualizer ? `
+            <div class="audio-mixer-visualizer" data-audio-visualizer>
+              ${Array.from({ length: 32 }).map(() => `<span class="audio-mixer-visualizer-bar" style="height: 8%"></span>`).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 3. Devices
+  devicesEl.innerHTML = AUDIO_DEVICES.map(device => {
+    const isActive = audioPanelState.activeDevice === device.id;
+    return `
+      <button class="audio-device-item ${isActive ? 'active' : ''}"
+              type="button"
+              data-audio-device="${device.id}">
+        <div class="audio-device-icon"><i data-lucide="${device.icon}"></i></div>
+        <div class="audio-device-info">
+          <span class="audio-device-name">${escapeHtml(device.name)}</span>
+          <span class="audio-device-sub">${escapeHtml(device.sub)}</span>
+        </div>
+        <span class="audio-device-check"><i data-lucide="check"></i></span>
+      </button>
+    `;
+  }).join('');
+
+  updateAudioPanelSubtitle();
+
+  // Bind events
+  bindAudioPanelEvents();
+
+  if (typeof refreshIcons === 'function') refreshIcons();
+}
+
+function bindAudioPanelEvents() {
+  // Master slider
+  const masterTrack = document.getElementById('audio-master-slider');
+  if (masterTrack && !masterTrack.dataset.bound) {
+    masterTrack.dataset.bound = '1';
+    bindAudioSlider(masterTrack, (pct) => setAudioMasterVolume(pct));
+  }
+
+  // Master mute
+  const masterMute = document.getElementById('audio-master-mute');
+  if (masterMute && !masterMute.dataset.bound) {
+    masterMute.dataset.bound = '1';
+    masterMute.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleAudioMasterMute();
+    });
+  }
+
+  // App sliders
+  document.querySelectorAll('[data-app-slider]').forEach(track => {
+    if (track.dataset.bound) return;
+    track.dataset.bound = '1';
+    const appId = track.dataset.appSlider;
+    bindAudioSlider(track, (pct) => setAppVolume(appId, pct));
+  });
+
+  // App mute buttons
+  document.querySelectorAll('[data-app-mute]').forEach(btn => {
+    if (btn.dataset.bound) return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleAppMute(btn.dataset.appMute);
+    });
+  });
+
+  // Devices
+  document.querySelectorAll('[data-audio-device]').forEach(btn => {
+    if (btn.dataset.bound) return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectAudioDevice(btn.dataset.audioDevice);
+    });
+  });
+}
+
+function bindAudioSlider(trackEl, onChange) {
+  const computePct = (clientX) => {
+    const rect = trackEl.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    return pct;
+  };
+
+  const onMove = (e) => {
+    const pct = computePct(e.clientX);
+    onChange(pct);
+  };
+
+  const onDown = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    trackEl.classList.add('dragging');
+    onMove(e);
+
+    const onUp = () => {
+      trackEl.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  trackEl.addEventListener('mousedown', onDown);
+
+  // Touch support
+  const onTouchMove = (e) => {
+    if (e.touches && e.touches[0]) {
+      const pct = computePct(e.touches[0].clientX);
+      onChange(pct);
+    }
+  };
+  trackEl.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    trackEl.classList.add('dragging');
+    onTouchMove(e);
+    const onTouchEnd = () => {
+      trackEl.classList.remove('dragging');
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
+    };
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
+  }, { passive: false });
+}
+
+function openAudioPanel() {
+  const panel = document.getElementById('audio-panel');
+  if (!panel) return;
+
+  // Cerrar otros paneles
+  if (typeof closeWifiPanel === 'function') closeWifiPanel();
+  if (typeof closeBluetoothPanel === 'function') closeBluetoothPanel();
+  if (typeof closeNotificationCenter === 'function') closeNotificationCenter();
+  if (typeof closeQuickCenter === 'function') closeQuickCenter();
+  if (typeof closeControlCenter === 'function') closeControlCenter();
+
+  panel.classList.remove('hidden');
+  renderAudioPanel();
+  startAudioPeakMeter();
+  if (typeof refreshIcons === 'function') refreshIcons();
+}
+
+function closeAudioPanel() {
+  const panel = document.getElementById('audio-panel');
+  if (!panel) return;
+  panel.classList.add('hidden');
+  stopAudioPeakMeter();
+}
+
+function toggleAudioPanel() {
+  const panel = document.getElementById('audio-panel');
+  if (!panel) return;
+  if (panel.classList.contains('hidden')) openAudioPanel();
+  else closeAudioPanel();
+}
+
+function updateTrayVolumeIcon() {
+  const iconEl = document.querySelector('#tray-volume-item i, #tray-volume-item svg');
+  if (!iconEl) return;
+  const pct = Math.round(audioPanelState.master * 100);
+  const isMuted = audioPanelState.masterMuted || audioPanelState.master === 0;
+  const iconName = isMuted ? 'volume-x' : (pct < 20 ? 'volume' : pct < 50 ? 'volume-1' : 'volume-2');
+  if (iconEl.getAttribute('data-lucide') !== iconName) {
+    iconEl.outerHTML = `<i data-lucide="${iconName}" class="tray-icon"></i>`;
+    if (typeof refreshIcons === 'function') refreshIcons();
+  }
+}
+
+/* ─── Peak meter (visualizador L/R) ─── */
+function startAudioPeakMeter() {
+  if (audioPanelState.peakRafId !== null) return;
+  const tick = () => {
+    audioPanelState.peakRafId = requestAnimationFrame(tick);
+    updateAudioPeakMeter();
+  };
+  audioPanelState.peakRafId = requestAnimationFrame(tick);
+}
+
+function stopAudioPeakMeter() {
+  if (audioPanelState.peakRafId !== null) {
+    cancelAnimationFrame(audioPanelState.peakRafId);
+    audioPanelState.peakRafId = null;
+  }
+  audioPanelState.peakSmoothL = 0;
+  audioPanelState.peakSmoothR = 0;
+  const l = document.getElementById('audio-peak-l');
+  const r = document.getElementById('audio-peak-r');
+  const lv = document.getElementById('audio-peak-l-value');
+  const rv = document.getElementById('audio-peak-r-value');
+  if (l) l.style.width = '0%';
+  if (r) r.style.width = '0%';
+  if (lv) lv.textContent = '-∞ dB';
+  if (rv) rv.textContent = '-∞ dB';
+}
+
+function updateAudioPeakMeter() {
+  let levelL = 0;
+  let levelR = 0;
+
+  if (window.SpotifyApp && SpotifyApp.isPlaying()) {
+    const data = SpotifyApp.getAnalyserData();
+    if (data && data.length > 0) {
+      // Tomamos la mitad izquierda y derecha del espectro como aproximación
+      const half = Math.floor(data.length / 2);
+      let sumL = 0, sumR = 0;
+      for (let i = 0; i < half; i++) sumL += data[i];
+      for (let i = half; i < data.length; i++) sumR += data[i];
+      levelL = sumL / half / 255;
+      levelR = sumR / (data.length - half) / 255;
+    }
+  } else {
+    // Sin música: pequeño ruido aleatorio para dar vida
+    levelL = Math.random() * 0.05;
+    levelR = Math.random() * 0.05;
+  }
+
+  // Suavizado
+  audioPanelState.peakSmoothL += (levelL - audioPanelState.peakSmoothL) * 0.35;
+  audioPanelState.peakSmoothR += (levelR - audioPanelState.peakSmoothR) * 0.35;
+
+  const pctL = Math.min(100, audioPanelState.peakSmoothL * 100);
+  const pctR = Math.min(100, audioPanelState.peakSmoothR * 100);
+
+  const l = document.getElementById('audio-peak-l');
+  const r = document.getElementById('audio-peak-r');
+  if (l) l.style.width = `${pctL}%`;
+  if (r) r.style.width = `${pctR}%`;
+
+  // dB aproximado (aproximación lineal)
+  const dbFromPct = (pct) => {
+    if (pct <= 1) return '-∞ dB';
+    const db = 20 * Math.log10(pct / 100);
+    if (db < -60) return '-∞ dB';
+    return `${db.toFixed(0)} dB`;
+  };
+
+  const lv = document.getElementById('audio-peak-l-value');
+  const rv = document.getElementById('audio-peak-r-value');
+  if (lv) lv.textContent = dbFromPct(pctL);
+  if (rv) rv.textContent = dbFromPct(pctR);
+
+  // Actualizar visualizador de Spotify en el mixer
+  const viz = document.querySelector('[data-audio-visualizer]');
+  if (viz) {
+    const bars = viz.querySelectorAll('.audio-mixer-visualizer-bar');
+    if (bars.length > 0 && window.SpotifyApp && SpotifyApp.isPlaying()) {
+      const data = SpotifyApp.getAnalyserData();
+      if (data && data.length > 0) {
+        const step = Math.floor(data.length / bars.length);
+        bars.forEach((bar, i) => {
+          const v = data[i * step] / 255;
+          const h = Math.max(8, v * 100);
+          bar.style.height = `${h}%`;
+        });
+      }
+    } else if (bars.length > 0) {
+      bars.forEach((bar, i) => {
+        const h = 8 + Math.random() * 12;
+        bar.style.height = `${h}%`;
+      });
+    }
+  }
+}
+
+/* ─── Sync con Spotify ─── */
+function syncAudioPanelWithSpotify() {
+  if (!window.SpotifyApp) return;
+  const spotifyVol = SpotifyApp.getVolume();
+  const spotifyMuted = SpotifyApp.isMuted();
+
+  // Si Spotify cambió de volumen (ej: desde el Quick Center), sincronizar master
+  const expected = Math.round(audioPanelState.master * 100);
+  const actual = Math.round(spotifyVol * 100);
+  if (actual !== expected) {
+    audioPanelState.master = spotifyVol;
+    audioPanelState.masterMuted = spotifyMuted;
+    updateAudioMasterUI();
+    updateTrayVolumeIcon();
+    saveAudioMixerState();
+  }
+
+  // Sync estado visual de Spotify en el mixer
+  const spotifyAppState = getAudioAppState('music');
+  if (spotifyMuted !== spotifyAppState.muted) {
+    spotifyAppState.muted = spotifyMuted;
+    updateAudioMixerItemUI('music');
+  }
+}
+
+/* ─── Reset ─── */
+function resetAudioMixer() {
+  audioPanelState.master = 0.80;
+  audioPanelState.masterMuted = false;
+  audioPanelState.appVolumes = {};
+  audioPanelState.activeDevice = 'speakers';
+  saveAudioMixerState();
+
+  if (window.SpotifyApp) {
+    if (SpotifyApp.isMuted()) SpotifyApp.toggleMute();
+    SpotifyApp.setVolume(0.80);
+  }
+  const qVol = document.getElementById('volume-slider');
+  if (qVol) {
+    qVol.value = '80';
+    if (typeof syncSliderFill === 'function') syncSliderFill(qVol);
+  }
+  const qVal = document.getElementById('quick-volume-value');
+  if (qVal) qVal.textContent = '80%';
+  const trayNum = document.getElementById('tray-volume-num');
+  if (trayNum) trayNum.textContent = '80%';
+
+  updateTrayVolumeIcon();
+  renderAudioPanel();
+  showToast('Mezclador restablecido', 'Volúmenes por defecto restaurados.', 'rotate-ccw');
+}
+
+function openAudioSettings() {
+  closeAudioPanel();
+  if (typeof openApp === 'function') {
+    openApp('settings');
+    if (typeof settingsState !== 'undefined') {
+      settingsState.activeSettingsTab = 'system';
+      if (typeof renderSettingsApp === 'function') renderSettingsApp();
+    }
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════
    ★ PARTE 11/12 — PERFILES + MEDIA PLAYER + FONDOS ANIMADOS
    ═══════════════════════════════════════════════════════════════ */
