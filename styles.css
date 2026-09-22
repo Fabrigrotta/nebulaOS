@@ -4480,6 +4480,8 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   height: 100%;
   min-height: 0;
   color: var(--text-main);
+  overflow: hidden;              /* ★ evita que las cards se salgan */
+  box-sizing: border-box;
 }
 
 .settings-nav {
@@ -4706,8 +4708,10 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
 .settings-main {
   flex: 1;
   min-width: 0;
-  overflow: auto;
+  overflow-x: hidden;            /* ★ evita scroll horizontal */
+  overflow-y: auto;
   padding: 20px 22px;
+  box-sizing: border-box;
 }
 .settings-heading {
   display: flex;
@@ -7903,46 +7907,86 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
 
 .widgets-gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
   margin-top: 4px;
+  padding-top: 8px;      /* ★ aire arriba para que el hover no se corte */
+  padding-bottom: 8px;   /* ★ aire abajo por simetría */
+  align-items: start;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: visible;     /* ★ permitir que la sombra del hover se vea */
 }
 
 .widget-gallery-card {
   position: relative;
   padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.10);       /* ★ borde un poco más visible */
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.035);            /* ★ fondo consistente */
   cursor: pointer;
-  transition: all 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: border-color 0.2s ease,
+              background 0.2s ease,
+              box-shadow 0.2s ease,
+              transform 0.2s ease;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;                                       /* ★ ocupa el ancho de su celda */
+  max-width: 100%;
+  box-sizing: border-box;
+  align-self: start;                                 /* ★ NO se estira en la fila */
+  min-height: 0;                                     /* ★ que crezca con el contenido */
+  height: auto;                                      /* ★ sin altura forzada */
 }
-.widget-gallery-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  background: rgba(255, 255, 255, 0.05);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+
+/* Hover solo cuando NO está activo (para no pisar el borde de acento) */
+.widget-gallery-card:not(.active):hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: rgba(255, 255, 255, 0.055);
+  transform: translateY(-1px);   /* ★ menos movimiento */
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35),
+              0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+  z-index: 2;
 }
+
+/* Card activo (widget instalado/activo) */
 .widget-gallery-card.active {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
-  box-shadow: 0 0 18px var(--accent-glow), inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: 0 0 18px var(--accent-glow),
+              inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+/* Hover sobre card activo: mantiene el borde de acento y suma elevación */
+.widget-gallery-card.active:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, rgba(255, 255, 255, 0.03));
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4),
+              0 0 22px var(--accent-glow),
+              inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
+  z-index: 2;
 }
 
 .widget-gallery-preview {
-  height: 110px;
+  height: 100px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   border-radius: 8px;
-  background: linear-gradient(135deg, rgba(0, 255, 204, 0.06), rgba(0, 0, 0, 0.4));
-  border: 1px solid rgba(0, 255, 204, 0.18);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--accent) 6%, transparent),
+    rgba(0, 0, 0, 0.45));
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, rgba(255, 255, 255, 0.08));
   position: relative;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;                /* ★ no se comprime si falta espacio */
 }
 .widget-gallery-preview::before {
   content: "";
@@ -7958,9 +8002,24 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   z-index: 1;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
   gap: 4px;
   padding: 8px;
   width: 100%;
+  height: 100%;              /* ★ ocupa todo el preview */
+  box-sizing: border-box;
+  overflow: hidden;          /* ★ no deja que los tiles se salgan */
+  align-content: center;
+  justify-content: center;
+}
+
+.widget-gallery-preview-tile {
+  height: auto;              /* ★ que se ajuste al grid */
+  min-height: 18px;
+  max-height: 28px;
+  border-radius: 4px;
+  background: rgba(0, 255, 204, 0.1);
+  border: 1px solid rgba(0, 255, 204, 0.25);
 }
 .widget-gallery-preview-tile {
   height: 24px;
@@ -7973,16 +8032,26 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   display: flex;
   flex-direction: column;
   gap: 3px;
+  flex: 1;                    /* ★ ocupa el espacio disponible */
+  min-height: 0;              /* ★ permite que el small trunque bien */
 }
+
 .widget-gallery-info strong {
   font-size: 12px;
   color: #fff;
   font-weight: 700;
+  flex-shrink: 0;
 }
+
 .widget-gallery-info small {
   font-size: 10px;
   color: var(--text-sub);
   line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;      /* ★ máximo 3 líneas */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .widget-gallery-action {
@@ -7990,7 +8059,10 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 2px;
+  margin-top: 8px;               /* ★ empuje manual, sin auto */
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
 }
 
 .widget-gallery-status {
@@ -16950,18 +17022,26 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   position: relative;
   z-index: 1;
   width: 100%;
-  padding: 8px 10px;
-  display: grid;
-  grid-template-columns: 34px 1fr;
-  gap: 6px 8px;
-  align-items: center;
+  height: 100%;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
   font-family: "Inter", sans-serif;
+  box-sizing: border-box;
 }
 
+/* Fila superior: cover + meta */
+.widget-gallery-preview-nowplaying > .wg-np-cover,
+.widget-gallery-preview-nowplaying > .wg-np-meta {
+  /* Los agrupamos visualmente con un flex-row wrapper virtual */
+}
+
+/* Cover */
 .wg-np-cover {
-  grid-row: 1 / span 2;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border-radius: 6px;
   background: linear-gradient(135deg,
     color-mix(in srgb, var(--sp-green, #1ed760) 30%, transparent),
@@ -16970,18 +17050,27 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   place-items: center;
   color: var(--sp-green, #1ed760);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+  position: absolute;
+  top: 10px;
+  left: 12px;
 }
 .wg-np-cover svg, .wg-np-cover i {
-  width: 16px !important;
-  height: 16px !important;
+  width: 14px !important;
+  height: 14px !important;
   filter: drop-shadow(0 0 6px color-mix(in srgb, var(--sp-green, #1ed760) 60%, transparent));
 }
 
+/* Meta (barras esqueleto) */
 .wg-np-meta {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 4px;
   min-width: 0;
+  margin-left: 40px;   /* espacio para el cover */
+  margin-top: 4px;
+  min-height: 26px;
+  justify-content: center;
 }
 
 .wg-np-title {
@@ -16997,12 +17086,13 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* Barra de progreso */
 .wg-np-progress {
-  grid-column: 1 / -1;
   height: 3px;
   border-radius: 3px;
   background: rgba(255, 255, 255, 0.1);
   overflow: hidden;
+  width: 100%;
 }
 .wg-np-progress span {
   display: block;
@@ -17012,14 +17102,13 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   box-shadow: 0 0 4px var(--sp-green, #1ed760);
 }
 
+/* Controles */
 .wg-np-controls {
-  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   color: var(--text-sub);
-  margin-top: 2px;
 }
 .wg-np-controls svg, .wg-np-controls i {
   width: 11px !important;
@@ -17418,19 +17507,40 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   transition: width 0.4s ease;
 }
 
-.hud-bottom-bar {
+/* ═══════════════════════════════════════════════════════════════
+   ★ MEDIA PLAYER HUD (bloque interno del Gaming HUD)
+   ═══════════════════════════════════════════════════════════════ */
+
+#media-player-hud {
   position: relative;
+  margin-top: 14px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   isolation: isolate;
+
+  /* Grid: 3 columnas → cover+info+controles | progreso | tiempo */
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 16px;
+  grid-template-columns: minmax(0, auto) 1fr auto;
   align-items: center;
-  padding: 12px 14px;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(0, 0, 0, 0.35);
+  gap: 18px;
+
+  border: 1px solid rgba(0, 255, 204, 0.22);
+  background: rgba(13, 17, 28, 0.75);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.35),
+    0 0 14px rgba(0, 255, 204, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: opacity 0.3s ease;
 }
+
+#media-player-hud.hidden {
+  display: none;
+}
+
+/* ─── Fondo difuminado (portada) ─── */
 .hud-media-bg {
   position: absolute;
   inset: -20px;
@@ -17439,112 +17549,902 @@ body.dock-unified-bottom #screen { padding-bottom: 46px; }
   background-position: center;
   background-repeat: no-repeat;
   filter: blur(28px) saturate(1.6) brightness(0.7);
-  opacity: 0.55;
+  opacity: 0.45;
   transform: scale(1.15);
   transition: background-image 0.4s ease, opacity 0.4s ease;
   pointer-events: none;
 }
-.hud-bottom-bar::before {
+#media-player-hud::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: linear-gradient(180deg, rgba(10, 12, 20, 0.42) 0%, rgba(10, 12, 20, 0.78) 100%);
+  background: linear-gradient(180deg, rgba(10, 12, 20, 0.55) 0%, rgba(10, 12, 20, 0.85) 100%);
   pointer-events: none;
 }
-.hud-bottom-bar > *:not(.hud-media-bg) {
+#media-player-hud > *:not(.hud-media-bg) {
   position: relative;
   z-index: 1;
 }
+
+/* ─── Bloque cover + info + controles (columna izquierda) ─── */
+#media-player-hud {
+  position: relative;
+  margin-top: 14px;
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  isolation: isolate;
+
+  /* Grid: cover+info | controles centrados | progreso (flexible) | tiempo */
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+
+  border: 1px solid rgba(0, 255, 204, 0.22);
+  background: rgba(13, 17, 28, 0.75);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.35),
+    0 0 14px rgba(0, 255, 204, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: opacity 0.3s ease;
+}
+
+#media-player-hud.hidden {
+  display: none;
+}
+
+/* ─── Bloque cover + info ─── */
 .hud-media-block {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
+  flex-shrink: 0;
 }
+
 .hud-media-block img {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 6px;
   object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.4);
 }
+
 .hud-media-info {
   min-width: 0;
+  max-width: 180px;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 .hud-media-info strong {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 700;
   color: #fff;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .hud-media-info small {
+  display: block;
   color: var(--text-sub);
-  font-size: 10px;
+  font-size: 10.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.hud-media-btns { display: flex; gap: 4px; }
+
+/* ─── Controles (columna propia, centrados en su celda) ─── */
+.hud-media-btns {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;   /* ← centra el bloque completo dentro de la celda */
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .hud-mbtn {
   border: 0;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: 0.15s;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 .hud-mbtn svg, .hud-mbtn i {
-  width: 12px;
-  height: 12px;
+  width: 13px !important;
+  height: 13px !important;
 }
-.hud-mbtn:hover { background: rgba(255, 255, 255, 0.2); }
+.hud-mbtn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.08);
+}
 .hud-mbtn.main {
+  width: 34px;
+  height: 34px;
   background: #00ffcc;
   color: #0d0f17;
+  box-shadow: 0 0 12px rgba(0, 255, 204, 0.45);
+}
+.hud-mbtn.main svg, .hud-mbtn.main i {
+  width: 15px !important;
+  height: 15px !important;
+}
+.hud-mbtn.main:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 0 18px rgba(0, 255, 204, 0.65);
 }
 
+/* ─── Bloque de progreso (ocupa todo el espacio disponible) ─── */
 .hud-progress-block {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
+  width: 100%;
+  /* sin max-width: crece con la celda flexible del grid */
 }
+
 .hud-progress-label {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: 10.5px;
+  font-weight: 600;
   color: var(--text-sub);
   font-family: "JetBrains Mono", monospace;
 }
-.hud-progress-label svg, .hud-progress-label i {
-  width: 12px;
-  height: 12px;
+.hud-progress-label svg,
+.hud-progress-label i {
+  width: 13px !important;
+  height: 13px !important;
   color: #00ffcc;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(0, 255, 204, 0.5));
 }
+.hud-progress-label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .hud-progress-track {
   width: 100%;
-  height: 4px;
+  height: 5px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.12);
   overflow: hidden;
+  position: relative;
 }
 .hud-progress-track span {
   display: block;
   height: 100%;
   width: 0%;
+  min-width: 0;
   border-radius: 4px;
   background: linear-gradient(90deg, #00ffcc, color-mix(in srgb, #00ffcc 70%, #fff 30%));
   transition: width 0.3s linear;
+  box-shadow: 0 0 8px rgba(0, 255, 204, 0.6);
 }
 
-/* Responsive */
+.hud-progress-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-sub);
+  font-family: "JetBrains Mono", monospace;
+}
+.hud-progress-label svg,
+.hud-progress-label i {
+  width: 13px !important;
+  height: 13px !important;
+  color: #00ffcc;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(0, 255, 204, 0.5));
+}
+.hud-progress-label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud-progress-track {
+  width: 100%;
+  height: 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  position: relative;
+}
+.hud-progress-track span {
+  display: block;
+  height: 100%;
+  width: 0%;
+  min-width: 0;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #00ffcc, color-mix(in srgb, #00ffcc 70%, #fff 30%));
+  transition: width 0.3s linear;
+  box-shadow: 0 0 8px rgba(0, 255, 204, 0.6);
+}
+
+/* ─── Responsive ─── */
 @media (max-width: 700px) {
+  #media-player-hud {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .hud-media-block {
+    justify-content: center;
+  }
+  .hud-media-info {
+    max-width: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ GAMING HUD (Gamer Overlay) — layout principal
+   ═══════════════════════════════════════════════════════════════ */
+
+#gamer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: rgba(5, 7, 14, 0.55);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  transition: opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+              visibility 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#gamer-overlay.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.hud-container {
+  width: min(860px, 96vw);
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  background: linear-gradient(135deg,
+    rgba(13, 17, 28, 0.96) 0%,
+    rgba(7, 9, 15, 0.98) 100%);
+  border: 1px solid rgba(0, 255, 204, 0.28);
+  box-shadow:
+    0 0 50px rgba(0, 255, 204, 0.12),
+    0 30px 80px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  position: relative;
+  isolation: isolate;
+  animation: hud-in 0.3s cubic-bezier(0.22, 1.2, 0.36, 1);
+}
+
+@keyframes hud-in {
+  from { opacity: 0; transform: scale(0.96) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ─── Header ─── */
+.hud-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.hud-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hud-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  padding: 2px 9px;
+  border-radius: 4px;
+  background: rgba(0, 255, 204, 0.14);
+  border: 1px solid rgba(0, 255, 204, 0.35);
+  color: #00ffcc;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  text-shadow: 0 0 6px rgba(0, 255, 204, 0.5);
+}
+.hud-badge svg, .hud-badge i {
+  width: 11px;
+  height: 11px;
+  filter: drop-shadow(0 0 4px rgba(0, 255, 204, 0.7));
+}
+
+.hud-title strong {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+
+.hud-shortcut-hint {
+  color: var(--text-sub);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+.hud-shortcut-hint kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 0 1px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #00ffcc;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 800;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Acciones del header ─── */
+.hud-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.hud-gamemode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  color: #fff;
+  font-family: "Inter", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.hud-gamemode-btn:hover {
+  background: rgba(0, 255, 204, 0.1);
+  border-color: rgba(0, 255, 204, 0.5);
+}
+.hud-gamemode-btn.active {
+  background: rgba(0, 255, 204, 0.18);
+  border-color: #00ffcc;
+  color: #00ffcc;
+  box-shadow: 0 0 15px rgba(0, 255, 204, 0.3);
+}
+
+.hud-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #666;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+.hud-gamemode-btn.active .hud-pulse-dot {
+  background: #00ffcc;
+  box-shadow: 0 0 10px #00ffcc;
+  animation: hud-dot-pulse 1.8s infinite ease-in-out;
+}
+@keyframes hud-dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.25); opacity: 0.65; }
+}
+
+.hud-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.hud-close-btn svg, .hud-close-btn i {
+  width: 14px;
+  height: 14px;
+}
+.hud-close-btn:hover {
+  background: rgba(243, 139, 168, 0.22);
+  border-color: #f38ba8;
+  color: #f38ba8;
+  transform: rotate(90deg);
+}
+
+/* ─── Grid de telemetría ─── */
+.hud-telemetry-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr 1fr;
+  gap: 12px;
+}
+
+.hud-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.hud-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-sub);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.hud-card-header svg, .hud-card-header i {
+  width: 13px;
+  height: 13px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ─── FPS Card (destacada) ─── */
+.hud-fps-card {
+  background:
+    radial-gradient(circle at top left, rgba(0, 255, 204, 0.12), transparent 70%),
+    rgba(255, 255, 255, 0.035);
+  border-color: rgba(0, 255, 204, 0.28);
+}
+.hud-fps-card .hud-card-header svg,
+.hud-fps-card .hud-card-header i {
+  color: #00ffcc;
+  filter: drop-shadow(0 0 5px rgba(0, 255, 204, 0.6));
+}
+
+.hud-fps-val {
+  color: #00ffcc;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -1.5px;
+  margin: 6px 0 2px;
+  text-shadow: 0 0 28px rgba(0, 255, 204, 0.45);
+}
+
+.hud-fps-label {
+  color: #a6adc8;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}
+
+.hud-fps-bar {
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-top: 10px;
+}
+.hud-fps-fill {
+  display: block;
+  height: 100%;
+  width: 95%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #00ffcc, #a6e3a1);
+  box-shadow: 0 0 10px rgba(0, 255, 204, 0.6);
+  transition: width 0.5s ease;
+}
+
+/* ─── Filas de stats (GPU / CPU) ─── */
+.hud-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  margin-top: 4px;
+}
+.hud-stat-row span {
+  color: var(--text-sub);
+  font-size: 10.5px;
+}
+.hud-stat-row strong {
+  color: #fff;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.hud-mini-meter {
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin: 4px 0 6px;
+}
+.hud-mini-meter .meter-bar {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #fff 30%));
+  box-shadow: 0 0 8px var(--accent-glow);
+  transition: width 0.4s ease;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 700px) {
+  .hud-container { padding: 16px; }
+  .hud-title strong { font-size: 15px; }
+  .hud-fps-val { font-size: 42px; }
   .hud-telemetry-grid { grid-template-columns: 1fr; }
-  .hud-bottom-bar { grid-template-columns: 1fr; }
+  .hud-actions { width: 100%; justify-content: flex-start; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ GAMING HUD (Gamer Overlay) — layout principal
+   ═══════════════════════════════════════════════════════════════ */
+
+#gamer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: rgba(5, 7, 14, 0.55);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  transition: opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+              visibility 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#gamer-overlay.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.hud-container {
+  width: min(860px, 96vw);
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  background: linear-gradient(135deg,
+    rgba(13, 17, 28, 0.96) 0%,
+    rgba(7, 9, 15, 0.98) 100%);
+  border: 1px solid rgba(0, 255, 204, 0.28);
+  box-shadow:
+    0 0 50px rgba(0, 255, 204, 0.12),
+    0 30px 80px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  position: relative;
+  isolation: isolate;
+  animation: hud-in 0.3s cubic-bezier(0.22, 1.2, 0.36, 1);
+}
+
+@keyframes hud-in {
+  from { opacity: 0; transform: scale(0.96) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ─── Header ─── */
+.hud-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.hud-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hud-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  padding: 2px 9px;
+  border-radius: 4px;
+  background: rgba(0, 255, 204, 0.14);
+  border: 1px solid rgba(0, 255, 204, 0.35);
+  color: #00ffcc;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  text-shadow: 0 0 6px rgba(0, 255, 204, 0.5);
+}
+.hud-badge svg, .hud-badge i {
+  width: 11px;
+  height: 11px;
+  filter: drop-shadow(0 0 4px rgba(0, 255, 204, 0.7));
+}
+
+.hud-title strong {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+
+.hud-shortcut-hint {
+  color: var(--text-sub);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+.hud-shortcut-hint kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 0 1px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #00ffcc;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 800;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Acciones del header ─── */
+.hud-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.hud-gamemode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  color: #fff;
+  font-family: "Inter", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.hud-gamemode-btn:hover {
+  background: rgba(0, 255, 204, 0.1);
+  border-color: rgba(0, 255, 204, 0.5);
+}
+.hud-gamemode-btn.active {
+  background: rgba(0, 255, 204, 0.18);
+  border-color: #00ffcc;
+  color: #00ffcc;
+  box-shadow: 0 0 15px rgba(0, 255, 204, 0.3);
+}
+
+.hud-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #666;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+.hud-gamemode-btn.active .hud-pulse-dot {
+  background: #00ffcc;
+  box-shadow: 0 0 10px #00ffcc;
+  animation: hud-dot-pulse 1.8s infinite ease-in-out;
+}
+@keyframes hud-dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.25); opacity: 0.65; }
+}
+
+.hud-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.hud-close-btn svg, .hud-close-btn i {
+  width: 14px;
+  height: 14px;
+}
+.hud-close-btn:hover {
+  background: rgba(243, 139, 168, 0.22);
+  border-color: #f38ba8;
+  color: #f38ba8;
+  transform: rotate(90deg);
+}
+
+/* ─── Grid de telemetría ─── */
+.hud-telemetry-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr 1fr;
+  gap: 12px;
+}
+
+.hud-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.hud-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-sub);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.hud-card-header svg, .hud-card-header i {
+  width: 13px;
+  height: 13px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ─── FPS Card (destacada) ─── */
+.hud-fps-card {
+  background:
+    radial-gradient(circle at top left, rgba(0, 255, 204, 0.12), transparent 70%),
+    rgba(255, 255, 255, 0.035);
+  border-color: rgba(0, 255, 204, 0.28);
+}
+.hud-fps-card .hud-card-header svg,
+.hud-fps-card .hud-card-header i {
+  color: #00ffcc;
+  filter: drop-shadow(0 0 5px rgba(0, 255, 204, 0.6));
+}
+
+.hud-fps-val {
+  color: #00ffcc;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -1.5px;
+  margin: 6px 0 2px;
+  text-shadow: 0 0 28px rgba(0, 255, 204, 0.45);
+}
+
+.hud-fps-label {
+  color: #a6adc8;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}
+
+.hud-fps-bar {
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-top: 10px;
+}
+.hud-fps-fill {
+  display: block;
+  height: 100%;
+  width: 95%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #00ffcc, #a6e3a1);
+  box-shadow: 0 0 10px rgba(0, 255, 204, 0.6);
+  transition: width 0.5s ease;
+}
+
+/* ─── Filas de stats (GPU / CPU) ─── */
+.hud-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  margin-top: 4px;
+}
+.hud-stat-row span {
+  color: var(--text-sub);
+  font-size: 10.5px;
+}
+.hud-stat-row strong {
+  color: #fff;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.hud-mini-meter {
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin: 4px 0 6px;
+}
+.hud-mini-meter .meter-bar {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #fff 30%));
+  box-shadow: 0 0 8px var(--accent-glow);
+  transition: width 0.4s ease;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 700px) {
+  .hud-container { padding: 16px; }
+  .hud-title strong { font-size: 15px; }
+  .hud-fps-val { font-size: 42px; }
+  .hud-telemetry-grid { grid-template-columns: 1fr; }
+  .hud-actions { width: 100%; justify-content: flex-start; }
 }
 
 /* ═══════════════════════════════════════════════════════════════

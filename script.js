@@ -3834,9 +3834,9 @@ function openApp(appId, forceNew = false, restoreData = null) {
   const top = (isRestoring && restoreData.top) ? restoreData.top : (65 + Math.random() * 25) + 'px';
   const left = (isRestoring && restoreData.left) ? restoreData.left : (100 + Math.random() * 50) + 'px';
   const width = (isRestoring && restoreData.width) ? restoreData.width
-    : (appId === 'music' ? '980px' : appId === 'settings' ? '780px' : '680px');
+    : (appId === 'music' ? '980px' : appId === 'settings' ? '1000px' : '680px');
   const height = (isRestoring && restoreData.height) ? restoreData.height
-    : (appId === 'music' ? '640px' : appId === 'settings' ? '540px' : '480px');
+    : (appId === 'music' ? '640px' : appId === 'settings' ? '660px' : '480px');
 
   win.style.top = top;
   win.style.left = left;
@@ -12156,13 +12156,19 @@ function playFirstTrack() {
 
 /* ─── Progress / Background (visual, sin estado) ─── */
 
-function updatePlayerProgress() {
-  const winIds = getInstancesOfApp('music');
-  if (winIds.length === 0) return;
-  winIds.forEach(winId => {
-    const win = openWindows[winId]?.win;
-    if (win) refreshSpotifyProgressUI(win);
-  });
+function updateHUDMediaInfo() {
+  if (!gamerOverlayVisible) return;
+  if (!window.SpotifyApp) return;
+
+  const current = SpotifyApp.getCurrentTrack();
+  const cur = SpotifyApp.getCurrentTime();
+  const dur = SpotifyApp.getDuration() || (current ? current.duration : 0);
+  const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
+
+  const hudFill = document.getElementById('hud-progress-fill');
+  const hudTime = document.getElementById('hud-progress-time');
+  if (hudFill) hudFill.style.width = `${pct}%`;
+  if (hudTime) hudTime.textContent = `${spFormatTime(cur)} / ${spFormatTime(dur)}`;
 }
 
 function updatePlayerBackground() {
@@ -14620,8 +14626,34 @@ function getWidgetsGalleryHTML() {
   return `
     <div class="settings-section-label">Widgets de Escritorio</div>
     <div class="widgets-gallery-grid">
+
+      <!-- CARD 1: Gaming Hub -->
       <div class="widget-gallery-card ${hasGamingHub ? 'active' : ''}">
-            <div class="widget-gallery-card ${hasNowPlaying ? 'active' : ''}">
+        <div class="widget-gallery-preview">
+          <div class="widget-gallery-preview-inner">
+            <div class="widget-gallery-preview-tile"></div>
+            <div class="widget-gallery-preview-tile"></div>
+            <div class="widget-gallery-preview-tile"></div>
+            <div class="widget-gallery-preview-tile"></div>
+            <div class="widget-gallery-preview-tile"></div>
+            <div class="widget-gallery-preview-tile" style="grid-column: span 1;"></div>
+          </div>
+        </div>
+        <div class="widget-gallery-info">
+          <strong>${WIDGET_CATALOG['gaming-hub'].name}</strong>
+          <small>${WIDGET_CATALOG['gaming-hub'].description}</small>
+        </div>
+        <div class="widget-gallery-action">
+          <span class="widget-gallery-status"><span class="status-dot"></span>${hasGamingHub ? 'Activo' : 'Inactivo'}</span>
+          ${hasGamingHub
+            ? `<button class="widget-gallery-btn danger" type="button" onclick="removeGamingHubWidget()"><i data-lucide="trash-2"></i> Quitar</button>`
+            : `<button class="widget-gallery-btn" type="button" onclick="addGamingHubWidget()"><i data-lucide="plus"></i> Agregar</button>`
+          }
+        </div>
+      </div>
+
+      <!-- CARD 2: Now Playing -->
+      <div class="widget-gallery-card ${hasNowPlaying ? 'active' : ''}">
         <div class="widget-gallery-preview">
           <div class="widget-gallery-preview-nowplaying">
             <div class="wg-np-cover">
@@ -14653,29 +14685,8 @@ function getWidgetsGalleryHTML() {
           }
         </div>
       </div>
-        <div class="widget-gallery-preview">
-          <div class="widget-gallery-preview-inner">
-            <div class="widget-gallery-preview-tile"></div>
-            <div class="widget-gallery-preview-tile"></div>
-            <div class="widget-gallery-preview-tile"></div>
-            <div class="widget-gallery-preview-tile"></div>
-            <div class="widget-gallery-preview-tile"></div>
-            <div class="widget-gallery-preview-tile" style="grid-column: span 1;"></div>
-          </div>
-        </div>
-        <div class="widget-gallery-info">
-          <strong>${WIDGET_CATALOG['gaming-hub'].name}</strong>
-          <small>${WIDGET_CATALOG['gaming-hub'].description}</small>
-        </div>
-        <div class="widget-gallery-action">
-          <span class="widget-gallery-status"><span class="status-dot"></span>${hasGamingHub ? 'Activo' : 'Inactivo'}</span>
-          ${hasGamingHub
-            ? `<button class="widget-gallery-btn danger" type="button" onclick="removeGamingHubWidget()"><i data-lucide="trash-2"></i> Quitar</button>`
-            : `<button class="widget-gallery-btn" type="button" onclick="addGamingHubWidget()"><i data-lucide="plus"></i> Agregar</button>`
-          }
-        </div>
-      </div>
 
+      <!-- CARD 3: Weather -->
       <div class="widget-gallery-card ${weatherCount > 0 ? 'active' : ''}">
         <div class="widget-gallery-preview">
           <div class="widget-gallery-preview-weather">
@@ -14699,7 +14710,7 @@ function getWidgetsGalleryHTML() {
         </div>
       </div>
 
-      ${Object.values(WIDGET_CATALOG).filter(w => w.available && !['gaming-hub', 'weather'].includes(w.id)).map(widget => `
+      ${Object.values(WIDGET_CATALOG).filter(w => w.available && !['gaming-hub', 'weather', 'now-playing'].includes(w.id)).map(widget => `
         <div class="widget-gallery-card ${desktopWidgets.some(dw => dw.type === widget.type) ? 'active' : ''}">
           <div class="widget-gallery-preview">
             <div class="widget-gallery-preview-inner">
@@ -19092,11 +19103,14 @@ function toggleGameMode(explicitState = null) {
 }
 
 function toggleGamerOverlay() {
-  const overlay = document.getElementById('gamer-overlay');
-  if (!overlay) return;
+  const mainOverlay = document.getElementById('gamer-overlay');
+  if (!mainOverlay) return;
 
   gamerOverlayVisible = !gamerOverlayVisible;
-  overlay.classList.toggle('hidden', !gamerOverlayVisible);
+
+  // Solo toggleamos el overlay principal.
+  // El reproductor (#media-player-hud) ahora vive adentro y se muestra/oculta con él.
+  mainOverlay.classList.toggle('hidden', !gamerOverlayVisible);
 
   if (gamerOverlayVisible) {
     updateHUDTelemetry();
