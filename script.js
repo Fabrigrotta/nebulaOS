@@ -251,14 +251,6 @@ const STORE_THEMES = {
   }
 };
 
-/* ─── Música ─── */
-const TRACKS = [
-  { title: 'Bocanada', artist: 'Gustavo Cerati', album: 'Bocanada', art: './assets/images/apps/spotify/tapaAlbum2.jpg', duration: 272 },
-  { title: 'Smells Like Teen Spirit', artist: 'Nirvana', album: 'Nevermind', art: './assets/images/apps/spotify/tapaAlbum1.jpg', duration: 301 },
-  { title: 'Prohibido', artist: 'Callejeros', album: 'Rock Nacional', art: './assets/images/apps/spotify/tapaAlbum3.jpg', duration: 225 },
-  { title: 'Cyberpunk Night City Beat', artist: 'Hyper Sound', album: 'Synthwave Mix', art: './assets/images/apps/spotify/top50.jpg', duration: 192 }
-];
-
 /* ─── Estilos de hover del dock ─── */
 const DOCK_PREVIEW_STYLES = {
   blueprint: { name: 'Blueprint',        desc: 'Plano técnico / sci-fi con líneas de acento',   available: true },
@@ -761,6 +753,219 @@ const TOAST_ICON_LEVEL_MAP = {
   'wifi-off': 'warning',
   'battery-warning': 'warning'
 };
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY — Constantes de la app
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Persistencia ─── */
+const SPOTIFY_STORAGE_KEY = 'nebula-os:spotify';
+
+/* ─── Fuente de la biblioteca ─── */
+const SPOTIFY_LIBRARY_URL = './assets/music/library.json';
+
+/* ─── Modos de repeat ─── */
+const SPOTIFY_REPEAT_MODES = ['off', 'all', 'one'];
+
+/* ─── Vistas de la app ─── */
+const SPOTIFY_VIEWS = {
+  HOME:          'home',
+  PLAYLIST:      'playlist',
+  ARTIST:        'artist',
+  ALBUM:         'album',
+  SEARCH:        'search',
+  LIKED:         'liked',
+  LIBRARY:       'library',
+  QUEUE:         'queue',
+  NOW_PLAYING:   'now-playing'
+};
+
+/* ─── Opciones de orden para las listas ─── */
+const SPOTIFY_SORT_OPTIONS = {
+  RECENT:     { id: 'recent',     label: 'Recientes' },
+  ALPHABETICAL: { id: 'alphabetical', label: 'Alfabético' },
+  CREATOR:    { id: 'creator',    label: 'Creador' },
+  DURATION:   { id: 'duration',   label: 'Duración' }
+};
+
+/* ─── Visualizador (Web Audio API) ─── */
+const SPOTIFY_VISUALIZER_BARS = 64;
+const SPOTIFY_VISUALIZER_FFT  = 256;
+const SPOTIFY_VISUALIZER_SMOOTHING = 0.8;
+
+/* ─── Colores oficiales de Spotify (para inyección en JS) ─── */
+const SPOTIFY_ACCENT = '#1ed760';
+const SPOTIFY_ACCENT_HOVER = '#1fdf64';
+const SPOTIFY_BG = '#000000';
+const SPOTIFY_BG_ELEV = '#121212';
+const SPOTIFY_BG_HOVER = '#1f1f1f';
+const SPOTIFY_BG_CARD = '#181818';
+const SPOTIFY_BG_CARD_HOVER = '#282828';
+const SPOTIFY_TEXT = '#ffffff';
+const SPOTIFY_TEXT_SUB = '#a7a7a7';
+
+/* ─── Debounce del buscador (ms) ─── */
+const SPOTIFY_SEARCH_DEBOUNCE_MS = 220;
+
+/* ─── Duración por defecto para tracks sin info (seg) ─── */
+const SPOTIFY_DEFAULT_DURATION = 180;
+
+/* ─── Fade in/out al cambiar de track (ms) ─── */
+const SPOTIFY_FADE_MS = 220;
+
+/* ─── Ancho máximo del historial de reproducción (recientes) ─── */
+const SPOTIFY_RECENT_MAX = 30;
+
+/* ─── Máximo de playlists custom del usuario ─── */
+const SPOTIFY_CUSTOM_PLAYLISTS_MAX = 50;
+
+/* ─── Máximo de tracks por playlist custom ─── */
+const SPOTIFY_PLAYLIST_TRACKS_MAX = 500;
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY — Biblioteca por defecto (fallback)
+   Se usa si `fetch(SPOTIFY_LIBRARY_URL)` falla o devuelve JSON inválido.
+   Respeta exactamente el esquema de `assets/music/library.json`.
+   ═══════════════════════════════════════════════════════════════ */
+const SPOTIFY_DEFAULT_LIBRARY = {
+  playlists: [
+    {
+      id: 'rock-nacional',
+      name: 'Rock Nacional',
+      description: 'Playlist · Fabricio Grottasanta',
+      cover: null,
+      color: '#a855f7',
+      trackIds: [
+        'gustavo-cerati-bocanada',
+        'callejeros-prohibido',
+        'soda-stereo-de-musica-ligera'
+      ]
+    },
+    {
+      id: 'favoritas',
+      name: 'Mis Favoritas',
+      description: 'Playlist · Vos',
+      cover: null,
+      color: '#1ed760',
+      trackIds: [
+        'gustavo-cerati-bocanada',
+        'nirvana-smells-like-teen-spirit',
+        'hyper-sound-cyberpunk-night-city-beat'
+      ]
+    },
+    {
+      id: 'synthwave-mix',
+      name: 'Synthwave Mix',
+      description: 'Playlist · Nebula FM',
+      cover: null,
+      color: '#ff71ce',
+      trackIds: [
+        'hyper-sound-cyberpunk-night-city-beat',
+        'hyper-sound-neon-drive',
+        'hyper-sound-midnight-grid'
+      ]
+    }
+  ],
+  tracks: [
+    {
+      id: 'gustavo-cerati-bocanada',
+      title: 'Bocanada',
+      artist: 'Gustavo Cerati',
+      album: 'Bocanada',
+      year: 1999,
+      duration: 272,
+      src: './assets/music/gustavo-cerati/gustavo-cerati-bocanada.mp3',
+      cover: './assets/images/apps/spotify/gustavo-cerati-bocanada.jpg'
+    },
+    {
+      id: 'callejeros-prohibido',
+      title: 'Prohibido',
+      artist: 'Callejeros',
+      album: 'Señales',
+      year: 2006,
+      duration: 225,
+      src: './assets/music/callejeros/callejeros-prohibido.mp3',
+      cover: './assets/images/apps/spotify/callejeros-prohibido.jpg'
+    },
+    {
+      id: 'soda-stereo-de-musica-ligera',
+      title: 'De Música Ligera',
+      artist: 'Soda Stereo',
+      album: 'Canción Animal',
+      year: 1990,
+      duration: 213,
+      src: './assets/music/soda-stereo/soda-stereo-de-musica-ligera.mp3',
+      cover: './assets/images/apps/spotify/soda-stereo-de-musica-ligera.jpg'
+    },
+    {
+      id: 'nirvana-smells-like-teen-spirit',
+      title: 'Smells Like Teen Spirit',
+      artist: 'Nirvana',
+      album: 'Nevermind',
+      year: 1991,
+      duration: 301,
+      src: './assets/music/nirvana/nirvana-smells-like-teen-spirit.mp3',
+      cover: './assets/images/apps/spotify/nirvana-smells-like-teen-spirit.jpg'
+    },
+    {
+      id: 'hyper-sound-cyberpunk-night-city-beat',
+      title: 'Cyberpunk Night City Beat',
+      artist: 'Hyper Sound',
+      album: 'Synthwave Mix',
+      year: 2024,
+      duration: 192,
+      src: './assets/music/hyper-sound/hyper-sound-cyberpunk-night-city-beat.mp3',
+      cover: './assets/images/apps/spotify/hyper-sound-cyberpunk-night-city-beat.jpg'
+    },
+    {
+      id: 'hyper-sound-neon-drive',
+      title: 'Neon Drive',
+      artist: 'Hyper Sound',
+      album: 'Synthwave Mix',
+      year: 2024,
+      duration: 205,
+      src: './assets/music/hyper-sound/hyper-sound-neon-drive.mp3',
+      cover: './assets/images/apps/spotify/hyper-sound-neon-drive.jpg'
+    },
+    {
+      id: 'hyper-sound-midnight-grid',
+      title: 'Midnight Grid',
+      artist: 'Hyper Sound',
+      album: 'Synthwave Mix',
+      year: 2024,
+      duration: 188,
+      src: './assets/music/hyper-sound/hyper-sound-midnight-grid.mp3',
+      cover: './assets/images/apps/spotify/hyper-sound-midnight-grid.jpg'
+    }
+  ]
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY — Estado por defecto (para reset / inicialización)
+   ═══════════════════════════════════════════════════════════════ */
+const SPOTIFY_DEFAULT_STATE = {
+  v: 1,
+  libraryLoaded: false,
+  librarySource: null,           // 'json' | 'fallback'
+  currentTrackId: null,
+  queue: [],                     // array de trackIds
+  queueIndex: -1,
+  isPlaying: false,
+  volume: 0.8,
+  muted: false,
+  shuffle: false,
+  repeat: 'off',                 // 'off' | 'all' | 'one'
+  likedIds: [],                  // array de trackIds
+  customPlaylists: [],           // array de { id, name, description, cover, color, trackIds, createdAt }
+  recentIds: [],                 // array de trackIds (más recientes primero)
+  playCount: {},                 // { [trackId]: number }
+  lastView: 'home',
+  lastPlaylistId: null,
+  lastArtistName: null,
+  lastAlbumName: null,
+  currentTime: 0,
+  lastUpdatedAt: null
+};
 /* ═══════════════════════════════════════════════════════════════
    ★ PARTE 2/12 — ESTADO GLOBAL (VARIABLES MUTABLES)
    ═══════════════════════════════════════════════════════════════ */
@@ -802,15 +1007,6 @@ const pingHistory = [23, 24, 22, 25, 23, 21, 24, 22, 23, 24];
 let gameModeActive = false;
 let currentProfile = 'gamer';
 let gamerOverlayVisible = false;
-
-/* ─── Estado del reproductor multimedia ─── */
-let currentTrackIndex = 0;
-let isPlaying = false;
-let playbackProgress = 32;
-let currentPlaybackTime = 0;
-let shuffleEnabled = false;
-let repeatEnabled = false;
-let systemVolume = 80;
 
 /* ─── Estado de conectividad ─── */
 let wifiEnabled = true;
@@ -1063,6 +1259,93 @@ let starsLayersData = {
   mid:  { el: null, stars: [], speed: 0.4  },
   near: { el: null, stars: [], speed: 0.8  }
 };
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY — Estado runtime del reproductor
+   (el estado persistente vive en SPOTIFY_DEFAULT_STATE)
+═══════════════════════════════════════════════════════════════ */
+
+/* ─── Estado runtime (no se persiste) ─── */
+const spotify = {
+  /* Biblioteca en memoria */
+  library: null,            // { playlists: [], tracks: [] }
+  tracksById: new Map(),    // Map<trackId, track>
+  playlistsById: new Map(), // Map<playlistId, playlist>
+  artistsIndex: new Map(),  // Map<artistName, { name, tracks: [], albums: Set, cover }>
+  albumsIndex: new Map(),   // Map<albumKey, { name, artist, year, cover, tracks: [] }>
+
+  /* Estado de reproducción actual */
+  currentTrackId: null,
+  queue: [],
+  queueIndex: -1,
+
+  /* Audio */
+  audioEl: null,
+  audioCtx: null,
+  sourceNode: null,
+  analyserNode: null,
+  gainNode: null,
+  visualizerData: null,
+  fadeTimer: null,
+
+  /* Playback */
+  isPlaying: false,
+  currentTime: 0,
+  duration: 0,
+  seeking: false,
+
+  /* Preferencias (duplican al estado persistente para acceso rápido) */
+  volume: 0.8,
+  muted: false,
+  shuffle: false,
+  repeat: 'off',
+
+  /* Likes */
+  likedIds: new Set(),
+
+  /* Playlists custom */
+  customPlaylists: [],
+
+  /* Historial y stats */
+  recentIds: [],
+  playCount: {},
+
+  /* Búsqueda actual */
+  searchQuery: '',
+  searchResults: { tracks: [], artists: [], albums: [], playlists: [] },
+  searchHistory: [],
+
+  /* Vistas de la app */
+  view: 'home',             // 'home' | 'playlist' | 'artist' | 'album' | 'search' | 'liked' | 'library' | 'queue'
+  viewParams: {},           // { playlistId?, artistName?, albumKey?, query? }
+
+  /* UI */
+  sortMode: 'recent',       // 'recent' | 'alphabetical' | 'creator' | 'duration'
+  libraryFilter: 'all',     // 'all' | 'playlists' | 'albums' | 'artists'
+  sidebarOpen: true,
+  lyricsOpen: false,
+  queueOpen: false,
+
+  /* Control de operaciones async */
+  initPromise: null,
+  initResolved: false,
+  progressRafId: null,
+  analyserRafId: null,
+  searchDebounceTimer: null,
+
+  /* Listeners */
+  listeners: new Map(),
+
+  /* Estado de errores */
+  lastError: null,
+  mockMode: false
+};
+
+/* ─── Estado de "arrastrando" para el panel de cola ─── */
+let spotifyDragState = null;
+
+/* ─── Registro de la UI de Spotify (por ventana) ─── */
+const spotifyUIState = new WeakMap();
 /* ═══════════════════════════════════════════════════════════════
    ★ PARTE 3/12 — HELPERS Y UTILIDADES
    ═══════════════════════════════════════════════════════════════ */
@@ -1747,23 +2030,218 @@ function simulatePing() {
   if (pingHistory.length > 10) pingHistory.shift();
   return next;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY — Helpers
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Formato de tiempo: mm:ss ─── */
+function spFormatTime(seconds) {
+  const s = Math.max(0, Math.floor(Number(seconds) || 0));
+  const m = Math.floor(s / 60);
+  const r = String(s % 60).padStart(2, '0');
+  return `${m}:${r}`;
+}
+
+/* ─── Formato de duración total: "1 h 23 min" ─── */
+function spFormatTotalDuration(seconds) {
+  const s = Math.max(0, Math.floor(Number(seconds) || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h > 0) return `${h} h ${m} min`;
+  if (m > 0) return `${m} min`;
+  return `${s} s`;
+}
+
+/* ─── Alias seguro de escape ─── */
+function spEscapeHtml(value) {
+  return escapeHtml(value == null ? '' : value);
+}
+
+/* ─── Debounce ─── */
+function spDebounce(fn, ms = 200) {
+  let timer = null;
+  return function debounced(...args) {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      fn.apply(this, args);
+    }, ms);
+  };
+}
+
+/* ─── Throttle ─── */
+function spThrottle(fn, ms = 100) {
+  let last = 0;
+  let timer = null;
+  return function throttled(...args) {
+    const now = Date.now();
+    const remaining = ms - (now - last);
+    if (remaining <= 0) {
+      if (timer) { clearTimeout(timer); timer = null; }
+      last = now;
+      fn.apply(this, args);
+    } else if (!timer) {
+      timer = setTimeout(() => {
+        last = Date.now();
+        timer = null;
+        fn.apply(this, args);
+      }, remaining);
+    }
+  };
+}
+
+/* ─── ID único para playlists custom / otros ─── */
+function spRandomId(prefix = 'sp') {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/* ─── Cover con fallback ─── */
+function spGetTrackCover(track) {
+  if (track && typeof track === 'object') {
+    if (track.cover) return track.cover;
+    if (track.art)   return track.art;
+  }
+  return './assets/images/apps/spotify/tapaAlbum1.jpg';
+}
+
+/* ─── Iniciales para avatars (artistas) ─── */
+function spGetArtistInitials(name) {
+  if (!name) return '?';
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/* ─── Agrupar tracks por álbum ─── */
+function spGroupTracksByAlbum(tracks) {
+  const groups = new Map();
+  (tracks || []).forEach(track => {
+    const key = `${track.artist || '?'}::${track.album || '?'}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        name: track.album || 'Sin álbum',
+        artist: track.artist || 'Desconocido',
+        year: track.year || null,
+        cover: spGetTrackCover(track),
+        tracks: []
+      });
+    }
+    groups.get(key).tracks.push(track);
+  });
+  return Array.from(groups.values());
+}
+
+/* ─── Item más frecuente (para "Artista destacado") ─── */
+function spGetMostFrequent(items) {
+  if (!Array.isArray(items) || items.length === 0) return null;
+  const counts = new Map();
+  items.forEach(item => {
+    if (item == null) return;
+    counts.set(item, (counts.get(item) || 0) + 1);
+  });
+  let best = null;
+  let bestCount = 0;
+  counts.forEach((count, key) => {
+    if (count > bestCount) { bestCount = count; best = key; }
+  });
+  return best;
+}
+
+/* ─── Clamp numérico ─── */
+function spClamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+/* ─── Shuffle Fisher-Yates (devuelve nuevo array) ─── */
+function spShuffleArray(arr) {
+  const copy = Array.isArray(arr) ? arr.slice() : [];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+/* ─── Comparación simple de arrays ─── */
+function spSameArray(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+/* ─── Truncar texto ─── */
+function spTruncate(str, max = 40) {
+  const s = String(str || '');
+  if (s.length <= max) return s;
+  return s.slice(0, max - 1).trim() + '…';
+}
+
+/* ─── ¿El track actual está likeado? (consulta al motor) ─── */
+function spIsTrackLiked(trackId) {
+  if (!trackId) return false;
+  return spotify.likedIds.has(trackId);
+}
+
+/* ─── Ícono Lucide con fallback ─── */
+function spIcon(name) {
+  return `<i data-lucide="${spEscapeHtml(name)}"></i>`;
+}
+
+/* ─── Slug seguro para URLs internas / keys ─── */
+function spSlug(str) {
+  return String(str || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'item';
+}
+
+/* ─── Deep clone liviano (para objetos planos) ─── */
+function spClone(obj) {
+  if (obj == null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(spClone);
+  const out = {};
+  Object.keys(obj).forEach(k => { out[k] = spClone(obj[k]); });
+  return out;
+}
+
+/* ─── Formato de "hace X" para tracks recientes ─── */
+function spTimeAgoShort(timestamp) {
+  if (!timestamp) return '';
+  const diff = Date.now() - timestamp;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'ahora';
+  if (mins < 60) return `hace ${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `hace ${days} d`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `hace ${weeks} sem`;
+  const months = Math.floor(days / 30);
+  return `hace ${months} mes${months === 1 ? '' : 'es'}`;
+}
 /* ═══════════════════════════════════════════════════════════════
    ★ PARTE 4/12 — BOOTSTRAP PRINCIPAL
    ═══════════════════════════════════════════════════════════════ */
 
 /* ─── Bootstrap del sistema (DOMContentLoaded) ─── */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const bootScreen = document.getElementById('boot-screen');
   setTimeout(() => bootScreen && bootScreen.classList.add('boot-complete'), 850);
   setTimeout(() => bootScreen && bootScreen.remove(), 1450);
 
   // 1. Fondo y estrellas
   createStars();
-
-  // NUEVO: iniciar motor de fondos animados
   initAnimatedBackground();
 
-  // 2. Cargar estado persistido
+  // 2. Cargar estado persistido del sistema
   loadPersistedState();
   loadNotifications();
   loadGamelibState();
@@ -1771,7 +2249,15 @@ document.addEventListener('DOMContentLoaded', () => {
   vaultState.entries = loadVaultEntries();
   loadVaultMasterMeta();
 
-  // 3. Inicializar UI
+  // 3. ★ SPOTIFY: inicializar el motor de audio ANTES que la UI
+  //    (espera a que cargue library.json o el fallback)
+  try {
+    await SpotifyApp.init();
+  } catch (err) {
+    console.warn('[Spotify] Falló init, se usará fallback:', err);
+  }
+
+  // 4. Inicializar UI
   updateNotifBadge();
   renderDock();
   setupSliders();
@@ -1792,36 +2278,39 @@ document.addEventListener('DOMContentLoaded', () => {
   renderBluetoothPanel();
   updateActivityDockBadge();
   applyBrightness(currentBrightness);
-  setupQuickCenterPlayer();
-  updatePlayerBackground();
-  updatePlayerProgress();
   updateToastPosition();
   syncAllSliders();
   refreshIcons();
 
-  // 4. Aplicar glass-panel a módulos principales
+  // 5. ★ SPOTIFY: conectar el motor con la UI global
+  //    (topbar, HUD, Control Center, atajos, widget)
+  setupSpotifyIntegration();
+
+  // 6. Aplicar glass-panel a módulos principales
   document.querySelectorAll('.waybar-module, #dock, #control-center, #quick-center, #launcher, #notification-center').forEach(el => {
     el.classList.add('glass-panel');
   });
 
-  // 5. Setup de atajos y listeners de UI
+  // 7. Setup de atajos y listeners de UI
   setupUIActions();
 
-  // 6. Restaurar sesión (último, después de todo)
+  // 8. Restaurar sesión (último, después de todo)
   restoreSessionState();
   syncVpnQuickCenterState();
 
-  // 7. Guardar sesión al cerrar
+  // 9. Guardar sesión al cerrar
   window.addEventListener('beforeunload', () => {
     saveSessionState(true);
+    if (window.SpotifyApp && typeof SpotifyApp.flushState === 'function') {
+      SpotifyApp.flushState();
+    }
   });
 
-  // 8. Fondos animados
-  initAnimatedBackground();
+  // 10. Fondos animados: sync con Game Mode
   setInterval(syncAnimatedBgWithGameMode, 800);
 });
 
-/* ─── Atajos de teclado globales (VS Code + HUD) ─── */
+/* ─── Atajos de teclado globales (VS Code) ─── */
 document.addEventListener('keydown', (e) => {
   if (activeWinId && openWindows[activeWinId]?.appId === 'vscode') {
     if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
@@ -2072,12 +2561,442 @@ function setupUIActions() {
 
 function setupShortcuts() {
   document.addEventListener('keydown', (e) => {
+    // HUD (Alt+Z / Alt+G / Meta+G)
     if ((e.altKey && (e.key === 'z' || e.key === 'Z' || e.key === 'g' || e.key === 'G')) ||
         (e.metaKey && (e.key === 'g' || e.key === 'G'))) {
       e.preventDefault();
       toggleGamerOverlay();
+      return;
+    }
+
+    // ★ SPOTIFY — Atajos globales de audio
+    if (isEditableTarget(e.target)) return;
+
+    // Ignorar si el usuario está en la app Spotify con foco propio (ella maneja sus atajos)
+    if (activeWinId && openWindows[activeWinId]?.appId === 'music') return;
+
+    // Ctrl/Cmd + Shift + Space: play/pause
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.code === 'Space' || e.key === ' ')) {
+      e.preventDefault();
+      SpotifyApp.togglePlayPause();
+      return;
+    }
+
+    // Ctrl/Cmd + Alt + Space: play/pause (alternativa)
+    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.code === 'Space' || e.key === ' ')) {
+      e.preventDefault();
+      SpotifyApp.togglePlayPause();
+      return;
+    }
+
+    // Ctrl/Cmd + Alt + →: siguiente track
+    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'ArrowRight' || e.code === 'ArrowRight')) {
+      e.preventDefault();
+      SpotifyApp.next();
+      return;
+    }
+
+    // Ctrl/Cmd + Alt + ←: track anterior
+    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'ArrowLeft' || e.code === 'ArrowLeft')) {
+      e.preventDefault();
+      SpotifyApp.prev();
+      return;
+    }
+
+    // Ctrl/Cmd + Alt + ↑: subir volumen (+5)
+    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'ArrowUp' || e.code === 'ArrowUp')) {
+      e.preventDefault();
+      const newVol = Math.min(1, (spotify.volume || 0) + 0.05);
+      SpotifyApp.setVolume(newVol);
+      showToast('Volumen', `${Math.round(newVol * 100)}%`, 'volume-2');
+      return;
+    }
+
+    // Ctrl/Cmd + Alt + ↓: bajar volumen (-5)
+    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'ArrowDown' || e.code === 'ArrowDown')) {
+      e.preventDefault();
+      const newVol = Math.max(0, (spotify.volume || 0) - 0.05);
+      SpotifyApp.setVolume(newVol);
+      showToast('Volumen', `${Math.round(newVol * 100)}%`, 'volume-1');
+      return;
+    }
+
+    // Ctrl/Cmd + Alt + M: mute toggle
+    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'm' || e.key === 'M')) {
+      e.preventDefault();
+      SpotifyApp.toggleMute();
+      showToast(
+        spotify.muted ? 'Mute Activado' : 'Mute Desactivado',
+        spotify.muted ? 'El audio está silenciado.' : 'El audio volvió a sonar.',
+        spotify.muted ? 'volume-x' : 'volume-2'
+      );
+      return;
+    }
+
+    // Ctrl/Cmd + Alt + L: toggle like del track actual
+    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'l' || e.key === 'L')) {
+      e.preventDefault();
+      const current = SpotifyApp.getCurrentTrack();
+      if (current) {
+        SpotifyApp.toggleLike(current.id);
+        showToast(
+          spIsTrackLiked(current.id) ? 'Agregado a Tus me gusta' : 'Quitado de Tus me gusta',
+          current.title,
+          'heart'
+        );
+      }
+      return;
     }
   });
+}
+
+/* ─── ¿Es un target editable (input/textarea/contenteditable)? ─── */
+function isEditableTarget(target) {
+  if (!target) return false;
+  const tag = target.tagName ? target.tagName.toLowerCase() : '';
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+  if (target.isContentEditable) return true;
+  return false;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY — Integración con la UI global
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Se llama una vez que SpotifyApp.init() ya terminó.
+ * Conecta el motor con:
+ *   - Topbar (botón "Ahora suena")
+ *   - HUD (barra de reproducción del gaming overlay)
+ *   - Control Center (#cc-spotify-player)
+ *   - Sliders de volumen del sistema
+ *   - Atajos de teclado (ya en setupShortcuts)
+ *   - Notificaciones de cambio de track
+ */
+function setupSpotifyIntegration() {
+  if (!window.SpotifyApp) {
+    console.warn('[Spotify] SpotifyApp no está disponible. Abortando integración.');
+    return;
+  }
+
+  // 1. Sincronizar UI inicial con el estado actual del motor
+  updateSpotifyGlobalUI();
+
+  // 2. Suscribirse a eventos del motor para reflejar en UI global
+  SpotifyApp.on('trackchange', () => {
+    updateSpotifyGlobalUI();
+    updateSpotifyTopbar();
+    updatePlayerBackground();
+    addSpotifyNotification();
+  });
+
+  SpotifyApp.on('play', () => {
+    updateSpotifyGlobalPlayState(true);
+  });
+
+  SpotifyApp.on('pause', () => {
+    updateSpotifyGlobalPlayState(false);
+  });
+
+  SpotifyApp.on('volume', ({ volume, muted }) => {
+    updateSpotifyVolumeUI(volume, muted);
+  });
+
+  SpotifyApp.on('shuffle', ({ shuffle }) => {
+    document.querySelectorAll('#cc-shuffle, #spot-shuffle').forEach(el => {
+      el.classList.toggle('active', shuffle);
+    });
+  });
+
+  SpotifyApp.on('repeat', ({ repeat }) => {
+    document.querySelectorAll('#cc-repeat, #spot-repeat').forEach(el => {
+      el.classList.toggle('active', repeat !== 'off');
+      el.dataset.repeat = repeat;
+    });
+  });
+
+  SpotifyApp.on('liked', () => {
+    // Actualizar corazones en la UI
+    document.querySelectorAll('[data-spotify-like]').forEach(btn => {
+      const id = btn.dataset.spotifyLike;
+      btn.classList.toggle('liked', spIsTrackLiked(id));
+    });
+  });
+
+  SpotifyApp.on('progress', () => {
+    // Este evento se emite muchas veces; el update visual lo hace el propio motor
+    // Pero actualizamos el HUD si está visible
+    if (gamerOverlayVisible) updatePlayerProgress();
+  });
+
+  SpotifyApp.on('error', ({ error, context }) => {
+    console.warn('[Spotify] Error:', context, error);
+    showToast('Spotify', 'No se pudo reproducir el track.', 'alert-circle');
+  });
+
+  // 3. Botones del Control Center (rewire)
+  const ccPlayBtn = document.getElementById('cc-play-btn');
+  if (ccPlayBtn) {
+    ccPlayBtn.onclick = (e) => {
+      e.stopPropagation();
+      SpotifyApp.togglePlayPause();
+    };
+  }
+
+  const ccShuffleBtn = document.getElementById('cc-shuffle');
+  if (ccShuffleBtn) {
+    ccShuffleBtn.onclick = (e) => {
+      e.stopPropagation();
+      SpotifyApp.toggleShuffle();
+    };
+  }
+
+  const ccRepeatBtn = document.getElementById('cc-repeat');
+  if (ccRepeatBtn) {
+    ccRepeatBtn.onclick = (e) => {
+      e.stopPropagation();
+      SpotifyApp.cycleRepeat();
+    };
+  }
+
+  // 4. Botones del HUD (rewire)
+  const hudPlayBtn = document.getElementById('hud-play-btn');
+  if (hudPlayBtn) {
+    hudPlayBtn.onclick = (e) => {
+      e.stopPropagation();
+      SpotifyApp.togglePlayPause();
+    };
+  }
+
+  // 5. Botones globales del index.html que usan wrappers viejos
+  //    (los wrappers los definimos en BLOQUE 8/15, pero por las dudas
+  //     dejamos los onclick reasignados aquí)
+  window.toggleMediaPlayback = function() { SpotifyApp.togglePlayPause(); };
+  window.nextTrack = function() { SpotifyApp.next(); };
+  window.previousTrack = function() { SpotifyApp.prev(); };
+
+  // 6. Click en la barra de progreso del Control Center (seek)
+  const ccTrack = document.querySelector('.cc-progress-track');
+  if (ccTrack) {
+    ccTrack.style.cursor = 'pointer';
+    ccTrack.onclick = (e) => {
+      e.stopPropagation();
+      const rect = ccTrack.getBoundingClientRect();
+      const pct = (e.clientX - rect.left) / rect.width;
+      const current = SpotifyApp.getCurrentTrack();
+      if (current && current.duration) {
+        SpotifyApp.seek(pct * current.duration);
+      }
+    };
+  }
+
+  // 7. Inyectar el topbar "Ahora suena" si todavía no existe
+  //    (el index.html lo va a tener, pero por las dudas)
+  ensureTopbarNowPlaying();
+
+  // 8. Restaurar volumen del sistema al slider del Control Center
+  const volSlider = document.getElementById('volume-slider');
+  if (volSlider) {
+    const pct = Math.round((spotify.volume || 0.8) * 100);
+    volSlider.value = String(pct);
+    syncSliderFill(volSlider);
+    const label = document.getElementById('quick-volume-value');
+    if (label) label.textContent = `${pct}%`;
+    const trayNum = document.getElementById('tray-volume-num');
+    if (trayNum) trayNum.textContent = `${pct}%`;
+  }
+
+  // 9. Sincronizar UI de shuffle/repeat global
+  document.querySelectorAll('#cc-shuffle, #spot-shuffle').forEach(el => {
+    el.classList.toggle('active', spotify.shuffle);
+  });
+  document.querySelectorAll('#cc-repeat, #spot-repeat').forEach(el => {
+    el.classList.toggle('active', spotify.repeat !== 'off');
+    el.dataset.repeat = spotify.repeat;
+  });
+
+  refreshIcons();
+}
+
+/* ─── Sincronizar TODA la UI global con el estado del motor ─── */
+function updateSpotifyGlobalUI() {
+  const current = SpotifyApp.getCurrentTrack();
+
+  // Control Center
+  const ccArt = document.getElementById('cc-media-art');
+  const ccTitle = document.getElementById('cc-media-title');
+  const ccArtist = document.getElementById('cc-media-artist');
+  const ccBg = document.getElementById('cc-media-bg');
+  const ccTotal = document.getElementById('cc-time-total');
+
+  if (current) {
+    if (ccArt) ccArt.src = spGetTrackCover(current);
+    if (ccTitle) ccTitle.textContent = current.title || '—';
+    if (ccArtist) ccArtist.textContent = current.artist || '—';
+    if (ccBg) ccBg.style.backgroundImage = `url("${spGetTrackCover(current)}")`;
+    if (ccTotal) ccTotal.textContent = spFormatTime(current.duration || 0);
+  } else {
+    if (ccTitle) ccTitle.textContent = 'Sin reproducción';
+    if (ccArtist) ccArtist.textContent = 'Elegí un track';
+  }
+
+  // HUD
+  const hudArt = document.getElementById('hud-media-art');
+  const hudTitle = document.getElementById('hud-media-title');
+  const hudArtist = document.getElementById('hud-media-artist');
+  const hudBg = document.getElementById('hud-media-bg');
+
+  if (current) {
+    if (hudArt) hudArt.src = spGetTrackCover(current);
+    if (hudTitle) hudTitle.textContent = current.title || '—';
+    if (hudArtist) hudArtist.textContent = current.artist || '—';
+    if (hudBg) hudBg.style.backgroundImage = `url("${spGetTrackCover(current)}")`;
+  }
+
+  updateSpotifyGlobalPlayState(spotify.isPlaying);
+  updateSpotifyVolumeUI(spotify.volume, spotify.muted);
+  updateSpotifyTopbar();
+}
+
+/* ─── Actualizar iconos de play/pause en todos los reproductores ─── */
+function updateSpotifyGlobalPlayState(isPlaying) {
+  const iconName = isPlaying ? 'pause' : 'play';
+  ['cc-play-btn', 'hud-play-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = `<i data-lucide="${iconName}"></i>`;
+  });
+  document.querySelectorAll('#spot-play-btn').forEach(btn => {
+    btn.innerHTML = `<i data-lucide="${iconName}"></i>`;
+  });
+
+  const dot = document.getElementById('cc-eq-dot');
+  if (dot) dot.classList.toggle('paused', !isPlaying);
+
+  refreshIcons();
+}
+
+/* ─── Actualizar sliders/num de volumen en toda la UI ─── */
+function updateSpotifyVolumeUI(volume, muted) {
+  const pct = Math.round((muted ? 0 : volume) * 100);
+
+  const volSlider = document.getElementById('volume-slider');
+  if (volSlider && Number(volSlider.value) !== pct) {
+    volSlider.value = String(pct);
+    syncSliderFill(volSlider);
+  }
+
+  const quickVal = document.getElementById('quick-volume-value');
+  if (quickVal) quickVal.textContent = `${pct}%`;
+
+  const trayNum = document.getElementById('tray-volume-num');
+  if (trayNum) trayNum.textContent = `${pct}%`;
+
+  document.querySelectorAll('#spot-volume-slider').forEach(el => {
+    const newVal = String(pct);
+    if (el.value !== newVal) {
+      el.value = newVal;
+      syncSliderFill(el);
+    }
+  });
+}
+
+/* ─── Topbar "Ahora suena" ─── */
+function ensureTopbarNowPlaying() {
+  let el = document.getElementById('topbar-now-playing');
+  if (el) return el;
+
+  const right = document.querySelector('.waybar-module.right');
+  if (!right) return null;
+
+  el = document.createElement('div');
+  el.id = 'topbar-now-playing';
+  el.className = 'topbar-now-playing hidden';
+  el.setAttribute('role', 'button');
+  el.setAttribute('tabindex', '0');
+  el.title = 'Reproducción actual — click para abrir Spotify';
+  el.innerHTML = `
+    <div class="tnp-cover-wrap">
+      <img class="tnp-cover" id="tnp-cover" src="" alt="" />
+      <span class="tnp-eq" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+    <div class="tnp-meta">
+      <span class="tnp-title" id="tnp-title">Sin reproducción</span>
+      <span class="tnp-artist" id="tnp-artist">—</span>
+    </div>
+    <button class="tnp-play" id="tnp-play" type="button" aria-label="Reproducir/Pausar">
+      <i data-lucide="play"></i>
+    </button>
+  `;
+
+  const sysTray = right.querySelector('.sys-tray');
+  if (sysTray) {
+    right.insertBefore(el, sysTray);
+  } else {
+    right.appendChild(el);
+  }
+
+  el.addEventListener('click', (e) => {
+    if (e.target.closest('.tnp-play')) return;
+    openApp('music');
+  });
+
+  el.querySelector('.tnp-play')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    SpotifyApp.togglePlayPause();
+  });
+
+  refreshIcons();
+  return el;
+}
+
+/* ─── Actualizar contenido del topbar ─── */
+function updateSpotifyTopbar() {
+  const el = document.getElementById('topbar-now-playing');
+  if (!el) return;
+
+  const current = SpotifyApp.getCurrentTrack();
+  if (!current) {
+    el.classList.add('hidden');
+    return;
+  }
+
+  el.classList.remove('hidden');
+
+  const cover = document.getElementById('tnp-cover');
+  if (cover) {
+    cover.src = spGetTrackCover(current);
+    cover.alt = current.title || '';
+  }
+
+  const title = document.getElementById('tnp-title');
+  if (title) title.textContent = spTruncate(current.title || '—', 26);
+
+  const artist = document.getElementById('tnp-artist');
+  if (artist) artist.textContent = spTruncate(current.artist || '—', 30);
+
+  el.classList.toggle('playing', spotify.isPlaying);
+
+  const playBtn = document.getElementById('tnp-play');
+  if (playBtn) {
+    playBtn.innerHTML = `<i data-lucide="${spotify.isPlaying ? 'pause' : 'play'}"></i>`;
+  }
+
+  refreshIcons();
+}
+
+/* ─── Notificación al cambiar de track ─── */
+function addSpotifyNotification() {
+  const current = SpotifyApp.getCurrentTrack();
+  if (!current) return;
+
+  // Solo si no está en DND y el HUD no está visible
+  if (dndEnabled || gamerOverlayVisible) return;
+
+  addNotificationToHistory(
+    `♪ ${current.title}`,
+    `${current.artist}${current.album ? ' · ' + current.album : ''}`,
+    'music'
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2415,6 +3334,23 @@ function setupSliders() {
   });
 }
 
+/* ─── Volumen del sistema → Spotify (wrapper) ─── */
+function setSystemVolume(val) {
+  const pct = Number(val);
+  if (Number.isNaN(pct)) return;
+
+  // Actualizar siempre los labels del tray y quick center
+  const volNum = document.getElementById('tray-volume-num');
+  const qVolVal = document.getElementById('quick-volume-value');
+  if (volNum) volNum.textContent = `${pct}%`;
+  if (qVolVal) qVolVal.textContent = `${pct}%`;
+
+  // ★ Delegar al motor de Spotify
+  if (window.SpotifyApp && typeof SpotifyApp.setVolume === 'function') {
+    SpotifyApp.setVolume(pct / 100);
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════
    ★ SETUP DEL WIDGET DE CONTROL CENTER (Calendario + Métricas)
 ═══════════════════════════════════════════════════════════════ */
@@ -2447,7 +3383,6 @@ function setupAdvancedWidget() {
     }
   });
 
-  setupMediaPlayer();
   renderConnectivityState();
 }
 
@@ -2951,6 +3886,10 @@ function focusWindow(winId) {
   scheduleSaveSession();
 }
 
+/**
+ * ★ closeApp — modificado: NO pausa la reproducción de Spotify
+ * cuando se cierra la ventana de la app 'music'.
+ */
 function closeApp(winId) {
   const entry = openWindows[winId];
   if (!entry) return;
@@ -2991,6 +3930,9 @@ function closeApp(winId) {
     hideDockPreview();
 
     if (windowManagerOpen) renderWindowManager();
+
+    // ★ NO pausar música al cerrar la ventana de Spotify.
+    //    El reproductor sigue sonando por diseño (igual que en un SO real).
 
     saveSessionState(true);
   };
@@ -4368,8 +5310,6 @@ function cleanupWmDrag() {
 
 /* ═══════════════════════════════════════════════════════════════
    ★ GET APP CONTENT — Router principal
-   (Devuelve el HTML de cada app. Las funciones getXXXAppHTML
-    están definidas en la PARTE 9)
 ═══════════════════════════════════════════════════════════════ */
 
 function getAppContent(id) {
@@ -5396,7 +6336,7 @@ function showFsContextMenu(ev, panel, targetItem, win) {
       appendItem({
         icon: 'play',
         label: 'Reproducir',
-        action: () => toggleMediaPlayback()
+        action: () => SpotifyApp.togglePlayPause()
       });
     }
 
@@ -6831,430 +7771,3949 @@ function renderNotesList() {
   refreshIcons();
 }
 /* ═══════════════════════════════════════════════════════════════
-   ★ PARTE 8/12 — MULTIMEDIA
+   ★ PARTE 8/12 — MULTIMEDIA: APP SPOTIFY COMPLETA
+   ═══════════════════════════════════════════════════════════════
+
+   Estructura del bloque:
+     8A → Motor `SpotifyApp` (este sub-bloque)
+     8B → HTML + UI (`getSpotifyAppHTML` + `setupSpotifyApp`)
+     8C → Wrappers globales + integración final
+*/
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY APP — MOTOR DE AUDIO Y BIBLIOTECA
+   API pública expuesta en `window.SpotifyApp`
+   ═══════════════════════════════════════════════════════════════ */
+
+const SpotifyApp = (() => {
+
+  /* ─────────────────────────────────────────────────────────────
+     ★ HELPERS INTERNOS
+  ───────────────────────────────────────────────────────────── */
+
+  function _clone(obj) {
+    if (obj == null || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(_clone);
+    const out = {};
+    for (const k of Object.keys(obj)) out[k] = _clone(obj[k]);
+    return out;
+  }
+
+  function _safeStr(v) {
+    return v == null ? '' : String(v);
+  }
+
+  function _normalizeTrack(raw, fallbackId) {
+    if (!raw || typeof raw !== 'object') return null;
+    const title = _safeStr(raw.title || raw.name).trim();
+    if (!title) return null;
+    const id = _safeStr(raw.id || fallbackId || '').trim() ||
+               (spSlug(title) + '-' + spSlug(raw.artist || 'unknown'));
+    return {
+      id,
+      title,
+      artist: _safeStr(raw.artist || raw.artistName).trim() || 'Desconocido',
+      album: _safeStr(raw.album).trim() || 'Sin álbum',
+      year: Number.isFinite(+raw.year) ? +raw.year : null,
+      duration: Number.isFinite(+raw.duration) ? +raw.duration : SPOTIFY_DEFAULT_DURATION,
+      src: _safeStr(raw.src || raw.path).trim(),
+      cover: _safeStr(raw.cover || raw.art).trim() ||
+             './assets/images/apps/spotify/tapaAlbum1.jpg'
+    };
+  }
+
+  function _normalizePlaylist(raw, fallbackId) {
+    if (!raw || typeof raw !== 'object') return null;
+    const name = _safeStr(raw.name).trim();
+    if (!name) return null;
+    const id = _safeStr(raw.id || fallbackId || '').trim() || spSlug(name);
+    return {
+      id,
+      name,
+      description: _safeStr(raw.description).trim() || 'Playlist',
+      cover: _safeStr(raw.cover).trim() || null,
+      color: _safeStr(raw.color).trim() || '#1ed760',
+      trackIds: Array.isArray(raw.trackIds) ? raw.trackIds.map(_safeStr) : []
+    };
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ★ ESTADO PERSISTENTE (se guarda en localStorage)
+  ───────────────────────────────────────────────────────────── */
+
+  let _state = _clone(SPOTIFY_DEFAULT_STATE);
+  let _saveTimer = null;
+
+  function _loadState() {
+    try {
+      const raw = localStorage.getItem(SPOTIFY_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return;
+      _state = Object.assign({}, _clone(SPOTIFY_DEFAULT_STATE), parsed);
+      _state.likedIds = Array.isArray(_state.likedIds) ? _state.likedIds : [];
+      _state.queue = Array.isArray(_state.queue) ? _state.queue : [];
+      _state.recentIds = Array.isArray(_state.recentIds) ? _state.recentIds : [];
+      _state.customPlaylists = Array.isArray(_state.customPlaylists) ? _state.customPlaylists : [];
+      _state.playCount = _state.playCount && typeof _state.playCount === 'object'
+        ? _state.playCount : {};
+    } catch (e) {
+      console.warn('[Spotify] No se pudo cargar el estado persistido:', e);
+    }
+  }
+
+  function _scheduleSave() {
+    if (_saveTimer) clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => {
+      _saveTimer = null;
+      _saveNow();
+    }, 400);
+  }
+
+  function _saveNow() {
+    try {
+      _state.lastUpdatedAt = Date.now();
+      localStorage.setItem(SPOTIFY_STORAGE_KEY, JSON.stringify(_state));
+    } catch (e) {
+      console.warn('[Spotify] No se pudo guardar el estado:', e);
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ★ EVENT BUS
+  ───────────────────────────────────────────────────────────── */
+
+  const _listeners = new Map();
+
+  function _on(event, fn) {
+    if (!event || typeof fn !== 'function') return () => {};
+    if (!_listeners.has(event)) _listeners.set(event, new Set());
+    _listeners.get(event).add(fn);
+    return () => _off(event, fn);
+  }
+
+  function _off(event, fn) {
+    const set = _listeners.get(event);
+    if (!set) return;
+    if (fn) set.delete(fn);
+    else set.clear();
+  }
+
+  function _emit(event, data) {
+    const set = _listeners.get(event);
+    if (!set) return;
+    for (const fn of Array.from(set)) {
+      try { fn(data); } catch (e) { console.warn('[Spotify] listener error:', e); }
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ★ AUDIO: HTMLAudioElement + Web Audio API (Analyser)
+  ───────────────────────────────────────────────────────────── */
+
+  function _ensureAudioElement() {
+    if (spotify.audioEl) return spotify.audioEl;
+
+    const audio = new Audio();
+    audio.preload = 'metadata';
+    audio.crossOrigin = 'anonymous';
+    audio.volume = _state.volume;
+
+    audio.addEventListener('loadedmetadata', () => {
+      spotify.duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+      _emit('loaded', { duration: spotify.duration });
+    });
+
+    audio.addEventListener('timeupdate', () => {
+      spotify.currentTime = audio.currentTime || 0;
+      _emit('progress', {
+        currentTime: spotify.currentTime,
+        duration: spotify.duration
+      });
+    });
+
+    audio.addEventListener('play', () => {
+      spotify.isPlaying = true;
+      _state.isPlaying = true;
+      _emit('play', { trackId: spotify.currentTrackId });
+      _scheduleSave();
+    });
+
+    audio.addEventListener('pause', () => {
+      spotify.isPlaying = false;
+      _state.isPlaying = false;
+      _emit('pause', { trackId: spotify.currentTrackId });
+      _scheduleSave();
+    });
+
+    audio.addEventListener('ended', () => {
+      _handleTrackEnded();
+    });
+
+    audio.addEventListener('error', (e) => {
+      spotify.lastError = e;
+      _emit('error', { error: e, context: 'audio-element' });
+    });
+
+    spotify.audioEl = audio;
+    return audio;
+  }
+
+  function _ensureAudioContext() {
+    if (spotify.audioCtx) return spotify.audioCtx;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+
+    try {
+      const ctx = new Ctx();
+      const audio = _ensureAudioElement();
+      const source = ctx.createMediaElementSource(audio);
+      const gain = ctx.createGain();
+      const analyser = ctx.createAnalyser();
+
+      analyser.fftSize = SPOTIFY_VISUALIZER_FFT;
+      analyser.smoothingTimeConstant = SPOTIFY_VISUALIZER_SMOOTHING;
+
+      source.connect(gain);
+      gain.connect(analyser);
+      analyser.connect(ctx.destination);
+
+      spotify.audioCtx = ctx;
+      spotify.sourceNode = source;
+      spotify.gainNode = gain;
+      spotify.analyserNode = analyser;
+      spotify.visualizerData = new Uint8Array(analyser.frequencyBinCount);
+
+      return ctx;
+    } catch (e) {
+      console.warn('[Spotify] No se pudo crear AudioContext:', e);
+      spotify.audioCtx = null;
+      return null;
+    }
+  }
+
+  function _resumeAudioContextIfNeeded() {
+    const ctx = spotify.audioCtx;
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ★ CARGA DE BIBLIOTECA (JSON + fallback)
+  ───────────────────────────────────────────────────────────── */
+
+  async function _loadLibraryFromJSON() {
+    try {
+      const res = await fetch(SPOTIFY_LIBRARY_URL, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      const cleaned = text.replace(/^\uFEFF/, '').trim();
+      const json = JSON.parse(cleaned);
+      if (!json || typeof json !== 'object') throw new Error('JSON inválido');
+      if (!Array.isArray(json.tracks)) throw new Error('Sin tracks');
+      return { json, source: 'json' };
+    } catch (e) {
+      console.warn('[Spotify] library.json no disponible, usando fallback:', e);
+      return { json: SPOTIFY_DEFAULT_LIBRARY, source: 'fallback' };
+    }
+  }
+
+  function _buildIndexes(library) {
+    spotify.library = { tracks: [], playlists: [] };
+    spotify.tracksById.clear();
+    spotify.playlistsById.clear();
+    spotify.artistsIndex.clear();
+    spotify.albumsIndex.clear();
+
+    // Tracks
+    const tracks = [];
+    (library.tracks || []).forEach((raw, i) => {
+      const t = _normalizeTrack(raw, `track-${i}`);
+      if (!t) return;
+      if (spotify.tracksById.has(t.id)) return;
+      tracks.push(t);
+      spotify.tracksById.set(t.id, t);
+
+      // Índice de artistas
+      if (!spotify.artistsIndex.has(t.artist)) {
+        spotify.artistsIndex.set(t.artist, {
+          name: t.artist,
+          tracks: [],
+          albums: new Set(),
+          cover: t.cover
+        });
+      }
+      const artist = spotify.artistsIndex.get(t.artist);
+      artist.tracks.push(t);
+      artist.albums.add(`${t.artist}::${t.album}`);
+
+      // Índice de álbumes
+      const albumKey = `${t.artist}::${t.album}`;
+      if (!spotify.albumsIndex.has(albumKey)) {
+        spotify.albumsIndex.set(albumKey, {
+          key: albumKey,
+          name: t.album,
+          artist: t.artist,
+          year: t.year,
+          cover: t.cover,
+          tracks: []
+        });
+      }
+      spotify.albumsIndex.get(albumKey).tracks.push(t);
+    });
+    spotify.library.tracks = tracks;
+
+    // Playlists
+    const playlists = [];
+    (library.playlists || []).forEach((raw, i) => {
+      const p = _normalizePlaylist(raw, `playlist-${i}`);
+      if (!p) return;
+      if (spotify.playlistsById.has(p.id)) return;
+      // Filtrar trackIds que no existen
+      p.trackIds = p.trackIds.filter(id => spotify.tracksById.has(id));
+      playlists.push(p);
+      spotify.playlistsById.set(p.id, p);
+    });
+    spotify.library.playlists = playlists;
+
+    // Playlist virtual "Tus me gusta"
+    const likedPlaylist = {
+      id: '__liked__',
+      name: 'Tus me gusta',
+      description: 'Playlist automática',
+      cover: null,
+      color: '#1ed760',
+      trackIds: [], // se rellena dinámicamente
+      __virtual: 'liked'
+    };
+    spotify.playlistsById.set(likedPlaylist.id, likedPlaylist);
+    spotify.library.playlists.unshift(likedPlaylist);
+
+    _refreshLikedPlaylist();
+  }
+
+  function _refreshLikedPlaylist() {
+    const likedPlaylist = spotify.playlistsById.get('__liked__');
+    if (!likedPlaylist) return;
+    likedPlaylist.trackIds = Array.from(spotify.likedIds)
+      .filter(id => spotify.tracksById.has(id));
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ★ PLAYBACK — CORE
+  ───────────────────────────────────────────────────────────── */
+
+  function _fadeOut(ms = SPOTIFY_FADE_MS) {
+    const audio = spotify.audioEl;
+    if (!audio) return Promise.resolve();
+    if (spotify.fadeTimer) {
+      clearInterval(spotify.fadeTimer);
+      spotify.fadeTimer = null;
+    }
+    return new Promise(resolve => {
+      const startVol = audio.volume;
+      const startTime = performance.now();
+      const target = 0;
+      spotify.fadeTimer = setInterval(() => {
+        const elapsed = performance.now() - startTime;
+        const k = Math.min(1, elapsed / ms);
+        audio.volume = startVol + (target - startVol) * k;
+        if (k >= 1) {
+          clearInterval(spotify.fadeTimer);
+          spotify.fadeTimer = null;
+          resolve();
+        }
+      }, 16);
+    });
+  }
+
+  function _fadeIn(ms = SPOTIFY_FADE_MS) {
+    const audio = spotify.audioEl;
+    if (!audio) return Promise.resolve();
+    const targetVol = _state.muted ? 0 : _state.volume;
+    return new Promise(resolve => {
+      const startVol = audio.volume;
+      const startTime = performance.now();
+      spotify.fadeTimer = setInterval(() => {
+        const elapsed = performance.now() - startTime;
+        const k = Math.min(1, elapsed / ms);
+        audio.volume = startVol + (targetVol - startVol) * k;
+        if (k >= 1) {
+          clearInterval(spotify.fadeTimer);
+          spotify.fadeTimer = null;
+          resolve();
+        }
+      }, 16);
+    });
+  }
+
+  function _setAudioVolume(v, muted = false) {
+    const audio = spotify.audioEl;
+    if (!audio) return;
+    audio.volume = muted ? 0 : Math.max(0, Math.min(1, v));
+  }
+
+  async function _playTrack(trackId, { autoplay = true, resetQueue = false } = {}) {
+    const track = spotify.tracksById.get(trackId);
+    if (!track) {
+      _emit('error', { error: new Error('Track no encontrado'), context: 'play', trackId });
+      return false;
+    }
+
+    _resumeAudioContextIfNeeded();
+    const audio = _ensureAudioElement();
+    _ensureAudioContext();
+
+    // Fade out si ya hay algo sonando
+    if (spotify.currentTrackId && spotify.currentTrackId !== trackId && !audio.paused) {
+      await _fadeOut();
+    }
+
+    spotify.currentTrackId = trackId;
+    _state.currentTrackId = trackId;
+    spotify.currentTime = 0;
+    _state.currentTime = 0;
+
+    // Actualizar cola si hace falta
+    if (resetQueue || !spotify.queue.includes(trackId)) {
+      // Si no está en la cola, reconstruimos desde la biblioteca completa
+      spotify.queue = spotify.library.tracks.map(t => t.id);
+    }
+    const idx = spotify.queue.indexOf(trackId);
+    spotify.queueIndex = idx >= 0 ? idx : 0;
+    _state.queue = spotify.queue.slice();
+    _state.queueIndex = spotify.queueIndex;
+
+    // Registrar reciente + contador de reproducciones
+    _registerRecent(trackId);
+
+    // Cargar fuente
+    if (track.src) {
+      audio.src = track.src;
+      audio.currentTime = 0;
+    } else {
+      // Sin src: no podemos reproducir, pero avisamos y simulamos
+      console.warn('[Spotify] Track sin src:', track);
+      _emit('error', { error: new Error('Track sin src'), context: 'play', trackId });
+    }
+
+    // Volumen inicial
+    _setAudioVolume(0, _state.muted);
+
+    if (autoplay) {
+      try {
+        const playPromise = audio.play();
+        if (playPromise && typeof playPromise.then === 'function') {
+          await playPromise;
+        }
+        await _fadeIn();
+      } catch (e) {
+        console.warn('[Spotify] No se pudo reproducir:', e);
+        _emit('error', { error: e, context: 'play-promise', trackId });
+      }
+    }
+
+    _emit('trackchange', {
+      track,
+      trackId,
+      queueIndex: spotify.queueIndex,
+      queueLength: spotify.queue.length
+    });
+
+    _scheduleSave();
+    return true;
+  }
+
+  function _registerRecent(trackId) {
+    const list = _state.recentIds.filter(id => id !== trackId);
+    list.unshift(trackId);
+    _state.recentIds = list.slice(0, SPOTIFY_RECENT_MAX);
+    _state.playCount[trackId] = (_state.playCount[trackId] || 0) + 1;
+    spotify.recentIds = _state.recentIds.slice();
+    spotify.playCount = _state.playCount;
+  }
+
+  function _handleTrackEnded() {
+    if (_state.repeat === 'one') {
+      const audio = spotify.audioEl;
+      if (audio) {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      }
+      return;
+    }
+    _emit('ended', { trackId: spotify.currentTrackId });
+
+    // Avanzar
+    const nextId = _computeNextTrackId();
+    if (nextId) {
+      _playTrack(nextId, { autoplay: true });
+    } else {
+      // Fin de la cola sin repeat
+      spotify.isPlaying = false;
+      _state.isPlaying = false;
+      _emit('pause', { trackId: spotify.currentTrackId, reason: 'queue-ended' });
+      _scheduleSave();
+    }
+  }
+
+  function _computeNextTrackId() {
+    const { queue, queueIndex } = spotify;
+    if (queue.length === 0) return null;
+
+    if (_state.shuffle) {
+      // Random distinto al actual
+      const candidates = queue.filter(id => id !== spotify.currentTrackId);
+      if (candidates.length === 0) return queue[queueIndex] || null;
+      return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+
+    const nextIdx = queueIndex + 1;
+    if (nextIdx < queue.length) return queue[nextIdx];
+    if (_state.repeat === 'all') return queue[0];
+    return null;
+  }
+
+  function _computePrevTrackId() {
+    const { queue, queueIndex } = spotify;
+    if (queue.length === 0) return null;
+
+    if (_state.shuffle) {
+      const candidates = queue.filter(id => id !== spotify.currentTrackId);
+      if (candidates.length === 0) return queue[queueIndex] || null;
+      return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+
+    const prevIdx = queueIndex - 1;
+    if (prevIdx >= 0) return queue[prevIdx];
+    if (_state.repeat === 'all') return queue[queue.length - 1];
+    return null;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ★ API PÚBLICA
+  ───────────────────────────────────────────────────────────── */
+
+  const api = {
+
+    /* ══════════════════════════════════════════════════════════
+       INIT
+    ══════════════════════════════════════════════════════════ */
+    async init() {
+      if (spotify.initPromise) return spotify.initPromise;
+
+      spotify.initPromise = (async () => {
+        try {
+          // 1. Cargar estado persistido
+          _loadState();
+
+          // 2. Cargar biblioteca (JSON o fallback)
+          const { json, source } = await _loadLibraryFromJSON();
+          _buildIndexes(json);
+          _state.libraryLoaded = true;
+          _state.librarySource = source;
+          spotify.mockMode = (source === 'fallback');
+
+          // 3. Preferencias al runtime
+          spotify.volume = _state.volume;
+          spotify.muted = _state.muted;
+          spotify.shuffle = _state.shuffle;
+          spotify.repeat = _state.repeat;
+          spotify.likedIds = new Set(_state.likedIds);
+          spotify.customPlaylists = _state.customPlaylists.slice();
+          spotify.recentIds = _state.recentIds.slice();
+          spotify.playCount = Object.assign({}, _state.playCount);
+
+          // 4. Audio element (sin ctx todavía, para evitar warnings)
+          _ensureAudioElement();
+
+          // 5. Restaurar última canción (pausada, sin autoplay)
+          if (_state.currentTrackId && spotify.tracksById.has(_state.currentTrackId)) {
+            spotify.currentTrackId = _state.currentTrackId;
+            const audio = _ensureAudioElement();
+            const track = spotify.tracksById.get(_state.currentTrackId);
+            if (track && track.src) {
+              audio.src = track.src;
+              audio.currentTime = 0;
+            }
+            spotify.queue = Array.isArray(_state.queue) && _state.queue.length
+              ? _state.queue.filter(id => spotify.tracksById.has(id))
+              : spotify.library.tracks.map(t => t.id);
+            spotify.queueIndex = Math.max(0, spotify.queue.indexOf(_state.currentTrackId));
+          } else {
+            // Por defecto: primera canción de la biblioteca (cargada pero pausada)
+            if (spotify.library.tracks.length > 0) {
+              const first = spotify.library.tracks[0];
+              spotify.currentTrackId = first.id;
+              spotify.queue = spotify.library.tracks.map(t => t.id);
+              spotify.queueIndex = 0;
+              const audio = _ensureAudioElement();
+              if (first.src) {
+                audio.src = first.src;
+                audio.currentTime = 0;
+              }
+            }
+          }
+
+          spotify.initResolved = true;
+          _emit('loaded', {
+            trackCount: spotify.library.tracks.length,
+            playlistCount: spotify.library.playlists.length,
+            source
+          });
+
+          return true;
+        } catch (e) {
+          spotify.lastError = e;
+          console.error('[Spotify] Falló init:', e);
+          spotify.initResolved = true;
+          _emit('error', { error: e, context: 'init' });
+          return false;
+        }
+      })();
+
+      return spotify.initPromise;
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       PLAYBACK
+    ══════════════════════════════════════════════════════════ */
+
+    play(trackId) {
+      const id = trackId || spotify.currentTrackId;
+      if (!id) return Promise.resolve(false);
+      return _playTrack(id, { autoplay: true, resetQueue: true });
+    },
+
+    pause() {
+      const audio = spotify.audioEl;
+      if (!audio) return;
+      audio.pause();
+    },
+
+    resume() {
+      const audio = spotify.audioEl;
+      if (!audio) return;
+      if (!spotify.currentTrackId) return;
+      _resumeAudioContextIfNeeded();
+      _ensureAudioContext();
+      audio.play().catch(e => {
+        _emit('error', { error: e, context: 'resume' });
+      });
+    },
+
+    togglePlayPause() {
+      if (spotify.isPlaying) {
+        api.pause();
+      } else {
+        api.resume();
+      }
+    },
+
+    next() {
+      const nextId = _computeNextTrackId();
+      if (!nextId) {
+        api.pause();
+        return;
+      }
+      // Actualizar índice de cola
+      spotify.queueIndex = spotify.queue.indexOf(nextId);
+      _playTrack(nextId, { autoplay: true });
+    },
+
+    prev() {
+      const audio = spotify.audioEl;
+      // Si pasaron más de 3 segundos, reiniciar la canción actual
+      if (audio && audio.currentTime > 3) {
+        audio.currentTime = 0;
+        spotify.currentTime = 0;
+        _emit('progress', { currentTime: 0, duration: spotify.duration });
+        return;
+      }
+
+      const prevId = _computePrevTrackId();
+      if (!prevId) {
+        if (audio) audio.currentTime = 0;
+        return;
+      }
+      spotify.queueIndex = spotify.queue.indexOf(prevId);
+      _playTrack(prevId, { autoplay: true });
+    },
+
+    seek(seconds) {
+      const audio = spotify.audioEl;
+      if (!audio) return;
+      const dur = spotify.duration || (audio.duration || 0);
+      const target = Math.max(0, Math.min(dur || 0, Number(seconds) || 0));
+      try {
+        audio.currentTime = target;
+        spotify.currentTime = target;
+        _emit('progress', { currentTime: target, duration: dur });
+      } catch (e) {}
+    },
+
+    setVolume(value) {
+      const v = Math.max(0, Math.min(1, Number(value)));
+      _state.volume = v;
+      spotify.volume = v;
+      _setAudioVolume(v, _state.muted);
+      _emit('volume', { volume: v, muted: _state.muted });
+      _scheduleSave();
+    },
+
+    getVolume() {
+      return _state.volume;
+    },
+
+    toggleMute() {
+      _state.muted = !_state.muted;
+      spotify.muted = _state.muted;
+      _setAudioVolume(_state.volume, _state.muted);
+      _emit('volume', { volume: _state.volume, muted: _state.muted });
+      _scheduleSave();
+      return _state.muted;
+    },
+
+    isMuted() {
+      return _state.muted;
+    },
+
+    toggleShuffle() {
+      _state.shuffle = !_state.shuffle;
+      spotify.shuffle = _state.shuffle;
+      _emit('shuffle', { shuffle: _state.shuffle });
+      _scheduleSave();
+      return _state.shuffle;
+    },
+
+    setShuffle(v) {
+      _state.shuffle = !!v;
+      spotify.shuffle = _state.shuffle;
+      _emit('shuffle', { shuffle: _state.shuffle });
+      _scheduleSave();
+    },
+
+    cycleRepeat() {
+      const modes = SPOTIFY_REPEAT_MODES;
+      const idx = modes.indexOf(_state.repeat);
+      const next = modes[(idx + 1) % modes.length];
+      _state.repeat = next;
+      spotify.repeat = next;
+      _emit('repeat', { repeat: next });
+      _scheduleSave();
+      return next;
+    },
+
+    setRepeat(mode) {
+      if (!SPOTIFY_REPEAT_MODES.includes(mode)) return;
+      _state.repeat = mode;
+      spotify.repeat = mode;
+      _emit('repeat', { repeat: mode });
+      _scheduleSave();
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       GETTERS DE ESTADO / BIBLIOTECA
+    ══════════════════════════════════════════════════════════ */
+
+    isPlaying() {
+      return spotify.isPlaying;
+    },
+
+    getCurrentTrack() {
+      if (!spotify.currentTrackId) return null;
+      return spotify.tracksById.get(spotify.currentTrackId) || null;
+    },
+
+    getCurrentTime() {
+      return spotify.currentTime || 0;
+    },
+
+    getDuration() {
+      return spotify.duration || 0;
+    },
+
+    getQueue() {
+      return spotify.queue.slice();
+    },
+
+    getQueueIndex() {
+      return spotify.queueIndex;
+    },
+
+    getAllTracks() {
+      return spotify.library ? spotify.library.tracks.slice() : [];
+    },
+
+    getTrackById(id) {
+      if (!id) return null;
+      return spotify.tracksById.get(id) || null;
+    },
+
+    getPlaylists() {
+      return spotify.library ? spotify.library.playlists.slice() : [];
+    },
+
+    getPlaylistById(id) {
+      if (!id) return null;
+      return spotify.playlistsById.get(id) || null;
+    },
+
+    getArtistByName(name) {
+      if (!name) return null;
+      const a = spotify.artistsIndex.get(name);
+      if (!a) return null;
+      return {
+        name: a.name,
+        cover: a.cover,
+        albums: Array.from(a.albums),
+        tracks: a.tracks.slice(),
+        trackCount: a.tracks.length
+      };
+    },
+
+    getAlbumByKey(key) {
+      if (!key) return null;
+      const alb = spotify.albumsIndex.get(key);
+      if (!alb) return null;
+      return {
+        key: alb.key,
+        name: alb.name,
+        artist: alb.artist,
+        year: alb.year,
+        cover: alb.cover,
+        tracks: alb.tracks.slice(),
+        trackCount: alb.tracks.length
+      };
+    },
+
+    getRecentTracks() {
+      return _state.recentIds
+        .map(id => spotify.tracksById.get(id))
+        .filter(Boolean);
+    },
+
+    getMostPlayed(limit = 10) {
+      const entries = Object.entries(_state.playCount)
+        .map(([id, count]) => ({ track: spotify.tracksById.get(id), count }))
+        .filter(e => e.track)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, limit);
+      return entries;
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       LIKES
+    ══════════════════════════════════════════════════════════ */
+
+    isLiked(trackId) {
+      return spotify.likedIds.has(trackId);
+    },
+
+    getLikedIds() {
+      return Array.from(spotify.likedIds);
+    },
+
+    getLikedTracks() {
+      return Array.from(spotify.likedIds)
+        .map(id => spotify.tracksById.get(id))
+        .filter(Boolean);
+    },
+
+    toggleLike(trackId) {
+      if (!trackId) return false;
+      if (spotify.likedIds.has(trackId)) {
+        spotify.likedIds.delete(trackId);
+      } else {
+        spotify.likedIds.add(trackId);
+      }
+      _state.likedIds = Array.from(spotify.likedIds);
+      _refreshLikedPlaylist();
+      _emit('liked', { trackId, liked: spotify.likedIds.has(trackId) });
+      _scheduleSave();
+      return spotify.likedIds.has(trackId);
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       PLAYLISTS CUSTOM
+    ══════════════════════════════════════════════════════════ */
+
+    getCustomPlaylists() {
+      return spotify.customPlaylists.slice();
+    },
+
+    createPlaylist({ name, description = '', cover = null, color = '#1ed760', trackIds = [] } = {}) {
+      if (spotify.customPlaylists.length >= SPOTIFY_CUSTOM_PLAYLISTS_MAX) {
+        _emit('error', { error: new Error('Máximo de playlists alcanzado'), context: 'createPlaylist' });
+        return null;
+      }
+      const cleanName = _safeStr(name).trim();
+      if (!cleanName) return null;
+
+      const id = spRandomId('pl');
+      const playlist = {
+        id,
+        name: cleanName,
+        description: _safeStr(description).trim(),
+        cover: _safeStr(cover).trim() || null,
+        color: _safeStr(color).trim() || '#1ed760',
+        trackIds: Array.isArray(trackIds) ? trackIds.filter(id => spotify.tracksById.has(id)) : [],
+        createdAt: Date.now()
+      };
+      spotify.customPlaylists.unshift(playlist);
+      _state.customPlaylists = spotify.customPlaylists.slice();
+      _emit('playlists-change', { action: 'create', playlist });
+      _scheduleSave();
+      return playlist;
+    },
+
+    updatePlaylist(id, patch = {}) {
+      const idx = spotify.customPlaylists.findIndex(p => p.id === id);
+      if (idx === -1) return null;
+      const current = spotify.customPlaylists[idx];
+      const next = Object.assign({}, current, patch);
+      if (patch.name != null) next.name = _safeStr(patch.name).trim() || current.name;
+      if (patch.description != null) next.description = _safeStr(patch.description).trim();
+      if (patch.color != null) next.color = _safeStr(patch.color).trim() || current.color;
+      if (patch.cover != null) next.cover = _safeStr(patch.cover).trim() || null;
+      if (Array.isArray(patch.trackIds)) {
+        next.trackIds = patch.trackIds
+          .filter(tid => spotify.tracksById.has(tid))
+          .slice(0, SPOTIFY_PLAYLIST_TRACKS_MAX);
+      }
+      next.updatedAt = Date.now();
+      spotify.customPlaylists[idx] = next;
+      _state.customPlaylists = spotify.customPlaylists.slice();
+      _emit('playlists-change', { action: 'update', playlist: next });
+      _scheduleSave();
+      return next;
+    },
+
+    deletePlaylist(id) {
+      const idx = spotify.customPlaylists.findIndex(p => p.id === id);
+      if (idx === -1) return false;
+      const [removed] = spotify.customPlaylists.splice(idx, 1);
+      _state.customPlaylists = spotify.customPlaylists.slice();
+      _emit('playlists-change', { action: 'delete', playlist: removed });
+      _scheduleSave();
+      return true;
+    },
+
+    addToPlaylist(playlistId, trackId) {
+      const playlist = spotify.customPlaylists.find(p => p.id === playlistId);
+      if (!playlist) return false;
+      if (!spotify.tracksById.has(trackId)) return false;
+      if (playlist.trackIds.includes(trackId)) return false;
+      if (playlist.trackIds.length >= SPOTIFY_PLAYLIST_TRACKS_MAX) return false;
+      playlist.trackIds.push(trackId);
+      playlist.updatedAt = Date.now();
+      _state.customPlaylists = spotify.customPlaylists.slice();
+      _emit('playlists-change', { action: 'add-track', playlist, trackId });
+      _scheduleSave();
+      return true;
+    },
+
+    removeFromPlaylist(playlistId, trackId) {
+      const playlist = spotify.customPlaylists.find(p => p.id === playlistId);
+      if (!playlist) return false;
+      const idx = playlist.trackIds.indexOf(trackId);
+      if (idx === -1) return false;
+      playlist.trackIds.splice(idx, 1);
+      playlist.updatedAt = Date.now();
+      _state.customPlaylists = spotify.customPlaylists.slice();
+      _emit('playlists-change', { action: 'remove-track', playlist, trackId });
+      _scheduleSave();
+      return true;
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       SEARCH
+    ══════════════════════════════════════════════════════════ */
+
+    search(query) {
+      const q = _safeStr(query).trim().toLowerCase();
+      const result = { tracks: [], artists: [], albums: [], playlists: [] };
+
+      if (!q) return result;
+
+      // Tracks
+      for (const track of spotify.library.tracks) {
+        const haystack = `${track.title} ${track.artist} ${track.album}`.toLowerCase();
+        if (haystack.includes(q)) result.tracks.push(track);
+      }
+
+      // Artistas
+      for (const [name, data] of spotify.artistsIndex) {
+        if (name.toLowerCase().includes(q)) {
+          result.artists.push({
+            name,
+            cover: data.cover,
+            trackCount: data.tracks.length
+          });
+        }
+      }
+
+      // Álbumes
+      for (const alb of spotify.albumsIndex.values()) {
+        const haystack = `${alb.name} ${alb.artist}`.toLowerCase();
+        if (haystack.includes(q)) {
+          result.albums.push({
+            key: alb.key,
+            name: alb.name,
+            artist: alb.artist,
+            year: alb.year,
+            cover: alb.cover,
+            trackCount: alb.tracks.length
+          });
+        }
+      }
+
+      // Playlists (custom + library)
+      for (const pl of spotify.library.playlists) {
+        if (pl.name.toLowerCase().includes(q)) result.playlists.push(pl);
+      }
+      for (const pl of spotify.customPlaylists) {
+        if (pl.name.toLowerCase().includes(q)) result.playlists.push(pl);
+      }
+
+      return result;
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       VISUALIZER
+    ══════════════════════════════════════════════════════════ */
+
+    getAnalyserData() {
+      if (!spotify.analyserNode || !spotify.visualizerData) return null;
+      const data = new Uint8Array(spotify.analyserNode.frequencyBinCount);
+      spotify.analyserNode.getByteFrequencyData(data);
+      spotify.visualizerData = data;
+      return data;
+    },
+
+    getAnalyserNode() {
+      return spotify.analyserNode;
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       EVENTOS
+    ══════════════════════════════════════════════════════════ */
+
+    on(event, fn) {
+      return _on(event, fn);
+    },
+
+    off(event, fn) {
+      _off(event, fn);
+    },
+
+    emit(event, data) {
+      _emit(event, data);
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       PERSISTENCIA
+    ══════════════════════════════════════════════════════════ */
+
+    flushState() {
+      if (_saveTimer) {
+        clearTimeout(_saveTimer);
+        _saveTimer = null;
+      }
+      // Sincronizar runtime → state
+      _state.currentTrackId = spotify.currentTrackId;
+      _state.queue = spotify.queue.slice();
+      _state.queueIndex = spotify.queueIndex;
+      _state.volume = spotify.volume;
+      _state.muted = spotify.muted;
+      _state.shuffle = spotify.shuffle;
+      _state.repeat = spotify.repeat;
+      _state.likedIds = Array.from(spotify.likedIds);
+      _state.customPlaylists = spotify.customPlaylists.slice();
+      _state.recentIds = spotify.recentIds.slice();
+      _state.playCount = Object.assign({}, spotify.playCount);
+      _saveNow();
+    },
+
+    resetState() {
+      try {
+        localStorage.removeItem(SPOTIFY_STORAGE_KEY);
+      } catch (e) {}
+      _state = _clone(SPOTIFY_DEFAULT_STATE);
+      spotify.likedIds = new Set();
+      spotify.customPlaylists = [];
+      spotify.recentIds = [];
+      spotify.playCount = {};
+      _refreshLikedPlaylist();
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       DEBUG
+    ══════════════════════════════════════════════════════════ */
+
+    isReady() {
+      return spotify.initResolved;
+    },
+
+    isMockMode() {
+      return spotify.mockMode;
+    },
+
+    getInternalState() {
+      return _state;
+    }
+  };
+
+  return api;
+})();
+
+// Exponer globalmente
+window.SpotifyApp = SpotifyApp;
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY APP — UI (HTML, vistas, player, listeners)
    ═══════════════════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════════════
-   ★ PLAYER GLOBAL (Control Center + HUD + Spotify)
-═══════════════════════════════════════════════════════════════ */
-
-function setupQuickCenterPlayer() {
-  // Loop de progreso (1 segundo)
-  setInterval(() => {
-    if (!isPlaying) return;
-    const track = TRACKS[currentTrackIndex];
-    if (!track) return;
-    currentPlaybackTime += 1;
-    if (currentPlaybackTime >= track.duration) {
-      if (repeatEnabled) {
-        currentPlaybackTime = 0;
-      } else {
-        nextTrack();
-        return;
-      }
-    }
-    updatePlayerProgress();
-  }, 1000);
-
-  // Botón shuffle del Control Center
-  const shuffleBtn = document.getElementById('cc-shuffle');
-  if (shuffleBtn) {
-    shuffleBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      shuffleEnabled = !shuffleEnabled;
-      shuffleBtn.classList.toggle('active', shuffleEnabled);
-      syncSpotifyShuffleRepeatUI();
-    });
-  }
-
-  // Botón repeat del Control Center
-  const repeatBtn = document.getElementById('cc-repeat');
-  if (repeatBtn) {
-    repeatBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      repeatEnabled = !repeatEnabled;
-      repeatBtn.classList.toggle('active', repeatEnabled);
-      syncSpotifyShuffleRepeatUI();
-    });
-  }
-
-  updatePlayerProgress();
-}
-
-function updatePlayerProgress() {
-  const track = TRACKS[currentTrackIndex];
-  if (!track) return;
-
-  const pct = Math.min(100, (currentPlaybackTime / track.duration) * 100);
-  const currentFormatted = formatTime(currentPlaybackTime);
-  const totalFormatted = formatTime(track.duration);
-
-  // Control Center
-  const fill = document.getElementById('cc-progress-fill');
-  const currentEl = document.getElementById('cc-time-current');
-  const totalEl = document.getElementById('cc-time-total');
-  const dot = document.getElementById('cc-eq-dot');
-
-  if (fill) fill.style.width = `${pct}%`;
-  if (currentEl) currentEl.textContent = currentFormatted;
-  if (totalEl) totalEl.textContent = totalFormatted;
-  if (dot) dot.classList.toggle('paused', !isPlaying);
-
-  // HUD
-  const hudFill = document.getElementById('hud-progress-fill');
-  const hudTime = document.getElementById('hud-progress-time');
-  if (hudFill) hudFill.style.width = `${pct}%`;
-  if (hudTime) hudTime.textContent = `${currentFormatted} / ${totalFormatted}`;
-
-  // Spotify app
-  const spFill = document.getElementById('spot-progress-fill');
-  const spCurrent = document.getElementById('spot-time-current');
-  const spTotal = document.getElementById('spot-time-total');
-  if (spFill) spFill.style.width = `${pct}%`;
-  if (spCurrent) spCurrent.textContent = currentFormatted;
-  if (spTotal) spTotal.textContent = totalFormatted;
-}
-
-function resetPlayerProgress() {
-  currentPlaybackTime = 0;
-  updatePlayerProgress();
-}
-
-function updatePlayerBackground() {
-  const track = TRACKS[currentTrackIndex];
-  if (!track) return;
-
-  const ccBg = document.getElementById('cc-media-bg');
-  if (ccBg) ccBg.style.backgroundImage = `url("${track.art}")`;
-
-  const hudBg = document.getElementById('hud-media-bg');
-  if (hudBg) hudBg.style.backgroundImage = `url("${track.art}")`;
-}
-
-function toggleMediaPlayback() {
-  isPlaying = !isPlaying;
-
-  const playBtn = document.getElementById('media-toggle');
-  const hudPlayBtn = document.getElementById('hud-play-btn');
-  const ccPlayBtn = document.getElementById('cc-play-btn');
-
-  const iconName = isPlaying ? 'pause' : 'play';
-  if (playBtn) playBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
-  if (hudPlayBtn) hudPlayBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
-  if (ccPlayBtn) ccPlayBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
-
-  document.querySelectorAll('#spot-play-btn').forEach(btn => {
-    btn.innerHTML = `<i data-lucide="${iconName}"></i>`;
-  });
-
-  updatePlayerProgress();
-  refreshIcons();
-}
-
-function nextTrack() {
-  currentTrackIndex = (currentTrackIndex + 1) % TRACKS.length;
-  updateMediaUI();
-  resetPlayerProgress();
-  updatePlayerBackground();
-}
-
-function previousTrack() {
-  currentTrackIndex = (currentTrackIndex - 1 + TRACKS.length) % TRACKS.length;
-  updateMediaUI();
-  resetPlayerProgress();
-  updatePlayerBackground();
-}
-
-function updateMediaUI() {
-  const track = TRACKS[currentTrackIndex];
-
-  // Artwork en CC / HUD / Widget
-  ['cc-media-art', 'hud-media-art', 'w-media-art'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.src = track.art;
-  });
-  document.querySelectorAll('#spot-player-cover').forEach(el => el.src = track.art);
-
-  // Título
-  ['cc-media-title', 'hud-media-title', 'w-media-title'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = track.title;
-  });
-  document.querySelectorAll('#spot-player-title').forEach(el => el.textContent = track.title);
-
-  // Artista
-  ['cc-media-artist', 'hud-media-artist', 'w-media-artist'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = track.artist;
-  });
-  document.querySelectorAll('#spot-player-artist').forEach(el => el.textContent = track.artist);
-
-  // Duración total
-  const totalEl = document.getElementById('cc-time-total');
-  if (totalEl) totalEl.textContent = formatTime(track.duration);
-
-  // Highlight en las cards de Spotify
-  document.querySelectorAll('.spot-card[data-track-index]').forEach(card => {
-    const idx = parseInt(card.dataset.trackIndex, 10);
-    card.classList.toggle('playing', idx === currentTrackIndex);
-  });
-
-  updatePlayerBackground();
-  updatePlayerProgress();
-}
-
-function setSystemVolume(val) {
-  systemVolume = val;
-  const volNum = document.getElementById('tray-volume-num');
-  const qVolVal = document.getElementById('quick-volume-value');
-  if (volNum) volNum.textContent = `${val}%`;
-  if (qVolVal) qVolVal.textContent = `${val}%`;
-
-  document.querySelectorAll('#spot-volume-slider').forEach(spVol => {
-    if (Number(spVol.value) !== Number(val)) {
-      spVol.value = val;
-      syncSliderFill(spVol);
-    }
-  });
-}
-
-function syncSpotifyShuffleRepeatUI() {
-  document.querySelectorAll('#spot-shuffle').forEach(el => {
-    el.classList.toggle('active', shuffleEnabled);
-  });
-  document.querySelectorAll('#spot-repeat').forEach(el => {
-    el.classList.toggle('active', repeatEnabled);
-  });
-}
-
-function playFirstTrack() {
-  currentTrackIndex = 0;
-  currentPlaybackTime = 0;
-  if (!isPlaying) isPlaying = true;
-  updateMediaUI();
-  updatePlayerBackground();
-  updatePlayerProgress();
-
-  const iconName = isPlaying ? 'pause' : 'play';
-  ['media-toggle', 'hud-play-btn', 'cc-play-btn'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = `<i data-lucide="${iconName}"></i>`;
-  });
-  document.querySelectorAll('#spot-play-btn').forEach(btn => {
-    btn.innerHTML = `<i data-lucide="${iconName}"></i>`;
-  });
-  refreshIcons();
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ SPOTIFY — HTML de la app
+   ★ HTML PRINCIPAL
 ═══════════════════════════════════════════════════════════════ */
 
 function getSpotifyAppHTML() {
-  const track = TRACKS[currentTrackIndex];
-  const currentFormatted = formatTime(currentPlaybackTime);
-  const totalFormatted = formatTime(track.duration);
+  const current = SpotifyApp.getCurrentTrack();
+  const volumePct = Math.round(SpotifyApp.getVolume() * 100);
+  const shuffle = spotify.shuffle;
+  const repeat = spotify.repeat;
+  const isPlaying = spotify.isPlaying;
+  const isLiked = current ? SpotifyApp.isLiked(current.id) : false;
 
   return `
-    <div class="spot-app">
-      <div class="spot-topbar">
-        <div class="spot-topbar-nav">
-          <button class="spot-nav-arrow" type="button" disabled aria-label="Atrás"><i data-lucide="chevron-left"></i></button>
-          <button class="spot-nav-arrow" type="button" disabled aria-label="Adelante"><i data-lucide="chevron-right"></i></button>
+    <div class="sp-app" data-spotify-root>
+      <!-- ═══ TOPBAR ═══ -->
+      <header class="sp-topbar">
+        <div class="sp-topbar-nav">
+          <button class="sp-nav-btn" data-sp-nav="back" title="Atrás" aria-label="Atrás">
+            <i data-lucide="chevron-left"></i>
+          </button>
+          <button class="sp-nav-btn" data-sp-nav="forward" title="Adelante" aria-label="Adelante">
+            <i data-lucide="chevron-right"></i>
+          </button>
         </div>
-        <label class="spot-searchbar"><i data-lucide="search"></i><input type="search" placeholder="¿Qué querés reproducir?" aria-label="Buscar en Spotify"></label>
-        <div class="spot-topbar-right"><div class="spot-topbar-avatar" title="Perfil">N</div></div>
-      </div>
-      <aside class="spot-sidebar">
-        <div class="spot-sidebar-header">
-          <strong><i data-lucide="library"></i> Tu biblioteca</strong>
-          <button class="spot-sidebar-create" type="button"><i data-lucide="plus"></i> Crear</button>
+
+        <label class="sp-search">
+          <i data-lucide="search" class="sp-search-icon"></i>
+          <input
+            type="search"
+            class="sp-search-input"
+            placeholder="¿Qué querés escuchar?"
+            autocomplete="off"
+            value="${spEscapeHtml(spotify.searchQuery || '')}"
+          />
+          <button class="sp-search-clear" data-sp-search-clear type="button" title="Limpiar" ${spotify.searchQuery ? '' : 'hidden'}>
+            <i data-lucide="x"></i>
+          </button>
+        </label>
+
+        <div class="sp-topbar-right">
+          <button class="sp-topbar-btn" data-sp-action="queue" title="Cola de reproducción">
+            <i data-lucide="list-music"></i>
+          </button>
+          <button class="sp-topbar-btn" data-sp-action="now-playing" title="Now Playing">
+            <i data-lucide="disc-3"></i>
+          </button>
+          <div class="sp-avatar" title="Perfil">
+            <span>N</span>
+          </div>
         </div>
-        <div class="spot-sidebar-filters">
-          <button class="spot-filter-chip active" type="button">Playlists</button>
-          <button class="spot-filter-chip" type="button">Álbumes</button>
-          <button class="spot-filter-chip" type="button">Artistas</button>
-        </div>
-        <label class="spot-library-search"><i data-lucide="search"></i><input type="search" placeholder="Buscar en tu biblioteca" aria-label="Buscar en tu biblioteca"></label>
-        <div class="spot-library-list">
-          <button class="spot-lib-item active" type="button"><span class="spot-lib-icon"><i data-lucide="heart"></i></span><div class="spot-lib-info"><strong>Tus me gusta</strong><small>Playlist · 42 canciones</small></div></button>
-          <button class="spot-lib-item" type="button"><span class="spot-lib-icon"><i data-lucide="sparkles"></i></span><div class="spot-lib-info"><strong>Descubrimiento semanal</strong><small>Playlist · 30 canciones</small></div></button>
-          <button class="spot-lib-item" type="button"><span class="spot-lib-icon"><i data-lucide="music"></i></span><div class="spot-lib-info"><strong>Mix de Rock</strong><small>Playlist · 50 canciones</small></div></button>
-          <button class="spot-lib-item" type="button"><span class="spot-lib-icon"><i data-lucide="headphones"></i></span><div class="spot-lib-info"><strong>Lofi Beats Gaming</strong><small>Playlist · 25 canciones</small></div></button>
-          <button class="spot-lib-item" type="button"><span class="spot-lib-icon"><i data-lucide="radio"></i></span><div class="spot-lib-info"><strong>Cyberpunk Beats</strong><small>Playlist · 40 canciones</small></div></button>
-        </div>
-      </aside>
-      <main class="spot-main">
-        <div class="spot-hero">
-          <div class="spot-hero-info">
-            <div class="spot-hero-kicker">Playlist destacada</div>
-            <h1>Música para programar</h1>
-            <button class="spot-hero-btn" type="button" onclick="playFirstTrack()">
-              <i data-lucide="play"></i> Escuchar ahora
+      </header>
+
+      <!-- ═══ BODY: SIDEBAR + MAIN ═══ -->
+      <div class="sp-body">
+        <aside class="sp-sidebar">
+          <div class="sp-sidebar-head">
+            <button class="sp-sidebar-lib-btn" data-sp-nav="library" title="Tu biblioteca">
+              <i data-lucide="library"></i>
+              <span>Tu biblioteca</span>
+            </button>
+            <button class="sp-sidebar-create" data-sp-action="create-playlist" title="Crear playlist">
+              <i data-lucide="plus"></i>
             </button>
           </div>
-          <img class="spot-hero-cover" src="./assets/images/apps/spotify/top50.jpg" alt="Playlist destacada">
+
+          <div class="sp-sidebar-filters">
+            <button class="sp-chip ${spotify.libraryFilter === 'all' ? 'active' : ''}" data-sp-filter="all">Todo</button>
+            <button class="sp-chip ${spotify.libraryFilter === 'playlists' ? 'active' : ''}" data-sp-filter="playlists">Playlists</button>
+            <button class="sp-chip ${spotify.libraryFilter === 'albums' ? 'active' : ''}" data-sp-filter="albums">Álbumes</button>
+            <button class="sp-chip ${spotify.libraryFilter === 'artists' ? 'active' : ''}" data-sp-filter="artists">Artistas</button>
+          </div>
+
+          <div class="sp-sidebar-scroll" data-sp-sidebar-scroll>
+            ${renderSpotifySidebarLibrary()}
+          </div>
+        </aside>
+
+        <main class="sp-main" data-sp-main>
+          ${renderSpotifyMain()}
+        </main>
+      </div>
+
+      <!-- ═══ PLAYER INFERIOR ═══ -->
+      <footer class="sp-player" data-sp-player>
+        <div class="sp-player-left">
+          ${current ? `
+            <img class="sp-player-cover" src="${spEscapeHtml(spGetTrackCover(current))}" alt="" />
+            <div class="sp-player-info">
+              <button class="sp-player-title-btn" data-sp-action="now-playing" title="${spEscapeHtml(current.title)}">
+                <span class="sp-player-title">${spEscapeHtml(current.title)}</span>
+              </button>
+              <button class="sp-player-artist-btn" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(current.artist)}">
+                <span class="sp-player-artist">${spEscapeHtml(current.artist)}</span>
+              </button>
+            </div>
+            <button class="sp-player-like ${isLiked ? 'liked' : ''}" data-sp-action="like-current" title="${isLiked ? 'Quitar de Tus me gusta' : 'Agregar a Tus me gusta'}">
+              <i data-lucide="heart"></i>
+            </button>
+          ` : `
+            <div class="sp-player-cover sp-player-cover--empty"><i data-lucide="music"></i></div>
+            <div class="sp-player-info">
+              <span class="sp-player-title">Sin reproducción</span>
+              <span class="sp-player-artist">Elegí un track para empezar</span>
+            </div>
+          `}
         </div>
-        <div class="spot-main-chips">
-          <button class="spot-main-chip active" type="button">Todo</button>
-          <button class="spot-main-chip" type="button">Música</button>
-          <button class="spot-main-chip" type="button">Podcasts</button>
-        </div>
-        <div class="spot-section-title">Tus canciones</div>
-        <div class="spot-grid">
-          ${TRACKS.map((t, i) => `
-            <button class="spot-card ${i === currentTrackIndex ? 'playing' : ''}" type="button" data-track-index="${i}">
-              <img class="spot-card-img" src="${t.art}" alt="${escapeHtml(t.title)}">
-              <div class="spot-card-info">
-                <div class="spot-card-title">${escapeHtml(t.title)}</div>
-                <div class="spot-card-sub">${escapeHtml(t.artist)}</div>
+
+        <div class="sp-player-center">
+          <div class="sp-player-controls">
+            <button class="sp-ctrl ${shuffle ? 'active' : ''}" data-sp-action="shuffle" title="Aleatorio">
+              <i data-lucide="shuffle"></i>
+            </button>
+            <button class="sp-ctrl" data-sp-action="prev" title="Anterior">
+              <i data-lucide="skip-back"></i>
+            </button>
+            <button class="sp-ctrl sp-ctrl-main" data-sp-action="play-pause" title="${isPlaying ? 'Pausar' : 'Reproducir'}">
+              <i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>
+            </button>
+            <button class="sp-ctrl" data-sp-action="next" title="Siguiente">
+              <i data-lucide="skip-forward"></i>
+            </button>
+            <button class="sp-ctrl sp-ctrl-repeat ${repeat !== 'off' ? 'active' : ''}" data-sp-action="repeat" data-sp-repeat="${repeat}" title="Repetir">
+              <i data-lucide="${repeat === 'one' ? 'repeat-1' : 'repeat'}"></i>
+            </button>
+          </div>
+
+          <div class="sp-player-progress">
+            <span class="sp-time" data-sp-time="current">${spFormatTime(SpotifyApp.getCurrentTime())}</span>
+            <div class="sp-progress" data-sp-progress>
+              <div class="sp-progress-track">
+                <div class="sp-progress-fill" data-sp-progress-fill style="width: 0%"></div>
+                <div class="sp-progress-knob" data-sp-progress-knob style="left: 0%"></div>
               </div>
+            </div>
+            <span class="sp-time" data-sp-time="duration">${spFormatTime(current ? (current.duration || 0) : 0)}</span>
+          </div>
+        </div>
+
+        <div class="sp-player-right">
+          <button class="sp-ctrl" data-sp-action="now-playing" title="Now Playing">
+            <i data-lucide="mic-2"></i>
+          </button>
+          <button class="sp-ctrl" data-sp-action="queue" title="Cola de reproducción">
+            <i data-lucide="list-music"></i>
+          </button>
+          <button class="sp-ctrl" data-sp-action="devices" title="Dispositivos">
+            <i data-lucide="monitor-speaker"></i>
+          </button>
+          <div class="sp-volume">
+            <button class="sp-ctrl sp-volume-btn" data-sp-action="mute" title="${spotify.muted ? 'Activar sonido' : 'Silenciar'}">
+              <i data-lucide="${spotify.muted ? 'volume-x' : (volumePct === 0 ? 'volume' : volumePct < 50 ? 'volume-1' : 'volume-2')}"></i>
             </button>
-          `).join('')}
-        </div>
-        <div class="spot-section-title">Descubrí algo nuevo</div>
-        <div class="spot-grid">
-          <button class="spot-card" type="button" data-track-index="2"><img class="spot-card-img" src="./assets/images/apps/spotify/tapaAlbum3.jpg" alt="Callejeros"><div class="spot-card-info"><div class="spot-card-title">Rock Nacional</div><div class="spot-card-sub">Callejeros · Prohibido</div></div></button>
-          <button class="spot-card" type="button" data-track-index="3"><img class="spot-card-img" src="./assets/images/apps/spotify/top50.jpg" alt="Synthwave"><div class="spot-card-info"><div class="spot-card-title">Synthwave Mix</div><div class="spot-card-sub">Hyper Sound · Night City</div></div></button>
-          <button class="spot-card" type="button" data-track-index="1"><img class="spot-card-img" src="./assets/images/apps/spotify/tapaAlbum1.jpg" alt="Nirvana"><div class="spot-card-info"><div class="spot-card-title">Nevermind</div><div class="spot-card-sub">Nirvana · Smells Like...</div></div></button>
-        </div>
-      </main>
-      <div class="spot-player">
-        <div class="spot-player-left">
-          <img src="${track.art}" alt="${escapeHtml(track.title)}" id="spot-player-cover">
-          <div class="spot-player-track">
-            <strong id="spot-player-title">${escapeHtml(track.title)}</strong>
-            <small id="spot-player-artist">${escapeHtml(track.artist)}</small>
+            <div class="sp-volume-track" data-sp-volume>
+              <div class="sp-volume-fill" data-sp-volume-fill style="width: ${spotify.muted ? 0 : volumePct}%"></div>
+            </div>
           </div>
-          <button class="spot-player-like" type="button" id="spot-like-btn" title="Me gusta"><i data-lucide="heart"></i></button>
+          <button class="sp-ctrl" data-sp-action="fullscreen" title="Pantalla completa">
+            <i data-lucide="maximize-2"></i>
+          </button>
         </div>
-        <div class="spot-player-center">
-          <div class="spot-player-controls">
-            <button class="spot-ctrl ${shuffleEnabled ? 'active' : ''}" type="button" id="spot-shuffle" title="Aleatorio"><i data-lucide="shuffle"></i></button>
-            <button class="spot-ctrl" type="button" id="spot-prev-btn" title="Anterior"><i data-lucide="skip-back"></i></button>
-            <button class="spot-ctrl main" type="button" id="spot-play-btn" title="Reproducir / Pausar"><i data-lucide="${isPlaying ? 'pause' : 'play'}"></i></button>
-            <button class="spot-ctrl" type="button" id="spot-next-btn" title="Siguiente"><i data-lucide="skip-forward"></i></button>
-            <button class="spot-ctrl ${repeatEnabled ? 'active' : ''}" type="button" id="spot-repeat" title="Repetir"><i data-lucide="repeat"></i></button>
-          </div>
-          <div class="spot-player-progress">
-            <span class="spot-player-time" id="spot-time-current">${currentFormatted}</span>
-            <div class="spot-progress-track" id="spot-progress-track"><span id="spot-progress-fill" style="width: 0%;"></span></div>
-            <span class="spot-player-time" id="spot-time-total">${totalFormatted}</span>
-          </div>
-        </div>
-        <div class="spot-player-right">
-          <button class="spot-extra-btn" type="button" title="Letra"><i data-lucide="mic-2"></i></button>
-          <button class="spot-extra-btn" type="button" title="Cola de reproducción"><i data-lucide="list-music"></i></button>
-          <button class="spot-extra-btn" type="button" title="Dispositivos"><i data-lucide="monitor-speaker"></i></button>
-          <div class="spot-volume">
-            <i data-lucide="volume-2" class="spot-extra-btn" style="pointer-events: none;"></i>
-            <input type="range" min="0" max="100" value="${systemVolume}" id="spot-volume-slider" aria-label="Volumen">
-          </div>
-          <button class="spot-extra-btn" type="button" title="Pantalla completa"><i data-lucide="maximize-2"></i></button>
-        </div>
-      </div>
+      </footer>
     </div>
   `;
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ★ SPOTIFY — Setup post-render
+   ★ SIDEBAR — Lista de biblioteca
+═══════════════════════════════════════════════════════════════ */
+
+function renderSpotifySidebarLibrary() {
+  const filter = spotify.libraryFilter || 'all';
+  const items = [];
+
+  // Playlists virtuales fijas
+  if (filter === 'all' || filter === 'playlists') {
+    items.push({
+      id: '__liked__',
+      type: 'playlist',
+      name: 'Tus me gusta',
+      subtitle: `Playlist · ${SpotifyApp.getLikedTracks().length} canciones`,
+      cover: null,
+      color: '#1ed760',
+      icon: 'heart'
+    });
+
+    // Playlists del library
+    SpotifyApp.getPlaylists().forEach(pl => {
+      if (pl.id === '__liked__') return;
+      const cover = getPlaylistCover(pl);
+      items.push({
+        id: pl.id,
+        type: 'playlist',
+        name: pl.name,
+        subtitle: `Playlist · ${pl.trackIds.length} canciones`,
+        cover,
+        color: pl.color || '#1ed760',
+        icon: 'music'
+      });
+    });
+
+    // Playlists custom
+    SpotifyApp.getCustomPlaylists().forEach(pl => {
+      const cover = getPlaylistCover(pl);
+      items.push({
+        id: pl.id,
+        type: 'playlist',
+        name: pl.name,
+        subtitle: `Playlist tuya · ${pl.trackIds.length} canciones`,
+        cover,
+        color: pl.color || '#1ed760',
+        icon: 'music',
+        custom: true
+      });
+    });
+  }
+
+  if (filter === 'all' || filter === 'artists') {
+    const artists = new Map();
+    SpotifyApp.getAllTracks().forEach(t => {
+      if (!artists.has(t.artist)) {
+        artists.set(t.artist, { name: t.artist, cover: t.cover, count: 0 });
+      }
+      artists.get(t.artist).count++;
+    });
+    artists.forEach((a, name) => {
+      items.push({
+        id: name,
+        type: 'artist',
+        name: a.name,
+        subtitle: `Artista · ${a.count} canciones`,
+        cover: a.cover,
+        color: '#a855f7',
+        icon: 'user'
+      });
+    });
+  }
+
+  if (filter === 'all' || filter === 'albums') {
+    const albums = new Map();
+    SpotifyApp.getAllTracks().forEach(t => {
+      const key = `${t.artist}::${t.album}`;
+      if (!albums.has(key)) {
+        albums.set(key, { key, name: t.album, artist: t.artist, cover: t.cover, count: 0 });
+      }
+      albums.get(key).count++;
+    });
+    albums.forEach((a) => {
+      items.push({
+        id: a.key,
+        type: 'album',
+        name: a.name,
+        subtitle: `Álbum · ${a.artist} · ${a.count} canciones`,
+        cover: a.cover,
+        color: '#f59e0b',
+        icon: 'disc-3'
+      });
+    });
+  }
+
+  if (items.length === 0) {
+    return `
+      <div class="sp-sidebar-empty">
+        <i data-lucide="library"></i>
+        <span>Nada por acá todavía</span>
+      </div>
+    `;
+  }
+
+  return items.map(item => {
+    const coverHTML = item.cover
+      ? `<img src="${spEscapeHtml(item.cover)}" alt="" loading="lazy" />`
+      : `<div class="sp-sidebar-item-icon" style="background: ${item.color}22; color: ${item.color};">
+           <i data-lucide="${item.icon || 'music'}"></i>
+         </div>`;
+
+    return `
+      <button class="sp-sidebar-item" data-sp-nav="${item.type}" data-sp-id="${spEscapeHtml(item.id)}" data-sp-artist="${item.type === 'artist' ? spEscapeHtml(item.id) : ''}" data-sp-album="${item.type === 'album' ? spEscapeHtml(item.id) : ''}">
+        <div class="sp-sidebar-item-cover ${item.type === 'artist' ? 'is-artist' : ''}">
+          ${coverHTML}
+        </div>
+        <div class="sp-sidebar-item-meta">
+          <span class="sp-sidebar-item-title">${spEscapeHtml(item.name)}</span>
+          <span class="sp-sidebar-item-sub">${spEscapeHtml(item.subtitle)}</span>
+        </div>
+      </button>
+    `;
+  }).join('');
+}
+
+function getPlaylistCover(pl) {
+  if (pl.cover) return pl.cover;
+  if (pl.trackIds && pl.trackIds.length) {
+    const first = SpotifyApp.getTrackById(pl.trackIds[0]);
+    if (first) return spGetTrackCover(first);
+  }
+  return null;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ MAIN — Router de vistas
+═══════════════════════════════════════════════════════════════ */
+
+function renderSpotifyMain() {
+  const view = spotify.view || 'home';
+  switch (view) {
+    case 'home':      return renderSpotifyHome();
+    case 'playlist':  return renderSpotifyPlaylist(spotify.viewParams.playlistId);
+    case 'artist':    return renderSpotifyArtist(spotify.viewParams.artistName);
+    case 'album':     return renderSpotifyAlbum(spotify.viewParams.albumKey);
+    case 'search':    return renderSpotifySearch();
+    case 'liked':     return renderSpotifyLiked();
+    case 'library':   return renderSpotifyLibrary();
+    case 'queue':     return renderSpotifyQueue();
+    default:          return renderSpotifyHome();
+  }
+}
+
+/* ─── Vista: HOME ─── */
+
+function renderSpotifyHome() {
+  const allTracks = SpotifyApp.getAllTracks();
+  const recent = SpotifyApp.getRecentTracks().slice(0, 8);
+  const liked = SpotifyApp.getLikedTracks().slice(0, 6);
+
+  // Destacar un álbum aleatorio de la biblioteca
+  const albumsMap = new Map();
+  allTracks.forEach(t => {
+    const key = `${t.artist}::${t.album}`;
+    if (!albumsMap.has(key)) albumsMap.set(key, { key, name: t.album, artist: t.artist, cover: t.cover });
+  });
+  const albums = Array.from(albumsMap.values());
+
+  // Artista destacado (el más frecuente)
+  const artistCounts = {};
+  allTracks.forEach(t => { artistCounts[t.artist] = (artistCounts[t.artist] || 0) + 1; });
+  const featuredArtistName = spGetMostFrequent(allTracks.map(t => t.artist));
+  const featuredArtist = featuredArtistName ? SpotifyApp.getArtistByName(featuredArtistName) : null;
+
+  const greeting = getSpotifyGreeting();
+
+  return `
+    <div class="sp-view sp-view-home">
+      <div class="sp-hero">
+        <div class="sp-hero-inner">
+          <div class="sp-hero-text">
+            <span class="sp-hero-kicker">${greeting}</span>
+            <h1 class="sp-hero-title">Buenas vibras</h1>
+            <p class="sp-hero-sub">${allTracks.length} canciones en tu biblioteca</p>
+          </div>
+          <div class="sp-hero-actions">
+            <button class="sp-btn sp-btn-primary" data-sp-action="play-all">
+              <i data-lucide="play"></i> Reproducir
+            </button>
+            <button class="sp-btn sp-btn-ghost" data-sp-action="shuffle-all">
+              <i data-lucide="shuffle"></i> Aleatorio
+            </button>
+          </div>
+        </div>
+      </div>
+
+      ${recent.length > 0 ? `
+        <section class="sp-section">
+          <div class="sp-section-head">
+            <h2 class="sp-section-title">Escuchado recientemente</h2>
+            <button class="sp-section-link" data-sp-nav="recent">Ver todo</button>
+          </div>
+          <div class="sp-cards-grid">
+            ${recent.map(track => renderSpotifyCard(track)).join('')}
+          </div>
+        </section>
+      ` : ''}
+
+      ${liked.length > 0 ? `
+        <section class="sp-section">
+          <div class="sp-section-head">
+            <h2 class="sp-section-title">Tus me gusta</h2>
+            <button class="sp-section-link" data-sp-nav="liked">Ver todo</button>
+          </div>
+          <div class="sp-cards-grid">
+            ${liked.map(track => renderSpotifyCard(track)).join('')}
+          </div>
+        </section>
+      ` : ''}
+
+      ${albums.length > 0 ? `
+        <section class="sp-section">
+          <div class="sp-section-head">
+            <h2 class="sp-section-title">Álbumes en tu biblioteca</h2>
+          </div>
+          <div class="sp-cards-grid">
+            ${albums.slice(0, 8).map(alb => `
+              <button class="sp-card sp-card-album" data-sp-nav="album" data-sp-album="${spEscapeHtml(alb.key)}">
+                <div class="sp-card-cover">
+                  <img src="${spEscapeHtml(alb.cover)}" alt="" loading="lazy" />
+                  <span class="sp-card-play" aria-hidden="true"><i data-lucide="play"></i></span>
+                </div>
+                <div class="sp-card-meta">
+                  <span class="sp-card-title">${spEscapeHtml(alb.name)}</span>
+                  <span class="sp-card-sub">${spEscapeHtml(alb.artist)}</span>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+        </section>
+      ` : ''}
+
+      ${featuredArtist ? `
+        <section class="sp-section">
+          <div class="sp-section-head">
+            <h2 class="sp-section-title">Artista destacado</h2>
+          </div>
+          <div class="sp-featured-artist">
+            <div class="sp-featured-cover" style="background-image: url('${spEscapeHtml(featuredArtist.cover)}');">
+              <button class="sp-featured-play" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(featuredArtist.name)}">
+                <i data-lucide="play"></i>
+              </button>
+            </div>
+            <div class="sp-featured-info">
+              <span class="sp-featured-kicker">ARTISTA</span>
+              <h3 class="sp-featured-name">${spEscapeHtml(featuredArtist.name)}</h3>
+              <p class="sp-featured-meta">${featuredArtist.trackCount} canciones · ${featuredArtist.albums.length} álbumes</p>
+              <button class="sp-btn sp-btn-ghost" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(featuredArtist.name)}">
+                <i data-lucide="arrow-right"></i> Ver artista
+              </button>
+            </div>
+          </div>
+        </section>
+      ` : ''}
+
+      ${allTracks.length === 0 ? `
+        <div class="sp-empty">
+          <i data-lucide="music-2"></i>
+          <h2>No hay música todavía</h2>
+          <p>Agregá archivos MP3 en <code>assets/music/</code> y un <code>library.json</code> para empezar.</p>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function getSpotifyGreeting() {
+  const h = new Date().getHours();
+  if (h < 6) return 'Buenas noches';
+  if (h < 12) return 'Buenos días';
+  if (h < 19) return 'Buenas tardes';
+  return 'Buenas noches';
+}
+
+/* ─── Card de track (grid) ─── */
+
+function renderSpotifyCard(track) {
+  const isCurrent = spotify.currentTrackId === track.id;
+  return `
+    <button class="sp-card ${isCurrent ? 'is-current' : ''}" data-sp-play="${spEscapeHtml(track.id)}">
+      <div class="sp-card-cover">
+        <img src="${spEscapeHtml(spGetTrackCover(track))}" alt="" loading="lazy" />
+        <span class="sp-card-play" aria-hidden="true">
+          <i data-lucide="${isCurrent && spotify.isPlaying ? 'pause' : 'play'}"></i>
+        </span>
+      </div>
+      <div class="sp-card-meta">
+        <span class="sp-card-title">${spEscapeHtml(track.title)}</span>
+        <span class="sp-card-sub">${spEscapeHtml(track.artist)}</span>
+      </div>
+    </button>
+  `;
+}
+
+/* ─── Vista: PLAYLIST ─── */
+
+function renderSpotifyPlaylist(playlistId) {
+  const playlist = SpotifyApp.getPlaylistById(playlistId);
+  const custom = SpotifyApp.getCustomPlaylists().find(p => p.id === playlistId);
+
+  const target = playlist || custom;
+  if (!target) return renderSpotifyHome();
+
+  const tracks = target.trackIds
+    .map(id => SpotifyApp.getTrackById(id))
+    .filter(Boolean);
+
+  const totalDuration = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+  const cover = getPlaylistCover(target);
+
+  return `
+    <div class="sp-view sp-view-playlist">
+      <header class="sp-playlist-header">
+        <div class="sp-playlist-cover" style="--pl-color: ${target.color || '#1ed760'}">
+          ${cover
+            ? `<img src="${spEscapeHtml(cover)}" alt="" />`
+            : `<i data-lucide="music-2"></i>`}
+        </div>
+        <div class="sp-playlist-info">
+          <span class="sp-playlist-kicker">Playlist</span>
+          <h1 class="sp-playlist-title">${spEscapeHtml(target.name)}</h1>
+          ${target.description ? `<p class="sp-playlist-desc">${spEscapeHtml(target.description)}</p>` : ''}
+          <div class="sp-playlist-meta">
+            <span>${tracks.length} canciones</span>
+            <span class="sp-dot">·</span>
+            <span>${spFormatTotalDuration(totalDuration)}</span>
+          </div>
+          <div class="sp-playlist-actions">
+            <button class="sp-btn sp-btn-primary sp-btn-large" data-sp-action="play-playlist" data-sp-playlist-id="${spEscapeHtml(target.id)}">
+              <i data-lucide="play"></i> Reproducir
+            </button>
+            <button class="sp-btn sp-btn-ghost" data-sp-action="shuffle-playlist" data-sp-playlist-id="${spEscapeHtml(target.id)}">
+              <i data-lucide="shuffle"></i> Aleatorio
+            </button>
+            ${custom ? `
+              <button class="sp-btn-icon" data-sp-action="edit-playlist" data-sp-playlist-id="${spEscapeHtml(target.id)}" title="Editar">
+                <i data-lucide="pencil"></i>
+              </button>
+              <button class="sp-btn-icon danger" data-sp-action="delete-playlist" data-sp-playlist-id="${spEscapeHtml(target.id)}" title="Eliminar">
+                <i data-lucide="trash-2"></i>
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      </header>
+
+      ${renderSpotifyTrackList(tracks, { context: 'playlist', contextId: target.id })}
+    </div>
+  `;
+}
+
+/* ─── Vista: ARTISTA ─── */
+
+function renderSpotifyArtist(artistName) {
+  const artist = SpotifyApp.getArtistByName(artistName);
+  if (!artist) return renderSpotifyHome();
+
+  // Álbumes del artista
+  const albumsMap = new Map();
+  artist.tracks.forEach(t => {
+    const key = `${t.artist}::${t.album}`;
+    if (!albumsMap.has(key)) {
+      albumsMap.set(key, { key, name: t.album, year: t.year, cover: t.cover, trackCount: 0 });
+    }
+    albumsMap.get(key).trackCount++;
+  });
+  const albums = Array.from(albumsMap.values());
+
+  // Top tracks (por duración como heurística)
+  const topTracks = artist.tracks.slice(0, 5);
+
+  return `
+    <div class="sp-view sp-view-artist">
+      <header class="sp-artist-hero" style="--hero-cover: url('${spEscapeHtml(artist.cover)}');">
+        <div class="sp-artist-hero-inner">
+          <div class="sp-artist-avatar">
+            <img src="${spEscapeHtml(artist.cover)}" alt="" />
+          </div>
+          <div class="sp-artist-info">
+            <span class="sp-artist-kicker">Artista verificado</span>
+            <h1 class="sp-artist-name">${spEscapeHtml(artist.name)}</h1>
+            <div class="sp-artist-meta">
+              <span>${artist.trackCount} canciones</span>
+              <span class="sp-dot">·</span>
+              <span>${artist.albums.length} álbumes</span>
+            </div>
+            <div class="sp-artist-actions">
+              <button class="sp-btn sp-btn-primary" data-sp-action="play-artist" data-sp-artist="${spEscapeHtml(artist.name)}">
+                <i data-lucide="play"></i> Reproducir
+              </button>
+              <button class="sp-btn sp-btn-ghost" data-sp-action="shuffle-artist" data-sp-artist="${spEscapeHtml(artist.name)}">
+                <i data-lucide="shuffle"></i> Aleatorio
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      ${topTracks.length > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Populares</h2>
+          ${renderSpotifyTrackList(topTracks, { context: 'artist', contextId: artist.name, compact: true })}
+        </section>
+      ` : ''}
+
+      ${albums.length > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Discografía</h2>
+          <div class="sp-cards-grid">
+            ${albums.map(alb => `
+              <button class="sp-card sp-card-album" data-sp-nav="album" data-sp-album="${spEscapeHtml(alb.key)}">
+                <div class="sp-card-cover">
+                  <img src="${spEscapeHtml(alb.cover)}" alt="" loading="lazy" />
+                  <span class="sp-card-play" aria-hidden="true"><i data-lucide="play"></i></span>
+                </div>
+                <div class="sp-card-meta">
+                  <span class="sp-card-title">${spEscapeHtml(alb.name)}</span>
+                  <span class="sp-card-sub">${alb.year || ''} · ${alb.trackCount} canciones</span>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+        </section>
+      ` : ''}
+    </div>
+  `;
+}
+
+/* ─── Vista: ÁLBUM ─── */
+
+function renderSpotifyAlbum(albumKey) {
+  const album = SpotifyApp.getAlbumByKey(albumKey);
+  if (!album) return renderSpotifyHome();
+
+  const totalDuration = album.tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+
+  return `
+    <div class="sp-view sp-view-album">
+      <header class="sp-playlist-header">
+        <div class="sp-playlist-cover">
+          <img src="${spEscapeHtml(album.cover)}" alt="" />
+        </div>
+        <div class="sp-playlist-info">
+          <span class="sp-playlist-kicker">Álbum</span>
+          <h1 class="sp-playlist-title">${spEscapeHtml(album.name)}</h1>
+          <p class="sp-playlist-desc">
+            <button class="sp-inline-link" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(album.artist)}">${spEscapeHtml(album.artist)}</button>
+            ${album.year ? ` · ${album.year}` : ''}
+          </p>
+          <div class="sp-playlist-meta">
+            <span>${album.tracks.length} canciones</span>
+            <span class="sp-dot">·</span>
+            <span>${spFormatTotalDuration(totalDuration)}</span>
+          </div>
+          <div class="sp-playlist-actions">
+            <button class="sp-btn sp-btn-primary sp-btn-large" data-sp-action="play-album" data-sp-album="${spEscapeHtml(album.key)}">
+              <i data-lucide="play"></i> Reproducir
+            </button>
+            <button class="sp-btn sp-btn-ghost" data-sp-action="shuffle-album" data-sp-album="${spEscapeHtml(album.key)}">
+              <i data-lucide="shuffle"></i> Aleatorio
+            </button>
+          </div>
+        </div>
+      </header>
+
+      ${renderSpotifyTrackList(album.tracks, { context: 'album', contextId: album.key })}
+    </div>
+  `;
+}
+
+/* ─── Vista: BÚSQUEDA ─── */
+
+function renderSpotifySearch() {
+  const q = spotify.searchQuery || '';
+  if (!q.trim()) {
+    const history = spotify.searchHistory || [];
+    return `
+      <div class="sp-view sp-view-search">
+        <h1 class="sp-view-title">Buscar</h1>
+        ${history.length > 0 ? `
+          <section class="sp-section">
+            <h2 class="sp-section-title">Búsquedas recientes</h2>
+            <div class="sp-chips-row">
+              ${history.map(h => `
+                <button class="sp-chip" data-sp-search-suggestion="${spEscapeHtml(h)}">
+                  <i data-lucide="history"></i> ${spEscapeHtml(h)}
+                </button>
+              `).join('')}
+            </div>
+          </section>
+        ` : ''}
+        <div class="sp-empty">
+          <i data-lucide="search"></i>
+          <h2>Buscá algo</h2>
+          <p>Encontrá canciones, artistas, álbumes o playlists.</p>
+        </div>
+      </div>
+    `;
+  }
+
+  const results = SpotifyApp.search(q);
+  const noResults = results.tracks.length === 0
+    && results.artists.length === 0
+    && results.albums.length === 0
+    && results.playlists.length === 0;
+
+  if (noResults) {
+    return `
+      <div class="sp-view sp-view-search">
+        <h1 class="sp-view-title">Resultados para "${spEscapeHtml(q)}"</h1>
+        <div class="sp-empty">
+          <i data-lucide="search-x"></i>
+          <h2>Sin resultados</h2>
+          <p>Probá con otra búsqueda.</p>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="sp-view sp-view-search">
+      <h1 class="sp-view-title">Resultados para "${spEscapeHtml(q)}"</h1>
+
+      ${results.tracks.length > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Canciones</h2>
+          ${renderSpotifyTrackList(results.tracks.slice(0, 8), { context: 'search', contextId: 'tracks', compact: true })}
+        </section>
+      ` : ''}
+
+      ${results.artists.length > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Artistas</h2>
+          <div class="sp-cards-grid">
+            ${results.artists.slice(0, 6).map(a => `
+              <button class="sp-card sp-card-artist" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(a.name)}">
+                <div class="sp-card-cover is-round">
+                  <img src="${spEscapeHtml(a.cover)}" alt="" loading="lazy" />
+                </div>
+                <div class="sp-card-meta">
+                  <span class="sp-card-title">${spEscapeHtml(a.name)}</span>
+                  <span class="sp-card-sub">Artista · ${a.trackCount} canciones</span>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+        </section>
+      ` : ''}
+
+      ${results.albums.length > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Álbumes</h2>
+          <div class="sp-cards-grid">
+            ${results.albums.slice(0, 6).map(alb => `
+              <button class="sp-card" data-sp-nav="album" data-sp-album="${spEscapeHtml(alb.key)}">
+                <div class="sp-card-cover">
+                  <img src="${spEscapeHtml(alb.cover)}" alt="" loading="lazy" />
+                </div>
+                <div class="sp-card-meta">
+                  <span class="sp-card-title">${spEscapeHtml(alb.name)}</span>
+                  <span class="sp-card-sub">${spEscapeHtml(alb.artist)}</span>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+        </section>
+      ` : ''}
+
+      ${results.playlists.length > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Playlists</h2>
+          <div class="sp-cards-grid">
+            ${results.playlists.slice(0, 6).map(pl => {
+              const cover = getPlaylistCover(pl);
+              return `
+                <button class="sp-card" data-sp-nav="playlist" data-sp-id="${spEscapeHtml(pl.id)}">
+                  <div class="sp-card-cover">
+                    ${cover
+                      ? `<img src="${spEscapeHtml(cover)}" alt="" loading="lazy" />`
+                      : `<div class="sp-card-cover-placeholder" style="background: ${pl.color || '#1ed760'}22;"><i data-lucide="music-2"></i></div>`}
+                  </div>
+                  <div class="sp-card-meta">
+                    <span class="sp-card-title">${spEscapeHtml(pl.name)}</span>
+                    <span class="sp-card-sub">Playlist · ${pl.trackIds.length} canciones</span>
+                  </div>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </section>
+      ` : ''}
+    </div>
+  `;
+}
+
+/* ─── Vista: LIKED ─── */
+
+function renderSpotifyLiked() {
+  const tracks = SpotifyApp.getLikedTracks();
+  const totalDuration = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+
+  return `
+    <div class="sp-view sp-view-liked">
+      <header class="sp-playlist-header sp-liked-header">
+        <div class="sp-playlist-cover sp-liked-cover">
+          <i data-lucide="heart"></i>
+        </div>
+        <div class="sp-playlist-info">
+          <span class="sp-playlist-kicker">Playlist</span>
+          <h1 class="sp-playlist-title">Tus me gusta</h1>
+          <div class="sp-playlist-meta">
+            <span>${tracks.length} canciones</span>
+            <span class="sp-dot">·</span>
+            <span>${spFormatTotalDuration(totalDuration)}</span>
+          </div>
+          ${tracks.length > 0 ? `
+            <div class="sp-playlist-actions">
+              <button class="sp-btn sp-btn-primary sp-btn-large" data-sp-action="play-liked">
+                <i data-lucide="play"></i> Reproducir
+              </button>
+              <button class="sp-btn sp-btn-ghost" data-sp-action="shuffle-liked">
+                <i data-lucide="shuffle"></i> Aleatorio
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      </header>
+
+      ${tracks.length > 0
+        ? renderSpotifyTrackList(tracks, { context: 'liked', contextId: '__liked__' })
+        : `<div class="sp-empty">
+            <i data-lucide="heart-off"></i>
+            <h2>Aún no tenés favoritos</h2>
+            <p>Tocá el corazón en cualquier canción para guardarla acá.</p>
+          </div>`}
+    </div>
+  `;
+}
+
+/* ─── Vista: LIBRARY ─── */
+
+function renderSpotifyLibrary() {
+  const playlists = SpotifyApp.getPlaylists().filter(p => p.id !== '__liked__');
+  const custom = SpotifyApp.getCustomPlaylists();
+  const allPlaylists = [
+    { id: '__liked__', name: 'Tus me gusta', color: '#1ed760', trackIds: SpotifyApp.getLikedIds(), __virtual: 'liked' },
+    ...playlists,
+    ...custom
+  ];
+
+  const allTracks = SpotifyApp.getAllTracks();
+  const albumsMap = new Map();
+  allTracks.forEach(t => {
+    const key = `${t.artist}::${t.album}`;
+    if (!albumsMap.has(key)) albumsMap.set(key, { key, name: t.album, artist: t.artist, cover: t.cover });
+  });
+  const albums = Array.from(albumsMap.values());
+
+  const artists = new Map();
+  allTracks.forEach(t => {
+    if (!artists.has(t.artist)) artists.set(t.artist, { name: t.artist, cover: t.cover, count: 0 });
+    artists.get(t.artist).count++;
+  });
+
+  return `
+    <div class="sp-view sp-view-library">
+      <h1 class="sp-view-title">Tu biblioteca</h1>
+
+      ${allPlaylists.length > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Playlists</h2>
+          <div class="sp-cards-grid">
+            ${allPlaylists.map(pl => {
+              const cover = getPlaylistCover(pl);
+              return `
+                <button class="sp-card" data-sp-nav="playlist" data-sp-id="${spEscapeHtml(pl.id)}">
+                  <div class="sp-card-cover">
+                    ${pl.id === '__liked__'
+                      ? `<div class="sp-card-cover-liked"><i data-lucide="heart"></i></div>`
+                      : (cover
+                        ? `<img src="${spEscapeHtml(cover)}" alt="" loading="lazy" />`
+                        : `<div class="sp-card-cover-placeholder" style="background: ${pl.color || '#1ed760'}22;"><i data-lucide="music-2"></i></div>`)}
+                  </div>
+                  <div class="sp-card-meta">
+                    <span class="sp-card-title">${spEscapeHtml(pl.name)}</span>
+                    <span class="sp-card-sub">Playlist · ${(pl.trackIds || []).length} canciones</span>
+                  </div>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </section>
+      ` : ''}
+
+      ${albums.length > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Álbumes</h2>
+          <div class="sp-cards-grid">
+            ${albums.slice(0, 12).map(alb => `
+              <button class="sp-card" data-sp-nav="album" data-sp-album="${spEscapeHtml(alb.key)}">
+                <div class="sp-card-cover">
+                  <img src="${spEscapeHtml(alb.cover)}" alt="" loading="lazy" />
+                </div>
+                <div class="sp-card-meta">
+                  <span class="sp-card-title">${spEscapeHtml(alb.name)}</span>
+                  <span class="sp-card-sub">${spEscapeHtml(alb.artist)}</span>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+        </section>
+      ` : ''}
+
+      ${artists.size > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Artistas</h2>
+          <div class="sp-cards-grid">
+            ${Array.from(artists.values()).slice(0, 12).map(a => `
+              <button class="sp-card sp-card-artist" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(a.name)}">
+                <div class="sp-card-cover is-round">
+                  <img src="${spEscapeHtml(a.cover)}" alt="" loading="lazy" />
+                </div>
+                <div class="sp-card-meta">
+                  <span class="sp-card-title">${spEscapeHtml(a.name)}</span>
+                  <span class="sp-card-sub">Artista · ${a.count} canciones</span>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+        </section>
+      ` : ''}
+    </div>
+  `;
+}
+
+/* ─── Vista: QUEUE ─── */
+
+function renderSpotifyQueue() {
+  const queue = SpotifyApp.getQueue();
+  const queueIndex = SpotifyApp.getQueueIndex();
+  const upcoming = queue.slice(queueIndex + 1);
+
+  return `
+    <div class="sp-view sp-view-queue">
+      <h1 class="sp-view-title">Cola de reproducción</h1>
+
+      ${queueIndex >= 0 && queue[queueIndex] ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Reproduciendo ahora</h2>
+          ${renderSpotifyTrackList([SpotifyApp.getTrackById(queue[queueIndex])].filter(Boolean), { context: 'queue', compact: true, hidePlayedAt: true })}
+        </section>
+      ` : ''}
+
+      <section class="sp-section">
+        <h2 class="sp-section-title">Próximas (${upcoming.length})</h2>
+        ${upcoming.length > 0
+          ? renderSpotifyTrackList(upcoming.map(id => SpotifyApp.getTrackById(id)).filter(Boolean), { context: 'queue', compact: true })
+          : `<p class="sp-empty-inline">No hay más canciones en la cola.</p>`}
+      </section>
+    </div>
+  `;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ LISTA DE TRACKS (componente reutilizable)
+═══════════════════════════════════════════════════════════════ */
+
+function renderSpotifyTrackList(tracks, { context = '', contextId = '', compact = false } = {}) {
+  if (!tracks || tracks.length === 0) {
+    return `<div class="sp-empty-inline">Sin canciones.</div>`;
+  }
+
+  return `
+    <div class="sp-tracklist ${compact ? 'is-compact' : ''}" data-sp-tracklist data-sp-context="${context}" data-sp-context-id="${spEscapeHtml(contextId)}">
+      <div class="sp-tracklist-head">
+        <span class="sp-track-num">#</span>
+        <span class="sp-track-title-col">Título</span>
+        <span class="sp-track-album-col">Álbum</span>
+        <span class="sp-track-duration-col"><i data-lucide="clock-3"></i></span>
+      </div>
+      ${tracks.map((track, i) => renderSpotifyTrackRow(track, i, context, contextId)).join('')}
+    </div>
+  `;
+}
+
+function renderSpotifyTrackRow(track, index, context, contextId) {
+  const isCurrent = spotify.currentTrackId === track.id;
+  const isPlaying = isCurrent && spotify.isPlaying;
+  const liked = SpotifyApiIsLiked(track.id);
+
+  return `
+    <div class="sp-track-row ${isCurrent ? 'is-current' : ''}" data-sp-track-id="${spEscapeHtml(track.id)}">
+      <div class="sp-track-num">
+        <span class="sp-track-index">${index + 1}</span>
+        <button class="sp-track-play-btn" data-sp-play="${spEscapeHtml(track.id)}" title="${isPlaying ? 'Pausar' : 'Reproducir'}">
+          <i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>
+        </button>
+      </div>
+      <div class="sp-track-title">
+        <img class="sp-track-cover" src="${spEscapeHtml(spGetTrackCover(track))}" alt="" loading="lazy" />
+        <div class="sp-track-title-meta">
+          <span class="sp-track-name ${isCurrent ? 'is-accent' : ''}">${spEscapeHtml(track.title)}</span>
+          <button class="sp-track-artist-btn" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(track.artist)}">
+            ${spEscapeHtml(track.artist)}
+          </button>
+        </div>
+      </div>
+      <button class="sp-track-album" data-sp-nav="album" data-sp-album="${spEscapeHtml(`${track.artist}::${track.album}`)}">
+        ${spEscapeHtml(track.album)}
+      </button>
+      <div class="sp-track-actions">
+        <button class="sp-icon-btn sp-track-like ${liked ? 'liked' : ''}" data-sp-like="${spEscapeHtml(track.id)}" title="${liked ? 'Quitar de Tus me gusta' : 'Agregar a Tus me gusta'}">
+          <i data-lucide="heart"></i>
+        </button>
+        <button class="sp-icon-btn sp-track-menu" data-sp-track-menu="${spEscapeHtml(track.id)}" title="Más opciones">
+          <i data-lucide="more-horizontal"></i>
+        </button>
+      </div>
+      <span class="sp-track-duration">${spFormatTime(track.duration || 0)}</span>
+    </div>
+  `;
+}
+
+/* Helper local para evitar referencia circular */
+function SpotifyApiIsLiked(id) {
+  return spotify.likedIds.has(id);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SETUP DE LA APP — listeners completos
 ═══════════════════════════════════════════════════════════════ */
 
 function setupSpotifyApp(win) {
   if (!win) return;
 
-  // Click en las cards de tracks
-  win.querySelectorAll('.spot-card[data-track-index]').forEach(card => {
-    card.addEventListener('click', () => {
-      const idx = parseInt(card.dataset.trackIndex, 10);
-      if (Number.isNaN(idx)) return;
-      currentTrackIndex = idx;
-      currentPlaybackTime = 0;
-      if (!isPlaying) isPlaying = true;
-      updateMediaUI();
-      updatePlayerBackground();
-      updatePlayerProgress();
+  // Registrar UI en el WeakMap para no duplicar listeners
+  const ui = spotifyUIState.get(win) || {};
+  if (ui.bound) {
+    // Ya estaba bound; solo refrescamos el HTML
+    refreshSpotifyWindow(win);
+    return;
+  }
 
-      const iconName = isPlaying ? 'pause' : 'play';
-      ['media-toggle', 'hud-play-btn', 'cc-play-btn'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.innerHTML = `<i data-lucide="${iconName}"></i>`;
-      });
-      document.querySelectorAll('#spot-play-btn').forEach(btn => {
-        btn.innerHTML = `<i data-lucide="${iconName}"></i>`;
-      });
-      refreshIcons();
-    });
-  });
+  const root = win.querySelector('[data-spotify-root]');
+  if (!root) return;
 
-  // Controles principales
-  const spPlay = win.querySelector('#spot-play-btn');
-  if (spPlay) spPlay.addEventListener('click', () => toggleMediaPlayback());
+  ui.bound = true;
+  ui.win = win;
+  spotifyUIState.set(win, ui);
 
-  const spNext = win.querySelector('#spot-next-btn');
-  if (spNext) spNext.addEventListener('click', () => nextTrack());
+  // ─── Delegación de eventos ───
+  root.addEventListener('click', (e) => handleSpotifyClick(e, win));
 
-  const spPrev = win.querySelector('#spot-prev-btn');
-  if (spPrev) spPrev.addEventListener('click', () => previousTrack());
+  // ─── Search input ───
+  const searchInput = root.querySelector('.sp-search-input');
+  if (searchInput) {
+    const handler = spDebounce((value) => {
+      spotify.searchQuery = value;
+      if (value.trim()) {
+        spotify.view = 'search';
+        spotify.viewParams = { query: value };
+        // Guardar en historial
+        const hist = spotify.searchHistory || [];
+        if (value.trim() && !hist.includes(value.trim())) {
+          hist.unshift(value.trim());
+          spotify.searchHistory = hist.slice(0, 10);
+        }
+      } else if (spotify.view === 'search') {
+        spotify.view = 'home';
+      }
+      refreshSpotifyWindow(win);
+    }, SPOTIFY_SEARCH_DEBOUNCE_MS);
 
-  // Shuffle
-  const spShuffle = win.querySelector('#spot-shuffle');
-  if (spShuffle) spShuffle.addEventListener('click', () => {
-    shuffleEnabled = !shuffleEnabled;
-    syncSpotifyShuffleRepeatUI();
-    const ccShuffle = document.getElementById('cc-shuffle');
-    if (ccShuffle) ccShuffle.classList.toggle('active', shuffleEnabled);
-  });
-
-  // Repeat
-  const spRepeat = win.querySelector('#spot-repeat');
-  if (spRepeat) spRepeat.addEventListener('click', () => {
-    repeatEnabled = !repeatEnabled;
-    syncSpotifyShuffleRepeatUI();
-    const ccRepeat = document.getElementById('cc-repeat');
-    if (ccRepeat) ccRepeat.classList.toggle('active', repeatEnabled);
-  });
-
-  // Like
-  const spLike = win.querySelector('#spot-like-btn');
-  if (spLike) spLike.addEventListener('click', () => {
-    spLike.classList.toggle('liked');
-  });
-
-  // Volumen
-  const spVol = win.querySelector('#spot-volume-slider');
-  if (spVol) {
-    spVol.value = systemVolume;
-    syncSliderFill(spVol);
-    spVol.addEventListener('input', () => {
-      setSystemVolume(spVol.value);
+    searchInput.addEventListener('input', (e) => handler(e.target.value));
+    searchInput.addEventListener('focus', () => {
+      // Expandir placeholder, etc.
     });
   }
 
-  // Click en la barra de progreso
-  const spProgress = win.querySelector('#spot-progress-track');
-  if (spProgress) {
-    spProgress.addEventListener('click', (e) => {
-      const rect = spProgress.getBoundingClientRect();
-      const pct = (e.clientX - rect.left) / rect.width;
-      const track = TRACKS[currentTrackIndex];
-      if (!track) return;
-      currentPlaybackTime = Math.floor(pct * track.duration);
-      updatePlayerProgress();
+  // ─── Barra de progreso (click para seek) ───
+  const progress = root.querySelector('[data-sp-progress]');
+  if (progress) {
+    const onSeek = (e) => {
+      const rect = progress.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const dur = SpotifyApp.getDuration() || (SpotifyApp.getCurrentTrack()?.duration || 0);
+      SpotifyApp.seek(pct * dur);
+    };
+    let seeking = false;
+    progress.addEventListener('mousedown', (e) => {
+      seeking = true;
+      onSeek(e);
+      const onMove = (ev) => seeking && onSeek(ev);
+      const onUp = () => {
+        seeking = false;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
     });
   }
 
-  syncSpotifyShuffleRepeatUI();
-  updateMediaUI();
+  // ─── Slider de volumen ───
+  const volumeTrack = root.querySelector('[data-sp-volume]');
+  if (volumeTrack) {
+    const onVol = (e) => {
+      const rect = volumeTrack.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      SpotifyApp.setVolume(pct);
+      if (pct > 0 && SpotifyApp.isMuted()) SpotifyApp.toggleMute();
+    };
+    let volDragging = false;
+    volumeTrack.addEventListener('mousedown', (e) => {
+      volDragging = true;
+      onVol(e);
+      const onMove = (ev) => volDragging && onVol(ev);
+      const onUp = () => {
+        volDragging = false;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
 
-  const iconName = isPlaying ? 'pause' : 'play';
-  if (spPlay) spPlay.innerHTML = `<i data-lucide="${iconName}"></i>`;
+  // ─── Atajos locales de la app ───
+  win.addEventListener('keydown', (e) => {
+    if (e.target.closest('.sp-search-input')) return;
+    const tag = e.target.tagName?.toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return;
 
-  setTimeout(syncAllSliders, 0);
+    if (e.code === 'Space' || e.key === ' ') {
+      e.preventDefault();
+      SpotifyApp.togglePlayPause();
+    } else if (e.key === 'ArrowRight' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      SpotifyApp.next();
+    } else if (e.key === 'ArrowLeft' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      SpotifyApp.prev();
+    } else if (e.key === 'ArrowUp' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      SpotifyApp.setVolume(Math.min(1, SpotifyApp.getVolume() + 0.05));
+    } else if (e.key === 'ArrowDown' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      SpotifyApp.setVolume(Math.max(0, SpotifyApp.getVolume() - 0.05));
+    } else if (e.key === 'f' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      const input = win.querySelector('.sp-search-input');
+      if (input) input.focus();
+    } else if (e.key === 'l' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      const current = SpotifyApp.getCurrentTrack();
+      if (current) SpotifyApp.toggleLike(current.id);
+    }
+  });
+
+  // ─── Escuchar eventos del motor para refrescar la UI ───
+  const unsubs = ui.unsubs || (ui.unsubs = []);
+  unsubs.push(SpotifyApp.on('trackchange', () => refreshSpotifyWindow(win)));
+  unsubs.push(SpotifyApp.on('play', () => refreshSpotifyPlayerBar(win)));
+  unsubs.push(SpotifyApp.on('pause', () => refreshSpotifyPlayerBar(win)));
+  unsubs.push(SpotifyApp.on('volume', () => refreshSpotifyVolumeUI(win)));
+  unsubs.push(SpotifyApp.on('shuffle', () => refreshSpotifyPlayerBar(win)));
+  unsubs.push(SpotifyApp.on('repeat', () => refreshSpotifyPlayerBar(win)));
+  unsubs.push(SpotifyApp.on('liked', ({ trackId }) => {
+    // Actualizar corazones en TODA la ventana
+    win.querySelectorAll(`[data-sp-like="${trackId}"]`).forEach(btn => {
+      const liked = SpotifyApp.isLiked(trackId);
+      btn.classList.toggle('liked', liked);
+      btn.title = liked ? 'Quitar de Tus me gusta' : 'Agregar a Tus me gusta';
+    });
+    // Actualizar el corazón del player
+    const current = SpotifyApp.getCurrentTrack();
+    if (current && current.id === trackId) {
+      const playerLike = win.querySelector('[data-sp-action="like-current"]');
+      if (playerLike) playerLike.classList.toggle('liked', SpotifyApp.isLiked(trackId));
+    }
+    // Sidebar "Tus me gusta"
+    if (spotify.view === 'liked') refreshSpotifyWindow(win);
+  }));
+  unsubs.push(SpotifyApp.on('playlists-change', () => {
+    refreshSpotifyWindow(win);
+  }));
+
+  // ─── Arrancar loop del visualizador (si hay barra) ───
+  startSpotifyVisualizerLoop(win);
+
+  // ─── Loop de progreso (por si timeupdate no dispara) ───
+  const progressInterval = setInterval(() => {
+    if (!win.isConnected) {
+      clearInterval(progressInterval);
+      return;
+    }
+    refreshSpotifyProgressUI(win);
+  }, 250);
+  ui.progressInterval = progressInterval;
+
+  // ─── Refrescar por primera vez ───
+  refreshSpotifyWindow(win);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ MANEJO DE CLICKS (delegación)
+═══════════════════════════════════════════════════════════════ */
+
+function handleSpotifyClick(e, win) {
+  const target = e.target;
+
+  // ─── Botón play/pause global ───
+  const playPause = target.closest('[data-sp-action="play-pause"]');
+  if (playPause) {
+    e.stopPropagation();
+    SpotifyApp.togglePlayPause();
+    return;
+  }
+
+  // ─── Reproducir un track específico ───
+  const playTrack = target.closest('[data-sp-play]');
+  if (playTrack) {
+    e.stopPropagation();
+    const trackId = playTrack.dataset.spPlay;
+    if (SpotifyApp.getCurrentTrack()?.id === trackId && spotify.isPlaying) {
+      SpotifyApp.pause();
+    } else if (SpotifyApp.getCurrentTrack()?.id === trackId && !spotify.isPlaying) {
+      SpotifyApp.resume();
+    } else {
+      SpotifyApp.play(trackId);
+    }
+    return;
+  }
+
+  // ─── Like de un track ───
+  const likeBtn = target.closest('[data-sp-like]');
+  if (likeBtn) {
+    e.stopPropagation();
+    SpotifyApp.toggleLike(likeBtn.dataset.spLike);
+    return;
+  }
+
+  // ─── Menú contextual de un track ───
+  const menuBtn = target.closest('[data-sp-track-menu]');
+  if (menuBtn) {
+    e.stopPropagation();
+    openSpotifyTrackMenu(win, menuBtn.dataset.spTrackMenu, menuBtn);
+    return;
+  }
+
+  // ─── Navegación ───
+  const nav = target.closest('[data-sp-nav]');
+  if (nav) {
+    e.stopPropagation();
+    navigateSpotify(win, nav.dataset.spNav, nav);
+    return;
+  }
+
+  // ─── Filtros de sidebar ───
+  const filter = target.closest('[data-sp-filter]');
+  if (filter) {
+    e.stopPropagation();
+    spotify.libraryFilter = filter.dataset.spFilter;
+    refreshSpotifyWindow(win);
+    return;
+  }
+
+  // ─── Limpiar búsqueda ───
+  if (target.closest('[data-sp-search-clear]')) {
+    e.stopPropagation();
+    spotify.searchQuery = '';
+    if (spotify.view === 'search') spotify.view = 'home';
+    refreshSpotifyWindow(win);
+    return;
+  }
+
+  // ─── Sugerencia de búsqueda (historial) ───
+  const suggestion = target.closest('[data-sp-search-suggestion]');
+  if (suggestion) {
+    e.stopPropagation();
+    spotify.searchQuery = suggestion.dataset.spSearchSuggestion;
+    spotify.view = 'search';
+    refreshSpotifyWindow(win);
+    return;
+  }
+
+  // ─── Botón "back" del topbar ───
+  if (target.closest('[data-sp-nav="back"]')) {
+    e.stopPropagation();
+    // volver a home
+    spotify.view = 'home';
+    spotify.viewParams = {};
+    refreshSpotifyWindow(win);
+    return;
+  }
+
+  // ─── Acciones ───
+  const action = target.closest('[data-sp-action]');
+  if (action) {
+    e.stopPropagation();
+    handleSpotifyAction(win, action.dataset.spAction, action);
+    return;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ NAVEGACIÓN INTERNA
+═══════════════════════════════════════════════════════════════ */
+
+function navigateSpotify(win, type, el) {
+  switch (type) {
+    case 'home':
+      spotify.view = 'home';
+      spotify.viewParams = {};
+      break;
+
+    case 'library':
+      spotify.view = 'library';
+      spotify.viewParams = {};
+      break;
+
+    case 'liked':
+      spotify.view = 'liked';
+      spotify.viewParams = {};
+      break;
+
+    case 'playlist':
+      spotify.view = 'playlist';
+      spotify.viewParams = { playlistId: el.dataset.spId };
+      break;
+
+    case 'artist':
+      spotify.view = 'artist';
+      spotify.viewParams = { artistName: el.dataset.spArtist || el.dataset.spId };
+      break;
+
+    case 'album':
+      spotify.view = 'album';
+      spotify.viewParams = { albumKey: el.dataset.spAlbum || el.dataset.spId };
+      break;
+
+    case 'search':
+      spotify.view = 'search';
+      spotify.viewParams = { query: spotify.searchQuery };
+      break;
+
+    case 'queue':
+      spotify.view = 'queue';
+      spotify.viewParams = {};
+      break;
+
+    case 'now-playing':
+      // Abrir HUD overlay con el track actual (o hacer scroll al player)
+      scrollSpotifyToPlayer(win);
+      return;
+
+    case 'recent':
+      // Vista "recientes" → usar vista liked pero con recientes
+      spotify.view = 'home';
+      spotify.viewParams = {};
+      break;
+
+    default:
+      spotify.view = 'home';
+      spotify.viewParams = {};
+  }
+
+  refreshSpotifyWindow(win);
+}
+
+function scrollSpotifyToPlayer(win) {
+  const player = win.querySelector('[data-sp-player]');
+  if (player) player.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ ACCIONES ESPECÍFICAS
+═══════════════════════════════════════════════════════════════ */
+
+function handleSpotifyAction(win, action, el) {
+  switch (action) {
+    case 'play-pause':
+      SpotifyApp.togglePlayPause();
+      break;
+
+    case 'prev':
+      SpotifyApp.prev();
+      break;
+
+    case 'next':
+      SpotifyApp.next();
+      break;
+
+    case 'shuffle':
+      SpotifyApp.toggleShuffle();
+      break;
+
+    case 'repeat':
+      SpotifyApp.cycleRepeat();
+      break;
+
+    case 'mute':
+      SpotifyApp.toggleMute();
+      break;
+
+    case 'like-current': {
+      const current = SpotifyApp.getCurrentTrack();
+      if (current) SpotifyApp.toggleLike(current.id);
+      break;
+    }
+
+    case 'play-all': {
+      const all = SpotifyApp.getAllTracks();
+      if (all.length > 0) SpotifyApp.play(all[0].id);
+      break;
+    }
+
+    case 'shuffle-all': {
+      const all = SpotifyApp.getAllTracks();
+      if (all.length === 0) break;
+      const shuffled = spShuffleArray(all);
+      SpotifyApp.setShuffle(true);
+      SpotifyApp.play(shuffled[0].id);
+      break;
+    }
+
+    case 'play-playlist': {
+      const pl = SpotifyApp.getPlaylistById(el.dataset.spPlaylistId)
+        || SpotifyApp.getCustomPlaylists().find(p => p.id === el.dataset.spPlaylistId);
+      if (pl && pl.trackIds.length > 0) {
+        spotify.queue = pl.trackIds.slice();
+        spotify.queueIndex = 0;
+        SpotifyApp.setShuffle(false);
+        SpotifyApp.play(pl.trackIds[0]);
+      }
+      break;
+    }
+
+    case 'shuffle-playlist': {
+      const pl = SpotifyApp.getPlaylistById(el.dataset.spPlaylistId)
+        || SpotifyApp.getCustomPlaylists().find(p => p.id === el.dataset.spPlaylistId);
+      if (pl && pl.trackIds.length > 0) {
+        const shuffled = spShuffleArray(pl.trackIds);
+        spotify.queue = shuffled;
+        spotify.queueIndex = 0;
+        SpotifyApp.setShuffle(true);
+        SpotifyApp.play(shuffled[0]);
+      }
+      break;
+    }
+
+    case 'play-artist': {
+      const artist = SpotifyApp.getArtistByName(el.dataset.spArtist);
+      if (artist && artist.tracks.length > 0) {
+        spotify.queue = artist.tracks.map(t => t.id);
+        spotify.queueIndex = 0;
+        SpotifyApp.setShuffle(false);
+        SpotifyApp.play(artist.tracks[0].id);
+      }
+      break;
+    }
+
+    case 'shuffle-artist': {
+      const artist = SpotifyApp.getArtistByName(el.dataset.spArtist);
+      if (artist && artist.tracks.length > 0) {
+        const shuffled = spShuffleArray(artist.tracks);
+        spotify.queue = shuffled.map(t => t.id);
+        spotify.queueIndex = 0;
+        SpotifyApp.setShuffle(true);
+        SpotifyApp.play(shuffled[0].id);
+      }
+      break;
+    }
+
+    case 'play-album': {
+      const album = SpotifyApp.getAlbumByKey(el.dataset.spAlbum);
+      if (album && album.tracks.length > 0) {
+        spotify.queue = album.tracks.map(t => t.id);
+        spotify.queueIndex = 0;
+        SpotifyApp.setShuffle(false);
+        SpotifyApp.play(album.tracks[0].id);
+      }
+      break;
+    }
+
+    case 'shuffle-album': {
+      const album = SpotifyApp.getAlbumByKey(el.dataset.spAlbum);
+      if (album && album.tracks.length > 0) {
+        const shuffled = spShuffleArray(album.tracks);
+        spotify.queue = shuffled.map(t => t.id);
+        spotify.queueIndex = 0;
+        SpotifyApp.setShuffle(true);
+        SpotifyApp.play(shuffled[0].id);
+      }
+      break;
+    }
+
+    case 'play-liked': {
+      const liked = SpotifyApp.getLikedTracks();
+      if (liked.length > 0) {
+        spotify.queue = liked.map(t => t.id);
+        spotify.queueIndex = 0;
+        SpotifyApp.setShuffle(false);
+        SpotifyApp.play(liked[0].id);
+      }
+      break;
+    }
+
+    case 'shuffle-liked': {
+      const liked = SpotifyApp.getLikedTracks();
+      if (liked.length > 0) {
+        const shuffled = spShuffleArray(liked);
+        spotify.queue = shuffled.map(t => t.id);
+        spotify.queueIndex = 0;
+        SpotifyApp.setShuffle(true);
+        SpotifyApp.play(shuffled[0].id);
+      }
+      break;
+    }
+
+    case 'queue':
+      navigateSpotify(win, 'queue', el);
+      break;
+
+    case 'now-playing':
+      scrollSpotifyToPlayer(win);
+      break;
+
+    case 'devices':
+      showToast('Dispositivos', 'Esta PC · Nebula Audio', 'monitor-speaker');
+      break;
+
+    case 'fullscreen': {
+      const root = win.querySelector('[data-spotify-root]');
+      if (root) root.classList.toggle('is-fullscreen');
+      break;
+    }
+
+    case 'create-playlist':
+      openSpotifyCreatePlaylistModal(win);
+      break;
+
+    case 'edit-playlist':
+      openSpotifyEditPlaylistModal(win, el.dataset.spPlaylistId);
+      break;
+
+    case 'delete-playlist': {
+      const id = el.dataset.spPlaylistId;
+      const pl = SpotifyApp.getCustomPlaylists().find(p => p.id === id);
+      if (!pl) break;
+      if (confirm(`¿Eliminar la playlist "${pl.name}"?`)) {
+        SpotifyApp.deletePlaylist(id);
+        navigateSpotify(win, 'home', el);
+        showToast('Playlist eliminada', pl.name, 'trash-2');
+      }
+      break;
+    }
+
+    case 'add-to-playlist': {
+      // El menú contextual ya maneja esto
+      break;
+    }
+
+    default:
+      console.warn('[Spotify] Acción no manejada:', action);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ REFRESH PARCIAL DE LA UI
+═══════════════════════════════════════════════════════════════ */
+
+function refreshSpotifyWindow(win) {
+  if (!win || !win.isConnected) return;
+
+  const root = win.querySelector('[data-spotify-root]');
+  if (!root) return;
+
+  // Buscar el scroll actual del main
+  const mainEl = root.querySelector('[data-sp-main]');
+  const scrollTop = mainEl ? mainEl.scrollTop : 0;
+
+  // Reemplazar todo el contenido de la app
+  const temp = document.createElement('div');
+  temp.innerHTML = getSpotifyAppHTML().trim();
+  const newRoot = temp.firstElementChild;
+
+  // Preservar foco del input de búsqueda
+  const oldInput = root.querySelector('.sp-search-input');
+  const hadFocus = oldInput && document.activeElement === oldInput;
+  const oldSelStart = oldInput ? oldInput.selectionStart : null;
+  const oldSelEnd = oldInput ? oldInput.selectionEnd : null;
+
+  root.replaceWith(newRoot);
+
+  // Re-bind de eventos (la delegación está en root, así que hay que re-hacerla)
+  const ui = spotifyUIState.get(win);
+  if (ui) {
+    ui.bound = false;
+    // Mantener unsubs
+    const unsubs = ui.unsubs;
+    const progressInterval = ui.progressInterval;
+    spotifyUIState.delete(win);
+    spotifyUIState.set(win, { bound: false, win, unsubs, progressInterval });
+  }
+
+  // Re-setup
+  const newUi = spotifyUIState.get(win);
+  if (newUi) newUi.bound = false;
+  setupSpotifyAppLight(win);
+
+  // Restaurar scroll
+  const newMain = win.querySelector('[data-sp-main]');
+  if (newMain && scrollTop > 0) newMain.scrollTop = scrollTop;
+
+  // Restaurar foco
+  if (hadFocus) {
+    const newInput = win.querySelector('.sp-search-input');
+    if (newInput) {
+      newInput.focus();
+      if (oldSelStart != null && oldSelEnd != null) {
+        newInput.setSelectionRange(oldSelStart, oldSelEnd);
+      }
+    }
+  }
+
   refreshIcons();
 }
+
+/**
+ * Re-bind ligero: solo agrega delegación de clicks y search input.
+ * Se usa después de replaceWith para no duplicar listeners de eventos del motor.
+ */
+function setupSpotifyAppLight(win) {
+  const root = win.querySelector('[data-spotify-root]');
+  if (!root) return;
+
+  // Delegación de clicks (una sola vez por root)
+  if (!root.dataset.boundClick) {
+    root.dataset.boundClick = '1';
+    root.addEventListener('click', (e) => handleSpotifyClick(e, win));
+  }
+
+  // Search input
+  const searchInput = root.querySelector('.sp-search-input');
+  if (searchInput && !searchInput.dataset.bound) {
+    searchInput.dataset.bound = '1';
+    const handler = spDebounce((value) => {
+      spotify.searchQuery = value;
+      if (value.trim()) {
+        spotify.view = 'search';
+        const hist = spotify.searchHistory || [];
+        if (!hist.includes(value.trim())) {
+          hist.unshift(value.trim());
+          spotify.searchHistory = hist.slice(0, 10);
+        }
+      } else if (spotify.view === 'search') {
+        spotify.view = 'home';
+      }
+      refreshSpotifyWindow(win);
+    }, SPOTIFY_SEARCH_DEBOUNCE_MS);
+    searchInput.addEventListener('input', (e) => handler(e.target.value));
+  }
+
+  // Progreso
+  const progress = root.querySelector('[data-sp-progress]');
+  if (progress && !progress.dataset.bound) {
+    progress.dataset.bound = '1';
+    const onSeek = (e) => {
+      const rect = progress.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const dur = SpotifyApp.getDuration() || (SpotifyApp.getCurrentTrack()?.duration || 0);
+      SpotifyApp.seek(pct * dur);
+    };
+    let seeking = false;
+    progress.addEventListener('mousedown', (e) => {
+      seeking = true;
+      onSeek(e);
+      const onMove = (ev) => seeking && onSeek(ev);
+      const onUp = () => {
+        seeking = false;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  // Volumen
+  const vol = root.querySelector('[data-sp-volume]');
+  if (vol && !vol.dataset.bound) {
+    vol.dataset.bound = '1';
+    const onVol = (e) => {
+      const rect = vol.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      SpotifyApp.setVolume(pct);
+      if (pct > 0 && SpotifyApp.isMuted()) SpotifyApp.toggleMute();
+    };
+    let dragging = false;
+    vol.addEventListener('mousedown', (e) => {
+      dragging = true;
+      onVol(e);
+      const onMove = (ev) => dragging && onVol(ev);
+      const onUp = () => {
+        dragging = false;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  // Refrescar barra de progreso y visualizador
+  refreshSpotifyProgressUI(win);
+  startSpotifyVisualizerLoop(win);
+}
+
+/**
+ * Refresca solo el player inferior (más liviano que rebuild completo).
+ */
+function refreshSpotifyPlayerBar(win) {
+  if (!win || !win.isConnected) return;
+  const root = win.querySelector('[data-spotify-root]');
+  if (!root) return;
+
+  const player = root.querySelector('[data-sp-player]');
+  if (!player) return;
+
+  const current = SpotifyApp.getCurrentTrack();
+  const isPlaying = spotify.isPlaying;
+  const shuffle = spotify.shuffle;
+  const repeat = spotify.repeat;
+  const isLiked = current ? SpotifyApp.isLiked(current.id) : false;
+
+  // Actualizar cover + info
+  const cover = player.querySelector('.sp-player-cover');
+  if (cover && current) {
+    cover.src = spGetTrackCover(current);
+  }
+
+  const title = player.querySelector('.sp-player-title');
+  if (title && current) title.textContent = current.title;
+
+  const artist = player.querySelector('.sp-player-artist');
+  if (artist && current) artist.textContent = current.artist;
+
+  // Play/pause button
+  const playBtn = player.querySelector('[data-sp-action="play-pause"]');
+  if (playBtn) {
+    playBtn.innerHTML = `<i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>`;
+    playBtn.title = isPlaying ? 'Pausar' : 'Reproducir';
+  }
+
+  // Shuffle
+  const shuffleBtn = player.querySelector('[data-sp-action="shuffle"]');
+  if (shuffleBtn) shuffleBtn.classList.toggle('active', shuffle);
+
+  // Repeat
+  const repeatBtn = player.querySelector('[data-sp-action="repeat"]');
+  if (repeatBtn) {
+    repeatBtn.classList.toggle('active', repeat !== 'off');
+    repeatBtn.dataset.spRepeat = repeat;
+    repeatBtn.innerHTML = `<i data-lucide="${repeat === 'one' ? 'repeat-1' : 'repeat'}"></i>`;
+  }
+
+  // Like
+  const likeBtn = player.querySelector('[data-sp-action="like-current"]');
+  if (likeBtn) likeBtn.classList.toggle('liked', isLiked);
+
+  // Mute icon
+  refreshSpotifyVolumeUI(win);
+
+  // Duraciones
+  const durEl = player.querySelector('[data-sp-time="duration"]');
+  if (durEl && current) durEl.textContent = spFormatTime(current.duration || 0);
+
+  refreshIcons();
+}
+
+function refreshSpotifyVolumeUI(win) {
+  const root = win.querySelector('[data-spotify-root]');
+  if (!root) return;
+
+  const volPct = Math.round(SpotifyApp.getVolume() * 100);
+  const muted = SpotifyApp.isMuted();
+
+  const fill = root.querySelector('[data-sp-volume-fill]');
+  if (fill) fill.style.width = `${muted ? 0 : volPct}%`;
+
+  const muteBtn = root.querySelector('[data-sp-action="mute"]');
+  if (muteBtn) {
+    const icon = muted ? 'volume-x' : (volPct === 0 ? 'volume' : volPct < 50 ? 'volume-1' : 'volume-2');
+    muteBtn.innerHTML = `<i data-lucide="${icon}"></i>`;
+    muteBtn.title = muted ? 'Activar sonido' : 'Silenciar';
+  }
+
+  refreshIcons();
+}
+
+function refreshSpotifyProgressUI(win) {
+  const root = win.querySelector('[data-spotify-root]');
+  if (!root) return;
+
+  const cur = SpotifyApp.getCurrentTime();
+  const dur = SpotifyApp.getDuration() || (SpotifyApp.getCurrentTrack()?.duration || 0);
+  const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
+
+  const fill = root.querySelector('[data-sp-progress-fill]');
+  if (fill) fill.style.width = `${pct}%`;
+  const knob = root.querySelector('[data-sp-progress-knob]');
+  if (knob) knob.style.left = `${pct}%`;
+
+  const curEl = root.querySelector('[data-sp-time="current"]');
+  if (curEl) curEl.textContent = spFormatTime(cur);
+  const durEl = root.querySelector('[data-sp-time="duration"]');
+  if (durEl) durEl.textContent = spFormatTime(dur);
+
+  // Actualizar íconos de play/pause en TODA la ventana
+  const isPlaying = spotify.isPlaying;
+  const currentId = spotify.currentTrackId;
+  root.querySelectorAll('[data-sp-play]').forEach(btn => {
+    const isThis = btn.dataset.spPlay === currentId;
+    if (isThis) {
+      const icon = isPlaying ? 'pause' : 'play';
+      const svg = btn.querySelector('svg, i');
+      if (svg && svg.getAttribute('data-lucide') !== icon) {
+        btn.innerHTML = `<i data-lucide="${icon}"></i>`;
+      }
+    } else {
+      const svg = btn.querySelector('svg, i');
+      if (svg && svg.getAttribute('data-lucide') !== 'play') {
+        btn.innerHTML = `<i data-lucide="play"></i>`;
+      }
+    }
+  });
+}
+
 /* ═══════════════════════════════════════════════════════════════
+   ★ VISUALIZADOR (Web Audio API)
+═══════════════════════════════════════════════════════════════ */
+
+function startSpotifyVisualizerLoop(win) {
+  const ui = spotifyUIState.get(win);
+  if (!ui) return;
+  if (ui.visualizerRaf) return;
+
+  const tick = () => {
+    if (!win.isConnected) {
+      ui.visualizerRaf = null;
+      return;
+    }
+    updateSpotifyVisualizer(win);
+    ui.visualizerRaf = requestAnimationFrame(tick);
+  };
+  ui.visualizerRaf = requestAnimationFrame(tick);
+}
+
+function updateSpotifyVisualizer(win) {
+  // Buscar cualquier canvas de visualizer dentro de la ventana
+  const canvases = win.querySelectorAll('.sp-visualizer canvas');
+  if (canvases.length === 0) return;
+
+  const data = SpotifyApp.getAnalyserData();
+  canvases.forEach(canvas => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = canvas.width = canvas.clientWidth;
+    const h = canvas.height = canvas.clientHeight;
+
+    ctx.clearRect(0, 0, w, h);
+
+    if (!data || data.length === 0) {
+      // Sin audio: dibujar líneas base
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      const barW = w / SPOTIFY_VISUALIZER_BARS;
+      for (let i = 0; i < SPOTIFY_VISUALIZER_BARS; i++) {
+        ctx.fillRect(i * barW + 1, h - 2, barW - 2, 2);
+      }
+      return;
+    }
+
+    const step = Math.floor(data.length / SPOTIFY_VISUALIZER_BARS);
+    const barW = w / SPOTIFY_VISUALIZER_BARS;
+
+    for (let i = 0; i < SPOTIFY_VISUALIZER_BARS; i++) {
+      const v = data[i * step] / 255;
+      const barH = v * h * 0.9;
+      const x = i * barW;
+      const y = h - barH;
+
+      const grad = ctx.createLinearGradient(0, h, 0, y);
+      grad.addColorStop(0, 'rgba(30, 215, 96, 0.3)');
+      grad.addColorStop(0.5, 'rgba(30, 215, 96, 0.7)');
+      grad.addColorStop(1, '#1ed760');
+      ctx.fillStyle = grad;
+
+      ctx.fillRect(x + 1, y, barW - 2, barH);
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ MENÚ CONTEXTUAL DE TRACK
+═══════════════════════════════════════════════════════════════ */
+
+let spotifyTrackMenuEl = null;
+
+function openSpotifyTrackMenu(win, trackId, anchorEl) {
+  closeSpotifyTrackMenu();
+
+  const track = SpotifyApp.getTrackById(trackId);
+  if (!track) return;
+
+  const liked = SpotifyApiIsLiked(trackId);
+  const customPlaylists = SpotifyApp.getCustomPlaylists();
+
+  const menu = document.createElement('div');
+  menu.className = 'sp-track-menu-popover';
+  menu.innerHTML = `
+    <div class="sp-track-menu-head">
+      <img src="${spEscapeHtml(spGetTrackCover(track))}" alt="" />
+      <div>
+        <strong>${spEscapeHtml(track.title)}</strong>
+        <small>${spEscapeHtml(track.artist)}</small>
+      </div>
+    </div>
+
+    <button class="sp-track-menu-item" data-menu-action="play">
+      <i data-lucide="play"></i> Reproducir ahora
+    </button>
+    <button class="sp-track-menu-item" data-menu-action="queue">
+      <i data-lucide="list-plus"></i> Agregar a la cola
+    </button>
+    <button class="sp-track-menu-item ${liked ? 'active' : ''}" data-menu-action="like">
+      <i data-lucide="heart"></i> ${liked ? 'Quitar de Tus me gusta' : 'Agregar a Tus me gusta'}
+    </button>
+
+    <div class="sp-track-menu-sep"></div>
+
+    <button class="sp-track-menu-item" data-menu-action="add-to-playlist">
+      <i data-lucide="folder-plus"></i> Agregar a playlist
+    </button>
+    <button class="sp-track-menu-item" data-menu-action="create-playlist">
+      <i data-lucide="plus-square"></i> Crear playlist con esta canción
+    </button>
+
+    <div class="sp-track-menu-sep"></div>
+
+    <button class="sp-track-menu-item" data-menu-action="go-album">
+      <i data-lucide="disc-3"></i> Ir al álbum
+    </button>
+    <button class="sp-track-menu-item" data-menu-action="go-artist">
+      <i data-lucide="user"></i> Ir al artista
+    </button>
+    <button class="sp-track-menu-item" data-menu-action="copy">
+      <i data-lucide="link"></i> Copiar enlace
+    </button>
+  `;
+
+  document.body.appendChild(menu);
+  spotifyTrackMenuEl = menu;
+
+  const rect = anchorEl.getBoundingClientRect();
+  const menuRect = menu.getBoundingClientRect();
+  let left = rect.right + 6;
+  let top = rect.top;
+  if (left + menuRect.width + 10 > window.innerWidth) left = rect.left - menuRect.width - 6;
+  if (top + menuRect.height + 10 > window.innerHeight) top = window.innerHeight - menuRect.height - 10;
+  left = Math.max(10, left);
+  top = Math.max(10, top);
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+
+  menu.addEventListener('click', (e) => {
+    const item = e.target.closest('[data-menu-action]');
+    if (!item) return;
+    e.stopPropagation();
+    handleSpotifyTrackMenuAction(win, item.dataset.menuAction, track);
+    closeSpotifyTrackMenu();
+  });
+
+  // Cerrar al clickear fuera
+  setTimeout(() => {
+    const onOut = (e) => {
+      if (!menu.contains(e.target)) {
+        closeSpotifyTrackMenu();
+        document.removeEventListener('mousedown', onOut);
+      }
+    };
+    document.addEventListener('mousedown', onOut);
+  }, 0);
+
+  requestAnimationFrame(() => menu.classList.add('open'));
+  refreshIcons();
+}
+
+function closeSpotifyTrackMenu() {
+  if (spotifyTrackMenuEl) {
+    spotifyTrackMenuEl.remove();
+    spotifyTrackMenuEl = null;
+  }
+}
+
+function handleSpotifyTrackMenuAction(win, action, track) {
+  switch (action) {
+    case 'play':
+      SpotifyApp.play(track.id);
+      break;
+
+    case 'queue':
+      if (!spotify.queue.includes(track.id)) {
+        spotify.queue.splice(spotify.queueIndex + 1, 0, track.id);
+        showToast('Agregado a la cola', track.title, 'list-plus');
+      } else {
+        showToast('Ya está en la cola', track.title, 'info');
+      }
+      break;
+
+    case 'like':
+      SpotifyApp.toggleLike(track.id);
+      break;
+
+    case 'add-to-playlist':
+      openSpotifyAddToPlaylistModal(win, track.id);
+      break;
+
+    case 'create-playlist': {
+      const pl = SpotifyApp.createPlaylist({
+        name: `Mi playlist · ${new Date().toLocaleDateString()}`,
+        description: 'Creada desde el menú contextual',
+        trackIds: [track.id]
+      });
+      if (pl) {
+        showToast('Playlist creada', pl.name, 'plus');
+        refreshSpotifyWindow(win);
+      }
+      break;
+    }
+
+    case 'go-album':
+      navigateSpotify(win, 'album', {
+        dataset: { spAlbum: `${track.artist}::${track.album}` }
+      });
+      break;
+
+    case 'go-artist':
+      navigateSpotify(win, 'artist', {
+        dataset: { spArtist: track.artist }
+      });
+      break;
+
+    case 'copy': {
+      const text = `${track.title} — ${track.artist}`;
+      navigator.clipboard?.writeText(text).then(() => {
+        showToast('Copiado', 'Enlace copiado al portapapeles.', 'clipboard-check');
+      }).catch(() => {
+        showToast('Copiado', text, 'clipboard');
+      });
+      break;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ MODALES: CREAR / EDITAR PLAYLIST, AGREGAR A PLAYLIST
+═══════════════════════════════════════════════════════════════ */
+
+let spotifyPlaylistModalEl = null;
+
+function openSpotifyCreatePlaylistModal(win, initialTrackIds = []) {
+  closeSpotifyPlaylistModal();
+
+  const modal = document.createElement('div');
+  modal.className = 'sp-modal';
+  modal.innerHTML = `
+    <div class="sp-modal-dialog">
+      <header class="sp-modal-header">
+        <h2>Crear playlist</h2>
+        <button class="sp-icon-btn" data-modal-close><i data-lucide="x"></i></button>
+      </header>
+      <div class="sp-modal-body">
+        <label class="sp-field">
+          <span>Nombre</span>
+          <input type="text" data-field="name" placeholder="Mi playlist #1" maxlength="60" autofocus />
+        </label>
+        <label class="sp-field">
+          <span>Descripción</span>
+          <textarea data-field="description" placeholder="Contale al mundo de qué va..." maxlength="180" rows="3"></textarea>
+        </label>
+        <label class="sp-field">
+          <span>Color</span>
+          <input type="color" data-field="color" value="#1ed760" />
+        </label>
+      </div>
+      <footer class="sp-modal-footer">
+        <button class="sp-btn sp-btn-ghost" data-modal-close>Cancelar</button>
+        <button class="sp-btn sp-btn-primary" data-modal-confirm>Crear</button>
+      </footer>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  spotifyPlaylistModalEl = modal;
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeSpotifyPlaylistModal();
+    if (e.target.closest('[data-modal-close]')) closeSpotifyPlaylistModal();
+    if (e.target.closest('[data-modal-confirm]')) {
+      const name = modal.querySelector('[data-field="name"]').value.trim();
+      const description = modal.querySelector('[data-field="description"]').value.trim();
+      const color = modal.querySelector('[data-field="color"]').value;
+
+      if (!name) {
+        showToast('Falta el nombre', 'Escribí un nombre para la playlist.', 'alert-circle');
+        return;
+      }
+
+      const pl = SpotifyApp.createPlaylist({ name, description, color, trackIds: initialTrackIds });
+      if (pl) {
+        showToast('Playlist creada', pl.name, 'plus');
+        closeSpotifyPlaylistModal();
+        refreshSpotifyWindow(win);
+        navigateSpotify(win, 'playlist', { dataset: { spId: pl.id } });
+      }
+    }
+  });
+
+  requestAnimationFrame(() => modal.classList.add('open'));
+  refreshIcons();
+}
+
+function openSpotifyEditPlaylistModal(win, playlistId) {
+  const pl = SpotifyApp.getCustomPlaylists().find(p => p.id === playlistId);
+  if (!pl) return;
+  closeSpotifyPlaylistModal();
+
+  const modal = document.createElement('div');
+  modal.className = 'sp-modal';
+  modal.innerHTML = `
+    <div class="sp-modal-dialog">
+      <header class="sp-modal-header">
+        <h2>Editar playlist</h2>
+        <button class="sp-icon-btn" data-modal-close><i data-lucide="x"></i></button>
+      </header>
+      <div class="sp-modal-body">
+        <label class="sp-field">
+          <span>Nombre</span>
+          <input type="text" data-field="name" value="${spEscapeHtml(pl.name)}" maxlength="60" />
+        </label>
+        <label class="sp-field">
+          <span>Descripción</span>
+          <textarea data-field="description" maxlength="180" rows="3">${spEscapeHtml(pl.description || '')}</textarea>
+        </label>
+        <label class="sp-field">
+          <span>Color</span>
+          <input type="color" data-field="color" value="${spEscapeHtml(pl.color || '#1ed760')}" />
+        </label>
+      </div>
+      <footer class="sp-modal-footer">
+        <button class="sp-btn sp-btn-ghost" data-modal-close>Cancelar</button>
+        <button class="sp-btn sp-btn-primary" data-modal-confirm>Guardar</button>
+      </footer>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  spotifyPlaylistModalEl = modal;
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeSpotifyPlaylistModal();
+    if (e.target.closest('[data-modal-close]')) closeSpotifyPlaylistModal();
+    if (e.target.closest('[data-modal-confirm]')) {
+      const name = modal.querySelector('[data-field="name"]').value.trim();
+      const description = modal.querySelector('[data-field="description"]').value.trim();
+      const color = modal.querySelector('[data-field="color"]').value;
+
+      if (!name) {
+        showToast('Falta el nombre', 'Escribí un nombre para la playlist.', 'alert-circle');
+        return;
+      }
+
+      SpotifyApp.updatePlaylist(playlistId, { name, description, color });
+      showToast('Playlist actualizada', name, 'check');
+      closeSpotifyPlaylistModal();
+      refreshSpotifyWindow(win);
+    }
+  });
+
+  requestAnimationFrame(() => modal.classList.add('open'));
+  refreshIcons();
+}
+
+function closeSpotifyPlaylistModal() {
+  if (spotifyPlaylistModalEl) {
+    spotifyPlaylistModalEl.remove();
+    spotifyPlaylistModalEl = null;
+  }
+}
+
+function openSpotifyAddToPlaylistModal(win, trackId) {
+  closeSpotifyPlaylistModal();
+
+  const custom = SpotifyApp.getCustomPlaylists();
+  const track = SpotifyApp.getTrackById(trackId);
+
+  const modal = document.createElement('div');
+  modal.className = 'sp-modal';
+  modal.innerHTML = `
+    <div class="sp-modal-dialog">
+      <header class="sp-modal-header">
+        <h2>Agregar a playlist</h2>
+        <button class="sp-icon-btn" data-modal-close><i data-lucide="x"></i></button>
+      </header>
+      <div class="sp-modal-body">
+        <div class="sp-modal-track-preview">
+          <img src="${spEscapeHtml(spGetTrackCover(track))}" alt="" />
+          <div>
+            <strong>${spEscapeHtml(track.title)}</strong>
+            <small>${spEscapeHtml(track.artist)}</small>
+          </div>
+        </div>
+
+        ${custom.length === 0 ? `
+          <p class="sp-empty-inline">No tenés playlists propias todavía.</p>
+          <button class="sp-btn sp-btn-primary" data-modal-confirm-new>
+            <i data-lucide="plus"></i> Crear nueva playlist
+          </button>
+        ` : `
+          <ul class="sp-playlist-picker">
+            ${custom.map(pl => `
+              <li>
+                <button class="sp-playlist-picker-item" data-playlist-pick="${spEscapeHtml(pl.id)}">
+                  <span class="sp-playlist-picker-icon" style="background: ${pl.color}22; color: ${pl.color};">
+                    <i data-lucide="music-2"></i>
+                  </span>
+                  <span class="sp-playlist-picker-name">${spEscapeHtml(pl.name)}</span>
+                  <span class="sp-playlist-picker-count">${pl.trackIds.length}</span>
+                </button>
+              </li>
+            `).join('')}
+          </ul>
+          <button class="sp-btn sp-btn-ghost" data-modal-confirm-new>
+            <i data-lucide="plus"></i> Nueva playlist
+          </button>
+        `}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  spotifyPlaylistModalEl = modal;
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeSpotifyPlaylistModal();
+    if (e.target.closest('[data-modal-close]')) closeSpotifyPlaylistModal();
+
+    const pick = e.target.closest('[data-playlist-pick]');
+    if (pick) {
+      const plId = pick.dataset.playlistPick;
+      const ok = SpotifyApp.addToPlaylist(plId, trackId);
+      if (ok) {
+        showToast('Agregado', 'La canción se agregó a la playlist.', 'check');
+      } else {
+        showToast('Ya está', 'Esta canción ya estaba en la playlist.', 'info');
+      }
+      closeSpotifyPlaylistModal();
+      refreshSpotifyWindow(win);
+    }
+
+    if (e.target.closest('[data-modal-confirm-new]')) {
+      closeSpotifyPlaylistModal();
+      openSpotifyCreatePlaylistModal(win, [trackId]);
+    }
+  });
+
+  requestAnimationFrame(() => modal.classList.add('open'));
+  refreshIcons();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY — Wrappers globales (compatibilidad con el resto del sistema)
+   ═══════════════════════════════════════════════════════════════
+
+   El `index.html` y varios bloques del sistema llaman a funciones
+   con nombres "viejos" que ya no existen en el motor nuevo.
+   Estos wrappers mantienen la API pública y delegan en SpotifyApp.
+*/
+
+/* ─── Control de reproducción ─── */
+
+function toggleMediaPlayback() {
+  if (window.SpotifyApp) SpotifyApp.togglePlayPause();
+}
+
+function nextTrack() {
+  if (window.SpotifyApp) SpotifyApp.next();
+}
+
+function previousTrack() {
+  if (window.SpotifyApp) SpotifyApp.prev();
+}
+
+function playFirstTrack() {
+  if (!window.SpotifyApp) return;
+  const all = SpotifyApp.getAllTracks();
+  if (all.length === 0) return;
+  SpotifyApp.play(all[0].id);
+}
+
+/* ─── Volumen del sistema → Spotify ─── */
+/* (setSystemVolume ya está definido en el BLOQUE 4 y delega en SpotifyApp) */
+
+/* ─── Progress / Background (visual, sin estado) ─── */
+
+function updatePlayerProgress() {
+  const winIds = getInstancesOfApp('music');
+  if (winIds.length === 0) return;
+  winIds.forEach(winId => {
+    const win = openWindows[winId]?.win;
+    if (win) refreshSpotifyProgressUI(win);
+  });
+}
+
+function updatePlayerBackground() {
+  const current = window.SpotifyApp ? SpotifyApp.getCurrentTrack() : null;
+  if (!current) return;
+
+  const cover = spGetTrackCover(current);
+  const ccBg = document.getElementById('cc-media-bg');
+  if (ccBg) ccBg.style.backgroundImage = `url("${cover}")`;
+  const hudBg = document.getElementById('hud-media-bg');
+  if (hudBg) hudBg.style.backgroundImage = `url("${cover}")`;
+}
+
+/* ─── Shuffle / Repeat sync global ─── */
+
+function syncSpotifyShuffleRepeatUI() {
+  if (!window.SpotifyApp) return;
+  const shuffle = spotify.shuffle;
+  const repeat = spotify.repeat;
+
+  document.querySelectorAll('#cc-shuffle, #spot-shuffle, [data-sp-action="shuffle"]').forEach(el => {
+    el.classList.toggle('active', shuffle);
+  });
+  document.querySelectorAll('#cc-repeat, #spot-repeat, [data-sp-action="repeat"]').forEach(el => {
+    el.classList.toggle('active', repeat !== 'off');
+    el.dataset.repeat = repeat;
+  });
+}
+
+/* ─── Quick Center Player: stub (la lógica real vive en SpotifyApp) ─── */
+
+function setupQuickCenterPlayer() {
+  // No-op: la integración se hace en setupSpotifyIntegration (BLOQUE 4).
+  // Este stub existe solo por compatibilidad con llamadas antiguas.
+}
+
+/* ─── Control Center + HUD: sincronización completa ─── */
+
+/**
+ * Refresca los reproductores globales (Control Center + HUD + Topbar).
+ * Se llama desde setupSpotifyIntegration y desde los listeners de eventos.
+ */
+function updateSpotifyGlobalUI() {
+  if (!window.SpotifyApp) return;
+  const current = SpotifyApp.getCurrentTrack();
+
+  // ─── Control Center ───
+  const ccArt = document.getElementById('cc-media-art');
+  const ccTitle = document.getElementById('cc-media-title');
+  const ccArtist = document.getElementById('cc-media-artist');
+  const ccBg = document.getElementById('cc-media-bg');
+  const ccTotal = document.getElementById('cc-time-total');
+  const ccCurrent = document.getElementById('cc-time-current');
+
+  if (current) {
+    const cover = spGetTrackCover(current);
+    if (ccArt) ccArt.src = cover;
+    if (ccTitle) ccTitle.textContent = current.title || '—';
+    if (ccArtist) ccArtist.textContent = current.artist || '—';
+    if (ccBg) ccBg.style.backgroundImage = `url("${cover}")`;
+    if (ccTotal) ccTotal.textContent = spFormatTime(current.duration || 0);
+    if (ccCurrent) ccCurrent.textContent = spFormatTime(SpotifyApp.getCurrentTime());
+  } else {
+    if (ccTitle) ccTitle.textContent = 'Sin reproducción';
+    if (ccArtist) ccArtist.textContent = 'Elegí un track';
+    if (ccBg) ccBg.style.backgroundImage = '';
+    if (ccTotal) ccTotal.textContent = '0:00';
+    if (ccCurrent) ccCurrent.textContent = '0:00';
+  }
+
+  // ─── HUD (gaming overlay) ───
+  const hudArt = document.getElementById('hud-media-art');
+  const hudTitle = document.getElementById('hud-media-title');
+  const hudArtist = document.getElementById('hud-media-artist');
+  const hudBg = document.getElementById('hud-media-bg');
+
+  if (current) {
+    const cover = spGetTrackCover(current);
+    if (hudArt) hudArt.src = cover;
+    if (hudTitle) hudTitle.textContent = current.title || '—';
+    if (hudArtist) hudArtist.textContent = current.artist || '—';
+    if (hudBg) hudBg.style.backgroundImage = `url("${cover}")`;
+  }
+
+  // ─── Topbar ───
+  updateSpotifyTopbar();
+
+  // ─── Estado de play/pause global ───
+  updateSpotifyGlobalPlayState(spotify.isPlaying);
+
+  // ─── Volumen ───
+  updateSpotifyVolumeUI(spotify.volume, spotify.muted);
+
+  // ─── Shuffle / repeat ───
+  syncSpotifyShuffleRepeatUI();
+
+  refreshIcons();
+}
+
+/* ─── Play/pause global (CC + HUD + Spotify app) ─── */
+
+function updateSpotifyGlobalPlayState(isPlaying) {
+  const iconName = isPlaying ? 'pause' : 'play';
+
+  // Control Center
+  const ccPlayBtn = document.getElementById('cc-play-btn');
+  if (ccPlayBtn) {
+    ccPlayBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
+    ccPlayBtn.title = isPlaying ? 'Pausar' : 'Reproducir';
+  }
+
+  // HUD
+  const hudPlayBtn = document.getElementById('hud-play-btn');
+  if (hudPlayBtn) {
+    hudPlayBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
+    hudPlayBtn.title = isPlaying ? 'Pausar' : 'Reproducir';
+  }
+
+  // Topbar (botón mini)
+  const tnpPlay = document.getElementById('tnp-play');
+  if (tnpPlay) {
+    tnpPlay.innerHTML = `<i data-lucide="${iconName}"></i>`;
+  }
+
+  // Eq dot del Control Center
+  const dot = document.getElementById('cc-eq-dot');
+  if (dot) dot.classList.toggle('paused', !isPlaying);
+
+  // Topbar now playing: clase playing
+  const tnp = document.getElementById('topbar-now-playing');
+  if (tnp) tnp.classList.toggle('playing', isPlaying);
+
+  refreshIcons();
+}
+
+/* ─── Volumen: sincronizar TODOS los sliders y labels globales ─── */
+
+function updateSpotifyVolumeUI(volume, muted) {
+  const pct = Math.round((muted ? 0 : volume) * 100);
+
+  // Slider del Control Center
+  const volSlider = document.getElementById('volume-slider');
+  if (volSlider && Number(volSlider.value) !== pct) {
+    volSlider.value = String(pct);
+    syncSliderFill(volSlider);
+  }
+
+  // Labels del Quick Center y tray
+  const quickVal = document.getElementById('quick-volume-value');
+  if (quickVal) quickVal.textContent = `${pct}%`;
+  const trayNum = document.getElementById('tray-volume-num');
+  if (trayNum) trayNum.textContent = `${pct}%`;
+
+  // Ícono del tray (mute / volumen)
+  const trayVolIcon = document.querySelector('#sys-tray-btn .sys-tray .item[title="Volumen"] i');
+  if (trayVolIcon) {
+    const iconName = muted ? 'volume-x' : (pct === 0 ? 'volume' : pct < 50 ? 'volume-1' : 'volume-2');
+    if (trayVolIcon.getAttribute('data-lucide') !== iconName) {
+      trayVolIcon.setAttribute('data-lucide', iconName);
+    }
+  }
+
+  // Sliders dentro de la app Spotify (por si hay varias ventanas)
+  getInstancesOfApp('music').forEach(winId => {
+    const win = openWindows[winId]?.win;
+    if (!win) return;
+    refreshSpotifyVolumeUI(win);
+  });
+
+  refreshIcons();
+}
+
+/* ─── HUD: barra de progreso de reproducción ─── */
+
+function updateHUDMediaInfo() {
+  if (!gamerOverlayVisible) return;
+  if (!window.SpotifyApp) return;
+
+  const current = SpotifyApp.getCurrentTrack();
+  const cur = SpotifyApp.getCurrentTime();
+  const dur = SpotifyApp.getDuration() || (current ? current.duration : 0);
+  const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
+
+  const hudFill = document.getElementById('hud-progress-fill');
+  const hudTime = document.getElementById('hud-progress-time');
+  if (hudFill) hudFill.style.width = `${pct}%`;
+  if (hudTime) hudTime.textContent = `${spFormatTime(cur)} / ${spFormatTime(dur)}`;
+
+  // Media info del HUD
+  if (current) {
+    const hudArt = document.getElementById('hud-media-art');
+    const hudTitle = document.getElementById('hud-media-title');
+    const hudArtist = document.getElementById('hud-media-artist');
+    if (hudArt) hudArt.src = spGetTrackCover(current);
+    if (hudTitle) hudTitle.textContent = current.title || '—';
+    if (hudArtist) hudArtist.textContent = current.artist || '—';
+  }
+}
+
+/* ─── Progress: forzar actualización de la UI global cada 500ms ─── */
+/* El motor ya emite 'progress' pero solo actuliza el Spotify app.
+   Para el Control Center y el HUD, hacemos un poll liviano. */
+
+(function startGlobalSpotifyProgressPoll() {
+  let ticks = 0;
+  setInterval(() => {
+    if (!window.SpotifyApp) return;
+    if (!spotify.isPlaying) return;
+
+    // Control Center: tiempo actual
+    const ccCurrent = document.getElementById('cc-time-current');
+    if (ccCurrent) ccCurrent.textContent = spFormatTime(SpotifyApp.getCurrentTime());
+
+    // Control Center: barra de progreso
+    const dur = SpotifyApp.getDuration() || (SpotifyApp.getCurrentTrack()?.duration || 0);
+    const pct = dur > 0 ? Math.min(100, (SpotifyApp.getCurrentTime() / dur) * 100) : 0;
+    const ccFill = document.getElementById('cc-progress-fill');
+    if (ccFill) ccFill.style.width = `${pct}%`;
+
+    // HUD
+    updateHUDMediaInfo();
+
+    // Cada ~5s (10 ticks), refresh completo por si hubo cambios
+    ticks++;
+    if (ticks >= 10) {
+      ticks = 0;
+      // Por si cambió algo externamente
+    }
+  }, 500);
+})();
+
+/* ─── Suscripción de eventos para actualizar la UI global ─── */
+
+(function bindSpotifyGlobalEvents() {
+  if (!window.SpotifyApp) return;
+
+  SpotifyApp.on('trackchange', () => {
+    updateSpotifyGlobalUI();
+    // Notificar (silencioso si HUD visible)
+    if (!gamerOverlayVisible && !dndEnabled) {
+      const current = SpotifyApp.getCurrentTrack();
+      if (current) {
+        addNotificationToHistory(
+          `♪ ${current.title}`,
+          `${current.artist}${current.album ? ' · ' + current.album : ''}`,
+          'music'
+        );
+      }
+    }
+  });
+
+  SpotifyApp.on('play', () => {
+    updateSpotifyGlobalPlayState(true);
+  });
+
+  SpotifyApp.on('pause', () => {
+    updateSpotifyGlobalPlayState(false);
+  });
+
+  SpotifyApp.on('volume', ({ volume, muted }) => {
+    updateSpotifyVolumeUI(volume, muted);
+  });
+
+  SpotifyApp.on('shuffle', () => {
+    syncSpotifyShuffleRepeatUI();
+  });
+
+  SpotifyApp.on('repeat', () => {
+    syncSpotifyShuffleRepeatUI();
+  });
+
+  SpotifyApp.on('liked', () => {
+    // Refrescar corazones en el Control Center si aplica
+    // (el CC no muestra corazón actualmente, pero dejamos el hook)
+  });
+
+  SpotifyApp.on('error', ({ error, context }) => {
+    // Silencioso en consola, toast solo si es error de reproducción
+    if (context === 'play' || context === 'play-promise' || context === 'audio-element') {
+      // Evitar spam: solo mostrar 1 por minuto
+      const now = Date.now();
+      if (!window.__lastSpotifyErrorToast || now - window.__lastSpotifyErrorToast > 60000) {
+        window.__lastSpotifyErrorToast = now;
+        showToast('Spotify', 'No se pudo reproducir la canción. Revisá los archivos MP3.', 'alert-circle');
+      }
+    }
+  });
+})();
+
+/* ─── Atajos del Control Center (botones del HTML) ─── */
+
+/**
+ * El HTML del Control Center tiene onclick inline que llaman a:
+ *   - previousTrack()
+ *   - toggleMediaPlayback()
+ *   - nextTrack()
+ *   - toggleShuffle()  ← no existe, hay que crearlo
+ *   - cycleRepeat()    ← no existe, hay que crearlo
+ *
+ * Los tres primeros ya están arriba como wrappers.
+ * Los dos últimos los agregamos acá.
+ */
+
+function toggleShuffle() {
+  if (window.SpotifyApp) SpotifyApp.toggleShuffle();
+}
+
+function cycleRepeat() {
+  if (window.SpotifyApp) SpotifyApp.cycleRepeat();
+}
+
+/* ─── Botones del Control Center y HUD con id (agregar listeners) ─── */
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Los botones del CC y del HUD ya tienen onclick inline en el HTML.
+  // Pero por las dudas, si alguno tiene un ID y no onclick, lo bindeamos.
+  // Este DOMContentLoaded corre después del principal (registro tardío),
+  // así que solo actúa sobre elementos que ya existen.
+
+  const ccShuffle = document.getElementById('cc-shuffle');
+  if (ccShuffle && !ccShuffle.dataset.bound) {
+    ccShuffle.dataset.bound = '1';
+    ccShuffle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleShuffle();
+    });
+  }
+
+  const ccRepeat = document.getElementById('cc-repeat');
+  if (ccRepeat && !ccRepeat.dataset.bound) {
+    ccRepeat.dataset.bound = '1';
+    ccRepeat.addEventListener('click', (e) => {
+      e.stopPropagation();
+      cycleRepeat();
+    });
+  }
+
+  // Botón de play/pause del CC
+  const ccPlay = document.getElementById('cc-play-btn');
+  if (ccPlay && !ccPlay.dataset.bound) {
+    ccPlay.dataset.bound = '1';
+    ccPlay.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleMediaPlayback();
+    });
+  }
+
+  // Botón de play/pause del HUD
+  const hudPlay = document.getElementById('hud-play-btn');
+  if (hudPlay && !hudPlay.dataset.bound) {
+    hudPlay.dataset.bound = '1';
+    hudPlay.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleMediaPlayback();
+    });
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY — Comandos desde Nova AI
+   ═══════════════════════════════════════════════════════════════
+   Función helper que Nova puede llamar para controlar el reproductor
+   por lenguaje natural. Se usa desde parseAndExecuteNovaAction.
+*/
+
+function handleSpotifyNovaCommand(query) {
+  if (!window.SpotifyApp) return null;
+  const q = String(query || '').toLowerCase().trim();
+
+  // ─── Reproducir canción específica ───
+  const playMatch = q.match(/(?:reproduc[ií]|pon[eé]?|toc[áa]|play)\s+(?:la\s+)?(?:canci[oó]n\s+)?["“']?(.+?)["”']?\s*(?:de\s+(.+))?$/i);
+  if (playMatch) {
+    const [, songQuery, artistQuery] = playMatch;
+    const results = SpotifyApp.search(songQuery.trim());
+    let target = results.tracks[0];
+
+    // Si hay artista, filtrar
+    if (target && artistQuery) {
+      const filtered = results.tracks.filter(t =>
+        t.artist.toLowerCase().includes(artistQuery.toLowerCase().trim())
+      );
+      if (filtered.length > 0) target = filtered[0];
+    }
+
+    if (target) {
+      SpotifyApp.play(target.id);
+      return {
+        replyText: `Reproduciendo "${target.title}" de ${target.artist}.`,
+        actionTaken: `Spotify: ${target.title}`
+      };
+    }
+    return {
+      replyText: `No encontré "${songQuery.trim()}" en tu biblioteca.`,
+      actionTaken: null
+    };
+  }
+
+  // ─── Pausar ───
+  if (/\b(paus[áa]|pausar|deten[eé]|stop|par[áa])\b/.test(q) && /(m[uú]sica|canci[oó]n|spotify|reproducci[oó]n|track)/.test(q)) {
+    SpotifyApp.pause();
+    return {
+      replyText: 'Música pausada.',
+      actionTaken: 'Spotify: Pausa'
+    };
+  }
+
+  // ─── Siguiente ───
+  if (/\b(siguiente|next|salta|saltar|pr[oó]xima)\b/.test(q) && /(m[uú]sica|canci[oó]n|spotify|track)/.test(q)) {
+    SpotifyApp.next();
+    const next = SpotifyApp.getCurrentTrack();
+    return {
+      replyText: next ? `Reproduciendo "${next.title}" de ${next.artist}.` : 'Cambiando de canción...',
+      actionTaken: 'Spotify: Siguiente'
+    };
+  }
+
+  // ─── Anterior ───
+  if (/\b(anterior|prev|volver|atr[áa]s)\b/.test(q) && /(m[uú]sica|canci[oó]n|spotify|track)/.test(q)) {
+    SpotifyApp.prev();
+    const prev = SpotifyApp.getCurrentTrack();
+    return {
+      replyText: prev ? `Reproduciendo "${prev.title}" de ${prev.artist}.` : 'Volviendo a la canción anterior...',
+      actionTaken: 'Spotify: Anterior'
+    };
+  }
+
+  // ─── Play / Resume genérico ───
+  if (/\b(reproduc[ií]|pon[eé]?|toc[áa]|play|dale)\b/.test(q) && /(m[uú]sica|canci[oó]n|spotify|algo|track)/.test(q)) {
+    if (SpotifyApp.getCurrentTrack() && SpotifyApp.isPlaying() === false) {
+      SpotifyApp.resume();
+      return { replyText: 'Reanudando la música.', actionTaken: 'Spotify: Play' };
+    }
+    const all = SpotifyApp.getAllTracks();
+    if (all.length > 0) {
+      SpotifyApp.play(all[0].id);
+      return { replyText: `Reproduciendo "${all[0].title}" de ${all[0].artist}.`, actionTaken: 'Spotify: Play' };
+    }
+    return { replyText: 'No hay música en tu biblioteca todavía.', actionTaken: null };
+  }
+
+  // ─── Subir volumen ───
+  if (/(sub[íi]|sube|aument[áa]|m[áa]s)\s*(el\s+)?volumen/.test(q) || /^volumen\s*\+\s*\d+/.test(q)) {
+    const match = q.match(/\+\s*(\d+)/);
+    const delta = match ? parseInt(match[1], 10) / 100 : 0.1;
+    const newVol = Math.min(1, SpotifyApp.getVolume() + delta);
+    SpotifyApp.setVolume(newVol);
+    return {
+      replyText: `Volumen al ${Math.round(newVol * 100)}%.`,
+      actionTaken: 'Spotify: Volumen'
+    };
+  }
+
+  // ─── Bajar volumen ───
+  if (/(baj[áa]|baja|reduc[íi]|reduce|menos)\s*(el\s+)?volumen/.test(q) || /^volumen\s*-\s*\d+/.test(q)) {
+    const match = q.match(/-\s*(\d+)/);
+    const delta = match ? parseInt(match[1], 10) / 100 : 0.1;
+    const newVol = Math.max(0, SpotifyApp.getVolume() - delta);
+    SpotifyApp.setVolume(newVol);
+    return {
+      replyText: `Volumen al ${Math.round(newVol * 100)}%.`,
+      actionTaken: 'Spotify: Volumen'
+    };
+  }
+
+  // ─── Me gusta ───
+  if (/(me gusta|like|favorit[oa]|guardar?)\s+(esta|la|esta canci[oó]n)/.test(q)) {
+    const current = SpotifyApp.getCurrentTrack();
+    if (current) {
+      SpotifyApp.toggleLike(current.id);
+      const liked = SpotifyApp.isLiked(current.id);
+      return {
+        replyText: liked ? `Agregué "${current.title}" a Tus me gusta.` : `Quité "${current.title}" de Tus me gusta.`,
+        actionTaken: liked ? 'Spotify: Like' : 'Spotify: Unlike'
+      };
+    }
+  }
+
+  // ─── Aleatorio ───
+  if (/(aleatorio|shuffle|random)/.test(q) && /(m[uú]sica|reproduc|spotify|poner)/.test(q)) {
+    SpotifyApp.setShuffle(true);
+    return { replyText: 'Modo aleatorio activado.', actionTaken: 'Spotify: Shuffle' };
+  }
+
+  // ─── Abrir Spotify ───
+  if (/(abr[íi]|abre|open|mostrar)\s+spotify/.test(q) || /\bspotify\b/.test(q) && /(abr|mostrar|open)/.test(q)) {
+    openApp('music');
+    return { replyText: 'Abriendo Spotify.', actionTaken: 'Spotify: Abrir app' };
+  }
+
+  return null;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY — Limpieza al cerrar ventana
+   ═══════════════════════════════════════════════════════════════
+   Cuando se cierra una ventana de Spotify, cancelamos los RAF
+   y timers asociados a esa ventana para no dejar leaks.
+*/
+
+window.addEventListener('beforeunload', () => {
+  if (window.SpotifyApp && typeof SpotifyApp.flushState === 'function') {
+    SpotifyApp.flushState();
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY — Decorador para closeApp (agrega cleanup)
+   ═══════════════════════════════════════════════════════════════
+   Envolvemos closeApp para que, cuando se cierra una ventana de
+   Spotify, cancelemos el RAF del visualizador y el interval de
+   progreso asociados a esa ventana.
+*/
+
+(function decorateSpotifyCloseApp() {
+  if (typeof closeApp !== 'function') return;
+  if (closeApp.__spotifyDecorated) return;
+
+  const original = closeApp;
+  window.closeApp = function(winId) {
+    const entry = openWindows[winId];
+    if (entry?.appId === 'music') {
+      const win = entry.win;
+      const ui = spotifyUIState.get(win);
+      if (ui) {
+        if (ui.visualizerRaf) cancelAnimationFrame(ui.visualizerRaf);
+        if (ui.progressInterval) clearInterval(ui.progressInterval);
+        if (Array.isArray(ui.unsubs)) {
+          ui.unsubs.forEach(unsub => { try { unsub(); } catch (e) {} });
+        }
+        spotifyUIState.delete(win);
+      }
+    }
+    return original.call(this, winId);
+  };
+  window.closeApp.__spotifyDecorated = true;
+})();
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY — Fin del bloque de multimedia
+   ═══════════════════════════════════════════════════════════════ */
+   /* ═══════════════════════════════════════════════════════════════
    ★ PARTE 9A/12 — APPS: Nova AI + Files + Settings
    ═══════════════════════════════════════════════════════════════ */
 
@@ -7318,6 +11777,24 @@ function parseAndExecuteNovaAction(query) {
   let replyText = '';
   let actionBtnHTML = '';
 
+  /* ─────────────────────────────────────────────────────────
+     ★ SPOTIFY — Comandos de música (prioridad alta)
+     Se intenta primero. Si retorna algo, se usa eso.
+  ───────────────────────────────────────────────────────── */
+  if (typeof handleSpotifyNovaCommand === 'function') {
+    const spotifyResult = handleSpotifyNovaCommand(query);
+    if (spotifyResult) {
+      return {
+        replyText: spotifyResult.replyText,
+        actionTaken: spotifyResult.actionTaken,
+        actionBtnHTML: spotifyResult.actionBtnHTML || ''
+      };
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Temas
+  ───────────────────────────────────────────────────────── */
   if (q.includes('cyberpunk') || (q.includes('tema') && q.includes('neon'))) {
     applyThemePreset('cyberpunk');
     actionTaken = 'Tema Cyberpunk Neón aplicado';
@@ -7338,7 +11815,12 @@ function parseAndExecuteNovaAction(query) {
     applyThemePreset('nord-arc');
     actionTaken = 'Tema Nord Arc aplicado';
     replyText = 'Listo. Apliqué el tema Nord Arc, con acento cyan y estética sobria.';
-  } else if (q.includes('activa') && (q.includes('modo juego') || q.includes('game mode'))) {
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Modo Juego
+  ───────────────────────────────────────────────────────── */
+  else if (q.includes('activa') && (q.includes('modo juego') || q.includes('game mode'))) {
     toggleGameMode(true);
     actionTaken = 'Modo Juego Activado';
     replyText = '¡Modo Juego iniciado! He liberado memoria RAM y ajustado el perfil de CPU/GPU al máximo rendimiento.';
@@ -7346,11 +11828,21 @@ function parseAndExecuteNovaAction(query) {
     toggleGameMode(false);
     actionTaken = 'Modo Juego Desactivado';
     replyText = 'Modo Juego apagado. El sistema ha vuelto al perfil energético estándar.';
-  } else if (q.includes('optimiza') || q.includes('limpia') || q.includes('ram') || q.includes('memoria') || q.includes('rendimiento')) {
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Optimización
+  ───────────────────────────────────────────────────────── */
+  else if (q.includes('optimiza') || q.includes('limpia') || q.includes('ram') || q.includes('memoria') || q.includes('rendimiento')) {
     simulateRamBoost();
     actionTaken = 'RAM Optimizada y Cache Purgada';
     replyText = 'He ejecutado una limpieza profunda de procesos inactivos y cache. La memoria RAM quedó optimizada.';
-  } else if (q.includes('vpn') || q.includes('conectar vpn')) {
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     VPN / Seguridad
+  ───────────────────────────────────────────────────────── */
+  else if (q.includes('vpn') || q.includes('conectar vpn')) {
     toggleVpnConnection();
     actionTaken = shieldState.vpnConnected ? 'VPN Conectada' : 'VPN Desconectada';
     replyText = shieldState.vpnConnected ? 'Conexión VPN establecida. Tu tráfico está cifrado.' : 'VPN desconectada.';
@@ -7366,11 +11858,15 @@ function parseAndExecuteNovaAction(query) {
     renderSettingsApp();
     actionTaken = 'Centro de Actualizaciones abierto';
     replyText = 'He abierto el centro de actualizaciones. Podés verificar si hay nuevas versiones disponibles.';
-  } else if (q.includes('musica') || q.includes('música') || q.includes('cancion') || q.includes('canción') || q.includes('spotify') || q.includes('cerati') || q.includes('nirvana')) {
-    toggleMediaPlayback();
-    const track = TRACKS[currentTrackIndex];
-    actionTaken = isPlaying ? `Reproduciendo: ${track.title}` : 'Música en pausa';
-    replyText = isPlaying ? `Reproduciendo "${track.title}" de ${track.artist}. Podés controlar el volumen desde el HUD o centro de control.` : 'He pausado la reproducción de música.';
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Abrir apps
+  ───────────────────────────────────────────────────────── */
+  else if (q.includes('abre spotify') || q.includes('abrí spotify') || q.includes('abre musica') || q.includes('abre música')) {
+    openApp('music');
+    actionTaken = 'Spotify abierto';
+    replyText = 'Abriendo Spotify. Podés pedirme que reproduzca algo en particular.';
   } else if (q.includes('abre steam') || q.includes('juegos')) {
     openApp('games');
     actionTaken = 'Abriendo Steam';
@@ -7395,17 +11891,37 @@ function parseAndExecuteNovaAction(query) {
     openApp('settings');
     actionTaken = 'Abriendo Nebula Designer';
     replyText = 'Abriendo el panel de Ajustes y personalización.';
-  } else if (q.includes('clima') || q.includes('tiempo') || q.includes('temperatura')) {
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Clima
+  ───────────────────────────────────────────────────────── */
+  else if (q.includes('clima') || q.includes('tiempo') || q.includes('temperatura')) {
     addWeatherWidget();
     actionTaken = 'Widget de Clima añadido';
     replyText = 'Añadí el widget de clima. Podés cambiar la ciudad desde el selector dentro del widget.';
-  } else if (q.includes('cyberpunk 2077') || q.includes('fps') || q.includes('consejos') || q.includes('juego') || q.includes('gamer')) {
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Recomendaciones gamer
+  ───────────────────────────────────────────────────────── */
+  else if (q.includes('cyberpunk 2077') || q.includes('fps') || q.includes('consejos') || q.includes('juego') || q.includes('gamer')) {
     replyText = 'Para maximizar tus FPS y estabilidad en juegos exigentes te recomiendo:\n\n• Activar Modo Juego (fija frecuencia CPU en 4.95 GHz y libera RAM).\n• Habilitar el Gaming HUD (Alt+Z) para monitoreo de temperaturas.\n• Usar tema Cyberpunk de bajo consumo de sombreado.';
     actionBtnHTML = `<button class="nova-action-btn" type="button" onclick="applyGamerOptimization()"><i data-lucide="zap"></i> Aplicar Optimización Gamer (1-Clic)</button>`;
-  } else if (/^(hola|buenas|hey|buen d[ií]a)/.test(q)) {
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Saludos
+  ───────────────────────────────────────────────────────── */
+  else if (/^(hola|buenas|hey|buen d[ií]a)/.test(q)) {
     replyText = '¡Hola! Soy Nova AI, tu copiloto en Nebula OS. Puedo optimizar tu sistema, cambiar temas, poner música, abrir juegos y mucho más. ¿Qué querés configurar?';
-  } else {
-    replyText = `Entendido. He analizado "${query}". Podés pedirme cosas como "Activa el modo juego", "Cambia al tema Cyberpunk", "Optimiza el sistema" o "Pon música".`;
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Fallback
+  ───────────────────────────────────────────────────────── */
+  else {
+    replyText = `Entendido. He analizado "${query}". Podés pedirme cosas como "Activa el modo juego", "Cambia al tema Cyberpunk", "Pon música" o "Reproducí Bocanada de Cerati".`;
   }
 
   return { replyText, actionTaken, actionBtnHTML };
@@ -7424,10 +11940,10 @@ function startNovaVoiceInput() {
 
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
     if (voiceBtn) voiceBtn.classList.add('listening');
-    showToast('Voz a Acción', 'Simulando comando por voz: "Activa el modo juego y optimiza"...', 'mic');
+    showToast('Voz a Acción', 'Simulando comando por voz: "Pon música y activá el modo juego"...', 'mic');
     setTimeout(() => {
       if (input) {
-        input.value = 'Activa el modo juego y optimiza el sistema';
+        input.value = 'Pon música y activá el modo juego';
         document.querySelector('.nova-form')?.requestSubmit();
       }
       if (voiceBtn) voiceBtn.classList.remove('listening');
@@ -14211,7 +18727,7 @@ function applyBrightness(val) {
   } catch (e) {}
 }
 /* ═══════════════════════════════════════════════════════════════
-   ★ PARTE 11/12 — PERFILES + MEDIA PLAYER SETUP + UTILIDADES
+   ★ PARTE 11/12 — PERFILES + MEDIA PLAYER + FONDOS ANIMADOS
    ═══════════════════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════════════
@@ -14266,19 +18782,15 @@ function closeAllOpenApps() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ★ MEDIA PLAYER SETUP (widget "Ahora sonando" del Control Center)
-═══════════════════════════════════════════════════════════════ */
+   ★ MEDIA PLAYER SETUP (stub)
+   ═══════════════════════════════════════════════════════════════
+   El reproductor viejo ya no existe. Todo el manejo de reproducción
+   está en `SpotifyApp` (BLOQUE 8). Este stub se deja solo por
+   compatibilidad con llamadas que pudieran quedar dando vueltas.
+*/
 
 function setupMediaPlayer() {
-  const button = document.getElementById('media-toggle');
-  const fill = document.getElementById('media-progress-fill');
-  if (button) button.addEventListener('click', toggleMediaPlayback);
-
-  setInterval(() => {
-    if (!isPlaying) return;
-    playbackProgress = playbackProgress >= 100 ? 0 : playbackProgress + 1;
-    if (fill) fill.style.width = `${playbackProgress}%`;
-  }, 1000);
+  // No-op: el reproductor es SpotifyApp (BLOQUE 8).
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -14957,20 +19469,21 @@ function syncAnimatedBgPreviews() {
  *  PARTE 1  → Configuración y constantes
  *             APPS, DOCK_APPS, TABBED_APPS, WIDGET_CATALOG,
  *             WEATHER_CITIES, WMO_CODE_MAP, WALLPAPERS, THEME_PRESETS,
- *             STORE_THEMES, TRACKS, DOCK_PREVIEW_STYLES, SHIELD_FEATURES,
+ *             STORE_THEMES, DOCK_PREVIEW_STYLES, SHIELD_FEATURES,
  *             VPN_SERVERS, STORE_PRODUCTS, VAULT_CATEGORIES,
  *             ACTIVITY_CATEGORIES, GAMELIB_GAMES, TASKMGR_SYSTEM_PROCESSES,
  *             VSC_FILE_TREE, VSC_FILE_CONTENTS, VSC_PROBLEMS, STARS_CONFIG,
  *             BLUETOOTH_DEVICES, WIFI_NETWORKS, todas las STORAGE_KEYS,
  *             constantes de animación y de toasts.
+ *             + Constantes de Spotify (SPOTIFY_*).
  *
  *  PARTE 2  → Estado global (variables mutables)
  *             openWindows, activeWinId, currentWorkspace, systemMetrics,
- *             gameModeActive, currentProfile, currentTrackIndex,
- *             isPlaying, designerState, shieldState, updatesState,
- *             notifications, desktopWidgets, storeProducts,
- *             settingsState, vaultState, activityLog, taskmgr*,
- *             gamelib*, vsc*, FILE_SYSTEM, stars*, etc.
+ *             gameModeActive, currentProfile, designerState, shieldState,
+ *             updatesState, notifications, desktopWidgets, storeProducts,
+ *             settingsState, vaultState, activityLog, taskmgr*, gamelib*,
+ *             vsc*, FILE_SYSTEM, stars*, etc.
+ *             + Objeto `spotify` (runtime state del reproductor).
  *
  *  PARTE 3  → Helpers y utilidades
  *             refreshIcons, escapeHtml, generateWinId, getInstancesOfApp,
@@ -14979,57 +19492,51 @@ function syncAnimatedBgPreviews() {
  *             getWifiSignalClass, getBluetoothDeviceById, getCityById,
  *             getWmoInfo, formatGameHours, getVscFileByName, highlightVscLine,
  *             calculatePasswordStrength, generatePassword, updateMetrics,
- *             simulatePing, buildDockPreviewHTML, getAppTileHTML, etc.
+ *             simulatePing, buildDockPreviewHTML, getAppTileHTML.
+ *             + Helpers de Spotify (spFormatTime, spGetTrackCover, etc.).
  *
  *  PARTE 4  → Bootstrap principal
- *             DOMContentLoaded, setupUIActions, setupShortcuts,
+ *             DOMContentLoaded (async), setupUIActions, setupShortcuts,
  *             saveSessionState, restoreSessionState, loadPersistedState,
  *             applySettings, migrateNotesFormat, setupSliders,
  *             setupAdvancedWidget, updateWidgetTime, simulateMetrics,
  *             setupDeviceStatus, setupKeyboardAccessibility,
  *             switchWorkspace, moveWindowToWorkspace, setupWmTrashZone,
- *             setupTelemetryLoop, setupWeatherAutoRefresh.
+ *             setupTelemetryLoop, setupWeatherAutoRefresh,
+ *             setupSpotifyIntegration + subfunciones.
  *
  *  PARTE 5  → Sistema de ventanas
- *             openApp, focusWindow, closeApp, maximizeApp, restoreWindow,
- *             minimizeApp, setupWindowResize, getWindowTabsState,
- *             generateTabId, createTabObject, buildTabPanelHTML,
- *             renderWindowTabs, addWindowTab, closeWindowTab,
- *             switchWindowTab, runWindowAnimation, updateTopBar,
- *             renderDock, showDockPreview, hideDockPreview,
- *             showDockContextMenu, handleDockContextAction,
- *             hideDockContextMenu, toggleWindowManager, openWindowManager,
- *             closeWindowManager, renderWindowManager, setupWmDragAndDrop,
- *             cleanupWmDrag, getAppContent (router principal).
+ *             openApp, focusWindow, closeApp (sin pausar música),
+ *             maximizeApp, restoreWindow, minimizeApp, setupWindowResize,
+ *             sistema de tabs, runWindowAnimation, updateTopBar, renderDock,
+ *             dock previews, dock context menu, Window Manager completo,
+ *             getAppContent (router principal).
  *
  *  PARTE 6  → Overlays y menús
- *             Launcher (openLauncher, closeLauncher, toggleLauncher,
- *             renderLauncherResults, handleLauncherKeydown,
- *             buildLauncherActions, buildLauncherCommands),
- *             Context Menu, Control/Quick Center close,
+ *             Launcher, Context Menu, Control/Quick Center,
  *             Notification Center overlay, Store overlay,
  *             WiFi panel, Bluetooth panel,
  *             Files context menu + rename modal + move menu,
  *             Weather city dropdown.
  *
  *  PARTE 7  → Widgets + Notificaciones + Toasts
- *             addDesktopWidget, removeDesktopWidget, clearDesktopWidgets,
- *             saveDesktopWidgets, renderDesktopWidgets,
- *             setupDraggableWidget, updateWidgetStats, addWeatherWidget,
- *             fetchWeatherForCity, renderWeatherWidgetHTML,
+ *             addDesktopWidget, removeDesktopWidget, saveDesktopWidgets,
+ *             renderDesktopWidgets, setupDraggableWidget, updateWidgetStats,
+ *             addWeatherWidget, fetchWeatherForCity, renderWeatherWidgetHTML,
  *             addGamingHubWidget, renderGamingHubWidgetHTML,
  *             updateGamingHubWidget, addNotificationToHistory,
- *             updateNotifBadge, renderNotificationCenter,
- *             showToast, closeToast, calendario y notas.
+ *             updateNotifBadge, renderNotificationCenter, showToast,
+ *             closeToast, calendario y notas.
  *
- *  PARTE 8  → Multimedia
- *             setupQuickCenterPlayer, updatePlayerProgress,
- *             toggleMediaPlayback, nextTrack, previousTrack,
- *             updateMediaUI, setSystemVolume, playFirstTrack,
- *             getSpotifyAppHTML, setupSpotifyApp.
+ *  PARTE 8  → Multimedia: APP SPOTIFY COMPLETA
+ *             SpotifyApp (motor de audio HTMLAudioElement + Web Audio API),
+ *             getSpotifyAppHTML, setupSpotifyApp, vistas (Home, Playlist,
+ *             Artist, Album, Search, Liked, Library, Queue), tracklist,
+ *             visualizer, track menu, modales de playlists,
+ *             wrappers globales, integración con Control Center / HUD / Nova.
  *
- *  PARTE 9A → Apps: Nova AI + Files + Settings
- *             setupNovaAI, parseAndExecuteNovaAction,
+ *  PARTE 9A → Nova AI + Files + Settings
+ *             setupNovaAI, parseAndExecuteNovaAction (con Spotify),
  *             getDefaultFileSystem, setupFiles, fsRefresh, fsBindGridEvents,
  *             fsHandleDrop, fsUpdatePreview, searchFilesInSystem,
  *             renderSettingsApp, setSettingsTab, runShieldScan,
@@ -15038,7 +19545,7 @@ function syncAnimatedBgPreviews() {
  *             getDesignerStylesHTML, getDesignerWallpapersHTML,
  *             getUpdatesSettingsHTML, getSettingsNavHTML.
  *
- *  PARTE 9B → Apps: Vault + Activity + Task Manager + Game Library +
+ *  PARTE 9B → Vault + Activity + Task Manager + Game Library +
  *             VSCode + Browser
  *             loadVaultEntries, getVaultAppHTML, renderVault,
  *             attemptUnlockVault, modales del Vault,
@@ -15055,8 +19562,10 @@ function syncAnimatedBgPreviews() {
  *             toggleWifi, toggleBluetooth, renderConnectivityState,
  *             toggleDnd, applyBrightness.
  *
- *  PARTE 11 → Perfiles + Media Player + Utilidades
- *             switchProfile, closeAllOpenApps, setupMediaPlayer.
+ *  PARTE 11 → Perfiles + Media Player + Fondos animados
+ *             switchProfile, closeAllOpenApps, setupMediaPlayer (stub),
+ *             motor de fondos animados (Particle, Matrix, Aurora),
+ *             getAnimatedBgsGalleryHTML, syncAnimatedBgPreviews.
  *
  *  PARTE 12 → Este cierre.
  *
@@ -15080,9 +19589,16 @@ function syncAnimatedBgPreviews() {
  *
  *  · El sistema de session usa `SESSION_STORAGE_KEY` — no redeclarar.
  *
+ *  · ★ El motor de Spotify vive en `SpotifyApp` (IIFE en PARTE 8).
+ *    El estado runtime está en `spotify` (PARTE 2).
+ *    La persistencia usa `SPOTIFY_STORAGE_KEY`.
+ *    La biblioteca viene de `assets/music/library.json` con fallback a
+ *    `SPOTIFY_DEFAULT_LIBRARY`.
+ *
  *  · Si modificás el diseño CSS, revisá los nombres de clases en el HTML
  *    generado por JS. Todas las clases usan el prefijo del componente
- *    (ej: `weather-`, `shield-`, `vault-`, `taskmgr-`, `gamelib-`, `vsc-`).
+ *    (ej: `weather-`, `shield-`, `vault-`, `taskmgr-`, `gamelib-`, `vsc-`,
+ *    `sp-` para Spotify).
  *
  * ═══════════════════════════════════════════════════════════════
  */
