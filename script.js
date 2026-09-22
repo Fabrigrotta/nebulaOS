@@ -1740,6 +1740,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // 1. Fondo y estrellas
   createStars();
 
+  // NUEVO: iniciar motor de fondos animados
+  initAnimatedBackground();
+
   // 2. Cargar estado persistido
   loadPersistedState();
   loadNotifications();
@@ -1792,6 +1795,10 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('beforeunload', () => {
     saveSessionState(true);
   });
+
+  // 8. Fondos animados
+  initAnimatedBackground();
+  setInterval(syncAnimatedBgWithGameMode, 800);
 });
 
 /* ─── Atajos de teclado globales (VS Code + HUD) ─── */
@@ -9349,6 +9356,7 @@ function getDesignerWallpapersHTML() {
         </div>
       `).join('')}
     </div>
+    ${getAnimatedBgsGalleryHTML()}
   `;
 }
 
@@ -14229,6 +14237,667 @@ function setupMediaPlayer() {
     if (fill) fill.style.width = `${playbackProgress}%`;
   }, 1000);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ FONDOS ANIMADOS — Motor de Canvas (Particle / Matrix / Aurora)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Constantes de los fondos animados ─── */
+const ANIMATED_BG_IDS = ['particle', 'matrix', 'aurora'];
+
+const ANIMATED_BG_META = {
+  particle: {
+    id: 'particle',
+    name: 'Particle Network',
+    description: 'Partículas conectadas que reaccionan al mouse. El más clásico y "wow".',
+    accent: '#b4befe'
+  },
+  matrix: {
+    id: 'matrix',
+    name: 'Matrix Rain',
+    description: 'Lluvia de caracteres verdes estilo Matrix. Encaja perfecto con Cyberpunk.',
+    accent: '#00ff41'
+  },
+  aurora: {
+    id: 'aurora',
+    name: 'Aurora',
+    description: 'Ondas fluidas tipo aurora boreal. Elegante y sin ruido visual.',
+    accent: '#89dceb'
+  }
+};
+
+/* ─── Estado global de los fondos animados ─── */
+let currentAnimatedBg = null;
+let animatedBgPaused = false;
+let animatedBgRafId = null;
+let animatedBgCanvas = null;
+let animatedBgCtx = null;
+let animatedBgParticles = [];
+let animatedBgMatrixCols = [];
+let animatedBgAuroraTime = 0;
+let animatedBgResizeHandler = null;
+
+/* ─── Helpers ─── */
+function getAnimatedBgCanvas() {
+  if (!animatedBgCanvas) {
+    animatedBgCanvas = document.getElementById('animated-bg-canvas');
+    if (animatedBgCanvas) {
+      animatedBgCtx = animatedBgCanvas.getContext('2d');
+    }
+  }
+  return animatedBgCanvas;
+}
+
+function resizeAnimatedBgCanvas() {
+  const c = getAnimatedBgCanvas();
+  if (!c) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  c.width = Math.floor(w * dpr);
+  c.height = Math.floor(h * dpr);
+  c.style.width = w + 'px';
+  c.style.height = h + 'px';
+  if (animatedBgCtx) {
+    animatedBgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  if (currentAnimatedBg === 'particle') initParticleState(w, h);
+  if (currentAnimatedBg === 'matrix') initMatrixState(w, h);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ FONDO 1 — PARTICLE NETWORK
+   ═══════════════════════════════════════════════════════════════ */
+
+let particleMouse = { x: -9999, y: -9999 };
+
+function initParticleState(w, h) {
+  const count = Math.min(90, Math.floor((w * h) / 18000));
+  animatedBgParticles = [];
+  for (let i = 0; i < count; i++) {
+    animatedBgParticles.push({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: (Math.random() - 0.5) * 0.5,
+      r: 1 + Math.random() * 1.6
+    });
+  }
+}
+
+function drawParticleFrame(w, h, dt) {
+  const ctx = animatedBgCtx;
+  if (!ctx) return;
+
+  ctx.clearRect(0, 0, w, h);
+
+  const particles = animatedBgParticles;
+  const accent = '#b4befe';
+  const linkDist = 130;
+  const mouseDist = 180;
+
+  for (const p of particles) {
+    p.x += p.vx;
+    p.y += p.vy;
+
+    if (p.x < 0 || p.x > w) p.vx *= -1;
+    if (p.y < 0 || p.y > h) p.vy *= -1;
+
+    const dx = particleMouse.x - p.x;
+    const dy = particleMouse.y - p.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < mouseDist && dist > 1) {
+      const force = (1 - dist / mouseDist) * 0.04;
+      p.vx += (dx / dist) * force;
+      p.vy += (dy / dist) * force;
+    }
+
+    const speed = Math.hypot(p.vx, p.vy);
+    const maxSpeed = 1.4;
+    if (speed > maxSpeed) {
+      p.vx = (p.vx / speed) * maxSpeed;
+      p.vy = (p.vy / speed) * maxSpeed;
+    }
+
+    p.vx *= 0.995;
+    p.vy *= 0.995;
+  }
+
+  for (let i = 0; i < particles.length; i++) {
+    for (let j = i + 1; j < particles.length; j++) {
+      const a = particles[i];
+      const b = particles[j];
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      const d = Math.hypot(dx, dy);
+      if (d < linkDist) {
+        const alpha = (1 - d / linkDist) * 0.35;
+        ctx.strokeStyle = `rgba(180, 190, 254, ${alpha.toFixed(3)})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+    }
+  }
+
+  for (const p of particles) {
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  for (const p of particles) {
+    const dx = p.x - particleMouse.x;
+    const dy = p.y - particleMouse.y;
+    const d = Math.hypot(dx, dy);
+    if (d < mouseDist) {
+      const alpha = (1 - d / mouseDist) * 0.5;
+      ctx.strokeStyle = `rgba(180, 190, 254, ${alpha.toFixed(3)})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(particleMouse.x, particleMouse.y);
+      ctx.stroke();
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ FONDO 2 — MATRIX RAIN
+   ═══════════════════════════════════════════════════════════════ */
+
+const MATRIX_CHARS = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789ABCDEF';
+
+function initMatrixState(w, h) {
+  const fontSize = 16;
+  const cols = Math.floor(w / fontSize);
+  animatedBgMatrixCols = [];
+  for (let i = 0; i < cols; i++) {
+    animatedBgMatrixCols.push({
+      y: Math.random() * h,
+      speed: 0.5 + Math.random() * 1.5
+    });
+  }
+}
+
+function drawMatrixFrame(w, h, dt) {
+  const ctx = animatedBgCtx;
+  if (!ctx) return;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+  ctx.fillRect(0, 0, w, h);
+
+  const fontSize = 16;
+  const cols = Math.floor(w / fontSize);
+
+  while (animatedBgMatrixCols.length < cols) {
+    animatedBgMatrixCols.push({ y: Math.random() * h, speed: 0.5 + Math.random() * 1.5 });
+  }
+
+  ctx.font = `${fontSize}px "JetBrains Mono", monospace`;
+
+  for (let i = 0; i < cols; i++) {
+    const col = animatedBgMatrixCols[i];
+    if (!col) continue;
+
+    const ch = MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
+    const x = i * fontSize;
+    const y = col.y;
+
+    ctx.fillStyle = '#ccffdd';
+    ctx.fillText(ch, x, y);
+
+    ctx.fillStyle = 'rgba(0, 255, 65, 0.55)';
+    ctx.fillText(ch, x, y - fontSize);
+
+    col.y += col.speed * (fontSize / 3);
+    if (col.y > h + 40) {
+      col.y = -20 - Math.random() * 200;
+      col.speed = 0.5 + Math.random() * 1.5;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ FONDO 3 — AURORA (ondas fluidas)
+   ═══════════════════════════════════════════════════════════════ */
+
+function initAuroraState() {
+  animatedBgAuroraTime = 0;
+}
+
+function drawAuroraFrame(w, h, dt) {
+  const ctx = animatedBgCtx;
+  if (!ctx) return;
+
+  ctx.fillStyle = 'rgba(5, 7, 14, 0.35)';
+  ctx.fillRect(0, 0, w, h);
+
+  animatedBgAuroraTime += dt * 0.0004;
+
+  const t = animatedBgAuroraTime;
+  const layers = 4;
+
+  for (let i = 0; i < layers; i++) {
+    const offsetY = h * (0.35 + i * 0.08);
+    const amp = 40 + i * 25;
+    const speed = 0.6 + i * 0.3;
+    const hueShift = i * 40;
+
+    const hue1 = (180 + hueShift) % 360;
+    const hue2 = (280 + hueShift) % 360;
+    const grad = ctx.createLinearGradient(0, offsetY - amp, 0, offsetY + amp * 2);
+    grad.addColorStop(0, `hsla(${hue1}, 80%, 60%, 0)`);
+    grad.addColorStop(0.4, `hsla(${hue1}, 80%, 60%, 0.18)`);
+    grad.addColorStop(0.7, `hsla(${hue2}, 80%, 60%, 0.12)`);
+    grad.addColorStop(1, `hsla(${hue2}, 80%, 60%, 0)`);
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+
+    for (let x = 0; x <= w; x += 8) {
+      const y =
+        offsetY +
+        Math.sin((x * 0.005) + t * speed + i * 1.3) * amp +
+        Math.sin((x * 0.012) + t * speed * 1.7 + i * 0.7) * (amp * 0.4);
+      ctx.lineTo(x, y);
+    }
+
+    ctx.lineTo(w, h);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ LOOP PRINCIPAL
+   ═══════════════════════════════════════════════════════════════ */
+
+let lastAnimatedBgFrameTime = 0;
+
+function animatedBgLoop(now) {
+  animatedBgRafId = requestAnimationFrame(animatedBgLoop);
+
+  if (animatedBgPaused) return;
+
+  const c = getAnimatedBgCanvas();
+  if (!c || !animatedBgCtx) return;
+
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const dt = lastAnimatedBgFrameTime ? Math.min(48, now - lastAnimatedBgFrameTime) : 16;
+  lastAnimatedBgFrameTime = now;
+
+  if (currentAnimatedBg === 'particle') {
+    drawParticleFrame(w, h, dt);
+  } else if (currentAnimatedBg === 'matrix') {
+    drawMatrixFrame(w, h, dt);
+  } else if (currentAnimatedBg === 'aurora') {
+    drawAuroraFrame(w, h, dt);
+  }
+}
+
+function startAnimatedBgLoop() {
+  if (animatedBgRafId !== null) return;
+  lastAnimatedBgFrameTime = 0;
+  animatedBgRafId = requestAnimationFrame(animatedBgLoop);
+}
+
+function stopAnimatedBgLoop() {
+  if (animatedBgRafId !== null) {
+    cancelAnimationFrame(animatedBgRafId);
+    animatedBgRafId = null;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ API PÚBLICA — aplicar / limpiar / pausar
+   ═══════════════════════════════════════════════════════════════ */
+
+function applyAnimatedBackground(id) {
+  if (!ANIMATED_BG_IDS.includes(id)) return;
+
+  const c = getAnimatedBgCanvas();
+  if (!c) return;
+
+  if (currentAnimatedBg === id) {
+    clearAnimatedBackground();
+    return;
+  }
+
+  if (animatedBgCtx) {
+    animatedBgCtx.clearRect(0, 0, c.width, c.height);
+  }
+
+  currentAnimatedBg = id;
+
+  resizeAnimatedBgCanvas();
+
+  if (id === 'particle') {
+    initParticleState(window.innerWidth, window.innerHeight);
+    attachParticleMouseListeners();
+  }
+  if (id === 'matrix') {
+    initMatrixState(window.innerWidth, window.innerHeight);
+    detachParticleMouseListeners();
+  }
+  if (id === 'aurora') {
+    initAuroraState();
+    detachParticleMouseListeners();
+  }
+
+  c.classList.add('active');
+  c.classList.remove('paused');
+
+  startAnimatedBgLoop();
+
+  try {
+    localStorage.setItem('nebula-os:animated-bg', id);
+  } catch (e) {}
+
+  if (typeof showToast === 'function') {
+    showToast('Fondo Animado', `Se activó "${ANIMATED_BG_META[id].name}".`, 'sparkles');
+  }
+
+  if (typeof renderSettingsApp === 'function') renderSettingsApp();
+}
+
+function clearAnimatedBackground() {
+  const c = getAnimatedBgCanvas();
+  if (c) {
+    c.classList.remove('active', 'paused');
+    if (animatedBgCtx) animatedBgCtx.clearRect(0, 0, c.width, c.height);
+  }
+
+  currentAnimatedBg = null;
+  animatedBgParticles = [];
+  animatedBgMatrixCols = [];
+  detachParticleMouseListeners();
+
+  try {
+    localStorage.removeItem('nebula-os:animated-bg');
+  } catch (e) {}
+
+  if (typeof showToast === 'function') {
+    showToast('Fondo Animado', 'Se restauró el wallpaper estático.', 'image');
+  }
+
+  if (typeof renderSettingsApp === 'function') renderSettingsApp();
+}
+
+function setAnimatedBgPaused(paused) {
+  animatedBgPaused = !!paused;
+  const c = getAnimatedBgCanvas();
+  if (!c) return;
+  c.classList.toggle('paused', animatedBgPaused);
+}
+
+/* ─── Listeners del mouse (solo para particle) ─── */
+let particleMouseListenerAttached = false;
+
+function onParticleMouseMove(e) {
+  particleMouse.x = e.clientX;
+  particleMouse.y = e.clientY;
+}
+
+function onParticleMouseLeave() {
+  particleMouse.x = -9999;
+  particleMouse.y = -9999;
+}
+
+function attachParticleMouseListeners() {
+  if (particleMouseListenerAttached) return;
+  particleMouseListenerAttached = true;
+  document.addEventListener('mousemove', onParticleMouseMove, { passive: true });
+  document.addEventListener('mouseleave', onParticleMouseLeave);
+}
+
+function detachParticleMouseListeners() {
+  if (!particleMouseListenerAttached) return;
+  particleMouseListenerAttached = false;
+  document.removeEventListener('mousemove', onParticleMouseMove);
+  document.removeEventListener('mouseleave', onParticleMouseLeave);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ INICIALIZACIÓN
+   ═══════════════════════════════════════════════════════════════ */
+
+function initAnimatedBackground() {
+  if (!animatedBgResizeHandler) {
+    animatedBgResizeHandler = () => {
+      if (currentAnimatedBg) resizeAnimatedBgCanvas();
+    };
+    window.addEventListener('resize', animatedBgResizeHandler);
+  }
+
+  let saved = null;
+  try {
+    saved = localStorage.getItem('nebula-os:animated-bg');
+  } catch (e) {}
+
+  if (saved && ANIMATED_BG_IDS.includes(saved)) {
+    const c = getAnimatedBgCanvas();
+    if (!c) return;
+
+    currentAnimatedBg = saved;
+    resizeAnimatedBgCanvas();
+
+    if (saved === 'particle') {
+      initParticleState(window.innerWidth, window.innerHeight);
+      attachParticleMouseListeners();
+    } else if (saved === 'matrix') {
+      initMatrixState(window.innerWidth, window.innerHeight);
+    } else if (saved === 'aurora') {
+      initAuroraState();
+    }
+
+    c.classList.add('active');
+    startAnimatedBgLoop();
+  }
+}
+
+function syncAnimatedBgWithGameMode() {
+  if (typeof gameModeActive === 'undefined') return;
+  setAnimatedBgPaused(!!gameModeActive);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ GALERÍA DE FONDOS ANIMADOS EN EL DESIGNER
+   ═══════════════════════════════════════════════════════════════ */
+
+function getAnimatedBgsGalleryHTML() {
+  return `
+    <div class="animated-bg-section">
+      <div class="animated-bg-section-header">
+        <i data-lucide="sparkles"></i>
+        <span>Fondos Animados</span>
+      </div>
+
+      <div class="designer-presets-grid">
+        ${ANIMATED_BG_IDS.map(id => {
+          const meta = ANIMATED_BG_META[id];
+          const isActive = currentAnimatedBg === id;
+          const isPaused = animatedBgPaused && isActive;
+
+          return `
+            <div class="theme-preset-card animated-bg-card ${isActive ? 'selected' : ''} ${isPaused ? 'paused' : ''}"
+                 onclick="applyAnimatedBackground('${id}')">
+              <div class="animated-bg-preview">
+                <span class="animated-bg-badge">
+                  <i data-lucide="${isPaused ? 'pause' : 'play'}"></i>
+                  ${isPaused ? 'Pausado' : 'Animado'}
+                </span>
+                <canvas class="animated-bg-canvas-preview" data-bg-preview="${id}"></canvas>
+              </div>
+              <strong>${meta.name}</strong>
+              <small>${meta.description}</small>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <div class="animated-bg-note">
+        <i data-lucide="info"></i>
+        <small>
+          Los fondos animados usan <strong>Canvas</strong> nativo del navegador, sin librerías externas.
+          Se <strong>pausan automáticamente</strong> cuando activás Modo Juego para ahorrar recursos.
+          <strong>Son excluyentes</strong> con los fondos estáticos.
+        </small>
+      </div>
+    </div>
+  `;
+}
+
+/* ─── Previews animadas (mini canvas) ─── */
+let animatedBgPreviewRafId = null;
+let animatedBgPreviewCanvases = [];
+
+function drawMiniParticlePreview(ctx, w, h, time) {
+  ctx.clearRect(0, 0, w, h);
+
+  const cols = 5;
+  const rows = 3;
+  const pts = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const baseX = (c + 1) * (w / (cols + 1));
+      const baseY = (r + 1) * (h / (rows + 1));
+      const offsetX = Math.sin(time * 0.0015 + c + r) * 6;
+      const offsetY = Math.cos(time * 0.0018 + c * 0.5 + r) * 4;
+      pts.push({ x: baseX + offsetX, y: baseY + offsetY });
+    }
+  }
+
+  ctx.strokeStyle = 'rgba(180, 190, 254, 0.35)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < pts.length; i++) {
+    for (let j = i + 1; j < pts.length; j++) {
+      const dx = pts[i].x - pts[j].x;
+      const dy = pts[i].y - pts[j].y;
+      const d = Math.hypot(dx, dy);
+      if (d < Math.min(w, h) * 0.4) {
+        ctx.beginPath();
+        ctx.moveTo(pts[i].x, pts[i].y);
+        ctx.lineTo(pts[j].x, pts[j].y);
+        ctx.stroke();
+      }
+    }
+  }
+
+  ctx.fillStyle = '#b4befe';
+  for (const p of pts) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawMiniMatrixPreview(ctx, w, h, time) {
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+  ctx.fillRect(0, 0, w, h);
+
+  const fontSize = 8;
+  ctx.font = `${fontSize}px "JetBrains Mono", monospace`;
+
+  const cols = Math.floor(w / fontSize);
+  const t = (time * 0.03) % h;
+
+  for (let i = 0; i < cols; i++) {
+    const x = i * fontSize;
+    const y = ((t + i * 12) % h);
+    const ch = MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
+    ctx.fillStyle = 'rgba(0, 255, 65, 0.85)';
+    ctx.fillText(ch, x, y);
+  }
+}
+
+function drawMiniAuroraPreview(ctx, w, h, time) {
+  ctx.fillStyle = 'rgba(5, 7, 14, 0.4)';
+  ctx.fillRect(0, 0, w, h);
+
+  const t = time * 0.001;
+  const layers = 2;
+  for (let i = 0; i < layers; i++) {
+    const offsetY = h * (0.4 + i * 0.15);
+    const amp = 8 + i * 5;
+    const hue1 = (180 + i * 60) % 360;
+    const hue2 = (280 + i * 60) % 360;
+
+    const grad = ctx.createLinearGradient(0, offsetY - amp, 0, offsetY + amp * 2);
+    grad.addColorStop(0, `hsla(${hue1}, 80%, 60%, 0)`);
+    grad.addColorStop(0.5, `hsla(${hue1}, 80%, 60%, 0.35)`);
+    grad.addColorStop(1, `hsla(${hue2}, 80%, 60%, 0)`);
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    for (let x = 0; x <= w; x += 3) {
+      const y =
+        offsetY +
+        Math.sin(x * 0.05 + t * (0.6 + i * 0.4)) * amp +
+        Math.sin(x * 0.12 + t * 0.8 + i) * (amp * 0.5);
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(w, h);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function startAnimatedBgPreviewLoop() {
+  if (animatedBgPreviewRafId !== null) return;
+
+  const loop = (now) => {
+    animatedBgPreviewRafId = requestAnimationFrame(loop);
+
+    for (const item of animatedBgPreviewCanvases) {
+      const { canvas, id } = item;
+      if (!canvas.isConnected) continue;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) continue;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+      if (id === 'particle') drawMiniParticlePreview(ctx, w, h, now);
+      else if (id === 'matrix') drawMiniMatrixPreview(ctx, w, h, now);
+      else if (id === 'aurora') drawMiniAuroraPreview(ctx, w, h, now);
+    }
+  };
+
+  animatedBgPreviewRafId = requestAnimationFrame(loop);
+}
+
+function stopAnimatedBgPreviewLoop() {
+  if (animatedBgPreviewRafId !== null) {
+    cancelAnimationFrame(animatedBgPreviewRafId);
+    animatedBgPreviewRafId = null;
+  }
+}
+
+function syncAnimatedBgPreviews() {
+  const canvases = document.querySelectorAll('.animated-bg-canvas-preview[data-bg-preview]');
+  if (canvases.length === 0) {
+    animatedBgPreviewCanvases = [];
+    stopAnimatedBgPreviewLoop();
+    return;
+  }
+
+  animatedBgPreviewCanvases = Array.from(canvases).map(c => ({
+    canvas: c,
+    id: c.dataset.bgPreview
+  }));
+
+  startAnimatedBgPreviewLoop();
+}
+
 /* ═══════════════════════════════════════════════════════════════
    ★ PARTE 12/12 — CIERRE
    ═══════════════════════════════════════════════════════════════ */
