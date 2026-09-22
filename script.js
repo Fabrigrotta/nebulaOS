@@ -18735,7 +18735,6 @@ function applyBrightness(val) {
 ═══════════════════════════════════════════════════════════════ */
 
 function switchProfile(profileId) {
-  closeAllOpenApps();
 
   currentProfile = profileId;
 
