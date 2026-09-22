@@ -4369,19 +4369,27 @@ function createTabObject(appId, win) {
   return { id: tabId, label, kind };
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   ★ TABS: HTML del contenido de cada pestaña
+═══════════════════════════════════════════════════════════════ */
+
 function buildTabPanelHTML(appId, tab) {
   if (appId === 'terminal') {
     return `
       <div class="window-tab-panel" data-tab-id="${tab.id}">
         <div class="term-body">
-          <div class="prompt">
-            <span class="dir">~/nebula-os/gaming-core</span>
-            <span class="branch"> main [profile:${currentProfile}]</span>
-          </div>
-          <div class="term-history"></div>
-          <div class="prompt" style="margin-top:4px;">
-            <span class="time">❯</span>
-            <input class="term-input" autocomplete="off">
+          <div class="term-history">
+            <div class="term-line term-welcome">Nebula OS v2.5 "Ultimate" · WezTerm Emulator</div>
+            <div class="term-line term-hint">Escribí "help" para ver los comandos disponibles.</div>
+            <div class="term-line">&nbsp;</div>
+            <div class="prompt">
+              <span class="dir">~/nebula-os/gaming-core</span>
+              <span class="branch"> main [profile:${currentProfile}]</span>
+            </div>
+            <div class="prompt term-prompt-input">
+              <span class="time">❯</span>
+              <input class="term-input" autocomplete="off" spellcheck="false">
+            </div>
           </div>
         </div>
       </div>
@@ -4681,9 +4689,8 @@ function setupTerminalPanel(panel) {
   const input = panel.querySelector('.term-input');
   if (!body || !history || !input) return;
 
-  // Evitar doble setup
   if (input.dataset.termBound === '1') {
-    input.focus();
+    setTimeout(() => input.focus(), 30);
     return;
   }
   input.dataset.termBound = '1';
@@ -4692,104 +4699,154 @@ function setupTerminalPanel(panel) {
   const state = {
     history: [],
     historyIndex: -1,
-    cwd: '~/nebula-os/gaming-core',
-    profile: currentProfile
+    cwd: '~/nebula-os/gaming-core'
   };
 
-  // ─── Banner de bienvenida ───
-  if (history.children.length === 0) {
-    appendTerminalLine(history, `Nebula OS v2.5 "Ultimate" · WezTerm Emulator`, 'term-welcome');
-    appendTerminalLine(history, `Escribí "help" para ver los comandos disponibles.`, 'term-hint');
-    appendTerminalLine(history, ``, '');
-  }
+  // ─── El prompt que se "consume" al enviar ───
+  //     Al enviar, este prompt se convierte en eco y se crea uno nuevo.
+  let activePrompt = history.querySelector('.term-prompt-input');
+  let activeInput = activePrompt.querySelector('.term-input');
+  activeInput.dataset.termBound = '1';
 
-  // ─── Focus al clickear en cualquier parte del cuerpo ───
-  body.addEventListener('click', (e) => {
-    if (e.target.closest('.term-history')) input.focus();
+  // ─── Focus al clickear el cuerpo ───
+  body.addEventListener('click', () => {
+    activeInput.focus();
   });
 
-  // ★ Scrollear al fondo mientras se escribe
-  //   (así el input nunca queda tapado por el borde inferior)
-  const autoScrollOnType = () => {
-    // requestAnimationFrame para que el layout se recalcule con el texto nuevo
-    requestAnimationFrame(() => scrollTerminalToBottom(body));
+  // ─── Auto-scroll al fondo ───
+  const scrollToBottom = () => {
+    requestAnimationFrame(() => {
+      body.scrollTop = body.scrollHeight;
+    });
   };
-  input.addEventListener('input', autoScrollOnType);
-  input.addEventListener('focus', autoScrollOnType);
 
-  // ★ Scrollear también al pegar (Ctrl+V) o al cortar texto
-  input.addEventListener('paste', autoScrollOnType);
-  input.addEventListener('cut', autoScrollOnType);
-
-  // ─── Historial con flechas ───
-  input.addEventListener('keydown', (e) => {
-    // Enviar comando
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const cmd = input.value.trim();
-      input.value = '';
-
-      if (cmd.length > 0) {
-        state.history.push(cmd);
-        state.historyIndex = state.history.length;
-      }
-
-      appendTerminalLine(history, buildTerminalEchoLine(state.cwd, cmd), 'term-cmd-echo');
-
-      if (cmd.length === 0) return;
-
-      const result = processTerminalCommand(cmd, state);
-      if (result && typeof result === 'string') {
-        result.split('\n').forEach(line => {
-          appendTerminalLine(history, line, '');
-        });
-      } else if (Array.isArray(result)) {
-        result.forEach(line => {
-          if (typeof line === 'string') appendTerminalLine(history, line, '');
-          else if (line && line.text) appendTerminalLine(history, line.text, line.cls || '');
-        });
-      }
-
-      // Refrescar el prompt del directorio actual
-      const dirEl = body.querySelector('.prompt .dir');
-      if (dirEl) dirEl.textContent = state.cwd;
-
-      scrollTerminalToBottom(body);
-      return;
-    }
-
-    // Navegar historial
+  // ─── Enter: ejecutar comando ───
+  const handleKeydown = (e) => {
+    // Historial
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (state.history.length === 0) return;
-      state.historyIndex = Math.max(0, (state.historyIndex === -1 ? state.history.length : state.historyIndex) - 1);
-      input.value = state.history[state.historyIndex] || '';
-      // Cursor al final
-      requestAnimationFrame(() => input.setSelectionRange(input.value.length, input.value.length));
+      if (state.historyIndex === -1) state.historyIndex = state.history.length;
+      state.historyIndex = Math.max(0, state.historyIndex - 1);
+      activeInput.value = state.history[state.historyIndex] || '';
+      requestAnimationFrame(() =>
+        activeInput.setSelectionRange(activeInput.value.length, activeInput.value.length)
+      );
       return;
     }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (state.history.length === 0) return;
       state.historyIndex = Math.min(state.history.length, state.historyIndex + 1);
-      input.value = state.history[state.historyIndex] || '';
-      requestAnimationFrame(() => input.setSelectionRange(input.value.length, input.value.length));
+      activeInput.value = state.history[state.historyIndex] || '';
+      requestAnimationFrame(() =>
+        activeInput.setSelectionRange(activeInput.value.length, activeInput.value.length)
+      );
       return;
     }
-
-    // Ctrl+L → clear
+    // Ctrl+L: limpiar
     if ((e.ctrlKey || e.metaKey) && (e.key === 'l' || e.key === 'L')) {
       e.preventDefault();
+      // Borrar todo menos el prompt activo
       history.innerHTML = '';
+      rebuildPrompt();
       return;
     }
-  });
+    // Enter: enviar
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const cmd = activeInput.value.trim();
+
+      // Historial de comandos
+      if (cmd.length > 0) {
+        state.history.push(cmd);
+        state.historyIndex = state.history.length;
+      }
+
+      // Deshabilitar el input actual y convertirlo en eco
+      activeInput.disabled = true;
+      activeInput.value = cmd;
+      activeInput.classList.add('term-input-echo');
+
+      // Ejecutar (excepto clear)
+      if (cmd.toLowerCase() === 'clear' || cmd.toLowerCase() === 'cls') {
+        history.innerHTML = '';
+        rebuildPrompt();
+        return;
+      }
+
+      if (cmd.length > 0) {
+        const result = processTerminalCommand(cmd, state);
+        if (typeof result === 'string') {
+          result.split('\n').forEach(line => appendTerminalLine(history, line, ''));
+        } else if (Array.isArray(result)) {
+          result.forEach(line => {
+            if (typeof line === 'string') appendTerminalLine(history, line, '');
+            else if (line && line.text) appendTerminalLine(history, line.text, line.cls || '');
+          });
+        }
+      }
+
+      // Actualizar el directorio del próximo prompt
+      rebuildPrompt();
+      return;
+    }
+  };
+
+  // ─── Reconstruye el prompt al pie con input nuevo y funcional ───
+  function rebuildPrompt() {
+    // Cerrar el prompt viejo (si quedó huérfano)
+    const oldPrompts = history.querySelectorAll('.term-prompt-input');
+    oldPrompts.forEach((p, i) => {
+      if (i < oldPrompts.length - 1) p.remove(); // solo dejar el último en caso de duplicado
+    });
+
+    // Crear nuevo prompt
+    const newPrompt = document.createElement('div');
+    newPrompt.className = 'prompt term-prompt-input';
+    newPrompt.innerHTML = `
+      <span class="dir">${state.cwd}</span>
+      <span class="branch"> main [profile:${currentProfile}]</span>
+    `;
+
+    const inputRow = document.createElement('div');
+    inputRow.className = 'prompt term-prompt-input term-prompt-row';
+    inputRow.innerHTML = `<span class="time">❯</span>`;
+
+    const newInput = document.createElement('input');
+    newInput.className = 'term-input';
+    newInput.autocomplete = 'off';
+    newInput.spellcheck = false;
+    inputRow.appendChild(newInput);
+
+    history.appendChild(newPrompt);
+    history.appendChild(inputRow);
+
+    // El dir del prompt anterior ya no se actualiza
+    // El nuevo input toma el control
+    activePrompt = inputRow;
+    activeInput = newInput;
+    activeInput.dataset.termBound = '1';
+
+    // Listener de auto-scroll al tipear
+    activeInput.addEventListener('input', scrollToBottom);
+    activeInput.addEventListener('focus', scrollToBottom);
+    activeInput.addEventListener('paste', scrollToBottom);
+    activeInput.addEventListener('keydown', handleKeydown);
+
+    scrollToBottom();
+    setTimeout(() => activeInput.focus(), 30);
+  }
+
+  // ─── Primer setup: conectar el input inicial ───
+  activeInput.addEventListener('input', scrollToBottom);
+  activeInput.addEventListener('focus', scrollToBottom);
+  activeInput.addEventListener('paste', scrollToBottom);
+  activeInput.addEventListener('keydown', handleKeydown);
 
   // ─── Focus inicial ───
-  setTimeout(() => {
-    input.focus();
-    scrollTerminalToBottom(body);
-  }, 80);
+  scrollToBottom();
+  setTimeout(() => activeInput.focus(), 80);
 }
 
 function buildTerminalEchoLine(cwd, cmd) {
@@ -4806,23 +4863,9 @@ function appendTerminalLine(history, text, cls) {
 
 function scrollTerminalToBottom(body) {
   if (!body) return;
-
-  // Scrollear el propio body
-  body.scrollTop = body.scrollHeight;
-
-  // Por si el contenedor real con overflow es el ancestro (.window-tab-panel)
-  // o el propio .wcontent en ventanas sin tabs
-  const panel = body.closest('.window-tab-panel');
-  if (panel) panel.scrollTop = panel.scrollHeight;
-
-  const wcontent = body.closest('.wcontent');
-  if (wcontent) wcontent.scrollTop = wcontent.scrollHeight;
-
-  // Y por las dudas, hacer scrollIntoView del último prompt (el input)
-  const prompt = body.querySelector('.prompt:last-of-type');
-  if (prompt) {
-    prompt.scrollIntoView({ block: 'end', behavior: 'auto' });
-  }
+  requestAnimationFrame(() => {
+    body.scrollTop = body.scrollHeight;
+  });
 }
 
 /**
@@ -5988,14 +6031,18 @@ function getAppContent(id) {
     case 'terminal':
       return `
         <div class="term-body">
-          <div class="prompt">
-            <span class="dir">~/nebula-os/gaming-core</span>
-            <span class="branch"> main [profile:${currentProfile}]</span>
-          </div>
-          <div class="term-history"></div>
-          <div class="prompt" style="margin-top:4px;">
-            <span class="time">❯</span>
-            <input class="term-input" autocomplete="off" autofocus>
+          <div class="term-history">
+            <div class="term-line term-welcome">Nebula OS v2.5 "Ultimate" · WezTerm Emulator</div>
+            <div class="term-line term-hint">Escribí "help" para ver los comandos disponibles.</div>
+            <div class="term-line">&nbsp;</div>
+            <div class="prompt">
+              <span class="dir">~/nebula-os/gaming-core</span>
+              <span class="branch"> main [profile:${currentProfile}]</span>
+            </div>
+            <div class="prompt term-prompt-input">
+              <span class="time">❯</span>
+              <input class="term-input" autocomplete="off" spellcheck="false">
+            </div>
           </div>
         </div>
       `;
