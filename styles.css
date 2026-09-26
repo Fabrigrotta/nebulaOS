@@ -12437,10 +12437,12 @@ body.no-animations .window {
 }
 
 .gamelib-install-progress {
-  margin-top: 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  margin-top: 8px;
+  width: 100%;                 /* ← ocupa todo el ancho */
+  flex-basis: 100%;            /* ← fuerza salto de línea en flex padres */
 }
 .gamelib-install-progress-label {
   display: flex;

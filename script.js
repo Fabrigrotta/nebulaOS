@@ -1825,19 +1825,23 @@ function escapeVscHtml(text) {
 function highlightVscLine(line, language) {
   let safe = escapeVscHtml(line);
 
+  // Placeholders que NO matchean con ningún regex de tokens
+  // (usamos \uE000-\uF8FF, zona de uso privado Unicode)
   const tokens = [];
   const store = (html) => {
-    const placeholder = `\u0001TOKEN${tokens.length}\u0001`;
+    const placeholder = `\uE000T${tokens.length}\uE001`;
     tokens.push(html);
     return placeholder;
   };
 
+  // 1. Comentarios (primero, para que los strings no los pisen)
   safe = safe.replace(/&lt;!--[\s\S]*?--&gt;/g, m => store(`<span class="vsc-syn-comment">${m}</span>`));
   safe = safe.replace(/\/\/[^\n]*/g, m => store(`<span class="vsc-syn-comment">${m}</span>`));
   safe = safe.replace(/(^|\s)#[^\n]*/g, m => store(`<span class="vsc-syn-comment">${m}</span>`));
 
-  safe = safe.replace(/&quot;[^&]*?&quot;/g, m => store(`<span class="vsc-syn-string">${m}</span>`));
-  safe = safe.replace(/&#039;[^&]*?&#039;/g, m => store(`<span class="vsc-syn-string">${m}</span>`));
+  // 2. Strings (ahora sí acepta & adentro)
+  safe = safe.replace(/&quot;(?:[^&]|&(?!quot;))*&quot;/g, m => store(`<span class="vsc-syn-string">${m}</span>`));
+  safe = safe.replace(/&#039;(?:[^&]|&(?!#039;))*&#039;/g, m => store(`<span class="vsc-syn-string">${m}</span>`));
   safe = safe.replace(/`[^`]*?`/g, m => store(`<span class="vsc-syn-string">${m}</span>`));
 
   if (language === 'html') {
@@ -1857,7 +1861,14 @@ function highlightVscLine(line, language) {
 
   safe = safe.replace(/\b(\d+\.?\d*)\b/g, m => store(`<span class="vsc-syn-number">${m}</span>`));
 
-  safe = safe.replace(/\u0001TOKEN(\d+)\u0001/g, (m, i) => tokens[parseInt(i, 10)]);
+  // Restaurar tokens: reemplazar hasta que no queden placeholders
+  // (por si un token contiene el placeholder de otro)
+  let iterations = 0;
+  const TOKEN_RE = /\uE000T(\d+)\uE001/g;
+  while (TOKEN_RE.test(safe) && iterations < 50) {
+    safe = safe.replace(TOKEN_RE, (m, i) => tokens[parseInt(i, 10)]);
+    iterations++;
+  }
 
   return safe;
 }
@@ -2993,6 +3004,57 @@ const SpotifyApp = (() => {
         spotify.currentTime = target;
         _emit('progress', { currentTime: target, duration: dur });
       } catch (e) {}
+    },
+
+    /* ─── ★ NUEVO: Manejo de cola (FIX 8) ─── */
+
+    /**
+     * Agrega un track a la cola (después del actual).
+     * Persiste el cambio en localStorage.
+     */
+    addToQueue(trackId) {
+      if (!trackId) return false;
+      if (!spotify.tracksById.has(trackId)) return false;
+
+      // No duplicar: si ya está en la cola, no hacer nada
+      if (spotify.queue.includes(trackId)) return false;
+
+      // Insertar después del índice actual
+      const insertAt = Math.max(0, spotify.queueIndex + 1);
+      spotify.queue.splice(insertAt, 0, trackId);
+
+      // Persistir
+      _state.queue = spotify.queue.slice();
+      _state.queueIndex = spotify.queueIndex;
+      _scheduleSave();
+
+      _emit('queue-change', { queue: spotify.queue.slice() });
+      return true;
+    },
+
+    /**
+     * Remueve un track de la cola (por id).
+     */
+    removeFromQueue(trackId) {
+      if (!trackId) return false;
+      const idx = spotify.queue.indexOf(trackId);
+      if (idx === -1) return false;
+
+      spotify.queue.splice(idx, 1);
+
+      // Ajustar queueIndex si quedó desfasado
+      if (idx < spotify.queueIndex) {
+        spotify.queueIndex--;
+      } else if (idx === spotify.queueIndex) {
+        spotify.queueIndex = Math.min(spotify.queueIndex, spotify.queue.length - 1);
+      }
+
+      _state.queue = spotify.queue.slice();
+      _state.queueIndex = spotify.queueIndex;
+      _scheduleSave();
+
+      _emit('queue-change', { queue: spotify.queue.slice() });
+      return true;
     },
 
     setVolume(value) {
@@ -4343,9 +4405,11 @@ function setupTerminalPanel(panel) {
   activeInput.dataset.termBound = '1';
 
   // ─── Focus al clickear el cuerpo ───
-  body.addEventListener('click', () => {
+  // Usamos onclick (asignación) en lugar de addEventListener
+  // para que no se acumulen handlers cada vez que se llama setupTerminalPanel
+  body.onclick = () => {
     activeInput.focus();
-  });
+  };
 
   // ─── Auto-scroll al fondo ───
   const scrollToBottom = () => {
@@ -4354,8 +4418,25 @@ function setupTerminalPanel(panel) {
     });
   };
 
-  // ─── Enter: ejecutar comando ───
   const handleKeydown = (e) => {
+    // Ctrl+T / Cmd+T: nueva pestaña
+    if ((e.ctrlKey || e.metaKey) && (e.key === 't' || e.key === 'T')) {
+      e.preventDefault();
+      const winEl = panel.closest('.window');
+      if (winEl?.dataset.winId) addWindowTab(winEl.dataset.winId);
+      return;
+    }
+    // Ctrl+W / Cmd+W: cerrar pestaña actual
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'w' || e.key === 'W')) {
+      e.preventDefault();
+      const winEl = panel.closest('.window');
+      if (winEl?.dataset.winId) {
+        const state = getWindowTabsState(winEl);
+        if (state.activeTabId) closeWindowTab(winEl.dataset.winId, state.activeTabId);
+      }
+      return;
+    }
+
     // Historial
     if (e.key === 'ArrowUp') {
       e.preventDefault();
@@ -6348,7 +6429,13 @@ function setupFiles(panel) {
     });
   });
 
-  panel.addEventListener('keydown', (e) => {
+  // Guardamos el handler a nivel panel para no acumular listeners
+  // (lo removemos primero si ya existía)
+  if (panel.__fsKeydownHandler) {
+    panel.removeEventListener('keydown', panel.__fsKeydownHandler);
+  }
+
+  panel.__fsKeydownHandler = (e) => {
     const tag = document.activeElement?.tagName?.toLowerCase();
     const isInput = tag === 'input' || tag === 'textarea';
     if (e.target.closest('.fs-rename-modal')) return;
@@ -6360,15 +6447,17 @@ function setupFiles(panel) {
     } else if (e.key === 'Delete' && state.selected.size > 0 && !isInput) {
       e.preventDefault();
       fsDeleteSelection(panel);
-    } else if (e.key === 'a' && (e.ctrlKey || e.metaKey) && !isInput) {
+    } else if ((e.key === 'a' || e.key === 'A') && (e.ctrlKey || e.metaKey) && !isInput) {
       e.preventDefault();
       state.visibleItems.forEach(item => state.selected.add(item));
       fsRefresh(panel);
-    } else if (e.key === 'n' && e.shiftKey && (e.ctrlKey || e.metaKey) && !isInput) {
+    } else if ((e.key === 'n' || e.key === 'N') && e.shiftKey && (e.ctrlKey || e.metaKey) && !isInput) {
       e.preventDefault();
       fsCreateFolder(panel);
     }
-  });
+  };
+
+  panel.addEventListener('keydown', panel.__fsKeydownHandler);
 
   fsRefresh(panel);
 }
@@ -6908,8 +6997,10 @@ function renderSettingsApp() {
     // Guardar posición de scroll antes de reemplazar
     const prevMain = content.querySelector('.settings-main');
     const prevNav = content.querySelector('.settings-nav');
-    const scrollMain = prevMain ? prevMain.scrollTop : 0;
-    const scrollNav = prevNav ? prevNav.scrollTop : 0;
+    const scrollMainTop = prevMain ? prevMain.scrollTop : 0;
+    const scrollMainLeft = prevMain ? prevMain.scrollLeft : 0;
+    const scrollNavTop = prevNav ? prevNav.scrollTop : 0;
+    const scrollNavLeft = prevNav ? prevNav.scrollLeft : 0;
 
     // Re-render
     content.innerHTML = getAppContent('settings');
@@ -6917,8 +7008,14 @@ function renderSettingsApp() {
     // Restaurar posición de scroll después de re-renderizar
     const newMain = content.querySelector('.settings-main');
     const newNav = content.querySelector('.settings-nav');
-    if (newMain && scrollMain > 0) newMain.scrollTop = scrollMain;
-    if (newNav && scrollNav > 0) newNav.scrollTop = scrollNav;
+    if (newMain) {
+      if (scrollMainTop > 0) newMain.scrollTop = scrollMainTop;
+      if (scrollMainLeft > 0) newMain.scrollLeft = scrollMainLeft;
+    }
+    if (newNav) {
+      if (scrollNavTop > 0) newNav.scrollTop = scrollNavTop;
+      if (scrollNavLeft > 0) newNav.scrollLeft = scrollNavLeft;
+    }
   });
   refreshIcons();
   setTimeout(syncAllSliders, 0);
@@ -9258,13 +9355,22 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-document.addEventListener('mousemove', () => {
-  if (vaultState.unlocked) resetVaultLockTimer();
-}, { passive: true });
+// Throttle del reset: solo resetea cada 15 segundos máximo,
+// para evitar clearTimeout + setTimeout 60 veces por segundo
+let __vaultActivityThrottle = 0;
+const VAULT_ACTIVITY_THROTTLE_MS = 15000;
 
-document.addEventListener('keydown', () => {
-  if (vaultState.unlocked) resetVaultLockTimer();
-}, { passive: true });
+function __vaultTouchActivity() {
+  if (!vaultState.unlocked) return;
+  const now = Date.now();
+  if (now - __vaultActivityThrottle < VAULT_ACTIVITY_THROTTLE_MS) return;
+  __vaultActivityThrottle = now;
+  resetVaultLockTimer();
+}
+
+document.addEventListener('mousemove', __vaultTouchActivity, { passive: true });
+document.addEventListener('keydown', __vaultTouchActivity, { passive: true });
+document.addEventListener('click', __vaultTouchActivity, { passive: true });
 
 /* ═══════════════════════════════════════════════════════════════
    ★ APP: CENTRO DE ACTIVIDAD
@@ -10597,13 +10703,11 @@ function renderGamelibModalContent() {
 
   let actionsHTML = '';
 
-  if (!game.installed) {
-    actionsHTML = `
-      <button class="gamelib-modal-btn install" type="button" onclick="installGamelibGame('${game.id}')">
-        <i data-lucide="download"></i> Instalar
-      </button>
-    `;
-  } else if (isPlaying) {
+  // Si hay una instalación en curso para este juego, mostrar estado
+  const isInstalling = typeof gamelibInstallProgress !== 'undefined' && gamelibInstallProgress[game.id] !== undefined;
+
+  if (isInstalling) {
+    actions
     actionsHTML = `
       <button class="gamelib-modal-btn playing" type="button" onclick="stopGamelibGame()">
         <i data-lucide="square"></i> Detener sesión
@@ -10899,7 +11003,16 @@ function installGamelibGame(id) {
       </div>
     </div>
   `;
-  installBtn.insertAdjacentHTML('afterend', progressHTML);
+
+  // Insertar la barra FUERA del actions-row, para que no comparta el flex
+  const actionsRow = installBtn.parentElement;
+  const sectionContainer = actionsRow?.parentElement;
+  if (sectionContainer) {
+    // Insertamos como hermano de .gamelib-modal-actions (que es flex-row)
+    actionsRow.insertAdjacentHTML('afterend', progressHTML);
+  } else {
+    installBtn.insertAdjacentHTML('afterend', progressHTML);
+  }
 
   setTimeout(tick, 200);
 }
@@ -13681,9 +13794,17 @@ function openSpotifyTrackMenu(win, trackId, anchorEl) {
       if (!menu.contains(e.target)) {
         closeSpotifyTrackMenu();
         document.removeEventListener('mousedown', onOut);
+        document.removeEventListener('scroll', onScroll, true);
       }
     };
+    const onScroll = (e) => {
+      if (menu.contains(e.target)) return;
+      closeSpotifyTrackMenu();
+      document.removeEventListener('mousedown', onOut);
+      document.removeEventListener('scroll', onScroll, true);
+    };
     document.addEventListener('mousedown', onOut);
+    document.addEventListener('scroll', onScroll, true);
   }, 0);
 
   requestAnimationFrame(() => menu.classList.add('open'));
@@ -13703,14 +13824,15 @@ function handleSpotifyTrackMenuAction(win, action, track) {
       SpotifyApp.play(track.id);
       break;
 
-    case 'queue':
-      if (!spotify.queue.includes(track.id)) {
-        spotify.queue.splice(spotify.queueIndex + 1, 0, track.id);
+    case 'queue': {
+      const ok = SpotifyApp.addToQueue(track.id);
+      if (ok) {
         showToast('Agregado a la cola', track.title, 'list-plus');
       } else {
         showToast('Ya está en la cola', track.title, 'info');
       }
       break;
+    }
 
     case 'like':
       SpotifyApp.toggleLike(track.id);
@@ -14715,8 +14837,8 @@ function attachNowPlayingWidgetListeners(el) {
   if (!el || !window.SpotifyApp) return;
   if (npWidgetSubscriptions.has(el)) return;
 
-  // ─── Cablear botones ───
-  el.addEventListener('click', (e) => {
+  // ─── Cablear botones (guardamos el handler para poder removerlo) ───
+  const onClick = (e) => {
     const playPause = e.target.closest('[data-np-play-pause]');
     if (playPause) { e.stopPropagation(); SpotifyApp.togglePlayPause(); return; }
 
@@ -14749,7 +14871,9 @@ function attachNowPlayingWidgetListeners(el) {
       }, 60);
       return;
     }
-  });
+  };
+
+  el.addEventListener('click', onClick);
 
   // ─── Click en barra de progreso → seek ───
   const progress = el.querySelector('[data-np-progress]');
@@ -14798,15 +14922,22 @@ function attachNowPlayingWidgetListeners(el) {
     if (totEl) totEl.textContent = spFormatTime(dur);
   }));
 
+  // Guardamos también el handler de click para poder removerlo en detach
   npWidgetSubscriptions.set(el, unsubs);
+  el.__npClickHandler = onClick;
 }
 
 /** Desuscribe y limpia. Se llama desde removeDesktopWidget cuando el tipo coincide. */
 function detachNowPlayingWidgetListeners(el) {
   const unsubs = npWidgetSubscriptions.get(el);
-  if (!unsubs) return;
-  unsubs.forEach(fn => { try { fn(); } catch (_) {} });
-  npWidgetSubscriptions.delete(el);
+  if (unsubs) {
+    unsubs.forEach(fn => { try { fn(); } catch (_) {} });
+    npWidgetSubscriptions.delete(el);
+  }
+  if (el.__npClickHandler) {
+    el.removeEventListener('click', el.__npClickHandler);
+    delete el.__npClickHandler;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -16525,6 +16656,8 @@ function closeAllCityDropdowns() {
     d.classList.remove('open');
     setTimeout(() => d.remove(), 180);
   });
+  // Limpiamos cualquier listener de scroll que haya quedado huérfano
+  // (los dropdowns manejan su propio listener al cerrarse)
 }
 
 function buildCitySelectorHTML(widgetId, activeCityId) {
@@ -16584,6 +16717,14 @@ function openCityDropdown(widgetId, anchorEl) {
       closeAllCityDropdowns();
     });
   });
+
+  // Cerrar al hacer scroll en el documento o en cualquier contenedor
+  const closeOnScroll = (e) => {
+    if (dropdown.contains(e.target)) return;
+    closeAllCityDropdowns();
+    document.removeEventListener('scroll', closeOnScroll, true);
+  };
+  document.addEventListener('scroll', closeOnScroll, true);
 
   requestAnimationFrame(() => dropdown.classList.add('open'));
   refreshIcons();
@@ -17174,6 +17315,10 @@ function stopAudioPeakMeter() {
 }
 
 function updateAudioPeakMeter() {
+  // Early return si el panel está cerrado
+  const panel = document.getElementById('audio-panel');
+  if (!panel || panel.classList.contains('hidden')) return;
+
   let levelL = 0;
   let levelR = 0;
 
@@ -17318,13 +17463,20 @@ function openAudioSettings() {
 
 function applyShadowStrength(value) {
   const clamped = Math.max(0, Math.min(100, Number(value) || 0));
+  designerState.shadowStrength = clamped;
+
+  // Si está en 0, sin sombra.
+  if (clamped === 0) {
+    document.documentElement.style.setProperty('--shadow', 'none');
+    return;
+  }
+
   const s = clamped / 100;
   const y = Math.round(16 * s);
   const blur = Math.round(40 * s);
   const alpha = (0.15 + 0.55 * s).toFixed(2);
   const shadowValue = `0 ${y}px ${blur}px rgba(0, 0, 0, ${alpha}), inset 0 1px 0 rgba(255, 255, 255, 0.08)`;
   document.documentElement.style.setProperty('--shadow', shadowValue);
-  designerState.shadowStrength = clamped;
 }
 
 function applyThemePreset(presetId) {
@@ -18963,6 +19115,9 @@ function applyAnimatedBackground(id) {
   c.classList.add('active');
   c.classList.remove('paused');
 
+  // Reset del timestamp para evitar un frame gigante en la primera iteración
+  lastAnimatedBgFrameTime = 0;
+
   startAnimatedBgLoop();
 
   try {
@@ -19974,6 +20129,21 @@ function loadPersistedState() {
     setTimeout(syncGameModeUI, 0);
 
     const savedProf = localStorage.getItem(PROFILE_STORAGE_KEY);
+    if (savedProf !== null) {
+      currentProfile = savedProf;
+      const profileNameEl = document.getElementById('topbar-profile-name');
+      const profileIconEl = document.getElementById('topbar-profile-icon');
+      const profileMap = {
+        gamer:    { name: 'Gamer',    icon: 'gamepad-2' },
+        streamer: { name: 'Streamer', icon: 'radio' },
+        studio:   { name: 'Estudio',  icon: 'terminal' }
+      };
+      const pData = profileMap[currentProfile] || profileMap.gamer;
+      if (profileNameEl) profileNameEl.textContent = pData.name;
+      if (profileIconEl) profileIconEl.innerHTML = `<i data-lucide="${pData.icon}"></i>`;
+    }
+
+    const savedDesigner = JSON.parse(localStorage.getItem(DESIGNER_STORAGE_KEY) || 'null');
     if (savedDesigner) {
       designerState = { ...designerState, ...savedDesigner };
       const root = document.documentElement;
