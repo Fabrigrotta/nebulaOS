@@ -373,9 +373,10 @@
           <button class="hud-tool-btn" type="button" onclick="simulateRamBoost()">
             <i data-lucide="sparkles"></i> Optimizar
           </button>
-          <button class="hud-gamemode-btn" type="button" onclick="toggleGameMode()">
-            <span class="hud-pulse-dot"></span> Modo Juego: OFF
-          </button>
+<button class="hud-gamemode-btn" type="button" onclick="toggleGameMode()">
+  <span class="hud-pulse-dot"></span>
+  <span id="hud-gamemode-text">Modo Juego: OFF</span>
+</button>
           <button class="hud-close-btn" type="button" onclick="toggleGamerOverlay()" aria-label="Cerrar HUD">
             <i data-lucide="x"></i>
           </button>
@@ -588,7 +589,48 @@
 
   <!-- ★ NEBULA STORE OVERLAY -->
   <div id="store-overlay" class="hidden" aria-label="Nebula Store">
-    ...
+    <div class="store-container">
+
+      <!-- ═══ HEADER ═══ -->
+      <header class="store-header">
+        <div class="store-header-left">
+          <span class="store-kicker">NEBULA STORE</span>
+          <h2>Tienda de Personalización</h2>
+          <span id="store-subtitle">12 productos · 0 instalados</span>
+        </div>
+        <button class="store-close-btn" id="store-close-btn" type="button" title="Cerrar tienda" aria-label="Cerrar tienda">
+          <i data-lucide="x"></i>
+        </button>
+      </header>
+
+      <!-- ═══ TOOLBAR: categorías + búsqueda + filtro ═══ -->
+      <div class="store-toolbar">
+        <div class="store-categories" id="store-categories" role="tablist">
+          <button class="store-cat-btn active" data-cat="all"        type="button">Todo</button>
+          <button class="store-cat-btn"        data-cat="theme"      type="button">Temas</button>
+          <button class="store-cat-btn"        data-cat="widget"     type="button">Widgets</button>
+          <button class="store-cat-btn"        data-cat="wallpaper"  type="button">Wallpapers</button>
+          <button class="store-cat-btn"        data-cat="app"        type="button">Apps</button>
+          <button class="store-cat-btn"        data-cat="game"       type="button">Juegos</button>
+        </div>
+
+        <div class="store-toolbar-right">
+          <label class="store-search">
+            <i data-lucide="search"></i>
+            <input type="search" id="store-search-input" placeholder="Buscar en la tienda..." autocomplete="off" aria-label="Buscar productos">
+          </label>
+
+          <button class="store-installed-toggle" id="store-installed-toggle" type="button" aria-pressed="false">
+            <i data-lucide="check-circle-2"></i>
+            <span>Solo instalados</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ═══ GRID ═══ -->
+      <div class="store-grid" id="store-grid"></div>
+
+    </div>
   </div>
 
   <!-- ★ PANEL DE AUDIO AVANZADO (MEZCLADOR) -->

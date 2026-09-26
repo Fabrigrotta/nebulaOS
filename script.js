@@ -1162,6 +1162,8 @@ let storeProducts = [...STORE_PRODUCTS];
 let installedProducts = [];
 let storeFilter = 'all';
 let storeInstallProgress = {};
+let storeSearchQuery = '';
+let storeShowInstalledOnly = false;
 
 /* ─── Estado del Dock y previews ─── */
 let dockPreviewEl = null;
@@ -3366,10 +3368,10 @@ function loadPersistedState() {
     if (savedGm !== null) gameModeActive = JSON.parse(savedGm);
     if (gameModeActive) document.body.classList.add('game-mode-active');
 
-    const savedProf = localStorage.getItem(PROFILE_STORAGE_KEY);
-    if (savedProf) currentProfile = savedProf;
+    // ★ Sincronizar UI después de un pequeño delay para que el DOM esté listo
+    setTimeout(syncGameModeUI, 0);
 
-    const savedDesigner = JSON.parse(localStorage.getItem(DESIGNER_STORAGE_KEY));
+    const savedProf = localStorage.getItem(PROFILE_STORAGE_KEY);
     if (savedDesigner) {
       designerState = { ...designerState, ...savedDesigner };
       const root = document.documentElement;
@@ -6575,6 +6577,7 @@ function openStore() {
   overlay.classList.remove('hidden');
   renderStore();
 
+  // ─── Categorías ───
   const cats = document.getElementById('store-categories');
   if (cats) {
     cats.querySelectorAll('.store-cat-btn').forEach(btn => {
@@ -6582,6 +6585,41 @@ function openStore() {
         storeFilter = btn.dataset.cat || 'all';
         renderStore();
       };
+    });
+  }
+
+  // ─── Búsqueda ───
+  const searchInput = document.getElementById('store-search-input');
+  if (searchInput && !searchInput.dataset.bound) {
+    searchInput.dataset.bound = '1';
+    searchInput.addEventListener('input', (e) => {
+      storeSearchQuery = e.target.value;
+      renderStore();
+    });
+  }
+
+  // ─── Filtro "Solo instalados" ───
+  const installedToggle = document.getElementById('store-installed-toggle');
+  if (installedToggle && !installedToggle.dataset.bound) {
+    installedToggle.dataset.bound = '1';
+    installedToggle.addEventListener('click', () => {
+      storeShowInstalledOnly = !storeShowInstalledOnly;
+      renderStore();
+    });
+  }
+
+  // ─── Botón cerrar ───
+  const closeBtn = document.getElementById('store-close-btn');
+  if (closeBtn && !closeBtn.dataset.bound) {
+    closeBtn.dataset.bound = '1';
+    closeBtn.addEventListener('click', closeStore);
+  }
+
+  // ─── Click en el fondo del overlay → cerrar ───
+  if (!overlay.dataset.bound) {
+    overlay.dataset.bound = '1';
+    overlay.addEventListener('mousedown', (e) => {
+      if (e.target === overlay) closeStore();
     });
   }
 
@@ -19038,68 +19076,101 @@ function toggleGameMode(explicitState = null) {
   gameModeActive = explicitState !== null ? explicitState : !gameModeActive;
   document.body.classList.toggle('game-mode-active', gameModeActive);
 
-  const gmToggle = document.getElementById('gamemode-toggle');
-  const hudGmBtn = document.getElementById('hud-gamemode-toggle');
-  const hudGmText = document.getElementById('hud-gamemode-text');
-  const topbarBadge = document.getElementById('topbar-gamemode-badge');
+  // ─── Sincronizar TODOS los elementos de UI relacionados con Game Mode ───
+  syncGameModeUI();
 
-  if (gmToggle) {
-    gmToggle.classList.toggle('active', gameModeActive);
-    gmToggle.setAttribute('aria-pressed', String(gameModeActive));
-  }
-  if (hudGmBtn) hudGmBtn.classList.toggle('active', gameModeActive);
-  if (hudGmText) hudGmText.textContent = `Modo Juego: ${gameModeActive ? 'ON' : 'OFF'}`;
-  if (topbarBadge) topbarBadge.style.display = gameModeActive ? 'flex' : 'none';
-
+  // ─── Ajuste de métricas ───
   if (gameModeActive) {
-    const prevRam = systemMetrics.ram;
     systemMetrics.ram = Math.max(16, Math.min(22, Math.round(systemMetrics.ram * 0.45)));
     systemMetrics.cpu = Math.min(85, systemMetrics.cpu + 15);
     systemMetrics.fps = 144;
     updateMetrics();
-    showToast('Modo Juego Activado', 'Recursos optimizados: RAM liberada y perfil de alto rendimiento fijado.', {
-      icon: 'gamepad-2',
-      level: 'success'
-    });
-    logActivity({
-      category: 'gaming',
-      level: 'info',
-      icon: 'gamepad-2',
-      title: 'Modo Juego activado',
-      subtitle: `RAM: ${prevRam}% → ${systemMetrics.ram}% · CPU: 4.95 GHz`,
-      detail: {
-        'Perfil aplicado': 'Alto Rendimiento',
-        'RAM liberada': `${((prevRam - systemMetrics.ram) * 32 / 100).toFixed(1)} GB`,
-        'Frecuencia CPU': '4.95 GHz (Turbo Boost)',
-        'GPU': 'RTX 4080 · Boost Mode',
-        description: 'El sistema entró en modo de alto rendimiento. Los recursos fueron optimizados para gaming.'
-      }
-    });
+    showToast('Modo Juego Activado', 'Recursos optimizados: RAM liberada y perfil de alto rendimiento fijado.', 'gamepad-2');
   } else {
-    showToast('Modo Juego Desactivado', 'Perfil estándar balanceado restablecido.', {
-      icon: 'zap',
-      level: 'info'
-    });
-    logActivity({
-      category: 'gaming',
-      level: 'info',
-      icon: 'zap',
-      title: 'Modo Juego desactivado',
-      subtitle: 'Perfil balanceado restablecido',
-      detail: {
-        'Perfil aplicado': 'Balanceado',
-        description: 'El sistema volvió al perfil de energía estándar.'
-      }
-    });
+    showToast('Modo Juego Desactivado', 'Perfil estándar balanceado restablecido.', 'zap');
   }
 
+  // ─── Persistencia ───
   try {
     localStorage.setItem(GAMEMODE_STORAGE_KEY, JSON.stringify(gameModeActive));
   } catch (e) {}
 
   updateHUDTelemetry();
-  updateGamingHubWidget();
   refreshIcons();
+}
+
+/**
+ * Sincroniza el estado visual de Game Mode en TODOS los puntos de la UI:
+ *   - Quick Center (pill switch #gamemode-toggle)
+ *   - HUD Overlay (botón #hud-gamemode-toggle + texto #hud-gamemode-text)
+ *   - Topbar (badge #topbar-gamemode-badge)
+ */
+function syncGameModeUI() {
+  // 1) Quick Center — pill switch
+  const gmToggle = document.getElementById('gamemode-toggle');
+  if (gmToggle) {
+    gmToggle.classList.toggle('active', gameModeActive);
+    gmToggle.setAttribute('aria-pressed', String(gameModeActive));
+  }
+
+  // 2) HUD Overlay — botón y texto
+  const hudGmBtn = document.getElementById('hud-gamemode-toggle');
+  const hudGmText = document.getElementById('hud-gamemode-text');
+  if (hudGmBtn) {
+    hudGmBtn.classList.toggle('active', gameModeActive);
+  }
+  if (hudGmText) {
+    hudGmText.textContent = `Modo Juego: ${gameModeActive ? 'ON' : 'OFF'}`;
+  }
+
+  // 3) Topbar — badge
+  const topbarBadge = document.getElementById('topbar-gamemode-badge');
+  if (topbarBadge) {
+    topbarBadge.style.display = gameModeActive ? 'flex' : 'none';
+  }
+}
+
+/**
+ * Sincroniza el estado visual de Game Mode en TODOS los puntos de la UI:
+ *   - Quick Center (pill switch #gamemode-toggle)
+ *   - HUD Overlay (botón pill #hud-gamemode-toggle + texto #hud-gamemode-text)
+ *   - Topbar (badge #topbar-gamemode-badge)
+ *   - Game Library (si está abierta, refresca su badge)
+ */
+function syncGameModeUI() {
+  // 1) Quick Center — pill switch
+  const gmToggle = document.getElementById('gamemode-toggle');
+  if (gmToggle) {
+    gmToggle.classList.toggle('active', gameModeActive);
+    gmToggle.setAttribute('aria-pressed', String(gameModeActive));
+  }
+
+  // 2) HUD Overlay — botón y texto
+  const hudGmBtn = document.getElementById('hud-gamemode-toggle');
+  const hudGmText = document.getElementById('hud-gamemode-text');
+  if (hudGmBtn) {
+    hudGmBtn.classList.toggle('active', gameModeActive);
+  }
+  if (hudGmText) {
+    hudGmText.textContent = `Modo Juego: ${gameModeActive ? 'ON' : 'OFF'}`;
+  }
+
+  // 3) Topbar — badge (sin inline style, lo maneja el CSS)
+  const topbarBadge = document.getElementById('topbar-gamemode-badge');
+  if (topbarBadge) {
+    if (gameModeActive) {
+      topbarBadge.removeAttribute('style');
+    } else {
+      topbarBadge.style.display = 'none';
+    }
+  }
+
+  // 4) Refrescar Game Library si está abierta (tiene su propio badge)
+  if (typeof openWindows !== 'undefined' && openWindows['games']) {
+    const gamesWin = openWindows['games'];
+    const gmSwitch = gamesWin.querySelector('.quick-switch');
+    if (gmSwitch) gmSwitch.classList.toggle('active', gameModeActive);
+  }
 }
 
 function toggleGamerOverlay() {
@@ -19113,9 +19184,10 @@ function toggleGamerOverlay() {
   mainOverlay.classList.toggle('hidden', !gamerOverlayVisible);
 
   if (gamerOverlayVisible) {
+    syncGameModeUI(); // Asegura que el botón refleje el estado actual al abrir
     updateHUDTelemetry();
     updatePlayerBackground();
-    updatePlayerProgress();
+    updateHUDMediaInfo();
     syncAllSliders();
     refreshIcons();
   }
@@ -19185,19 +19257,122 @@ function simulateCleanRam() {
 function renderStore() {
   const grid = document.getElementById('store-grid');
   const cats = document.getElementById('store-categories');
+  const subtitle = document.getElementById('store-subtitle');
+  const searchInput = document.getElementById('store-search-input');
+  const installedToggle = document.getElementById('store-installed-toggle');
   if (!grid || !cats) return;
 
+  // ─── Auto-recuperación: si storeProducts está vacío o corrupto, re-inicializar ───
+  if (!Array.isArray(storeProducts) || storeProducts.length === 0) {
+    storeProducts = [...STORE_PRODUCTS];
+  }
+
+  // ─── Diccionario de íconos por categoría ───
+  const catIcons = {
+    'all':       'layout-grid',
+    'theme':     'palette',
+    'widget':    'activity',
+    'wallpaper': 'image',
+    'app':       'package',
+    'game':      'gamepad-2'
+  };
+
   cats.querySelectorAll('.store-cat-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.cat === storeFilter);
+    const cat = btn.dataset.cat || 'all';
+    btn.classList.toggle('active', cat === storeFilter);
+
+    // ─── Inyectar ícono + badge (solo la primera vez) ───
+    if (!btn.dataset.enhanced) {
+      btn.dataset.enhanced = '1';
+
+      const iconName = catIcons[cat] || 'package';
+      const labelText = btn.textContent.trim();
+
+      // Contar productos de esta categoría
+      let count = 0;
+      if (cat === 'all') {
+        count = storeProducts.length;
+      } else {
+        count = storeProducts.filter(p => p.type === cat).length;
+      }
+
+      btn.innerHTML = `
+        <i data-lucide="${iconName}"></i>
+        <span>${escapeHtml(labelText)}</span>
+        <span class="filter-count">${count}</span>
+      `;
+    }
   });
+
+  refreshIcons();
+
+  // ─── Búsqueda + filtro "instalados" ───
+  const query = (storeSearchQuery || '').trim().toLowerCase();
+  const onlyInstalled = storeShowInstalledOnly === true;
 
   let filtered = storeProducts;
   if (storeFilter !== 'all') {
     filtered = storeProducts.filter(p => p.type === storeFilter);
   }
+  if (onlyInstalled) {
+    filtered = filtered.filter(p => installedProducts.includes(p.id));
+  }
+  if (query) {
+    filtered = filtered.filter(p =>
+      p.name.toLowerCase().includes(query) ||
+      p.description.toLowerCase().includes(query) ||
+      p.author.toLowerCase().includes(query)
+    );
+  }
+
+  // ─── Subtitle con contador ───
+  if (subtitle) {
+    const total = storeProducts.length;
+    const shown = filtered.length;
+    const installedCount = installedProducts.length;
+    if (shown === total) {
+      subtitle.textContent = `${total} producto${total === 1 ? '' : 's'} · ${installedCount} instalado${installedCount === 1 ? '' : 's'}`;
+    } else {
+      subtitle.textContent = `${shown} de ${total} producto${total === 1 ? '' : 's'} · ${installedCount} instalado${installedCount === 1 ? '' : 's'}`;
+    }
+  }
+
+  // ─── Sincronizar estado visual de los controles ───
+  if (searchInput && searchInput.value !== storeSearchQuery) {
+    searchInput.value = storeSearchQuery || '';
+  }
+  if (installedToggle) {
+    installedToggle.setAttribute('aria-pressed', String(onlyInstalled));
+  }
+
+  // ─── Subtitle con contador ───
+  if (subtitle) {
+    const total = storeProducts.length;
+    const shown = filtered.length;
+    const installedCount = installedProducts.length;
+    if (shown === total) {
+      subtitle.textContent = `${total} producto${total === 1 ? '' : 's'} · ${installedCount} instalado${installedCount === 1 ? '' : 's'}`;
+    } else {
+      subtitle.textContent = `${shown} de ${total} producto${total === 1 ? '' : 's'} · ${installedCount} instalado${installedCount === 1 ? '' : 's'}`;
+    }
+  }
+
+  // ─── Sincronizar estado visual de los controles ───
+  if (searchInput && searchInput.value !== storeSearchQuery) {
+    searchInput.value = storeSearchQuery || '';
+  }
+  if (installedToggle) {
+    installedToggle.setAttribute('aria-pressed', String(onlyInstalled));
+  }
 
   if (filtered.length === 0) {
-    grid.innerHTML = `<div class="store-empty">No hay productos en esta categoría.</div>`;
+    grid.innerHTML = `
+      <div class="store-empty">
+        <strong>No hay productos que coincidan</strong>
+        <small>Probá con otra categoría o limpiá la búsqueda.</small>
+      </div>
+    `;
+    refreshIcons();
     return;
   }
 
@@ -19205,6 +19380,7 @@ function renderStore() {
     const isInstalled = installedProducts.includes(product.id);
     const progress = storeInstallProgress[product.id] || 0;
 
+    // ─── Preview por tipo de producto ───
     let previewHTML = '';
     if (product.type === 'theme') {
       previewHTML = `
@@ -19229,6 +19405,7 @@ function renderStore() {
       previewHTML = `<div class="store-preview-game" style="background: ${product.preview.color}20; border-color: ${product.preview.color}60;"><i data-lucide="${product.preview.icon}" style="color: ${product.preview.color};"></i></div>`;
     }
 
+    // ─── Botón de acción (instalar / instalado / progreso) ───
     let actionHTML = '';
     if (isInstalled) {
       actionHTML = `<button class="store-action-btn installed" type="button" onclick="uninstallStoreProduct('${product.id}')"><i data-lucide="check"></i> Instalado</button>`;
