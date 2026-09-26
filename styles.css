@@ -18443,14 +18443,18 @@ box-shadow:
   justify-content: flex-end;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   ★ GAMING HUD — Botón "Game Mode" (rediseñado)
+   ═══════════════════════════════════════════════════════════════ */
+
 .hud-gamemode-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 14px;
+  padding: 6px 14px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 999px;
+  border-radius: 999px; /* Píldora */
   color: #fff;
   font-family: "Inter", sans-serif;
   font-size: 11px;
@@ -18459,15 +18463,17 @@ box-shadow:
   transition: all 0.2s ease;
   white-space: nowrap;
 }
+
 .hud-gamemode-btn:hover {
   background: rgba(0, 255, 204, 0.1);
   border-color: rgba(0, 255, 204, 0.5);
 }
+
 .hud-gamemode-btn.active {
-  background: rgba(0, 255, 204, 0.18);
+  background: rgba(0, 255, 204, 0.15);
   border-color: #00ffcc;
   color: #00ffcc;
-  box-shadow: 0 0 15px rgba(0, 255, 204, 0.3);
+  box-shadow: 0 0 12px rgba(0, 255, 204, 0.3);
 }
 
 .hud-pulse-dot {
@@ -18478,14 +18484,16 @@ box-shadow:
   flex-shrink: 0;
   transition: all 0.2s ease;
 }
+
 .hud-gamemode-btn.active .hud-pulse-dot {
   background: #00ffcc;
-  box-shadow: 0 0 10px #00ffcc;
+  box-shadow: 0 0 10px #00ffcc, 0 0 20px rgba(0, 255, 204, 0.5);
   animation: hud-dot-pulse 1.8s infinite ease-in-out;
 }
+
 @keyframes hud-dot-pulse {
   0%, 100% { transform: scale(1); opacity: 1; }
-  50%      { transform: scale(1.25); opacity: 0.65; }
+  50%      { transform: scale(1.25); opacity: 0.7; }
 }
 
 .hud-close-btn {

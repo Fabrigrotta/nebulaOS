@@ -2892,7 +2892,7 @@ function setupSpotifyIntegration() {
   SpotifyApp.on('progress', () => {
     // Este evento se emite muchas veces; el update visual lo hace el propio motor
     // Pero actualizamos el HUD si está visible
-    if (gamerOverlayVisible) updatePlayerProgress();
+    if (gamerOverlayVisible) updateHUDMediaInfo();
   });
 
   SpotifyApp.on('error', ({ error, context }) => {
