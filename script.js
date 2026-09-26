@@ -1,5 +1,32 @@
 /* ═══════════════════════════════════════════════════════════════
-   ★ PARTE 1/12 — CONFIGURACIÓN Y CONSTANTES
+   ★ NEBULA OS — script.js
+   ═══════════════════════════════════════════════════════════════
+
+   ÍNDICE DE CONTENIDOS
+   ─────────────────────
+   PARTE  1/10 → Configuración y constantes
+   PARTE  2/10 → Estado global (variables mutables)
+   PARTE  3/10 → Helpers y utilidades
+   PARTE  4/10 → Motor Spotify (IIFE SpotifyApp)
+   PARTE  5/10 → Sistema de ventanas
+   PARTE  6/10 → Apps (Terminal · Nova · Files · Settings · Vault ·
+                 Activity · Taskmgr · Gamelib · VSCode · Browser ·
+                 Spotify UI)
+   PARTE  7/10 → Widgets + Notificaciones + Toasts + Calendario
+   PARTE  8/10 → Overlays y menús (Launcher · Context · CC/QC ·
+                 Notif overlay · Store · WiFi · BT · Files ctx ·
+                 Weather dropdown · Audio Panel)
+   PARTE  9/10 → Features del sistema (Designer · Wallpapers · Stars ·
+                 Game Mode+HUD · Store · WiFi/BT · DND · Brightness ·
+                 Perfiles · Fondos animados)
+   PARTE 10/10 → Bootstrap + Integración + Cierre
+
+   © Nebula Team
+   ═══════════════════════════════════════════════════════════════ */
+
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ PARTE 1/10 — CONFIGURACIÓN Y CONSTANTES
    ═══════════════════════════════════════════════════════════════ */
 
 /* ─── Apps del sistema ─── */
@@ -1009,8 +1036,9 @@ const SPOTIFY_DEFAULT_STATE = {
   currentTime: 0,
   lastUpdatedAt: null
 };
+
 /* ═══════════════════════════════════════════════════════════════
-   ★ PARTE 2/12 — ESTADO GLOBAL (VARIABLES MUTABLES)
+   ★ PARTE 2/10 — ESTADO GLOBAL (VARIABLES MUTABLES)
    ═══════════════════════════════════════════════════════════════ */
 
 /* ─── Estado del sistema de ventanas ─── */
@@ -1403,8 +1431,9 @@ let spotifyDragState = null;
 
 /* ─── Registro de la UI de Spotify (por ventana) ─── */
 const spotifyUIState = new WeakMap();
+
 /* ═══════════════════════════════════════════════════════════════
-   ★ PARTE 3/12 — HELPERS Y UTILIDADES
+   ★ PARTE 3/10 — HELPERS Y UTILIDADES
    ═══════════════════════════════════════════════════════════════ */
 
 /* ─── UI: Iconos ─── */
@@ -2284,1505 +2313,1108 @@ function spTimeAgoShort(timestamp) {
   const months = Math.floor(days / 30);
   return `hace ${months} mes${months === 1 ? '' : 'es'}`;
 }
+
 /* ═══════════════════════════════════════════════════════════════
-   ★ PARTE 4/12 — BOOTSTRAP PRINCIPAL
+   ★ PARTE 4/10 — MOTOR SPOTIFY (IIFE SpotifyApp)
+   ═══════════════════════════════════════════════════════════════
+   API pública expuesta en `window.SpotifyApp`
+
+   Este bloque es el corazón del reproductor:
+     · Carga de library (JSON + fallback)
+     · Índices (tracksById, playlistsById, artistsIndex, albumsIndex)
+     · Audio element + AudioContext (Web Audio API)
+     · Playback, likes, playlists custom, search, visualizer
+     · API pública completa
    ═══════════════════════════════════════════════════════════════ */
 
-/* ─── Bootstrap del sistema (DOMContentLoaded) ─── */
-document.addEventListener('DOMContentLoaded', async () => {
-  const bootScreen = document.getElementById('boot-screen');
-  setTimeout(() => bootScreen && bootScreen.classList.add('boot-complete'), 850);
-  setTimeout(() => bootScreen && bootScreen.remove(), 1450);
+const SpotifyApp = (() => {
 
-  // 1. Fondo y estrellas
-  createStars();
-  initAnimatedBackground();
+  /* ─────────────────────────────────────────────────────────────
+     ★ HELPERS INTERNOS
+  ───────────────────────────────────────────────────────────── */
 
-  // 2. Cargar estado persistido del sistema
-  loadPersistedState();
-  loadAudioMixerState();
-  loadNotifications();
-  loadGamelibState();
-  loadActivityLog();
-  vaultState.entries = loadVaultEntries();
-  loadVaultMasterMeta();
-
-  // 3. ★ SPOTIFY: inicializar el motor de audio ANTES que la UI
-  //    (espera a que cargue library.json o el fallback)
-  try {
-    await SpotifyApp.init();
-  } catch (err) {
-    console.warn('[Spotify] Falló init, se usará fallback:', err);
+  function _clone(obj) {
+    if (obj == null || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(_clone);
+    const out = {};
+    for (const k of Object.keys(obj)) out[k] = _clone(obj[k]);
+    return out;
   }
 
-  // 4. Inicializar UI
-  updateNotifBadge();
-  renderDock();
-  setupSliders();
-  updateClock();
-  setInterval(updateClock, 1000);
-  applyWallpaper(currentWallpaperIndex);
-  applySettings();
-  setupDeviceStatus();
-  setupKeyboardAccessibility();
-  setupAdvancedWidget();
-  setupTelemetryLoop();
-  setupWeatherAutoRefresh();
-  setupShortcuts();
-  renderDesktopWidgets();
-  renderConnectivityState();
-  renderDndState();
-  renderWifiPanel();
-  renderBluetoothPanel();
-  updateActivityDockBadge();
-  applyBrightness(currentBrightness);
-  updateToastPosition();
-  syncAllSliders();
-  refreshIcons();
-
-  // 5. ★ SPOTIFY: conectar el motor con la UI global
-  //    (topbar, HUD, Control Center, atajos, widget)
-  setupSpotifyIntegration();
-
-  // 6. Aplicar glass-panel a módulos principales
-  document.querySelectorAll('.waybar-module, #dock, #control-center, #quick-center, #launcher, #notification-center').forEach(el => {
-    el.classList.add('glass-panel');
-  });
-
-  // 7. Setup de atajos y listeners de UI
-  setupUIActions();
-
-  // 8. Restaurar sesión (último, después de todo)
-  restoreSessionState();
-  syncVpnQuickCenterState();
-
-  // 9. Guardar sesión al cerrar
-  window.addEventListener('beforeunload', () => {
-    saveSessionState(true);
-    if (window.SpotifyApp && typeof SpotifyApp.flushState === 'function') {
-      SpotifyApp.flushState();
-    }
-  });
-
-  // 10. Fondos animados: sync con Game Mode
-  setInterval(syncAnimatedBgWithGameMode, 800);
-});
-
-/* ─── Atajos de teclado globales (VS Code) ─── */
-document.addEventListener('keydown', (e) => {
-  if (activeWinId && openWindows[activeWinId]?.appId === 'vscode') {
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
-      e.preventDefault();
-      toggleVscSearch();
-    }
-    if (e.key === 'Escape' && vscSearchOpen) {
-      e.preventDefault();
-      toggleVscSearch();
-    }
-  }
-});
-
-/* ─── Guardar sesión al cerrar la pestaña ─── */
-window.addEventListener('beforeunload', () => {
-  saveSessionState(true);
-});
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ UI ACTIONS SETUP (listeners de topbar, panels, etc.)
-═══════════════════════════════════════════════════════════════ */
-
-function setupUIActions() {
-  const sysTrayBtn = document.getElementById('sys-tray-btn');
-  const clockCenter = document.getElementById('clock-center');
-  const controlCenter = document.getElementById('control-center');
-  const quickCenter = document.getElementById('quick-center');
-  const trayHudToggle = document.getElementById('tray-hud-toggle');
-  const topbarProfilePill = document.getElementById('topbar-profile-pill');
-  const trayNotifBtn = document.getElementById('tray-notif-btn');
-  const notifClearBtn = document.getElementById('notif-clear-btn');
-
-  const toggleControlCenter = () => {
-    closeQuickCenter();
-    closeNotificationCenter();
-    closeAudioPanel?.();
-    closeWifiPanel?.();
-    closeBluetoothPanel?.();
-
-    const wasHidden = controlCenter?.classList.contains('hidden');
-    controlCenter?.classList.toggle('hidden');
-
-    // Marcar visualmente el topbar
-    if (clockCenter) {
-      clockCenter.classList.toggle('active', wasHidden);
-    }
-
-    if (wasHidden) {
-      resetCalendarToToday();
-    }
-    refreshIcons();
-  };
-
-  const toggleQuickCenter = () => {
-    if (controlCenter && !controlCenter.classList.contains('hidden')) {
-      closeControlCenter();
-    }
-    closeNotificationCenter();
-    quickCenter?.classList.toggle('hidden');
-    updateToastPosition();
-    syncAllSliders();
-    syncVpnQuickCenterState();
-    renderConnectivityState();
-    refreshIcons();
-  };
-
-  if (sysTrayBtn) sysTrayBtn.addEventListener('click', (e) => {
-    if (e.target.closest('#tray-hud-toggle')) return;
-    toggleQuickCenter();
-  });
-
-  /**
- * ★ Toggle del Control Center desde atajo o desde cualquier click
- *   en la franja central del topbar.
- *   Se encarga de:
- *     - Cerrar otros paneles abiertos
- *     - Alternar el estado del CC
- *     - Marcar visualmente el `.active` del topbar
- */
-function toggleControlCenterFromShortcut() {
-  const controlCenter = document.getElementById('control-center');
-  const clockCenter = document.getElementById('clock-center');
-  const quickCenter = document.getElementById('quick-center');
-
-  if (!controlCenter) return;
-
-  // Cerrar otros paneles
-  if (quickCenter) closeQuickCenter();
-  closeNotificationCenter();
-  closeAudioPanel?.();
-  closeWifiPanel?.();
-  closeBluetoothPanel?.();
-
-  const wasHidden = controlCenter.classList.contains('hidden');
-  controlCenter.classList.toggle('hidden');
-
-  // Marcar visualmente el topbar
-  if (clockCenter) {
-    clockCenter.classList.toggle('active', wasHidden);
+  function _safeStr(v) {
+    return v == null ? '' : String(v);
   }
 
-  if (wasHidden) {
-    resetCalendarToToday();
-  }
-
-  refreshIcons();
-}
-
-  const trayWifiItem = document.getElementById('tray-wifi-item');
-  if (trayWifiItem) {
-    trayWifiItem.style.cursor = 'pointer';
-    trayWifiItem.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleWifiPanel();
-    });
-  }
-
-  const trayBtItem = document.getElementById('tray-bt-item');
-  if (trayBtItem) {
-    trayBtItem.style.cursor = 'pointer';
-    trayBtItem.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleBluetoothPanel();
-    });
-  }
-
-  // ★ Panel de Audio — click en el item de volumen del tray
-  const trayVolumeItem = document.getElementById('tray-volume-item');
-  if (trayVolumeItem) {
-    trayVolumeItem.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (typeof toggleAudioPanel === 'function') toggleAudioPanel();
-    });
-  }
-
-  // ★ Panel de Audio — botón cerrar
-  const audioPanelCloseBtn = document.getElementById('audio-panel-close');
-  if (audioPanelCloseBtn) {
-    audioPanelCloseBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (typeof closeAudioPanel === 'function') closeAudioPanel();
-    });
-  }
-
-  if (clockCenter) clockCenter.addEventListener('click', toggleControlCenter);
-
-  if (trayHudToggle) trayHudToggle.addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleGamerOverlay();
-  });
-
-  if (topbarProfilePill) topbarProfilePill.addEventListener('click', () => {
-    const next = currentProfile === 'gamer' ? 'streamer' : currentProfile === 'streamer' ? 'studio' : 'gamer';
-    switchProfile(next);
-  });
-
-  if (trayNotifBtn) {
-    trayNotifBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      toggleNotificationCenter();
-    }, true);
-  }
-
-  if (notifClearBtn) {
-    notifClearBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      clearAllNotifications();
-    });
-  }
-
-  // Click global: cerrar paneles si se clickea afuera
-  document.addEventListener('click', (e) => {
-    const isPlayerClick = e.target.closest('#cc-spotify-player');
-    const isCalendarClick = e.target.closest('.calendar-panel') || e.target.closest('#notes-list');
-    const isHudClick = e.target.closest('#gamer-overlay');
-    const isWMClick = e.target.closest('#window-manager-overlay');
-    const isDockCtxClick = e.target.closest('.dock-context-menu');
-    const isWmCardCtxClick = e.target.closest('.wm-card-context-menu');
-    const isFsCtxClick = e.target.closest('.fs-context-menu');
-    const isFsRenameClick = e.target.closest('.fs-rename-modal');
-    const isCitySelectorClick = e.target.closest('.weather-city-selector');
-    const isNotifPanelClick = e.target.closest('#notification-center');
-    const isNotifBtnClick = e.target.closest('#tray-notif-btn');
-    const isStoreClick = e.target.closest('#store-overlay');
-    const isWifiPanelClick = e.target.closest('#wifi-panel');
-    const isWifiBtnClick = e.target.closest('#tray-wifi-item');
-    const isBtPanelClick = e.target.closest('#bluetooth-panel');
-    const isBtBtnClick = e.target.closest('#tray-bt-item');
-    const isAudioPanelClick = e.target.closest('#audio-panel');
-    const isAudioBtnClick = e.target.closest('#tray-volume-item');
-
-    if (!isDockCtxClick) hideDockContextMenu();
-    if (!isWmCardCtxClick) hideWmCardContextMenu();
-    if (!isFsCtxClick) hideFsContextMenu();
-    if (!isCitySelectorClick) closeAllCityDropdowns();
-
-    if (!sysTrayBtn?.contains(e.target)
-        && !clockCenter?.contains(e.target)
-        && !controlCenter?.contains(e.target)
-        && !quickCenter?.contains(e.target)
-        && !isAudioPanelClick
-        && !isAudioBtnClick
-        && !isPlayerClick
-        && !isCalendarClick
-        && !isHudClick
-        && !isWMClick
-        && !isDockCtxClick
-        && !isWmCardCtxClick
-        && !isFsCtxClick
-        && !isFsRenameClick
-        && !isCitySelectorClick
-        && !isNotifPanelClick
-        && !isNotifBtnClick
-        && !isStoreClick
-        && !isWifiPanelClick
-        && !isWifiBtnClick
-        && !isBtPanelClick
-        && !isBtBtnClick) {
-      closeControlCenter();
-      closeQuickCenter();
-      closeNotificationCenter();
-      closeStore();
-      closeWifiPanel();
-      closeBluetoothPanel();
-    }
-    hideContextMenu();
-  });
-
-  // Right click: cerrar context menus
-  document.addEventListener('contextmenu', (e) => {
-    if (!e.target.closest('.dock-item')) hideDockContextMenu();
-    if (!e.target.closest('.wm-card')) hideWmCardContextMenu();
-  });
-
-  // Escape: cerrar todo
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-      closeControlCenter();
-      closeQuickCenter();
-      closeNotificationCenter();
-      closeStore();
-      closeWifiPanel();
-      closeBluetoothPanel();
-      if (gamerOverlayVisible) toggleGamerOverlay();
-      if (windowManagerOpen) closeWindowManager();
-      hideDockContextMenu();
-      hideWmCardContextMenu();
-      hideFsContextMenu();
-      closeFsRenameModal();
-      closeAllCityDropdowns();
-    }
-  });
-
-  // Resize/blur/scroll: cerrar menús flotantes
-  window.addEventListener('resize', () => {
-    hideDockContextMenu();
-    hideWmCardContextMenu();
-    hideFsContextMenu();
-    closeAllCityDropdowns();
-  });
-  window.addEventListener('blur', () => {
-    hideDockContextMenu();
-    hideWmCardContextMenu();
-    hideFsContextMenu();
-    closeAllCityDropdowns();
-  });
-  document.addEventListener('scroll', () => {
-    hideDockContextMenu();
-    hideWmCardContextMenu();
-    hideFsContextMenu();
-    closeAllCityDropdowns();
-  }, true);
-
-  // Right click sobre el escritorio: context menu
-  document.getElementById('screen').addEventListener('contextmenu', (e) => {
-    if (e.target.closest('#context-menu') || e.target.closest('.window') || e.target.closest('.desktop-widget')) return;
-    if (e.target.closest('.dock-item')) return;
-    if (e.target.closest('#window-manager-overlay')) return;
-    if (e.target.closest('#store-overlay')) return;
-    e.preventDefault();
-    showContextMenu(e.clientX, e.clientY);
-  });
-
-  // Fullscreen change: restaurar ventana si sale de fullscreen
-  document.addEventListener('fullscreenchange', () => {
-    if (!document.fullscreenElement && fullscreenWindowId) {
-      const id = fullscreenWindowId;
-      fullscreenWindowId = null;
-      restoreWindow(id);
-    }
-  });
-
-  // Window Manager: click afuera para cerrar
-  const wmOverlay = document.getElementById('window-manager-overlay');
-  if (wmOverlay) {
-    wmOverlay.addEventListener('mousedown', (e) => {
-      if (e.target === wmOverlay) closeWindowManager();
-    });
-  }
-
-  // Setup trash zone del WM
-  setupWmTrashZone();
-
-  // Slider fills dinámicos
-  document.addEventListener('input', (e) => {
-    if (e.target instanceof HTMLInputElement && e.target.type === 'range') {
-      syncSliderFill(e.target);
-    }
-  });
-    // Slider fills dinámicos
-  document.addEventListener('input', (e) => {
-    if (e.target instanceof HTMLInputElement && e.target.type === 'range') {
-      syncSliderFill(e.target);
-    }
-  });
-
-  // ★ Click extendido en el topbar central:
-  //   si hacés click en cualquier zona vacía del medio del topbar,
-  //   se abre el Control Center. NO interfiere con los módulos
-  //   izquierdo ni derecho.
-  const topbar = document.getElementById('topbar');
-  if (topbar) {
-    topbar.addEventListener('click', (e) => {
-      // Ignorar clicks en módulos interactivos
-      if (e.target.closest('.waybar-module.left')) return;
-      if (e.target.closest('.waybar-module.right')) return;
-      if (e.target.closest('.waybar-module.center')) return; // ya lo maneja el listener propio
-      if (e.target.closest('.topbar-profile-pill')) return;
-      if (e.target.closest('.topbar-gamemode-badge')) return;
-      if (e.target.closest('.ws')) return;
-      if (e.target.closest('.logo')) return;
-      if (e.target.closest('.sys-tray')) return;
-
-      // Si el click fue en la franja vacía del topbar → toggle CC
-      toggleControlCenter();
-    });
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ ATAJOS DE TECLADO
-═══════════════════════════════════════════════════════════════ */
-
-function setupShortcuts() {
-  document.addEventListener('keydown', (e) => {
-    // ★ Control Center — Super/Cmd + C
-    //   (evitamos Ctrl+C porque es copiar)
-    if ((e.metaKey || e.key === 'Meta') && (e.key === 'c' || e.key === 'C')) {
-      e.preventDefault();
-      toggleControlCenterFromShortcut();
-      return;
-    }
-
-    // HUD (Alt+Z / Alt+G / Meta+G)
-    if ((e.altKey && (e.key === 'z' || e.key === 'Z' || e.key === 'g' || e.key === 'G')) ||
-        (e.metaKey && (e.key === 'g' || e.key === 'G'))) {
-      e.preventDefault();
-      toggleGamerOverlay();
-      return;
-    }
-
-    // ★ SPOTIFY — Atajos globales de audio
-    if (isEditableTarget(e.target)) return;
-
-    // Ignorar si el usuario está en la app Spotify con foco propio (ella maneja sus atajos)
-    if (activeWinId && openWindows[activeWinId]?.appId === 'music') return;
-
-    // Ctrl/Cmd + Shift + Space: play/pause
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.code === 'Space' || e.key === ' ')) {
-      e.preventDefault();
-      SpotifyApp.togglePlayPause();
-      return;
-    }
-
-    // Ctrl/Cmd + Alt + Space: play/pause (alternativa)
-    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.code === 'Space' || e.key === ' ')) {
-      e.preventDefault();
-      SpotifyApp.togglePlayPause();
-      return;
-    }
-
-    // Ctrl/Cmd + Alt + →: siguiente track
-    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'ArrowRight' || e.code === 'ArrowRight')) {
-      e.preventDefault();
-      SpotifyApp.next();
-      return;
-    }
-
-    // Ctrl/Cmd + Alt + ←: track anterior
-    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'ArrowLeft' || e.code === 'ArrowLeft')) {
-      e.preventDefault();
-      SpotifyApp.prev();
-      return;
-    }
-
-    // Ctrl/Cmd + Alt + ↑: subir volumen (+5)
-    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'ArrowUp' || e.code === 'ArrowUp')) {
-      e.preventDefault();
-      const newVol = Math.min(1, (spotify.volume || 0) + 0.05);
-      SpotifyApp.setVolume(newVol);
-      showToast('Volumen', `${Math.round(newVol * 100)}%`, 'volume-2');
-      return;
-    }
-
-    // Ctrl/Cmd + Alt + ↓: bajar volumen (-5)
-    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'ArrowDown' || e.code === 'ArrowDown')) {
-      e.preventDefault();
-      const newVol = Math.max(0, (spotify.volume || 0) - 0.05);
-      SpotifyApp.setVolume(newVol);
-      showToast('Volumen', `${Math.round(newVol * 100)}%`, 'volume-1');
-      return;
-    }
-
-    // Ctrl/Cmd + Alt + M: mute toggle
-    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'm' || e.key === 'M')) {
-      e.preventDefault();
-      SpotifyApp.toggleMute();
-      showToast(
-        spotify.muted ? 'Mute Activado' : 'Mute Desactivado',
-        spotify.muted ? 'El audio está silenciado.' : 'El audio volvió a sonar.',
-        spotify.muted ? 'volume-x' : 'volume-2'
-      );
-      return;
-    }
-
-    // Ctrl/Cmd + Alt + L: toggle like del track actual
-    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'l' || e.key === 'L')) {
-      e.preventDefault();
-      const current = SpotifyApp.getCurrentTrack();
-      if (current) {
-        SpotifyApp.toggleLike(current.id);
-        showToast(
-          spIsTrackLiked(current.id) ? 'Agregado a Tus me gusta' : 'Quitado de Tus me gusta',
-          current.title,
-          'heart'
-        );
-      }
-      return;
-    }
-  });
-}
-
-/* ─── ¿Es un target editable (input/textarea/contenteditable)? ─── */
-function isEditableTarget(target) {
-  if (!target) return false;
-  const tag = target.tagName ? target.tagName.toLowerCase() : '';
-  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
-  if (target.isContentEditable) return true;
-  return false;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ SPOTIFY — Integración con la UI global
-   ═══════════════════════════════════════════════════════════════ */
-
-/**
- * Se llama una vez que SpotifyApp.init() ya terminó.
- * Conecta el motor con:
- *   - Topbar (botón "Ahora suena")
- *   - HUD (barra de reproducción del gaming overlay)
- *   - Control Center (#cc-spotify-player)
- *   - Sliders de volumen del sistema
- *   - Atajos de teclado (ya en setupShortcuts)
- *   - Notificaciones de cambio de track
- */
-function setupSpotifyIntegration() {
-  if (!window.SpotifyApp) {
-    console.warn('[Spotify] SpotifyApp no está disponible. Abortando integración.');
-    return;
-  }
-
-  // 1. Sincronizar UI inicial con el estado actual del motor
-  updateSpotifyGlobalUI();
-
-  // 2. Suscribirse a eventos del motor para reflejar en UI global
-  SpotifyApp.on('trackchange', () => {
-    updateSpotifyGlobalUI();
-    updateSpotifyTopbar();
-    updatePlayerBackground();
-    addSpotifyNotification();
-  });
-
-  SpotifyApp.on('play', () => {
-    updateSpotifyGlobalPlayState(true);
-  });
-
-  SpotifyApp.on('pause', () => {
-    updateSpotifyGlobalPlayState(false);
-  });
-
-  SpotifyApp.on('volume', ({ volume, muted }) => {
-    updateSpotifyVolumeUI(volume, muted);
-    if (typeof syncAudioPanelWithSpotify === 'function') syncAudioPanelWithSpotify();
-    if (typeof updateAudioMasterUI === 'function') updateAudioMasterUI();
-    if (typeof updateTrayVolumeIcon === 'function') updateTrayVolumeIcon();
-  });
-
-  SpotifyApp.on('shuffle', ({ shuffle }) => {
-    document.querySelectorAll('#cc-shuffle, #spot-shuffle').forEach(el => {
-      el.classList.toggle('active', shuffle);
-    });
-  });
-
-  SpotifyApp.on('repeat', ({ repeat }) => {
-    document.querySelectorAll('#cc-repeat, #spot-repeat').forEach(el => {
-      el.classList.toggle('active', repeat !== 'off');
-      el.dataset.repeat = repeat;
-    });
-  });
-
-  SpotifyApp.on('liked', () => {
-    // Actualizar corazones en la UI
-    document.querySelectorAll('[data-spotify-like]').forEach(btn => {
-      const id = btn.dataset.spotifyLike;
-      btn.classList.toggle('liked', spIsTrackLiked(id));
-    });
-  });
-
-  SpotifyApp.on('progress', () => {
-    // Este evento se emite muchas veces; el update visual lo hace el propio motor
-    // Pero actualizamos el HUD si está visible
-    if (gamerOverlayVisible) updateHUDMediaInfo();
-  });
-
-  SpotifyApp.on('error', ({ error, context }) => {
-    console.warn('[Spotify] Error:', context, error);
-    showToast('Spotify', 'No se pudo reproducir el track.', 'alert-circle');
-  });
-
-  // 3. Botones del Control Center (rewire)
-  const ccPlayBtn = document.getElementById('cc-play-btn');
-  if (ccPlayBtn) {
-    ccPlayBtn.onclick = (e) => {
-      e.stopPropagation();
-      SpotifyApp.togglePlayPause();
+  function _normalizeTrack(raw, fallbackId) {
+    if (!raw || typeof raw !== 'object') return null;
+    const title = _safeStr(raw.title || raw.name).trim();
+    if (!title) return null;
+    const id = _safeStr(raw.id || fallbackId || '').trim() ||
+               (spSlug(title) + '-' + spSlug(raw.artist || 'unknown'));
+    return {
+      id,
+      title,
+      artist: _safeStr(raw.artist || raw.artistName).trim() || 'Desconocido',
+      album: _safeStr(raw.album).trim() || 'Sin álbum',
+      year: Number.isFinite(+raw.year) ? +raw.year : null,
+      duration: Number.isFinite(+raw.duration) ? +raw.duration : SPOTIFY_DEFAULT_DURATION,
+      src: _safeStr(raw.src || raw.path).trim(),
+      cover: _safeStr(raw.cover || raw.art).trim() ||
+             './assets/images/apps/spotify/tapaAlbum1.jpg'
     };
   }
 
-  const ccShuffleBtn = document.getElementById('cc-shuffle');
-  if (ccShuffleBtn) {
-    ccShuffleBtn.onclick = (e) => {
-      e.stopPropagation();
-      SpotifyApp.toggleShuffle();
+  function _normalizePlaylist(raw, fallbackId) {
+    if (!raw || typeof raw !== 'object') return null;
+    const name = _safeStr(raw.name).trim();
+    if (!name) return null;
+    const id = _safeStr(raw.id || fallbackId || '').trim() || spSlug(name);
+    return {
+      id,
+      name,
+      description: _safeStr(raw.description).trim() || 'Playlist',
+      cover: _safeStr(raw.cover).trim() || null,
+      color: _safeStr(raw.color).trim() || '#1ed760',
+      trackIds: Array.isArray(raw.trackIds) ? raw.trackIds.map(_safeStr) : []
     };
   }
 
-  const ccRepeatBtn = document.getElementById('cc-repeat');
-  if (ccRepeatBtn) {
-    ccRepeatBtn.onclick = (e) => {
-      e.stopPropagation();
-      SpotifyApp.cycleRepeat();
-    };
-  }
+  /* ─────────────────────────────────────────────────────────────
+     ★ ESTADO PERSISTENTE (se guarda en localStorage)
+  ───────────────────────────────────────────────────────────── */
 
-  // 4. Botones del HUD (rewire)
-  const hudPlayBtn = document.getElementById('hud-play-btn');
-  if (hudPlayBtn) {
-    hudPlayBtn.onclick = (e) => {
-      e.stopPropagation();
-      SpotifyApp.togglePlayPause();
-    };
-  }
+  let _state = _clone(SPOTIFY_DEFAULT_STATE);
+  let _saveTimer = null;
 
-  // 5. Botones globales del index.html que usan wrappers viejos
-  //    (los wrappers los definimos en BLOQUE 8/15, pero por las dudas
-  //     dejamos los onclick reasignados aquí)
-  window.toggleMediaPlayback = function() { SpotifyApp.togglePlayPause(); };
-  window.nextTrack = function() { SpotifyApp.next(); };
-  window.previousTrack = function() { SpotifyApp.prev(); };
-
-  // 6. Click en la barra de progreso del Control Center (seek)
-  const ccTrack = document.querySelector('.cc-progress-track');
-  if (ccTrack) {
-    ccTrack.style.cursor = 'pointer';
-    ccTrack.onclick = (e) => {
-      e.stopPropagation();
-      const rect = ccTrack.getBoundingClientRect();
-      const pct = (e.clientX - rect.left) / rect.width;
-      const current = SpotifyApp.getCurrentTrack();
-      if (current && current.duration) {
-        SpotifyApp.seek(pct * current.duration);
-      }
-    };
-  }
-
-  // 7. Inyectar el topbar "Ahora suena" si todavía no existe
-  //    (el index.html lo va a tener, pero por las dudas)
-  ensureTopbarNowPlaying();
-
-  // ★ Forzar update inmediato: si Spotify ya tiene un track restaurado
-  //   desde localStorage, el widget debe aparecer sin esperar
-  //   a que se emita un evento 'trackchange'.
-  updateSpotifyTopbar();
-
-  // 8. Restaurar volumen del sistema al slider del Control Center
-  const volSlider = document.getElementById('volume-slider');
-  if (volSlider) {
-    const pct = Math.round((spotify.volume || 0.8) * 100);
-    volSlider.value = String(pct);
-    syncSliderFill(volSlider);
-    const label = document.getElementById('quick-volume-value');
-    if (label) label.textContent = `${pct}%`;
-    const trayNum = document.getElementById('tray-volume-num');
-    if (trayNum) trayNum.textContent = `${pct}%`;
-  }
-
-  // 9. Sincronizar UI de shuffle/repeat global
-  document.querySelectorAll('#cc-shuffle, #spot-shuffle').forEach(el => {
-    el.classList.toggle('active', spotify.shuffle);
-  });
-  document.querySelectorAll('#cc-repeat, #spot-repeat').forEach(el => {
-    el.classList.toggle('active', spotify.repeat !== 'off');
-    el.dataset.repeat = spotify.repeat;
-  });
-
-  refreshIcons();
-}
-
-/* ─── Sincronizar TODA la UI global con el estado del motor ─── */
-function updateSpotifyGlobalUI() {
-  const current = SpotifyApp.getCurrentTrack();
-
-  // Control Center
-  const ccArt = document.getElementById('cc-media-art');
-  const ccTitle = document.getElementById('cc-media-title');
-  const ccArtist = document.getElementById('cc-media-artist');
-  const ccBg = document.getElementById('cc-media-bg');
-  const ccTotal = document.getElementById('cc-time-total');
-
-  if (current) {
-    if (ccArt) ccArt.src = spGetTrackCover(current);
-    if (ccTitle) ccTitle.textContent = current.title || '—';
-    if (ccArtist) ccArtist.textContent = current.artist || '—';
-    if (ccBg) ccBg.style.backgroundImage = `url("${spGetTrackCover(current)}")`;
-    if (ccTotal) ccTotal.textContent = spFormatTime(current.duration || 0);
-  } else {
-    if (ccTitle) ccTitle.textContent = 'Sin reproducción';
-    if (ccArtist) ccArtist.textContent = 'Elegí un track';
-  }
-
-  // HUD
-  const hudArt = document.getElementById('hud-media-art');
-  const hudTitle = document.getElementById('hud-media-title');
-  const hudArtist = document.getElementById('hud-media-artist');
-  const hudBg = document.getElementById('hud-media-bg');
-
-  if (current) {
-    if (hudArt) hudArt.src = spGetTrackCover(current);
-    if (hudTitle) hudTitle.textContent = current.title || '—';
-    if (hudArtist) hudArtist.textContent = current.artist || '—';
-    if (hudBg) hudBg.style.backgroundImage = `url("${spGetTrackCover(current)}")`;
-  }
-
-  updateSpotifyGlobalPlayState(spotify.isPlaying);
-  updateSpotifyVolumeUI(spotify.volume, spotify.muted);
-  updateSpotifyTopbar();
-}
-
-/* ─── Actualizar iconos de play/pause en todos los reproductores ─── */
-function updateSpotifyGlobalPlayState(isPlaying) {
-  const iconName = isPlaying ? 'pause' : 'play';
-  ['cc-play-btn', 'hud-play-btn'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = `<i data-lucide="${iconName}"></i>`;
-  });
-  document.querySelectorAll('#spot-play-btn').forEach(btn => {
-    btn.innerHTML = `<i data-lucide="${iconName}"></i>`;
-  });
-
-  const dot = document.getElementById('cc-eq-dot');
-  if (dot) dot.classList.toggle('paused', !isPlaying);
-
-  refreshIcons();
-}
-
-/* ─── Actualizar sliders/num de volumen en toda la UI ─── */
-function updateSpotifyVolumeUI(volume, muted) {
-  const pct = Math.round((muted ? 0 : volume) * 100);
-
-  const volSlider = document.getElementById('volume-slider');
-  if (volSlider && Number(volSlider.value) !== pct) {
-    volSlider.value = String(pct);
-    syncSliderFill(volSlider);
-  }
-
-  const quickVal = document.getElementById('quick-volume-value');
-  if (quickVal) quickVal.textContent = `${pct}%`;
-
-  const trayNum = document.getElementById('tray-volume-num');
-  if (trayNum) trayNum.textContent = `${pct}%`;
-
-  document.querySelectorAll('#spot-volume-slider').forEach(el => {
-    const newVal = String(pct);
-    if (el.value !== newVal) {
-      el.value = newVal;
-      syncSliderFill(el);
-    }
-  });
-}
-
-/* ─── Topbar "Ahora suena" ─── */
-function ensureTopbarNowPlaying() {
-  let el = document.getElementById('topbar-now-playing');
-  if (el) return el;
-
-  const right = document.querySelector('.waybar-module.right');
-  if (!right) return null;
-
-  el = document.createElement('div');
-  el.id = 'topbar-now-playing';
-  el.className = 'hidden';
-  el.setAttribute('role', 'button');
-  el.setAttribute('tabindex', '0');
-  el.title = 'Reproducción actual — click para abrir Spotify';
-  el.innerHTML = `
-    <div class="tnp-cover-wrap">
-      <img class="tnp-cover" id="tnp-cover" src="" alt="" />
-      <span class="tnp-eq" aria-hidden="true"><i></i><i></i><i></i></span>
-    </div>
-    <div class="tnp-meta">
-      <span class="tnp-title" id="tnp-title">Sin reproducción</span>
-      <span class="tnp-artist" id="tnp-artist">—</span>
-    </div>
-    <button class="tnp-play" id="tnp-play" type="button" aria-label="Reproducir/Pausar">
-      <i data-lucide="play"></i>
-    </button>
-    <div class="tnp-progress" aria-hidden="true">
-      <span class="tnp-progress-fill" id="tnp-progress-fill"></span>
-    </div>
-  `;
-  const sysTray = right.querySelector('.sys-tray');
-  if (sysTray) {
-    right.insertBefore(el, sysTray);
-  } else {
-    right.appendChild(el);
-  }
-
-  el.addEventListener('click', (e) => {
-    if (e.target.closest('.tnp-play')) return;
-    openApp('music');
-  });
-
-  el.querySelector('.tnp-play')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    SpotifyApp.togglePlayPause();
-  });
-
-  refreshIcons();
-  return el;
-}
-
-/* ─── Actualizar contenido del topbar ─── */
-function updateSpotifyTopbar() {
-  const el = document.getElementById('topbar-now-playing');
-  if (!el) return;
-
-  const current = SpotifyApp.getCurrentTrack();
-  if (!current) {
-    el.classList.add('hidden');
-    return;
-  }
-
-  el.classList.remove('hidden');
-
-  const cover = document.getElementById('tnp-cover');
-  if (cover) {
-    cover.src = spGetTrackCover(current);
-    cover.alt = current.title || '';
-  }
-
-  const title = document.getElementById('tnp-title');
-  if (title) title.textContent = spTruncate(current.title || '—', 26);
-
-  const artist = document.getElementById('tnp-artist');
-  if (artist) artist.textContent = spTruncate(current.artist || '—', 30);
-
-  el.classList.toggle('playing', spotify.isPlaying);
-
-  const playBtn = document.getElementById('tnp-play');
-  if (playBtn) {
-    playBtn.innerHTML = `<i data-lucide="${spotify.isPlaying ? 'pause' : 'play'}"></i>`;
-  }
-
-  refreshIcons();
-}
-
-/* ─── Notificación al cambiar de track ─── */
-function addSpotifyNotification() {
-  const current = SpotifyApp.getCurrentTrack();
-  if (!current) return;
-
-  // Solo si no está en DND y el HUD no está visible
-  if (dndEnabled || gamerOverlayVisible) return;
-
-  addNotificationToHistory(
-    `♪ ${current.title}`,
-    `${current.artist}${current.album ? ' · ' + current.album : ''}`,
-    'music'
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ PERSISTENCIA DE SESIÓN
-═══════════════════════════════════════════════════════════════ */
-
-function saveSessionState(immediate = false) {
-  if (isRestoringSession || isResizing) return;
-
-  const doSave = () => {
+  function _loadState() {
     try {
-      const windowsData = {};
-      Object.keys(openWindows).forEach(winId => {
-        const entry = openWindows[winId];
-        const win = entry?.win;
-        if (!entry || !win) return;
-
-        const isMaximized = win.classList.contains('maximized');
-        const isMinimized = win.classList.contains('minimized');
-
-        let tabsData = null;
-        if (TABBED_APPS.has(entry.appId)) {
-          const state = windowTabsState.get(win);
-          if (state) {
-            tabsData = {
-              tabs: state.tabs.map(t => ({ id: t.id, label: t.label, kind: t.kind || null })),
-              activeTabId: state.activeTabId,
-              counter: state.counter
-            };
-          }
-        }
-
-        windowsData[winId] = {
-          appId: entry.appId,
-          ws: parseInt(win.dataset.ws, 10) || 1,
-          top: win.style.top || '',
-          left: win.style.left || '',
-          width: win.style.width || '',
-          height: win.style.height || '',
-          zIndex: parseInt(win.style.zIndex, 10) || 100,
-          minimized: isMinimized,
-          maximized: isMaximized,
-          oldW: win.dataset.oldW || '',
-          oldH: win.dataset.oldH || '',
-          oldT: win.dataset.oldT || '',
-          oldL: win.dataset.oldL || '',
-          tabs: tabsData
-        };
-      });
-
-      const sessionData = {
-        v: 2,
-        windows: windowsData,
-        activeWinId: activeWinId,
-        currentWorkspace: currentWorkspace,
-        zIndexCounter: zIndexCounter,
-        appInstanceCounter: appInstanceCounter
-      };
-
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionData));
-    } catch (e) {}
-  };
-
-  if (immediate) {
-    if (sessionSaveTimeout) {
-      clearTimeout(sessionSaveTimeout);
-      sessionSaveTimeout = null;
+      const raw = localStorage.getItem(SPOTIFY_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return;
+      _state = Object.assign({}, _clone(SPOTIFY_DEFAULT_STATE), parsed);
+      _state.likedIds = Array.isArray(_state.likedIds) ? _state.likedIds : [];
+      _state.queue = Array.isArray(_state.queue) ? _state.queue : [];
+      _state.recentIds = Array.isArray(_state.recentIds) ? _state.recentIds : [];
+      _state.customPlaylists = Array.isArray(_state.customPlaylists) ? _state.customPlaylists : [];
+      _state.playCount = _state.playCount && typeof _state.playCount === 'object'
+        ? _state.playCount : {};
+    } catch (e) {
+      console.warn('[Spotify] No se pudo cargar el estado persistido:', e);
     }
-    doSave();
-  } else {
-    if (sessionSaveTimeout) clearTimeout(sessionSaveTimeout);
-    sessionSaveTimeout = setTimeout(() => {
-      sessionSaveTimeout = null;
-      doSave();
-    }, 300);
-  }
-}
-
-function scheduleSaveSession() {
-  saveSessionState(false);
-}
-
-function restoreSessionState() {
-  let sessionData = null;
-  try {
-    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
-    if (!raw) return;
-    sessionData = JSON.parse(raw);
-  } catch (e) {
-    return;
   }
 
-  if (!sessionData || typeof sessionData !== 'object') return;
-  if (!sessionData.windows || typeof sessionData.windows !== 'object') return;
-
-  const winIds = Object.keys(sessionData.windows);
-  if (winIds.length === 0) {
-    if (typeof sessionData.currentWorkspace === 'number' &&
-        sessionData.currentWorkspace >= 1 &&
-        sessionData.currentWorkspace <= TOTAL_WORKSPACES) {
-      currentWorkspace = sessionData.currentWorkspace;
-    }
-    return;
+  function _scheduleSave() {
+    if (_saveTimer) clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => {
+      _saveTimer = null;
+      _saveNow();
+    }, 400);
   }
 
-  isRestoringSession = true;
-
-  try {
-    if (sessionData.appInstanceCounter && typeof sessionData.appInstanceCounter === 'object') {
-      appInstanceCounter = { ...sessionData.appInstanceCounter };
+  function _saveNow() {
+    try {
+      _state.lastUpdatedAt = Date.now();
+      localStorage.setItem(SPOTIFY_STORAGE_KEY, JSON.stringify(_state));
+    } catch (e) {
+      console.warn('[Spotify] No se pudo guardar el estado:', e);
     }
-    if (typeof sessionData.zIndexCounter === 'number' && sessionData.zIndexCounter > 100) {
-      zIndexCounter = sessionData.zIndexCounter;
-    }
-    if (typeof sessionData.currentWorkspace === 'number' &&
-        sessionData.currentWorkspace >= 1 &&
-        sessionData.currentWorkspace <= TOTAL_WORKSPACES) {
-      currentWorkspace = sessionData.currentWorkspace;
-    }
+  }
 
-    const sortedEntries = winIds
-      .map(id => ({ id, data: sessionData.windows[id] }))
-      .filter(e => e.data && APPS[e.data.appId])
-      .sort((a, b) => (a.data.zIndex || 100) - (b.data.zIndex || 100));
+  /* ─────────────────────────────────────────────────────────────
+     ★ EVENT BUS
+  ───────────────────────────────────────────────────────────── */
 
-    sortedEntries.forEach(({ id, data }) => {
-      if (openWindows[id]) return;
-      openApp(data.appId, true, {
-        winId: id,
-        ws: data.ws,
-        top: data.top,
-        left: data.left,
-        width: data.width,
-        height: data.height,
-        zIndex: data.zIndex,
-        minimized: !!data.minimized,
-        maximized: !!data.maximized,
-        oldW: data.oldW,
-        oldH: data.oldH,
-        oldT: data.oldT,
-        oldL: data.oldL,
-        tabs: data.tabs || null,
-        silent: true
+  const _listeners = new Map();
+
+  function _on(event, fn) {
+    if (!event || typeof fn !== 'function') return () => {};
+    if (!_listeners.has(event)) _listeners.set(event, new Set());
+    _listeners.get(event).add(fn);
+    return () => _off(event, fn);
+  }
+
+  function _off(event, fn) {
+    const set = _listeners.get(event);
+    if (!set) return;
+    if (fn) set.delete(fn);
+    else set.clear();
+  }
+
+  function _emit(event, data) {
+    const set = _listeners.get(event);
+    if (!set) return;
+    for (const fn of Array.from(set)) {
+      try { fn(data); } catch (e) { console.warn('[Spotify] listener error:', e); }
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ★ AUDIO: HTMLAudioElement + Web Audio API (Analyser)
+  ───────────────────────────────────────────────────────────── */
+
+  function _ensureAudioElement() {
+    if (spotify.audioEl) return spotify.audioEl;
+
+    const audio = new Audio();
+    audio.preload = 'metadata';
+    audio.crossOrigin = 'anonymous';
+    audio.volume = _state.volume;
+
+    audio.addEventListener('loadedmetadata', () => {
+      spotify.duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+      _emit('loaded', { duration: spotify.duration });
+    });
+
+    audio.addEventListener('timeupdate', () => {
+      spotify.currentTime = audio.currentTime || 0;
+      _emit('progress', {
+        currentTime: spotify.currentTime,
+        duration: spotify.duration
       });
     });
 
-    const buttons = document.querySelectorAll('#ws-switcher button');
-    buttons.forEach((btn, index) => {
-      btn.className = (index + 1 === currentWorkspace) ? 'active' : '';
+    audio.addEventListener('play', () => {
+      spotify.isPlaying = true;
+      _state.isPlaying = true;
+      _emit('play', { trackId: spotify.currentTrackId });
+      _scheduleSave();
     });
 
-    Object.values(openWindows).forEach(entry => {
-      const win = entry?.win;
-      if (!win) return;
-      const winWs = parseInt(win.dataset.ws, 10);
-      if (winWs !== currentWorkspace) {
-        win.style.display = 'none';
-      } else if (win.classList.contains('minimized')) {
-        win.style.display = 'none';
-      } else {
-        win.style.display = 'flex';
-      }
+    audio.addEventListener('pause', () => {
+      spotify.isPlaying = false;
+      _state.isPlaying = false;
+      _emit('pause', { trackId: spotify.currentTrackId });
+      _scheduleSave();
     });
 
-    const targetActive = sessionData.activeWinId;
-    if (targetActive && openWindows[targetActive]) {
-      const entry = openWindows[targetActive];
-      const win = entry.win;
-      const winWs = parseInt(win.dataset.ws, 10);
-      if (winWs === currentWorkspace && !win.classList.contains('minimized')) {
-        focusWindow(targetActive);
-      } else {
-        updateTopBar(null);
-      }
-    } else {
-      activeWinId = null;
-      updateTopBar(null);
-    }
+    audio.addEventListener('ended', () => {
+      _handleTrackEnded();
+    });
 
-    renderDock();
-    if (windowManagerOpen) renderWindowManager();
-    refreshIcons();
-  } catch (e) {
-  } finally {
-    isRestoringSession = false;
+    audio.addEventListener('error', (e) => {
+      spotify.lastError = e;
+      _emit('error', { error: e, context: 'audio-element' });
+    });
+
+    spotify.audioEl = audio;
+    return audio;
   }
-}
 
-/* ═══════════════════════════════════════════════════════════════
-   ★ CARGA DE ESTADO PERSISTIDO
-═══════════════════════════════════════════════════════════════ */
+  function _ensureAudioContext() {
+    if (spotify.audioCtx) return spotify.audioCtx;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
 
-function loadPersistedState() {
-  try {
-    const savedGm = localStorage.getItem(GAMEMODE_STORAGE_KEY);
-    if (savedGm !== null) gameModeActive = JSON.parse(savedGm);
-    if (gameModeActive) document.body.classList.add('game-mode-active');
+    try {
+      const ctx = new Ctx();
+      const audio = _ensureAudioElement();
+      const source = ctx.createMediaElementSource(audio);
+      const gain = ctx.createGain();
+      const analyser = ctx.createAnalyser();
 
-    // ★ Sincronizar UI después de un pequeño delay para que el DOM esté listo
-    setTimeout(syncGameModeUI, 0);
+      analyser.fftSize = SPOTIFY_VISUALIZER_FFT;
+      analyser.smoothingTimeConstant = SPOTIFY_VISUALIZER_SMOOTHING;
 
-    const savedProf = localStorage.getItem(PROFILE_STORAGE_KEY);
-    if (savedDesigner) {
-      designerState = { ...designerState, ...savedDesigner };
-      const root = document.documentElement;
-      root.style.setProperty('--accent', designerState.accent);
-      root.style.setProperty('--panel-color', designerState.panelColor);
-      root.style.setProperty('--blur-amount', `${designerState.blurAmount}px`);
-      root.style.setProperty('--radius-md', `${designerState.borderRadius}px`);
-      root.style.setProperty('--radius-lg', `${parseInt(designerState.borderRadius, 10) + 6}px`);
-      document.body.classList.toggle('dock-unified-bottom', designerState.dockStyle === 'unified-bottom');
-      applyDockPreviewStyle(designerState.dockPreviewStyle || 'blueprint');
+      source.connect(gain);
+      gain.connect(analyser);
+      analyser.connect(ctx.destination);
 
-      if (typeof designerState.shadowStrength === 'number') {
-        applyShadowStrength(designerState.shadowStrength);
-      } else {
-        applyShadowStrength(55);
-      }
-    } else {
-      applyDockPreviewStyle('blueprint');
-      applyShadowStrength(55);
+      spotify.audioCtx = ctx;
+      spotify.sourceNode = source;
+      spotify.gainNode = gain;
+      spotify.analyserNode = analyser;
+      spotify.visualizerData = new Uint8Array(analyser.frequencyBinCount);
+
+      return ctx;
+    } catch (e) {
+      console.warn('[Spotify] No se pudo crear AudioContext:', e);
+      spotify.audioCtx = null;
+      return null;
     }
+  }
 
-    const savedWidgets = JSON.parse(localStorage.getItem(WIDGETS_STORAGE_KEY));
-    if (Array.isArray(savedWidgets)) {
-      const validTypes = new Set(['clock', 'weather', 'gaming-hub', 'now-playing', 'system-monitor-pro', 'music-visualizer']);
-      desktopWidgets = savedWidgets
-        .filter(w => w && typeof w === 'object' && validTypes.has(w.type))
-        .map(w => {
-          if (w.type === 'weather') {
-            const cityId = w.cityId || DEFAULT_WEATHER_CITY_ID;
-            return {
-              id: w.id || ('widget-weather-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)),
-              type: 'weather',
-              x: typeof w.x === 'number' ? w.x : window.innerWidth - 280,
-              y: typeof w.y === 'number' ? w.y : 60,
-              cityId
-            };
-          }
-          return w;
+  function _resumeAudioContextIfNeeded() {
+    const ctx = spotify.audioCtx;
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ★ CARGA DE BIBLIOTECA (JSON + fallback)
+  ───────────────────────────────────────────────────────────── */
+
+  async function _loadLibraryFromJSON() {
+    try {
+      const res = await fetch(SPOTIFY_LIBRARY_URL, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      const cleaned = text.replace(/^\uFEFF/, '').trim();
+      const json = JSON.parse(cleaned);
+      if (!json || typeof json !== 'object') throw new Error('JSON inválido');
+      if (!Array.isArray(json.tracks)) throw new Error('Sin tracks');
+      return { json, source: 'json' };
+    } catch (e) {
+      console.warn('[Spotify] library.json no disponible, usando fallback:', e);
+      return { json: SPOTIFY_DEFAULT_LIBRARY, source: 'fallback' };
+    }
+  }
+
+  function _buildIndexes(library) {
+    spotify.library = { tracks: [], playlists: [] };
+    spotify.tracksById.clear();
+    spotify.playlistsById.clear();
+    spotify.artistsIndex.clear();
+    spotify.albumsIndex.clear();
+
+    // Tracks
+    const tracks = [];
+    (library.tracks || []).forEach((raw, i) => {
+      const t = _normalizeTrack(raw, `track-${i}`);
+      if (!t) return;
+      if (spotify.tracksById.has(t.id)) return;
+      tracks.push(t);
+      spotify.tracksById.set(t.id, t);
+
+      // Índice de artistas
+      if (!spotify.artistsIndex.has(t.artist)) {
+        spotify.artistsIndex.set(t.artist, {
+          name: t.artist,
+          tracks: [],
+          albums: new Set(),
+          cover: t.cover
         });
-    }
+      }
+      const artist = spotify.artistsIndex.get(t.artist);
+      artist.tracks.push(t);
+      artist.albums.add(`${t.artist}::${t.album}`);
 
-    loadInstalledProducts();
+      // Índice de álbumes
+      const albumKey = `${t.artist}::${t.album}`;
+      if (!spotify.albumsIndex.has(albumKey)) {
+        spotify.albumsIndex.set(albumKey, {
+          key: albumKey,
+          name: t.album,
+          artist: t.artist,
+          year: t.year,
+          cover: t.cover,
+          tracks: []
+        });
+      }
+      spotify.albumsIndex.get(albumKey).tracks.push(t);
+    });
+    spotify.library.tracks = tracks;
 
-    const wpIndex = Number.parseInt(localStorage.getItem(WALLPAPER_STORAGE_KEY), 10);
-    if (Number.isInteger(wpIndex) && WALLPAPERS[wpIndex]) currentWallpaperIndex = wpIndex;
+    // Playlists
+    const playlists = [];
+    (library.playlists || []).forEach((raw, i) => {
+      const p = _normalizePlaylist(raw, `playlist-${i}`);
+      if (!p) return;
+      if (spotify.playlistsById.has(p.id)) return;
+      // Filtrar trackIds que no existen
+      p.trackIds = p.trackIds.filter(id => spotify.tracksById.has(id));
+      playlists.push(p);
+      spotify.playlistsById.set(p.id, p);
+    });
+    spotify.library.playlists = playlists;
 
-    const savedSettings = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY));
-    if (savedSettings) settingsState = { ...settingsState, ...savedSettings };
-
-    const savedWifi = localStorage.getItem(WIFI_STORAGE_KEY);
-    if (savedWifi !== null) wifiEnabled = JSON.parse(savedWifi);
-
-    const savedBt = localStorage.getItem(BT_STORAGE_KEY);
-    if (savedBt !== null) bluetoothEnabled = JSON.parse(savedBt);
-
-    const savedDnd = localStorage.getItem(DND_STORAGE_KEY);
-    if (savedDnd !== null) dndEnabled = JSON.parse(savedDnd);
-
-    const savedBrightness = localStorage.getItem(BRIGHTNESS_STORAGE_KEY);
-    if (savedBrightness !== null) {
-      const parsed = Number(savedBrightness);
-      if (!Number.isNaN(parsed)) currentBrightness = parsed;
-    }
-
-    const rawNotes = JSON.parse(localStorage.getItem(CALENDAR_NOTES_STORAGE_KEY) || '{}');
-    calendarState.notes = migrateNotesFormat(rawNotes);
-
-    const savedShield = JSON.parse(localStorage.getItem(SHIELD_STORAGE_KEY));
-    if (savedShield && typeof savedShield === 'object') {
-      shieldState = { ...shieldState, ...savedShield, scanInProgress: false, scanProgress: 0 };
-    }
-
-    const savedUpdates = JSON.parse(localStorage.getItem(UPDATES_STORAGE_KEY));
-    if (savedUpdates && typeof savedUpdates === 'object') {
-      updatesState = { ...updatesState, ...savedUpdates, updateInProgress: false, updateProgress: 0, updateStage: '' };
-    }
-  } catch (e) {}
-}
-
-function applySettings() {
-  const screen = document.getElementById('screen');
-  document.body.classList.toggle('no-blur', !settingsState.transparency);
-  if (screen) screen.classList.toggle('reduce-motion', !settingsState.animations);
-}
-
-function toggleSetting(setting) {
-  if (!Object.prototype.hasOwnProperty.call(settingsState, setting)) return;
-  settingsState[setting] = !settingsState[setting];
-  applySettings();
-  try {
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settingsState));
-  } catch (e) {}
-}
-
-/* ─── Migración de notas (formato viejo → nuevo) ─── */
-function migrateNotesFormat(notes) {
-  if (!notes || typeof notes !== 'object') return {};
-  const migrated = {};
-  Object.keys(notes).forEach(key => {
-    const value = notes[key];
-    if (Array.isArray(value)) {
-      migrated[key] = value.filter(v => typeof v === 'string' && v.trim().length > 0);
-    } else if (typeof value === 'string' && value.trim().length > 0) {
-      migrated[key] = [value];
-    }
-  });
-  return migrated;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ SETUP DE SLIDERS
-═══════════════════════════════════════════════════════════════ */
-
-function setupSliders() {
-  const initSlider = (id, callback) => {
-    const slider = document.getElementById(id);
-    if (!slider) return;
-
-    const updateBg = () => {
-      syncSliderFill(slider);
-      if (callback) callback(slider.value);
+    // Playlist virtual "Tus me gusta"
+    const likedPlaylist = {
+      id: '__liked__',
+      name: 'Tus me gusta',
+      description: 'Playlist automática',
+      cover: null,
+      color: '#1ed760',
+      trackIds: [], // se rellena dinámicamente
+      __virtual: 'liked'
     };
+    spotify.playlistsById.set(likedPlaylist.id, likedPlaylist);
+    spotify.library.playlists.unshift(likedPlaylist);
 
-    slider.addEventListener('input', updateBg);
-    updateBg();
+    _refreshLikedPlaylist();
+  }
+
+  function _refreshLikedPlaylist() {
+    const likedPlaylist = spotify.playlistsById.get('__liked__');
+    if (!likedPlaylist) return;
+    likedPlaylist.trackIds = Array.from(spotify.likedIds)
+      .filter(id => spotify.tracksById.has(id));
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ★ PLAYBACK — CORE
+  ───────────────────────────────────────────────────────────── */
+
+  function _fadeOut(ms = SPOTIFY_FADE_MS) {
+    const audio = spotify.audioEl;
+    if (!audio) return Promise.resolve();
+    if (spotify.fadeTimer) {
+      clearInterval(spotify.fadeTimer);
+      spotify.fadeTimer = null;
+    }
+    return new Promise(resolve => {
+      const startVol = audio.volume;
+      const startTime = performance.now();
+      const target = 0;
+      spotify.fadeTimer = setInterval(() => {
+        const elapsed = performance.now() - startTime;
+        const k = Math.min(1, elapsed / ms);
+        audio.volume = startVol + (target - startVol) * k;
+        if (k >= 1) {
+          clearInterval(spotify.fadeTimer);
+          spotify.fadeTimer = null;
+          resolve();
+        }
+      }, 16);
+    });
+  }
+
+  function _fadeIn(ms = SPOTIFY_FADE_MS) {
+    const audio = spotify.audioEl;
+    if (!audio) return Promise.resolve();
+    const targetVol = _state.muted ? 0 : _state.volume;
+    return new Promise(resolve => {
+      const startVol = audio.volume;
+      const startTime = performance.now();
+      spotify.fadeTimer = setInterval(() => {
+        const elapsed = performance.now() - startTime;
+        const k = Math.min(1, elapsed / ms);
+        audio.volume = startVol + (targetVol - startVol) * k;
+        if (k >= 1) {
+          clearInterval(spotify.fadeTimer);
+          spotify.fadeTimer = null;
+          resolve();
+        }
+      }, 16);
+    });
+  }
+
+  function _setAudioVolume(v, muted = false) {
+    const audio = spotify.audioEl;
+    if (!audio) return;
+    audio.volume = muted ? 0 : Math.max(0, Math.min(1, v));
+  }
+
+  async function _playTrack(trackId, { autoplay = true, resetQueue = false } = {}) {
+    const track = spotify.tracksById.get(trackId);
+    if (!track) {
+      _emit('error', { error: new Error('Track no encontrado'), context: 'play', trackId });
+      return false;
+    }
+
+    _resumeAudioContextIfNeeded();
+    const audio = _ensureAudioElement();
+    _ensureAudioContext();
+
+    // Fade out si ya hay algo sonando
+    if (spotify.currentTrackId && spotify.currentTrackId !== trackId && !audio.paused) {
+      await _fadeOut();
+    }
+
+    spotify.currentTrackId = trackId;
+    _state.currentTrackId = trackId;
+    spotify.currentTime = 0;
+    _state.currentTime = 0;
+
+    // Actualizar cola si hace falta
+    if (resetQueue || !spotify.queue.includes(trackId)) {
+      // Si no está en la cola, reconstruimos desde la biblioteca completa
+      spotify.queue = spotify.library.tracks.map(t => t.id);
+    }
+    const idx = spotify.queue.indexOf(trackId);
+    spotify.queueIndex = idx >= 0 ? idx : 0;
+    _state.queue = spotify.queue.slice();
+    _state.queueIndex = spotify.queueIndex;
+
+    // Registrar reciente + contador de reproducciones
+    _registerRecent(trackId);
+
+    // Cargar fuente
+    if (track.src) {
+      audio.src = track.src;
+      audio.currentTime = 0;
+    } else {
+      // Sin src: no podemos reproducir, pero avisamos y simulamos
+      console.warn('[Spotify] Track sin src:', track);
+      _emit('error', { error: new Error('Track sin src'), context: 'play', trackId });
+    }
+
+    // Volumen inicial
+    _setAudioVolume(0, _state.muted);
+
+    if (autoplay) {
+      try {
+        const playPromise = audio.play();
+        if (playPromise && typeof playPromise.then === 'function') {
+          await playPromise;
+        }
+        await _fadeIn();
+      } catch (e) {
+        console.warn('[Spotify] No se pudo reproducir:', e);
+        _emit('error', { error: e, context: 'play-promise', trackId });
+      }
+    }
+
+    _emit('trackchange', {
+      track,
+      trackId,
+      queueIndex: spotify.queueIndex,
+      queueLength: spotify.queue.length
+    });
+
+    _scheduleSave();
+    return true;
+  }
+
+  function _registerRecent(trackId) {
+    const list = _state.recentIds.filter(id => id !== trackId);
+    list.unshift(trackId);
+    _state.recentIds = list.slice(0, SPOTIFY_RECENT_MAX);
+    _state.playCount[trackId] = (_state.playCount[trackId] || 0) + 1;
+    spotify.recentIds = _state.recentIds.slice();
+    spotify.playCount = _state.playCount;
+  }
+
+  function _handleTrackEnded() {
+    if (_state.repeat === 'one') {
+      const audio = spotify.audioEl;
+      if (audio) {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      }
+      return;
+    }
+    _emit('ended', { trackId: spotify.currentTrackId });
+
+    // Avanzar
+    const nextId = _computeNextTrackId();
+    if (nextId) {
+      _playTrack(nextId, { autoplay: true });
+    } else {
+      // Fin de la cola sin repeat
+      spotify.isPlaying = false;
+      _state.isPlaying = false;
+      _emit('pause', { trackId: spotify.currentTrackId, reason: 'queue-ended' });
+      _scheduleSave();
+    }
+  }
+
+  function _computeNextTrackId() {
+    const { queue, queueIndex } = spotify;
+    if (queue.length === 0) return null;
+
+    if (_state.shuffle) {
+      // Random distinto al actual
+      const candidates = queue.filter(id => id !== spotify.currentTrackId);
+      if (candidates.length === 0) return queue[queueIndex] || null;
+      return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+
+    const nextIdx = queueIndex + 1;
+    if (nextIdx < queue.length) return queue[nextIdx];
+    if (_state.repeat === 'all') return queue[0];
+    return null;
+  }
+
+  function _computePrevTrackId() {
+    const { queue, queueIndex } = spotify;
+    if (queue.length === 0) return null;
+
+    if (_state.shuffle) {
+      const candidates = queue.filter(id => id !== spotify.currentTrackId);
+      if (candidates.length === 0) return queue[queueIndex] || null;
+      return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+
+    const prevIdx = queueIndex - 1;
+    if (prevIdx >= 0) return queue[prevIdx];
+    if (_state.repeat === 'all') return queue[queue.length - 1];
+    return null;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ★ API PÚBLICA
+  ───────────────────────────────────────────────────────────── */
+
+  const api = {
+
+    /* ══════════════════════════════════════════════════════════
+       INIT
+    ══════════════════════════════════════════════════════════ */
+    async init() {
+      if (spotify.initPromise) return spotify.initPromise;
+
+      spotify.initPromise = (async () => {
+        try {
+          // 1. Cargar estado persistido
+          _loadState();
+
+          // 2. Cargar biblioteca (JSON o fallback)
+          const { json, source } = await _loadLibraryFromJSON();
+          _buildIndexes(json);
+          _state.libraryLoaded = true;
+          _state.librarySource = source;
+          spotify.mockMode = (source === 'fallback');
+
+          // 3. Preferencias al runtime
+          spotify.volume = _state.volume;
+          spotify.muted = _state.muted;
+          spotify.shuffle = _state.shuffle;
+          spotify.repeat = _state.repeat;
+          spotify.likedIds = new Set(_state.likedIds);
+          spotify.customPlaylists = _state.customPlaylists.slice();
+          spotify.recentIds = _state.recentIds.slice();
+          spotify.playCount = Object.assign({}, _state.playCount);
+
+          // 4. Audio element (sin ctx todavía, para evitar warnings)
+          _ensureAudioElement();
+
+          // 5. Restaurar última canción (pausada, sin autoplay)
+          if (_state.currentTrackId && spotify.tracksById.has(_state.currentTrackId)) {
+            spotify.currentTrackId = _state.currentTrackId;
+            const audio = _ensureAudioElement();
+            const track = spotify.tracksById.get(_state.currentTrackId);
+            if (track && track.src) {
+              audio.src = track.src;
+              audio.currentTime = 0;
+            }
+            spotify.queue = Array.isArray(_state.queue) && _state.queue.length
+              ? _state.queue.filter(id => spotify.tracksById.has(id))
+              : spotify.library.tracks.map(t => t.id);
+            spotify.queueIndex = Math.max(0, spotify.queue.indexOf(_state.currentTrackId));
+          } else {
+            // Por defecto: primera canción de la biblioteca (cargada pero pausada)
+            if (spotify.library.tracks.length > 0) {
+              const first = spotify.library.tracks[0];
+              spotify.currentTrackId = first.id;
+              spotify.queue = spotify.library.tracks.map(t => t.id);
+              spotify.queueIndex = 0;
+              const audio = _ensureAudioElement();
+              if (first.src) {
+                audio.src = first.src;
+                audio.currentTime = 0;
+              }
+            }
+          }
+
+          spotify.initResolved = true;
+          _emit('loaded', {
+            trackCount: spotify.library.tracks.length,
+            playlistCount: spotify.library.playlists.length,
+            source
+          });
+
+          return true;
+        } catch (e) {
+          spotify.lastError = e;
+          console.error('[Spotify] Falló init:', e);
+          spotify.initResolved = true;
+          _emit('error', { error: e, context: 'init' });
+          return false;
+        }
+      })();
+
+      return spotify.initPromise;
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       PLAYBACK
+    ══════════════════════════════════════════════════════════ */
+
+    play(trackId) {
+      const id = trackId || spotify.currentTrackId;
+      if (!id) return Promise.resolve(false);
+      return _playTrack(id, { autoplay: true, resetQueue: true });
+    },
+
+    pause() {
+      const audio = spotify.audioEl;
+      if (!audio) return;
+      audio.pause();
+    },
+
+    resume() {
+      const audio = spotify.audioEl;
+      if (!audio) return;
+      if (!spotify.currentTrackId) return;
+      _resumeAudioContextIfNeeded();
+      _ensureAudioContext();
+      audio.play().catch(e => {
+        _emit('error', { error: e, context: 'resume' });
+      });
+    },
+
+    togglePlayPause() {
+      if (spotify.isPlaying) {
+        api.pause();
+      } else {
+        api.resume();
+      }
+    },
+
+    next() {
+      const nextId = _computeNextTrackId();
+      if (!nextId) {
+        api.pause();
+        return;
+      }
+      // Actualizar índice de cola
+      spotify.queueIndex = spotify.queue.indexOf(nextId);
+      _playTrack(nextId, { autoplay: true });
+    },
+
+    prev() {
+      const audio = spotify.audioEl;
+      // Si pasaron más de 3 segundos, reiniciar la canción actual
+      if (audio && audio.currentTime > 3) {
+        audio.currentTime = 0;
+        spotify.currentTime = 0;
+        _emit('progress', { currentTime: 0, duration: spotify.duration });
+        return;
+      }
+
+      const prevId = _computePrevTrackId();
+      if (!prevId) {
+        if (audio) audio.currentTime = 0;
+        return;
+      }
+      spotify.queueIndex = spotify.queue.indexOf(prevId);
+      _playTrack(prevId, { autoplay: true });
+    },
+
+    seek(seconds) {
+      const audio = spotify.audioEl;
+      if (!audio) return;
+      const dur = spotify.duration || (audio.duration || 0);
+      const target = Math.max(0, Math.min(dur || 0, Number(seconds) || 0));
+      try {
+        audio.currentTime = target;
+        spotify.currentTime = target;
+        _emit('progress', { currentTime: target, duration: dur });
+      } catch (e) {}
+    },
+
+    setVolume(value) {
+      const v = Math.max(0, Math.min(1, Number(value)));
+      _state.volume = v;
+      spotify.volume = v;
+      _setAudioVolume(v, _state.muted);
+      _emit('volume', { volume: v, muted: _state.muted });
+      _scheduleSave();
+    },
+
+    getVolume() {
+      return _state.volume;
+    },
+
+    toggleMute() {
+      _state.muted = !_state.muted;
+      spotify.muted = _state.muted;
+      _setAudioVolume(_state.volume, _state.muted);
+      _emit('volume', { volume: _state.volume, muted: _state.muted });
+      _scheduleSave();
+      return _state.muted;
+    },
+
+    isMuted() {
+      return _state.muted;
+    },
+
+    toggleShuffle() {
+      _state.shuffle = !_state.shuffle;
+      spotify.shuffle = _state.shuffle;
+      _emit('shuffle', { shuffle: _state.shuffle });
+      _scheduleSave();
+      return _state.shuffle;
+    },
+
+    setShuffle(v) {
+      _state.shuffle = !!v;
+      spotify.shuffle = _state.shuffle;
+      _emit('shuffle', { shuffle: _state.shuffle });
+      _scheduleSave();
+    },
+
+    cycleRepeat() {
+      const modes = SPOTIFY_REPEAT_MODES;
+      const idx = modes.indexOf(_state.repeat);
+      const next = modes[(idx + 1) % modes.length];
+      _state.repeat = next;
+      spotify.repeat = next;
+      _emit('repeat', { repeat: next });
+      _scheduleSave();
+      return next;
+    },
+
+    setRepeat(mode) {
+      if (!SPOTIFY_REPEAT_MODES.includes(mode)) return;
+      _state.repeat = mode;
+      spotify.repeat = mode;
+      _emit('repeat', { repeat: mode });
+      _scheduleSave();
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       GETTERS DE ESTADO / BIBLIOTECA
+    ══════════════════════════════════════════════════════════ */
+
+    isPlaying() {
+      return spotify.isPlaying;
+    },
+
+    getCurrentTrack() {
+      if (!spotify.currentTrackId) return null;
+      return spotify.tracksById.get(spotify.currentTrackId) || null;
+    },
+
+    getCurrentTime() {
+      return spotify.currentTime || 0;
+    },
+
+    getDuration() {
+      return spotify.duration || 0;
+    },
+
+    getQueue() {
+      return spotify.queue.slice();
+    },
+
+    getQueueIndex() {
+      return spotify.queueIndex;
+    },
+
+    getAllTracks() {
+      return spotify.library ? spotify.library.tracks.slice() : [];
+    },
+
+    getTrackById(id) {
+      if (!id) return null;
+      return spotify.tracksById.get(id) || null;
+    },
+
+    getPlaylists() {
+      return spotify.library ? spotify.library.playlists.slice() : [];
+    },
+
+    getPlaylistById(id) {
+      if (!id) return null;
+      return spotify.playlistsById.get(id) || null;
+    },
+
+    getArtistByName(name) {
+      if (!name) return null;
+      const a = spotify.artistsIndex.get(name);
+      if (!a) return null;
+      return {
+        name: a.name,
+        cover: a.cover,
+        albums: Array.from(a.albums),
+        tracks: a.tracks.slice(),
+        trackCount: a.tracks.length
+      };
+    },
+
+    getAlbumByKey(key) {
+      if (!key) return null;
+      const alb = spotify.albumsIndex.get(key);
+      if (!alb) return null;
+      return {
+        key: alb.key,
+        name: alb.name,
+        artist: alb.artist,
+        year: alb.year,
+        cover: alb.cover,
+        tracks: alb.tracks.slice(),
+        trackCount: alb.tracks.length
+      };
+    },
+
+    getRecentTracks() {
+      return _state.recentIds
+        .map(id => spotify.tracksById.get(id))
+        .filter(Boolean);
+    },
+
+    getMostPlayed(limit = 10) {
+      const entries = Object.entries(_state.playCount)
+        .map(([id, count]) => ({ track: spotify.tracksById.get(id), count }))
+        .filter(e => e.track)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, limit);
+      return entries;
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       LIKES
+    ══════════════════════════════════════════════════════════ */
+
+    isLiked(trackId) {
+      return spotify.likedIds.has(trackId);
+    },
+
+    getLikedIds() {
+      return Array.from(spotify.likedIds);
+    },
+
+    getLikedTracks() {
+      return Array.from(spotify.likedIds)
+        .map(id => spotify.tracksById.get(id))
+        .filter(Boolean);
+    },
+
+    toggleLike(trackId) {
+      if (!trackId) return false;
+      if (spotify.likedIds.has(trackId)) {
+        spotify.likedIds.delete(trackId);
+      } else {
+        spotify.likedIds.add(trackId);
+      }
+      _state.likedIds = Array.from(spotify.likedIds);
+      _refreshLikedPlaylist();
+      _emit('liked', { trackId, liked: spotify.likedIds.has(trackId) });
+      _scheduleSave();
+      return spotify.likedIds.has(trackId);
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       PLAYLISTS CUSTOM
+    ══════════════════════════════════════════════════════════ */
+
+    getCustomPlaylists() {
+      return spotify.customPlaylists.slice();
+    },
+
+    createPlaylist({ name, description = '', cover = null, color = '#1ed760', trackIds = [] } = {}) {
+      if (spotify.customPlaylists.length >= SPOTIFY_CUSTOM_PLAYLISTS_MAX) {
+        _emit('error', { error: new Error('Máximo de playlists alcanzado'), context: 'createPlaylist' });
+        return null;
+      }
+      const cleanName = _safeStr(name).trim();
+      if (!cleanName) return null;
+
+      const id = spRandomId('pl');
+      const playlist = {
+        id,
+        name: cleanName,
+        description: _safeStr(description).trim(),
+        cover: _safeStr(cover).trim() || null,
+        color: _safeStr(color).trim() || '#1ed760',
+        trackIds: Array.isArray(trackIds) ? trackIds.filter(id => spotify.tracksById.has(id)) : [],
+        createdAt: Date.now()
+      };
+      spotify.customPlaylists.unshift(playlist);
+      _state.customPlaylists = spotify.customPlaylists.slice();
+      _emit('playlists-change', { action: 'create', playlist });
+      _scheduleSave();
+      return playlist;
+    },
+
+    updatePlaylist(id, patch = {}) {
+      const idx = spotify.customPlaylists.findIndex(p => p.id === id);
+      if (idx === -1) return null;
+      const current = spotify.customPlaylists[idx];
+      const next = Object.assign({}, current, patch);
+      if (patch.name != null) next.name = _safeStr(patch.name).trim() || current.name;
+      if (patch.description != null) next.description = _safeStr(patch.description).trim();
+      if (patch.color != null) next.color = _safeStr(patch.color).trim() || current.color;
+      if (patch.cover != null) next.cover = _safeStr(patch.cover).trim() || null;
+      if (Array.isArray(patch.trackIds)) {
+        next.trackIds = patch.trackIds
+          .filter(tid => spotify.tracksById.has(tid))
+          .slice(0, SPOTIFY_PLAYLIST_TRACKS_MAX);
+      }
+      next.updatedAt = Date.now();
+      spotify.customPlaylists[idx] = next;
+      _state.customPlaylists = spotify.customPlaylists.slice();
+      _emit('playlists-change', { action: 'update', playlist: next });
+      _scheduleSave();
+      return next;
+    },
+
+    deletePlaylist(id) {
+      const idx = spotify.customPlaylists.findIndex(p => p.id === id);
+      if (idx === -1) return false;
+      const [removed] = spotify.customPlaylists.splice(idx, 1);
+      _state.customPlaylists = spotify.customPlaylists.slice();
+      _emit('playlists-change', { action: 'delete', playlist: removed });
+      _scheduleSave();
+      return true;
+    },
+
+    addToPlaylist(playlistId, trackId) {
+      const playlist = spotify.customPlaylists.find(p => p.id === playlistId);
+      if (!playlist) return false;
+      if (!spotify.tracksById.has(trackId)) return false;
+      if (playlist.trackIds.includes(trackId)) return false;
+      if (playlist.trackIds.length >= SPOTIFY_PLAYLIST_TRACKS_MAX) return false;
+      playlist.trackIds.push(trackId);
+      playlist.updatedAt = Date.now();
+      _state.customPlaylists = spotify.customPlaylists.slice();
+      _emit('playlists-change', { action: 'add-track', playlist, trackId });
+      _scheduleSave();
+      return true;
+    },
+
+    removeFromPlaylist(playlistId, trackId) {
+      const playlist = spotify.customPlaylists.find(p => p.id === playlistId);
+      if (!playlist) return false;
+      const idx = playlist.trackIds.indexOf(trackId);
+      if (idx === -1) return false;
+      playlist.trackIds.splice(idx, 1);
+      playlist.updatedAt = Date.now();
+      _state.customPlaylists = spotify.customPlaylists.slice();
+      _emit('playlists-change', { action: 'remove-track', playlist, trackId });
+      _scheduleSave();
+      return true;
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       SEARCH
+    ══════════════════════════════════════════════════════════ */
+
+    search(query) {
+      const q = _safeStr(query).trim().toLowerCase();
+      const result = { tracks: [], artists: [], albums: [], playlists: [] };
+
+      if (!q) return result;
+
+      // Tracks
+      for (const track of spotify.library.tracks) {
+        const haystack = `${track.title} ${track.artist} ${track.album}`.toLowerCase();
+        if (haystack.includes(q)) result.tracks.push(track);
+      }
+
+      // Artistas
+      for (const [name, data] of spotify.artistsIndex) {
+        if (name.toLowerCase().includes(q)) {
+          result.artists.push({
+            name,
+            cover: data.cover,
+            trackCount: data.tracks.length
+          });
+        }
+      }
+
+      // Álbumes
+      for (const alb of spotify.albumsIndex.values()) {
+        const haystack = `${alb.name} ${alb.artist}`.toLowerCase();
+        if (haystack.includes(q)) {
+          result.albums.push({
+            key: alb.key,
+            name: alb.name,
+            artist: alb.artist,
+            year: alb.year,
+            cover: alb.cover,
+            trackCount: alb.tracks.length
+          });
+        }
+      }
+
+      // Playlists (custom + library)
+      for (const pl of spotify.library.playlists) {
+        if (pl.name.toLowerCase().includes(q)) result.playlists.push(pl);
+      }
+      for (const pl of spotify.customPlaylists) {
+        if (pl.name.toLowerCase().includes(q)) result.playlists.push(pl);
+      }
+
+      return result;
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       VISUALIZER
+    ══════════════════════════════════════════════════════════ */
+
+    getAnalyserData() {
+      if (!spotify.analyserNode || !spotify.visualizerData) return null;
+      const data = new Uint8Array(spotify.analyserNode.frequencyBinCount);
+      spotify.analyserNode.getByteFrequencyData(data);
+      spotify.visualizerData = data;
+      return data;
+    },
+
+    getAnalyserNode() {
+      return spotify.analyserNode;
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       EVENTOS
+    ══════════════════════════════════════════════════════════ */
+
+    on(event, fn) {
+      return _on(event, fn);
+    },
+
+    off(event, fn) {
+      _off(event, fn);
+    },
+
+    emit(event, data) {
+      _emit(event, data);
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       PERSISTENCIA
+    ══════════════════════════════════════════════════════════ */
+
+    flushState() {
+      if (_saveTimer) {
+        clearTimeout(_saveTimer);
+        _saveTimer = null;
+      }
+      // Sincronizar runtime → state
+      _state.currentTrackId = spotify.currentTrackId;
+      _state.queue = spotify.queue.slice();
+      _state.queueIndex = spotify.queueIndex;
+      _state.volume = spotify.volume;
+      _state.muted = spotify.muted;
+      _state.shuffle = spotify.shuffle;
+      _state.repeat = spotify.repeat;
+      _state.likedIds = Array.from(spotify.likedIds);
+      _state.customPlaylists = spotify.customPlaylists.slice();
+      _state.recentIds = spotify.recentIds.slice();
+      _state.playCount = Object.assign({}, spotify.playCount);
+      _saveNow();
+    },
+
+    resetState() {
+      try {
+        localStorage.removeItem(SPOTIFY_STORAGE_KEY);
+      } catch (e) {}
+      _state = _clone(SPOTIFY_DEFAULT_STATE);
+      spotify.likedIds = new Set();
+      spotify.customPlaylists = [];
+      spotify.recentIds = [];
+      spotify.playCount = {};
+      _refreshLikedPlaylist();
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       DEBUG
+    ══════════════════════════════════════════════════════════ */
+
+    isReady() {
+      return spotify.initResolved;
+    },
+
+    isMockMode() {
+      return spotify.mockMode;
+    },
+
+    getInternalState() {
+      return _state;
+    }
   };
 
-  initSlider('brightness-slider', val => {
-    applyBrightness(val);
-  });
-  initSlider('volume-slider', val => {
-    setSystemVolume(val);
-  });
-}
+  return api;
+})();
 
-/* ─── Volumen del sistema → Spotify (wrapper) ─── */
-function setSystemVolume(val) {
-  const pct = Number(val);
-  if (Number.isNaN(pct)) return;
-
-  // Actualizar siempre los labels del tray y quick center
-  const volNum = document.getElementById('tray-volume-num');
-  const qVolVal = document.getElementById('quick-volume-value');
-  if (volNum) volNum.textContent = `${pct}%`;
-  if (qVolVal) qVolVal.textContent = `${pct}%`;
-
-  // ★ Delegar al motor de Spotify
-  if (window.SpotifyApp && typeof SpotifyApp.setVolume === 'function') {
-    SpotifyApp.setVolume(pct / 100);
-  }
-}
+// Exponer globalmente
+window.SpotifyApp = SpotifyApp;
 
 /* ═══════════════════════════════════════════════════════════════
-   ★ SETUP DEL WIDGET DE CONTROL CENTER (Calendario + Métricas)
-═══════════════════════════════════════════════════════════════ */
-
-function setupAdvancedWidget() {
-  renderCalendar();
-  renderNotesList();
-  updateWidgetTime();
-  updateMetrics();
-  setInterval(updateWidgetTime, 60000);
-  setInterval(simulateMetrics, 3000);
-
-  document.getElementById('calendar-prev')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    changeCalendarMonth(-1);
-  });
-  document.getElementById('calendar-next')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    changeCalendarMonth(1);
-  });
-  document.getElementById('save-note')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    saveCalendarNote();
-  });
-  document.getElementById('note-input')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      e.stopPropagation();
-      saveCalendarNote();
-    }
-  });
-
-  renderConnectivityState();
-}
-
-function updateWidgetTime() {
-  const now = new Date();
-  const time = document.getElementById('widget-time');
-  const uptime = document.getElementById('widget-uptime');
-  if (time) time.textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  if (uptime) {
-    const elapsedMinutes = Math.floor((Date.now() - widgetStartedAt) / 60000);
-    uptime.textContent = `uptime: ${elapsedMinutes < 60 ? `${elapsedMinutes}m` : `${Math.floor(elapsedMinutes / 60)}h ${elapsedMinutes % 60}m`}`;
-  }
-}
-
-function simulateMetrics() {
-  if (!gameModeActive) {
-    systemMetrics.ram = Math.max(25, Math.min(55, systemMetrics.ram + Math.round((Math.random() - 0.5) * 6)));
-    systemMetrics.cpu = Math.max(8, Math.min(78, systemMetrics.cpu + Math.round((Math.random() - 0.5) * 16)));
-    systemMetrics.temp = Math.max(30, Math.min(68, systemMetrics.temp + Math.round((Math.random() - 0.5) * 8)));
-  }
-  updateMetrics();
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ SETUP DEL ESTADO DE DISPOSITIVOS (Batería)
-═══════════════════════════════════════════════════════════════ */
-
-function setupDeviceStatus() {
-  const hasRealBattery = typeof navigator.getBattery === 'function';
-
-  if (hasRealBattery) {
-    navigator.getBattery().then(battery => {
-      const updateBattery = () => updateBatteryUI(battery.level * 100, battery.charging);
-      updateBattery();
-      battery.addEventListener('levelchange', updateBattery);
-      battery.addEventListener('chargingchange', updateBattery);
-    }).catch(() => startSimulatedBattery());
-  } else {
-    startSimulatedBattery();
-  }
-}
-
-function startSimulatedBattery() {
-  let mockLevel = 53;
-  let mockCharging = false;
-
-  const update = () => updateBatteryUI(mockLevel, mockCharging);
-  update();
-
-  setInterval(() => {
-    if (mockCharging) {
-      mockLevel = Math.min(100, mockLevel + 1);
-      if (mockLevel >= 100) mockCharging = false;
-    } else {
-      mockLevel = Math.max(0, mockLevel - 1);
-      if (mockLevel <= 15) mockCharging = true;
-    }
-    update();
-  }, 30000);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ ACCESIBILIDAD POR TECLADO
-═══════════════════════════════════════════════════════════════ */
-
-function setupKeyboardAccessibility() {
-  document.addEventListener('keydown', e => {
-    if (e.target.closest('.fs-rename-modal')) return;
-    const tag = e.target?.tagName?.toLowerCase();
-    if (tag === 'input' || tag === 'textarea') return;
-
-    if (!['Enter', ' '].includes(e.key)) return;
-    const target = e.target.closest('[role="button"][tabindex="0"]');
-    if (!target) return;
-    e.preventDefault();
-    target.click();
-  });
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ WORKSPACES (Cambio y movimiento de ventanas)
-═══════════════════════════════════════════════════════════════ */
-
-function switchWorkspace(num) {
-  currentWorkspace = num;
-
-  const buttons = document.querySelectorAll('#ws-switcher button');
-  buttons.forEach((btn, index) => {
-    btn.className = (index + 1 === num) ? 'active' : '';
-  });
-
-  let hasActiveInWorkspace = false;
-  Object.values(openWindows).forEach(entry => {
-    const win = entry?.win;
-    if (!win) return;
-    if (parseInt(win.dataset.ws) === currentWorkspace) {
-      if (!win.classList.contains('minimized')) {
-        win.style.display = 'flex';
-        hasActiveInWorkspace = true;
-      }
-    } else {
-      win.style.display = 'none';
-    }
-  });
-
-  if (!hasActiveInWorkspace) updateTopBar(null);
-  hideDockPreview();
-  renderDock();
-
-  if (windowManagerOpen) renderWindowManager();
-
-  scheduleSaveSession();
-}
-
-function moveWindowToWorkspace(winId, targetWs) {
-  const entry = openWindows[winId];
-  if (!entry?.win) return false;
-  const win = entry.win;
-
-  const currentWs = parseInt(win.dataset.ws, 10);
-  if (currentWs === targetWs) return false;
-
-  win.dataset.ws = String(targetWs);
-
-  if (targetWs !== currentWorkspace) {
-    win.style.display = 'none';
-    if (activeWinId === winId) {
-      activeWinId = null;
-      updateTopBar(null);
-    }
-  } else {
-    if (!win.classList.contains('minimized')) {
-      win.style.display = 'flex';
-    }
-  }
-
-  renderDock();
-  if (windowManagerOpen) renderWindowManager();
-
-  const appTitle = APPS[entry.appId]?.title || entry.appId;
-  showToast(
-    'Ventana movida',
-    `${appTitle} → Space ${targetWs}`,
-    'move'
-  );
-
-  saveSessionState(true);
-
-  return true;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ WM TRASH ZONE (Drop zone para eliminar ventanas)
-═══════════════════════════════════════════════════════════════ */
-
-function setupWmTrashZone() {
-  const trash = document.getElementById('wm-trash-zone');
-  if (!trash) return;
-
-  trash.addEventListener('dragover', (e) => {
-    if (!wmDragState) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    trash.classList.add('drag-over');
-  });
-
-  trash.addEventListener('dragleave', (e) => {
-    if (!trash.contains(e.relatedTarget)) {
-      trash.classList.remove('drag-over');
-    }
-  });
-
-  trash.addEventListener('drop', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    trash.classList.remove('drag-over');
-    if (!wmDragState) return;
-    const { winId } = wmDragState;
-    if (!winId || !openWindows[winId]) return;
-    deleteWindowFromWm(winId);
-    wmDragState.justDropped = true;
-  });
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ SETUP DE MÉTRICAS DE TAREA (Loop de telemetría)
-═══════════════════════════════════════════════════════════════ */
-
-function setupTelemetryLoop() {
-  setInterval(() => {
-    if (gameModeActive) {
-      systemMetrics.fps = 142 + Math.floor(Math.random() * 3);
-      systemMetrics.gpu = Math.max(50, Math.min(88, systemMetrics.gpu + Math.round((Math.random() - 0.5) * 6)));
-      systemMetrics.vram = 4.6 + Math.random() * 0.4;
-    } else {
-      systemMetrics.fps = 120 + Math.floor(Math.random() * 20);
-      systemMetrics.gpu = Math.max(20, Math.min(65, systemMetrics.gpu + Math.round((Math.random() - 0.5) * 8)));
-    }
-    simulatePing();
-    if (gamerOverlayVisible) updateHUDTelemetry();
-    updateWidgetStats();
-    updateGamingHubWidget();
-  }, 1200);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ SETUP DE AUTO-REFRESH DE CLIMA
-═══════════════════════════════════════════════════════════════ */
-
-function setupWeatherAutoRefresh() {
-  setInterval(() => {
-    desktopWidgets.filter(w => w.type === 'weather').forEach(async (widget) => {
-      const result = await fetchWeatherForCity(widget.cityId, { force: true });
-      if (!result.ok) return;
-      const el = document.getElementById(widget.id);
-      if (!el) return;
-      const body = el.querySelector('.weather-body');
-      if (body) {
-        body.outerHTML = renderWeatherWidgetHTML(widget, result.data);
-        refreshIcons();
-        attachWeatherWidgetListeners(widget.id);
-      }
-    });
-  }, WEATHER_FETCH_INTERVAL_MS);
-}
-/* ═══════════════════════════════════════════════════════════════
-   ★ PARTE 5/12 — SISTEMA DE VENTANAS
+   ★ PARTE 5/10 — SISTEMA DE VENTANAS
    ═══════════════════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════════════
@@ -6145,6615 +5777,12 @@ function getAppContent(id) {
       return `<div class="app-pad"><h2>${APPS[id]?.title || id}</h2><p>${APPS[id]?.sub || ''}</p></div>`;
   }
 }
-/* ═══════════════════════════════════════════════════════════════
-   ★ PARTE 6/12 — OVERLAYS Y MENÚS
-   ═══════════════════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════════════
-   ★ LAUNCHER (Nebula Menu)
-═══════════════════════════════════════════════════════════════ */
-
-const launcherOverlay = document.getElementById('launcher-overlay');
-const launcherInput = document.getElementById('launcher-input');
-const launcherResults = document.getElementById('launcher-results');
-
-function toggleLauncher() {
-  if (!launcherOverlay) return;
-  if (launcherOverlay.classList.contains('open')) closeLauncher();
-  else openLauncher();
-}
-
-function openLauncher() {
-  if (!launcherOverlay) return;
-  launcherOverlay.classList.add('open');
-  launcherState.query = '';
-  launcherState.selectedIndex = 0;
-  if (launcherInput) {
-    launcherInput.value = '';
-    renderLauncherResults('');
-    setTimeout(() => launcherInput.focus(), 50);
-  }
-  refreshIcons();
-}
-
-function closeLauncher() {
-  if (!launcherOverlay) return;
-  launcherOverlay.classList.remove('open');
-  launcherState.query = '';
-  launcherState.results = [];
-  launcherState.selectedIndex = 0;
-}
-
-launcherOverlay?.addEventListener('mousedown', e => {
-  if (e.target === launcherOverlay) closeLauncher();
-});
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && launcherOverlay?.classList.contains('open')) closeLauncher();
-});
-
-launcherInput?.addEventListener('input', e => {
-  launcherState.query = e.target.value;
-  launcherState.selectedIndex = 0;
-  renderLauncherResults(e.target.value);
-});
-
-launcherInput?.addEventListener('keydown', handleLauncherKeydown);
-
-/* ─── Construcción de listas del Launcher ─── */
-
-function buildLauncherActions() {
-  return [
-    { id: 'action-gamemode', title: 'Activar / Desactivar Modo Juego', sub: 'Boost de CPU/GPU, libera RAM y activa HUD', icon: 'gamepad-2', category: 'Acción', keywords: ['modo juego', 'game mode', 'gamemode', 'boost', 'gamer'], run: () => toggleGameMode() },
-    { id: 'action-hud', title: 'Alternar Gaming HUD', sub: 'Overlay con telemetría de hardware (Alt+Z)', icon: 'activity', category: 'Acción', keywords: ['hud', 'overlay', 'telemetria', 'gaming', 'alt z'], run: () => toggleGamerOverlay() },
-    { id: 'action-vpn', title: 'Alternar VPN Nebula Shield', sub: 'Conectar / desconectar la VPN', icon: 'shield-check', category: 'Acción', keywords: ['vpn', 'shield', 'privacidad'], run: () => toggleVpnConnection() },
-    { id: 'action-wallpaper-next', title: 'Siguiente fondo de pantalla', sub: 'Rota al siguiente wallpaper disponible', icon: 'image', category: 'Acción', keywords: ['wallpaper', 'fondo', 'siguiente', 'rotar'], run: () => applyWallpaper((currentWallpaperIndex + 1) % WALLPAPERS.length) },
-    { id: 'action-ram-boost', title: 'Optimizar RAM', sub: 'Libera memoria y limpia cache', icon: 'sparkles', category: 'Acción', keywords: ['optimizar', 'ram', 'limpiar', 'memoria', 'boost'], run: () => simulateRamBoost() },
-    { id: 'action-weather-widget', title: 'Añadir Widget de Clima', sub: 'Widget meteorológico con datos reales (Open-Meteo)', icon: 'cloud-sun', category: 'Acción', keywords: ['clima', 'weather', 'widget', 'tiempo', 'temperatura'], run: () => addWeatherWidget() },
-    { id: 'action-clear-widgets', title: 'Limpiar widgets del escritorio', sub: 'Remueve todos los widgets flotantes', icon: 'trash-2', category: 'Acción', keywords: ['limpiar', 'widgets', 'escritorio', 'borrar'], run: () => clearDesktopWidgets() },
-    { id: 'action-close-all', title: 'Cerrar todas las ventanas', sub: 'Cierra todas las apps abiertas', icon: 'x-circle', category: 'Acción', keywords: ['cerrar', 'close', 'todas', 'ventanas', 'apps'], run: () => { Object.keys(openWindows).forEach(id => closeApp(id)); showToast('Ventanas cerradas', 'Se cerraron todas las apps abiertas.', 'x-circle'); } },
-    { id: 'action-shield-scan', title: 'Escaneo de Seguridad (Nebula Shield)', sub: 'Inicia un análisis completo del sistema', icon: 'shield-check', category: 'Acción', keywords: ['escanear', 'seguridad', 'shield', 'virus', 'antivirus', 'scan'], run: () => { openApp('settings'); settingsState.activeSettingsTab = 'shield'; renderSettingsApp(); setTimeout(() => runShieldScan(), 400); } },
-    { id: 'action-check-updates', title: 'Buscar actualizaciones', sub: 'Verifica si hay nuevas versiones del sistema', icon: 'download', category: 'Acción', keywords: ['actualizar', 'update', 'version', 'updates'], run: () => { openApp('settings'); settingsState.activeSettingsTab = 'updates'; renderSettingsApp(); setTimeout(() => simulateUpdateCheck(), 400); } },
-    { id: 'action-notif-center', title: 'Abrir Centro de Notificaciones', sub: 'Ver historial de notificaciones del sistema', icon: 'bell', category: 'Acción', keywords: ['notificaciones', 'notif', 'historial', 'centro'], run: () => openNotificationCenter() },
-    { id: 'action-open-store', title: 'Abrir Nebula Store', sub: 'Tienda de temas, widgets, apps y juegos', icon: 'shopping-bag', category: 'Acción', keywords: ['tienda', 'store', 'temas', 'widgets', 'apps', 'juegos'], run: () => openStore() },
-    { id: 'action-open-vault', title: 'Abrir Nebula Vault', sub: 'Gestor de contraseñas seguro', icon: 'key-round', category: 'Acción', keywords: ['vault', 'contraseñas', 'passwords', 'boveda'], run: () => openApp('vault') },
-    { id: 'action-profile-gamer', title: 'Perfil: Gamer', sub: 'Aplica tema Cyberpunk + Game Mode + telemetría', icon: 'gamepad-2', category: 'Perfil', keywords: ['perfil', 'gamer', 'profile'], run: () => switchProfile('gamer') },
-    { id: 'action-profile-streamer', title: 'Perfil: Streamer', sub: 'Aplica tema Synthwave + widget multimedia', icon: 'radio', category: 'Perfil', keywords: ['perfil', 'streamer', 'profile'], run: () => switchProfile('streamer') },
-    { id: 'action-profile-studio', title: 'Perfil: Estudio', sub: 'Aplica tema Catppuccin + workspace 1', icon: 'terminal', category: 'Perfil', keywords: ['perfil', 'estudio', 'studio', 'dev'], run: () => switchProfile('studio') },
-    { id: 'action-theme-cyberpunk', title: 'Tema: Cyberpunk Neón', sub: 'Paleta cyan/rosa con alto contraste', icon: 'palette', category: 'Tema', keywords: ['tema', 'cyberpunk', 'neon', 'theme'], run: () => applyThemePreset('cyberpunk') },
-    { id: 'action-theme-catppuccin', title: 'Tema: Minimal Catppuccin', sub: 'Paleta pastel suave y relajante', icon: 'palette', category: 'Tema', keywords: ['tema', 'catppuccin', 'minimal', 'theme'], run: () => applyThemePreset('catppuccin') },
-    { id: 'action-theme-synthwave', title: 'Tema: Retro Synthwave', sub: 'Magenta brillante, estética 80s', icon: 'palette', category: 'Tema', keywords: ['tema', 'synthwave', 'retro', 'theme'], run: () => applyThemePreset('synthwave') },
-    { id: 'action-theme-stealth', title: 'Tema: Dark Stealth', sub: 'Carbón táctico, esmeralda de bajo consumo', icon: 'palette', category: 'Tema', keywords: ['tema', 'stealth', 'oscuro', 'dark', 'theme'], run: () => applyThemePreset('stealth') },
-    { id: 'action-theme-nord-arc', title: 'Tema: Nord Arc', sub: 'Acento cyan con fondo neutro oscuro', icon: 'palette', category: 'Tema', keywords: ['tema', 'nord', 'arc', 'theme', 'cyan'], run: () => applyThemePreset('nord-arc') },
-    { id: 'action-workspace-1', title: 'Ir al Space 1', sub: 'Cambiar al primer escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '1'], run: () => switchWorkspace(1) },
-    { id: 'action-workspace-2', title: 'Ir al Space 2', sub: 'Cambiar al segundo escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '2'], run: () => switchWorkspace(2) },
-    { id: 'action-workspace-3', title: 'Ir al Space 3', sub: 'Cambiar al tercer escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '3'], run: () => switchWorkspace(3) },
-    { id: 'action-workspace-4', title: 'Ir al Space 4', sub: 'Cambiar al cuarto escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '4'], run: () => switchWorkspace(4) },
-    { id: 'action-workspace-5', title: 'Ir al Space 5', sub: 'Cambiar al quinto escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '5'], run: () => switchWorkspace(5) },
-    { id: 'action-open-wm', title: 'Abrir Administrador de Escritorios', sub: 'Vista general de spaces y ventanas', icon: 'layout-grid', category: 'Acción', keywords: ['wm', 'window manager', 'administrador', 'escritorios'], run: () => openWindowManager() },
-    { id: 'action-open-settings-designer', title: 'Abrir Nebula Designer', sub: 'Personalizar colores, blur y bordes', icon: 'palette', category: 'Acción', keywords: ['designer', 'ajustes', 'settings', 'personalizar'], run: () => openSettingsTab('designer') },
-    { id: 'action-audio-panel', title: 'Abrir Panel de Audio', sub: 'Mezclador por aplicación, dispositivos y peak meter', icon: 'volume-2', category: 'Acción', keywords: ['audio', 'volumen', 'mezclador', 'mixer', 'sonido'], run: () => { if (typeof openAudioPanel === 'function') openAudioPanel(); } }
-  ];
-}
-
-function buildLauncherCommands() {
-  return [
-    { id: 'cmd-help', title: '> help', sub: 'Ver todos los comandos disponibles', icon: 'help-circle', category: 'Comando', keywords: ['help', 'ayuda', 'comandos'], run: () => showToast('Comandos disponibles', '> gamemode on/off · > wallpaper 0-2 · > workspace 1-5 · > theme <nombre> · > optimize · > close-all', 'terminal') },
-    { id: 'cmd-optimize', title: '> optimize', sub: 'Libera RAM y limpia cache', icon: 'sparkles', category: 'Comando', keywords: ['optimize', 'optimizar', 'ram'], run: () => simulateRamBoost() },
-    { id: 'cmd-close-all', title: '> close-all', sub: 'Cierra todas las ventanas abiertas', icon: 'x-circle', category: 'Comando', keywords: ['close-all', 'cerrar todo'], run: () => { Object.keys(openWindows).forEach(id => closeApp(id)); showToast('Ventanas cerradas', 'Todas las apps fueron cerradas.', 'x-circle'); } },
-    { id: 'cmd-gamemode-on', title: '> gamemode on', sub: 'Activa Modo Juego', icon: 'gamepad-2', category: 'Comando', keywords: ['gamemode on', 'modo juego on'], run: () => toggleGameMode(true) },
-    { id: 'cmd-gamemode-off', title: '> gamemode off', sub: 'Desactiva Modo Juego', icon: 'gamepad-2', category: 'Comando', keywords: ['gamemode off', 'modo juego off'], run: () => toggleGameMode(false) },
-    { id: 'cmd-wallpaper-0', title: '> wallpaper 0', sub: 'Fondo Nebula', icon: 'image', category: 'Comando', keywords: ['wallpaper 0', 'fondo nebula'], run: () => applyWallpaper(0) },
-    { id: 'cmd-wallpaper-1', title: '> wallpaper 1', sub: 'Fondo Aurora', icon: 'image', category: 'Comando', keywords: ['wallpaper 1', 'fondo aurora'], run: () => applyWallpaper(1) },
-    { id: 'cmd-wallpaper-2', title: '> wallpaper 2', sub: 'Fondo Solar', icon: 'image', category: 'Comando', keywords: ['wallpaper 2', 'fondo solar'], run: () => applyWallpaper(2) },
-    { id: 'cmd-workspace-1', title: '> workspace 1', sub: 'Ir al Space 1', icon: 'layout-grid', category: 'Comando', keywords: ['workspace 1', 'space 1'], run: () => switchWorkspace(1) },
-    { id: 'cmd-workspace-2', title: '> workspace 2', sub: 'Ir al Space 2', icon: 'layout-grid', category: 'Comando', keywords: ['workspace 2', 'space 2'], run: () => switchWorkspace(2) },
-    { id: 'cmd-workspace-3', title: '> workspace 3', sub: 'Ir al Space 3', icon: 'layout-grid', category: 'Comando', keywords: ['workspace 3', 'space 3'], run: () => switchWorkspace(3) },
-    { id: 'cmd-workspace-4', title: '> workspace 4', sub: 'Ir al Space 4', icon: 'layout-grid', category: 'Comando', keywords: ['workspace 4', 'space 4'], run: () => switchWorkspace(4) },
-    { id: 'cmd-workspace-5', title: '> workspace 5', sub: 'Ir al Space 5', icon: 'layout-grid', category: 'Comando', keywords: ['workspace 5', 'space 5'], run: () => switchWorkspace(5) },
-    { id: 'cmd-theme-cyberpunk', title: '> theme cyberpunk', sub: 'Aplicar tema Cyberpunk Neón', icon: 'palette', category: 'Comando', keywords: ['theme cyberpunk', 'tema cyberpunk'], run: () => applyThemePreset('cyberpunk') },
-    { id: 'cmd-theme-catppuccin', title: '> theme catppuccin', sub: 'Aplicar tema Minimal Catppuccin', icon: 'palette', category: 'Comando', keywords: ['theme catppuccin', 'tema catppuccin'], run: () => applyThemePreset('catppuccin') },
-    { id: 'cmd-theme-synthwave', title: '> theme synthwave', sub: 'Aplicar tema Retro Synthwave', icon: 'palette', category: 'Comando', keywords: ['theme synthwave', 'tema synthwave'], run: () => applyThemePreset('synthwave') },
-    { id: 'cmd-theme-stealth', title: '> theme stealth', sub: 'Aplicar tema Dark Stealth', icon: 'palette', category: 'Comando', keywords: ['theme stealth', 'tema stealth'], run: () => applyThemePreset('stealth') },
-    { id: 'cmd-theme-nord-arc', title: '> theme nord-arc', sub: 'Aplicar tema Nord Arc', icon: 'palette', category: 'Comando', keywords: ['theme nord', 'tema nord', 'nord arc'], run: () => applyThemePreset('nord-arc') },
-    { id: 'cmd-audio', title: '> audio', sub: 'Abrir el mezclador de audio', icon: 'volume-2', category: 'Comando', keywords: ['audio', 'mezclador', 'volumen', 'mixer'], run: () => { if (typeof openAudioPanel === 'function') openAudioPanel(); } },
-  ];
-}
-
-function searchCalendarNotes(query) {
-  const q = query.toLowerCase();
-  const results = [];
-
-  Object.keys(calendarState.notes).forEach(key => {
-    const notes = calendarState.notes[key];
-    if (!Array.isArray(notes)) return;
-    notes.forEach((noteText, idx) => {
-      if (noteText.toLowerCase().includes(q)) {
-        const [y, m, d] = key.split('-').map(Number);
-        results.push({
-          id: 'note-' + key + '-' + idx,
-          title: noteText,
-          sub: `Nota del ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`,
-          icon: 'notebook-pen',
-          category: 'Nota',
-          keywords: [noteText],
-          run: () => {
-            const cc = document.getElementById('control-center');
-            if (cc && cc.classList.contains('hidden')) cc.classList.remove('hidden');
-            calendarState.selectedDate = key;
-            const [yy, mm, dd] = key.split('-').map(Number);
-            selectCalendarDate(new Date(yy, mm - 1, dd));
-            renderNotesList();
-            showToast('Nota encontrada', `Del ${String(dd).padStart(2, '0')}/${String(mm).padStart(2, '0')}/${yy}`, 'notebook-pen');
-          }
-        });
-      }
-    });
-  });
-
-  return results;
-}
-
-function searchAppsAndActions(query) {
-  const q = query.toLowerCase().trim();
-  const results = [];
-
-  Object.keys(APPS).forEach(id => {
-    const app = APPS[id];
-    const haystack = (app.title + ' ' + app.sub + ' ' + id).toLowerCase();
-    if (!q || haystack.includes(q)) {
-      results.push({
-        id: 'app-' + id,
-        title: app.title,
-        sub: app.sub,
-        icon: app.icon,
-        image: app.image,
-        tileClass: app.tileClass,
-        category: 'App',
-        keywords: [app.title, app.sub, id],
-        run: () => openApp(id)
-      });
-    }
-  });
-
-  if (q) {
-    const actions = buildLauncherActions();
-    actions.forEach(action => {
-      const haystack = (action.title + ' ' + action.sub + ' ' + (action.keywords || []).join(' ')).toLowerCase();
-      if (haystack.includes(q)) {
-        results.push({
-          id: action.id,
-          title: action.title,
-          sub: action.sub,
-          icon: action.icon,
-          category: action.category,
-          keywords: action.keywords || [],
-          run: action.run
-        });
-      }
-    });
-  }
-
-  return results;
-}
-
-function renderLauncherResults(rawQuery) {
-  if (!launcherResults) return;
-  launcherResults.innerHTML = '';
-  launcherState.results = [];
-
-  const raw = (rawQuery || '').trim();
-  let mode = 'default';
-  let query = raw;
-
-  if (raw.startsWith('>')) { mode = 'command'; query = raw.slice(1).trim(); }
-  else if (raw.startsWith('?')) { mode = 'files'; query = raw.slice(1).trim(); }
-  else if (raw.startsWith('@')) { mode = 'notes'; query = raw.slice(1).trim(); }
-
-  let items = [];
-
-  if (mode === 'command') {
-    const commands = buildLauncherCommands();
-    if (!query) items = commands;
-    else items = commands.filter(c => {
-      const haystack = (c.title + ' ' + c.sub + ' ' + (c.keywords || []).join(' ')).toLowerCase();
-      return haystack.includes(query.toLowerCase());
-    });
-  } else if (mode === 'files') {
-    if (query) items = searchFilesInSystem(query).slice(0, 30);
-  } else if (mode === 'notes') {
-    if (query) items = searchCalendarNotes(query).slice(0, 20);
-  } else {
-    items = searchAppsAndActions(query);
-    const catWeight = { 'App': 0, 'Acción': 1, 'Perfil': 2, 'Tema': 3, 'Space': 4 };
-    items.sort((a, b) => {
-      const wa = catWeight[a.category] ?? 99;
-      const wb = catWeight[b.category] ?? 99;
-      if (wa !== wb) return wa - wb;
-      return a.title.localeCompare(b.title);
-    });
-  }
-
-  launcherState.results = items;
-  if (launcherState.selectedIndex >= items.length) {
-    launcherState.selectedIndex = Math.max(0, items.length - 1);
-  }
-
-  if (items.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'launcher-empty';
-    if (mode === 'files' && !query) empty.innerHTML = `<strong>Buscá en tu sistema</strong>Escribí algo después de <code>?</code> para buscar archivos, mods, música o fondos.`;
-    else if (mode === 'notes' && !query) empty.innerHTML = `<strong>Buscá en tus notas</strong>Escribí algo después de <code>@</code> para buscar en los recordatorios del calendario.`;
-    else if (mode === 'command' && !query) empty.innerHTML = `<strong>Comandos disponibles</strong>Escribí <code>&gt; help</code> para ver el listado completo.`;
-    else empty.innerHTML = `<strong>Sin resultados</strong>No encontramos nada que coincida con "<em>${escapeHtml(raw)}</em>".`;
-    launcherResults.appendChild(empty);
-    launcherResults.appendChild(buildLauncherHint(mode));
-  } else {
-    items.forEach((item, index) => {
-      const res = document.createElement('div');
-      res.className = 'result' + (index === launcherState.selectedIndex ? ' selected' : '');
-      res.dataset.resultIndex = String(index);
-
-      const iconHTML = item.image
-        ? `<div class="app-tile ${item.tileClass || ''}"><img src="${item.image}" alt="${escapeHtml(item.title)}" class="app-tile-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" /><i data-lucide="${item.icon}" style="display:none;"></i></div>`
-        : `<div class="app-tile ${item.tileClass || ''}" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12);"><i data-lucide="${item.icon}"></i></div>`;
-
-      res.innerHTML = `${iconHTML}<div class="meta"><div class="title">${escapeHtml(item.title)}</div><div class="sub">${escapeHtml(item.sub)}</div></div>`;
-
-      res.addEventListener('click', (e) => {
-        e.stopPropagation();
-        launcherState.selectedIndex = index;
-        executeLauncherItem(item);
-      });
-      res.addEventListener('mouseenter', () => {
-        launcherState.selectedIndex = index;
-        updateLauncherSelection();
-      });
-
-      launcherResults.appendChild(res);
-    });
-    launcherResults.appendChild(buildLauncherHint(mode));
-  }
-
-  refreshIcons();
-
-  const selectedEl = launcherResults.querySelector(`.result[data-result-index="${launcherState.selectedIndex}"]`);
-  if (selectedEl) selectedEl.scrollIntoView({ block: 'nearest' });
-}
-
-function buildLauncherHint(mode) {
-  const hint = document.createElement('div');
-  hint.className = 'launcher-hint';
-  hint.innerHTML = `
-    <span class="launcher-hint-item${mode === 'command' ? ' active' : ''}"><kbd>&gt;</kbd><span class="hint-label">Comandos</span></span>
-    <span class="launcher-hint-item${mode === 'files' ? ' active' : ''}"><kbd>?</kbd><span class="hint-label">Archivos</span></span>
-    <span class="launcher-hint-item${mode === 'notes' ? ' active' : ''}"><kbd>@</kbd><span class="hint-label">Notas</span></span>
-  `;
-  return hint;
-}
-
-function updateLauncherSelection() {
-  if (!launcherResults) return;
-  launcherResults.querySelectorAll('.result').forEach(el => {
-    const idx = parseInt(el.dataset.resultIndex, 10);
-    el.classList.toggle('selected', idx === launcherState.selectedIndex);
-  });
-  const selectedEl = launcherResults.querySelector(`.result[data-result-index="${launcherState.selectedIndex}"]`);
-  if (selectedEl) selectedEl.scrollIntoView({ block: 'nearest' });
-}
-
-function executeLauncherItem(item) {
-  if (!item || typeof item.run !== 'function') return;
-  closeLauncher();
-  setTimeout(() => {
-    try { item.run(); } catch (e) {}
-  }, 80);
-}
-
-function handleLauncherKeydown(e) {
-  if (!launcherState.results || launcherState.results.length === 0) return;
-
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    launcherState.selectedIndex = (launcherState.selectedIndex + 1) % launcherState.results.length;
-    updateLauncherSelection();
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    launcherState.selectedIndex = (launcherState.selectedIndex - 1 + launcherState.results.length) % launcherState.results.length;
-    updateLauncherSelection();
-  } else if (e.key === 'Enter') {
-    e.preventDefault();
-    const item = launcherState.results[launcherState.selectedIndex];
-    if (item) executeLauncherItem(item);
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ CONTEXT MENU DEL ESCRITORIO
-═══════════════════════════════════════════════════════════════ */
-
-const contextMenu = document.getElementById('context-menu');
-
-function showContextMenu(x, y) {
-  if (!contextMenu) return;
-  contextMenu.classList.add('open');
-  contextMenu.style.left = `${Math.min(x, window.innerWidth - contextMenu.offsetWidth - 12)}px`;
-  contextMenu.style.top = `${Math.min(y, window.innerHeight - contextMenu.offsetHeight - 12)}px`;
-  refreshIcons();
-}
-
-function hideContextMenu() {
-  if (contextMenu) contextMenu.classList.remove('open');
-}
-
-function openContextApp(id) {
-  hideContextMenu();
-  openApp(id);
-}
-
-function openSettingsTab(tab) {
-  openApp('settings');
-  settingsState.activeSettingsTab = tab;
-  renderSettingsApp();
-  hideContextMenu();
-}
-
-function cycleWallpaper() {
-  applyWallpaper((currentWallpaperIndex + 1) % WALLPAPERS.length);
-  hideContextMenu();
-}
-
-function refreshDesktop() {
-  const background = document.getElementById('background-layer');
-  if (background) {
-    background.innerHTML = '';
-    createStars();
-  }
-  hideContextMenu();
-  showToast('Escritorio Actualizado', 'Vista y widgets recargados.', 'refresh-cw');
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ CONTROL CENTER / QUICK CENTER
-═══════════════════════════════════════════════════════════════ */
-
-function closeControlCenter() {
-  const cc = document.getElementById('control-center');
-  if (!cc || cc.classList.contains('hidden')) return;
-  cc.classList.add('hidden');
-  resetCalendarToToday();
-}
-
-function closeQuickCenter() {
-  const qc = document.getElementById('quick-center');
-  if (!qc) return;
-  qc.classList.add('hidden');
-  updateToastPosition();
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ NOTIFICATION CENTER (Overlay)
-═══════════════════════════════════════════════════════════════ */
-
-function openNotificationCenter() {
-  const panel = document.getElementById('notification-center');
-  if (!panel) return;
-
-  closeQuickCenter();
-  closeControlCenter();
-
-  panel.classList.remove('hidden');
-  renderNotificationCenter();
-
-  setTimeout(() => {
-    markAllNotificationsAsRead();
-  }, 300);
-}
-
-function closeNotificationCenter() {
-  const panel = document.getElementById('notification-center');
-  if (!panel) return;
-  panel.classList.add('hidden');
-}
-
-function toggleNotificationCenter() {
-  const panel = document.getElementById('notification-center');
-  if (!panel) return;
-  if (panel.classList.contains('hidden')) {
-    openNotificationCenter();
-  } else {
-    closeNotificationCenter();
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ NEBULA STORE — Overlay
-═══════════════════════════════════════════════════════════════ */
-
-function openStore() {
-  const overlay = document.getElementById('store-overlay');
-  if (!overlay) return;
-
-  overlay.classList.remove('hidden');
-  renderStore();
-
-  // ─── Categorías ───
-  const cats = document.getElementById('store-categories');
-  if (cats) {
-    cats.querySelectorAll('.store-cat-btn').forEach(btn => {
-      btn.onclick = () => {
-        storeFilter = btn.dataset.cat || 'all';
-        renderStore();
-      };
-    });
-  }
-
-  // ─── Búsqueda ───
-  const searchInput = document.getElementById('store-search-input');
-  if (searchInput && !searchInput.dataset.bound) {
-    searchInput.dataset.bound = '1';
-    searchInput.addEventListener('input', (e) => {
-      storeSearchQuery = e.target.value;
-      renderStore();
-    });
-  }
-
-  // ─── Filtro "Solo instalados" ───
-  const installedToggle = document.getElementById('store-installed-toggle');
-  if (installedToggle && !installedToggle.dataset.bound) {
-    installedToggle.dataset.bound = '1';
-    installedToggle.addEventListener('click', () => {
-      storeShowInstalledOnly = !storeShowInstalledOnly;
-      renderStore();
-    });
-  }
-
-  // ─── Botón cerrar ───
-  const closeBtn = document.getElementById('store-close-btn');
-  if (closeBtn && !closeBtn.dataset.bound) {
-    closeBtn.dataset.bound = '1';
-    closeBtn.addEventListener('click', closeStore);
-  }
-
-  // ─── Click en el fondo del overlay → cerrar ───
-  if (!overlay.dataset.bound) {
-    overlay.dataset.bound = '1';
-    overlay.addEventListener('mousedown', (e) => {
-      if (e.target === overlay) closeStore();
-    });
-  }
-
-  refreshIcons();
-}
-
-function closeStore() {
-  const overlay = document.getElementById('store-overlay');
-  if (!overlay) return;
-  overlay.classList.add('hidden');
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ WIFI PANEL — Overlay
-═══════════════════════════════════════════════════════════════ */
-
-function openWifiPanel() {
-  const panel = document.getElementById('wifi-panel');
-  if (!panel) return;
-  closeQuickCenter();
-  closeControlCenter();
-  closeNotificationCenter();
-  closeBluetoothPanel();
-  if (typeof closeAudioPanel === 'function') closeAudioPanel();
-  panel.classList.remove('hidden');
-  renderWifiPanel();
-  refreshIcons();
-  if (wifiEnabled && !connectedWifiId) {
-    rescanWifiNetworks();
-  }
-}
-
-function closeWifiPanel() {
-  const panel = document.getElementById('wifi-panel');
-  if (!panel) return;
-  panel.classList.add('hidden');
-}
-
-function toggleWifiPanel() {
-  const panel = document.getElementById('wifi-panel');
-  if (!panel) return;
-  if (panel.classList.contains('hidden')) openWifiPanel();
-  else closeWifiPanel();
-}
-
-function renderWifiPanel() {
-  const body = document.getElementById('wifi-panel-body');
-  const footer = document.getElementById('wifi-panel-footer');
-  const subtitle = document.getElementById('wifi-panel-subtitle');
-
-  if (!body) return;
-
-  // 1) Si WiFi está apagado → mostrar estado vacío
-  if (!wifiEnabled) {
-    body.innerHTML = `
-      <div class="network-empty-state">
-        <div class="network-empty-icon"><i data-lucide="wifi-off"></i></div>
-        <strong>WiFi está desactivado</strong>
-        <small>Activá WiFi para ver las redes disponibles en tu zona.</small>
-      </div>
-    `;
-    if (subtitle) subtitle.textContent = 'WiFi desactivado';
-    if (footer) footer.hidden = true;
-    refreshIcons();
-    return;
-  }
-
-  // 2) WiFi prendido → asegurar estructura
-  let list = document.getElementById('wifi-networks-list');
-  let loading = document.getElementById('wifi-loading');
-  if (!list) {
-    body.innerHTML = `
-      <div class="network-loading" id="wifi-loading" hidden>
-        <i data-lucide="loader-circle" class="network-spinner"></i>
-        <span>Escaneando redes...</span>
-      </div>
-      <div class="network-list" id="wifi-networks-list"></div>
-    `;
-    list = document.getElementById('wifi-networks-list');
-    loading = document.getElementById('wifi-loading');
-  }
-
-  if (!list) return;
-  if (footer) footer.hidden = false;
-
-  // 3) Si está escaneando
-  if (wifiScanInProgress) {
-    if (loading) loading.hidden = false;
-    list.innerHTML = '';
-    if (subtitle) subtitle.textContent = 'Escaneando redes...';
-    refreshIcons();
-    return;
-  }
-
-  // 4) Renderizar lista
-  if (loading) loading.hidden = true;
-
-  const sorted = [...WIFI_NETWORKS].sort((a, b) => {
-    if (connectedWifiId === a.id) return -1;
-    if (connectedWifiId === b.id) return 1;
-    return b.signal - a.signal;
-  });
-
-  list.innerHTML = sorted.map(getWifiNetworkHTML).join('');
-
-  if (subtitle) {
-    const count = WIFI_NETWORKS.length;
-    subtitle.textContent = connectedWifiId
-      ? `Conectada a ${getWifiNetworkById(connectedWifiId)?.ssid || '—'}`
-      : `${count} red${count === 1 ? '' : 'es'} disponible${count === 1 ? '' : 's'}`;
-  }
-
-  refreshIcons();
-}
-
-function getWifiNetworkHTML(network) {
-  const isConnected = connectedWifiId === network.id;
-  const isWeak = network.signal <= 1;
-  const signalBarsHTML = [1, 2, 3, 4].map(i =>
-    `<span class="${i <= network.signal ? 'on' : ''}"></span>`
-  ).join('');
-
-  const securityIcon = getWifiSecurityIcon(network.security);
-  const isOpen = network.security === 'open';
-
-  let actionHTML = '';
-  if (isConnected) {
-    actionHTML = `
-      <button class="network-connect-btn disconnect" type="button" onclick="event.stopPropagation(); disconnectWifi()">
-        Desconectar
-      </button>
-    `;
-  } else {
-    actionHTML = `
-      <button class="network-connect-btn" type="button" onclick="event.stopPropagation(); connectToWifi('${network.id}')">
-        Conectar
-      </button>
-    `;
-  }
-
-  let passwordHTML = '';
-  if (isConnected && wifiPasswordVisible === network.id && network.password) {
-    passwordHTML = `
-      <div class="network-password-row">
-        <span>${escapeHtml(network.password)}</span>
-        <button class="network-item-btn" type="button" title="Copiar contraseña" onclick="event.stopPropagation(); copyWifiPassword('${network.id}')">
-          <i data-lucide="copy"></i>
-        </button>
-      </div>
-    `;
-  }
-
-  const actionBtnsHTML = isConnected ? `
-    <button class="network-item-btn" type="button" title="${wifiPasswordVisible === network.id ? 'Ocultar contraseña' : 'Ver contraseña'}"
-            onclick="event.stopPropagation(); toggleWifiPassword('${network.id}')">
-      <i data-lucide="${wifiPasswordVisible === network.id ? 'eye-off' : 'eye'}"></i>
-    </button>
-    <button class="network-item-btn danger" type="button" title="Olvidar red"
-            onclick="event.stopPropagation(); forgetWifi('${network.id}')">
-      <i data-lucide="trash-2"></i>
-    </button>
-  ` : '';
-
-  return `
-    <div class="network-item ${isConnected ? 'connected' : ''} ${isWeak ? 'weak-signal' : ''}"
-         data-wifi-id="${network.id}"
-         onclick="connectToWifi('${network.id}')">
-      <div class="network-item-icon">
-        <i data-lucide="wifi"></i>
-      </div>
-      <div class="network-item-meta">
-        <div class="network-item-title">
-          ${escapeHtml(network.ssid)}
-          ${!isOpen ? `<i data-lucide="${securityIcon}" class="network-lock-icon"></i>` : ''}
-        </div>
-        <div class="network-item-sub">
-          ${isConnected ? 'Conectada · ' + network.frequency : getWifiSecurityLabel(network.security) + ' · ' + network.frequency}
-        </div>
-      </div>
-      <div class="network-signal-bars" title="Señal: ${network.signal}/4">
-        ${signalBarsHTML}
-      </div>
-      <div class="network-item-actions">
-        ${actionBtnsHTML}
-        ${actionHTML}
-      </div>
-    </div>
-    ${passwordHTML}
-  `;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ BLUETOOTH PANEL — Overlay
-═══════════════════════════════════════════════════════════════ */
-
-function openBluetoothPanel() {
-  const panel = document.getElementById('bluetooth-panel');
-  if (!panel) return;
-  closeQuickCenter();
-  closeControlCenter();
-  closeNotificationCenter();
-  closeWifiPanel();
-  panel.classList.remove('hidden');
-  renderBluetoothPanel();
-  refreshIcons();
-  if (bluetoothEnabled) {
-    rescanBluetoothDevices();
-  }
-}
-
-function closeBluetoothPanel() {
-  const panel = document.getElementById('bluetooth-panel');
-  if (!panel) return;
-  panel.classList.add('hidden');
-}
-
-function toggleBluetoothPanel() {
-  const panel = document.getElementById('bluetooth-panel');
-  if (!panel) return;
-  if (panel.classList.contains('hidden')) openBluetoothPanel();
-  else closeBluetoothPanel();
-}
-
-function renderBluetoothPanel() {
-  const empty = document.getElementById('bt-empty-state');
-  const content = document.getElementById('bt-panel-content');
-  const pairedList = document.getElementById('bt-paired-list');
-  const availableList = document.getElementById('bt-available-list');
-  const subtitle = document.getElementById('bt-panel-subtitle');
-  const footer = document.getElementById('bt-panel-footer');
-  if (!content) return;
-
-  if (!bluetoothEnabled) {
-    if (empty) empty.hidden = false;
-    content.hidden = true;
-    if (footer) footer.hidden = true;
-    if (subtitle) subtitle.textContent = 'Bluetooth desactivado';
-    refreshIcons();
-    return;
-  }
-
-  if (empty) empty.hidden = true;
-  content.hidden = false;
-  if (footer) footer.hidden = false;
-
-  const paired = BLUETOOTH_DEVICES.filter(d => d.paired);
-  const available = BLUETOOTH_DEVICES.filter(d => !d.paired);
-
-  if (pairedList) {
-    pairedList.innerHTML = paired.length
-      ? paired.map(d => getBluetoothDeviceHTML(d, 'paired')).join('')
-      : `<div class="network-empty-state" style="padding:20px 12px;"><small>No hay dispositivos emparejados.</small></div>`;
-  }
-
-  if (availableList) {
-    if (btScanInProgress) {
-      availableList.innerHTML = `
-        <div class="network-loading">
-          <i data-lucide="loader-circle" class="network-spinner"></i>
-          <span>Buscando dispositivos...</span>
-        </div>
-      `;
-    } else {
-      availableList.innerHTML = available.length
-        ? available.map(d => getBluetoothDeviceHTML(d, 'available')).join('')
-        : `<div class="network-empty-state" style="padding:20px 12px;"><small>No se encontraron dispositivos nuevos.</small></div>`;
-    }
-  }
-
-  if (subtitle) {
-    const connectedCount = BLUETOOTH_DEVICES.filter(d => d.connected).length;
-    subtitle.textContent = connectedCount > 0
-      ? `${connectedCount} dispositivo${connectedCount === 1 ? '' : 's'} conectado${connectedCount === 1 ? '' : 's'}`
-      : `${paired.length} emparejado${paired.length === 1 ? '' : 's'}`;
-  }
-
-  refreshIcons();
-}
-
-function getBluetoothDeviceHTML(device, mode = 'paired') {
-  const isConnected = device.connected;
-  const batteryClass = getBatteryClass(device.battery);
-
-  const iconHTML = `<i data-lucide="${device.icon}"></i>`;
-
-  const batteryHTML = (device.paired && device.battery > 0) ? `
-    <div class="network-battery ${batteryClass}" title="Batería: ${device.battery}%">
-      <div class="network-battery-bar">
-        <span class="network-battery-fill" style="width: ${device.battery}%;"></span>
-      </div>
-      <span>${device.battery}%</span>
-    </div>
-  ` : '';
-
-  let actionHTML = '';
-  if (mode === 'paired') {
-    if (isConnected) {
-      actionHTML = `
-        <button class="network-connect-btn disconnect" type="button"
-                onclick="event.stopPropagation(); disconnectBluetoothDevice('${device.id}')">
-          Desconectar
-        </button>
-      `;
-    } else {
-      actionHTML = `
-        <button class="network-connect-btn" type="button"
-                onclick="event.stopPropagation(); connectBluetoothDevice('${device.id}')">
-          Conectar
-        </button>
-      `;
-    }
-  } else {
-    actionHTML = `
-      <button class="network-connect-btn" type="button"
-              onclick="event.stopPropagation(); pairBluetoothDevice('${device.id}')">
-        Emparejar
-      </button>
-    `;
-  }
-
-  const forgetBtn = (mode === 'paired' && !isConnected) ? `
-    <button class="network-item-btn danger" type="button" title="Olvidar dispositivo"
-            onclick="event.stopPropagation(); forgetBluetoothDevice('${device.id}')">
-      <i data-lucide="trash-2"></i>
-    </button>
-  ` : '';
-
-  return `
-    <div class="network-item ${isConnected ? 'connected' : ''}" data-bt-id="${device.id}">
-      <div class="network-item-icon">${iconHTML}</div>
-      <div class="network-item-meta">
-        <div class="network-item-title">${escapeHtml(device.name)}</div>
-        <div class="network-item-sub">
-          ${isConnected ? 'Conectado' : (mode === 'paired' ? 'Emparejado' : 'Dispositivo cercano')}
-          ${batteryHTML ? ' · ' : ''}
-          ${batteryHTML}
-        </div>
-      </div>
-      <div class="network-item-actions">
-        ${forgetBtn}
-        ${actionHTML}
-      </div>
-    </div>
-  `;
-}
-
-function openNetworkSettings() {
-  closeWifiPanel();
-  openApp('settings');
-  settingsState.activeSettingsTab = 'system';
-  renderSettingsApp();
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ FILES: Context Menu + Rename Modal + Move Menu
-═══════════════════════════════════════════════════════════════ */
-
-function ensureFsContextMenu() {
-  if (fsContextMenuEl) return fsContextMenuEl;
-  const el = document.createElement('div');
-  el.className = 'fs-context-menu';
-  document.body.appendChild(el);
-  fsContextMenuEl = el;
-  return el;
-}
-
-function hideFsContextMenu() {
-  if (fsContextMenuEl) {
-    fsContextMenuEl.classList.remove('open');
-    setTimeout(() => {
-      if (fsContextMenuEl) fsContextMenuEl.innerHTML = '';
-    }, 160);
-  }
-}
-
-function hideAllFsMoveMenus() {
-  document.querySelectorAll('.fs-context-menu').forEach(el => {
-    if (el === fsContextMenuEl) {
-      el.classList.remove('open');
-      setTimeout(() => { if (el) el.innerHTML = ''; }, 160);
-    } else {
-      el.remove();
-    }
-  });
-}
-
-function showFsContextMenu(ev, panel, targetItem, win) {
-  ev.preventDefault();
-  ev.stopPropagation();
-
-  const state = getFsPanelState(panel);
-
-  const menu = ensureFsContextMenu();
-  menu.innerHTML = '';
-
-  const isMulti = state.selected.size > 1;
-  const itemsCount = state.selected.size;
-
-  if (targetItem && !isMulti) {
-    const icon = targetItem.type === 'folder' ? 'folder' : targetItem.type === 'image' ? 'image' : targetItem.type === 'audio' ? 'music' : 'file-text';
-    const header = document.createElement('div');
-    header.className = 'fs-ctx-header';
-    header.innerHTML = `
-      <div class="fs-ctx-header-icon">
-        ${targetItem.type === 'image' && targetItem.path ? `<img src="${escapeHtml(targetItem.path)}" alt="" onerror="this.style.display='none';this.parentElement.innerHTML='<i data-lucide=\\'${icon}\\'></i>';" />` : `<i data-lucide="${icon}"></i>`}
-      </div>
-      <div class="fs-ctx-header-meta">
-        <div class="fs-ctx-header-title">${escapeHtml(targetItem.label || targetItem.name)}</div>
-        <div class="fs-ctx-header-sub">${targetItem.type === 'folder' ? 'Carpeta' : (targetItem.size || 'Archivo')}</div>
-      </div>
-    `;
-    menu.appendChild(header);
-  }
-
-  const appendItem = (opts) => {
-    const btn = document.createElement('button');
-    btn.className = 'fs-ctx-item' + (opts.danger ? ' danger' : '');
-    btn.type = 'button';
-    btn.innerHTML = `
-      <span class="fs-ctx-icon"><i data-lucide="${opts.icon}"></i></span>
-      <span class="fs-ctx-label">${escapeHtml(opts.label)}</span>
-      ${opts.shortcut ? `<span class="fs-ctx-shortcut">${escapeHtml(opts.shortcut)}</span>` : ''}
-    `;
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      hideFsContextMenu();
-      opts.action();
-    });
-    menu.appendChild(btn);
-  };
-
-  const appendSep = () => {
-    const sep = document.createElement('div');
-    sep.className = 'fs-ctx-sep';
-    menu.appendChild(sep);
-  };
-
-  if (targetItem && !isMulti) {
-    if (targetItem.type === 'folder') {
-      appendItem({
-        icon: 'folder-open',
-        label: 'Abrir carpeta',
-        action: () => fsOpenFolder(panel, targetItem)
-      });
-    } else if (targetItem.type === 'image') {
-      appendItem({
-        icon: 'image',
-        label: 'Establecer como fondo',
-        action: () => setCustomWallpaperFromFile(targetItem.path)
-      });
-    } else if (targetItem.type === 'audio') {
-      appendItem({
-        icon: 'play',
-        label: 'Reproducir',
-        action: () => SpotifyApp.togglePlayPause()
-      });
-    }
-
-    appendItem({
-      icon: 'pencil',
-      label: 'Renombrar',
-      shortcut: 'F2',
-      action: () => fsPromptRename(panel, targetItem)
-    });
-
-    appendSep();
-  }
-
-  const moveLabel = isMulti ? `Mover ${itemsCount} elementos a...` : 'Mover a...';
-  appendItem({
-    icon: 'folder-input',
-    label: moveLabel,
-    action: () => fsPromptMove(panel, isMulti ? Array.from(state.selected) : [targetItem])
-  });
-
-  if (targetItem && !isMulti) {
-    appendItem({
-      icon: 'check-square',
-      label: 'Seleccionar',
-      action: () => {
-        state.selected.clear();
-        state.selected.add(targetItem);
-        fsRefresh(panel);
-      }
-    });
-  }
-
-  if (itemsCount > 0) {
-    appendSep();
-    appendItem({
-      icon: 'trash-2',
-      label: isMulti ? `Eliminar ${itemsCount} elementos` : 'Eliminar',
-      shortcut: 'Supr',
-      danger: true,
-      action: () => fsDeleteSelection(panel)
-    });
-  }
-
-  appendSep();
-  appendItem({
-    icon: 'folder-plus',
-    label: 'Nueva carpeta aquí',
-    action: () => fsCreateFolder(panel)
-  });
-  appendItem({
-    icon: 'file-plus',
-    label: 'Nuevo archivo de texto',
-    action: () => fsCreateFile(panel)
-  });
-
-  menu.classList.add('open');
-  refreshIcons();
-
-  const rect = menu.getBoundingClientRect();
-  const margin = 10;
-  let left = ev.clientX;
-  let top = ev.clientY;
-  if (left + rect.width + margin > window.innerWidth) left = window.innerWidth - rect.width - margin;
-  if (top + rect.height + margin > window.innerHeight) top = window.innerHeight - rect.height - margin;
-  left = Math.max(margin, left);
-  top = Math.max(margin, top);
-  menu.style.left = `${left}px`;
-  menu.style.top = `${top}px`;
-}
-
-function ensureFsRenameModal() {
-  if (fsRenameModalEl) return fsRenameModalEl;
-  const modal = document.createElement('div');
-  modal.className = 'fs-rename-modal';
-  modal.innerHTML = `
-    <div class="fs-rename-dialog">
-      <div class="fs-rename-header">
-        <div class="fs-rename-icon"><i data-lucide="pencil"></i></div>
-        <div>
-          <strong id="fs-rename-title">Renombrar</strong>
-          <small id="fs-rename-sub">Escribí el nuevo nombre</small>
-        </div>
-      </div>
-      <input class="fs-rename-input" id="fs-rename-input" type="text" maxlength="120" autocomplete="off">
-      <div class="fs-rename-actions">
-        <button class="fs-rename-btn" id="fs-rename-cancel" type="button">Cancelar</button>
-        <button class="fs-rename-btn primary" id="fs-rename-confirm" type="button">Confirmar</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-  fsRenameModalEl = modal;
-
-  const input = modal.querySelector('#fs-rename-input');
-  const cancel = modal.querySelector('#fs-rename-cancel');
-  const confirm = modal.querySelector('#fs-rename-confirm');
-
-  cancel.onclick = () => closeFsRenameModal();
-
-  modal.onmousedown = (e) => {
-    if (e.target === modal) closeFsRenameModal();
-  };
-
-  confirm.onclick = () => {
-    const value = input.value.trim();
-    const cb = fsRenameCallback;
-    if (typeof cb === 'function') {
-      const ok = cb(value);
-      if (ok !== false) closeFsRenameModal();
-    } else {
-      closeFsRenameModal();
-    }
-  };
-
-  input.addEventListener('keydown', (e) => {
-    e.stopPropagation();
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      confirm.click();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      closeFsRenameModal();
-    }
-  });
-  input.addEventListener('keyup', (e) => e.stopPropagation());
-  input.addEventListener('keypress', (e) => e.stopPropagation());
-
-  refreshIcons();
-  return modal;
-}
-
-function openFsRenameModal(opts) {
-  const { title = 'Renombrar', sub = 'Escribí el nuevo nombre', initial = '', onConfirm } = opts || {};
-  const modal = ensureFsRenameModal();
-  modal.querySelector('#fs-rename-title').textContent = title;
-  modal.querySelector('#fs-rename-sub').textContent = sub;
-  const input = modal.querySelector('#fs-rename-input');
-  input.value = initial;
-  fsRenameCallback = onConfirm;
-
-  modal.classList.add('open');
-  setTimeout(() => {
-    input.focus();
-    input.select();
-  }, 60);
-}
-
-function closeFsRenameModal() {
-  if (fsRenameModalEl) fsRenameModalEl.classList.remove('open');
-  fsRenameCallback = null;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ WEATHER: City Dropdown
-═══════════════════════════════════════════════════════════════ */
-
-function closeAllCityDropdowns() {
-  document.querySelectorAll('.weather-city-dropdown.open').forEach(d => {
-    d.classList.remove('open');
-    setTimeout(() => d.remove(), 180);
-  });
-}
-
-function buildCitySelectorHTML(widgetId, activeCityId) {
-  return WEATHER_CITIES.map(city => `
-    <button class="weather-city-option ${city.id === activeCityId ? 'active' : ''}"
-            type="button"
-            data-city-option="${city.id}"
-            data-widget-target="${widgetId}">
-      <span class="weather-city-option-name">${city.name}</span>
-      <span class="weather-city-option-region">${city.region}</span>
-      ${city.id === activeCityId ? '<i data-lucide="check" class="weather-city-option-check"></i>' : ''}
-    </button>
-  `).join('');
-}
-
-function openCityDropdown(widgetId, anchorEl) {
-  closeAllCityDropdowns();
-  const widget = desktopWidgets.find(w => w.id === widgetId);
-  if (!widget) return;
-
-  const dropdown = document.createElement('div');
-  dropdown.className = 'weather-city-dropdown';
-  dropdown.dataset.widgetId = widgetId;
-  dropdown.innerHTML = `
-    <div class="weather-city-dropdown-header">
-      <i data-lucide="map-pin"></i>
-      <span>Elegir ciudad</span>
-    </div>
-    <div class="weather-city-dropdown-list">
-      ${buildCitySelectorHTML(widgetId, widget.cityId || DEFAULT_WEATHER_CITY_ID)}
-    </div>
-  `;
-  document.body.appendChild(dropdown);
-
-  const rect = anchorEl.getBoundingClientRect();
-  const ddRect = dropdown.getBoundingClientRect();
-  let left = rect.left;
-  let top = rect.bottom + 6;
-
-  if (left + ddRect.width + 10 > window.innerWidth) {
-    left = window.innerWidth - ddRect.width - 10;
-  }
-  if (top + ddRect.height + 10 > window.innerHeight) {
-    top = rect.top - ddRect.height - 6;
-  }
-  left = Math.max(10, left);
-  top = Math.max(10, top);
-
-  dropdown.style.left = `${left}px`;
-  dropdown.style.top = `${top}px`;
-
-  dropdown.querySelectorAll('[data-city-option]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const cityId = btn.dataset.cityOption;
-      selectCityForWidget(widgetId, cityId);
-      closeAllCityDropdowns();
-    });
-  });
-
-  requestAnimationFrame(() => dropdown.classList.add('open'));
-  refreshIcons();
-}
-
-async function selectCityForWidget(widgetId, cityId) {
-  const widget = desktopWidgets.find(w => w.id === widgetId);
-  if (!widget) return;
-  if (widget.cityId === cityId) return;
-
-  widget.cityId = cityId;
-  saveDesktopWidgets();
-
-  const el = document.getElementById(widgetId);
-  if (!el) return;
-
-  const body = el.querySelector('.weather-body');
-  if (body) {
-    const iconWrap = body.querySelector('.weather-icon-wrap');
-    if (iconWrap) {
-      iconWrap.innerHTML = '<i data-lucide="loader-circle" class="weather-spinner"></i>';
-      iconWrap.style.color = 'var(--accent)';
-    }
-  }
-  refreshIcons();
-
-  const result = await fetchWeatherForCity(cityId, { force: false });
-  const data = result.ok ? result.data : null;
-
-  const body2 = el.querySelector('.weather-body');
-  if (body2) {
-    body2.outerHTML = renderWeatherWidgetHTML(widget, data);
-  }
-
-  refreshIcons();
-  attachWeatherWidgetListeners(widget.id);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ DELEGATED HANDLER: Manejo de errores de imagen
-═══════════════════════════════════════════════════════════════ */
-
-function handleImageError(e) {
-  if (!(e.target instanceof HTMLImageElement)) return;
-  e.target.classList.add('img-broken');
-}
-/* ═══════════════════════════════════════════════════════════════
-   ★ PARTE 7/12 — WIDGETS + NOTIFICACIONES + TOASTS
-   ═══════════════════════════════════════════════════════════════ */
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ WIDGETS DE ESCRITORIO — CRUD
-═══════════════════════════════════════════════════════════════ */
-
-function addDesktopWidget(type, x = null, y = null) {
-  const allowsMultiple = (type === 'weather');
-
-  if (!allowsMultiple) {
-    const existing = desktopWidgets.find(w => w.type === type);
-    if (existing) {
-      showToast('Widget Existente', `El widget de ${type} ya está en el escritorio.`, 'info');
-      return;
-    }
-  }
-
-  const id = 'widget-' + type + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-  const defaultPositions = {
-    clock:         { x: 24, y: 60 },
-    'gaming-hub':  { x: window.innerWidth - 400, y: 60 },
-    weather:       { x: window.innerWidth - 280, y: 60 },
-    'now-playing': { x: 24, y: 320 }
-  };
-
-  const offsetIndex = allowsMultiple ? desktopWidgets.filter(w => w.type === type).length : 0;
-  const baseX = x !== null ? x : (defaultPositions[type]?.x || 40);
-  const baseY = y !== null ? y : (defaultPositions[type]?.y || 90);
-
-  const posX = baseX + (offsetIndex * 30);
-  const posY = baseY + (offsetIndex * 30);
-
-  const widgetData = { id, type, x: posX, y: posY };
-
-  if (type === 'weather') {
-    widgetData.cityId = DEFAULT_WEATHER_CITY_ID;
-  }
-
-  desktopWidgets.push(widgetData);
-  saveDesktopWidgets();
-  renderDesktopWidgets();
-
-  const label = type === 'weather' ? 'Clima' : type === 'clock' ? 'Reloj' : type;
-  showToast('Widget Añadido', `Widget de ${label} colocado en el escritorio.`, 'plus');
-  hideContextMenu();
-}
-
-function removeDesktopWidget(id) {
-  const el = document.getElementById(id);
-  if (el) detachNowPlayingWidgetListeners(el);
-
-  desktopWidgets = desktopWidgets.filter(w => w.id !== id);
-  saveDesktopWidgets();
-  renderDesktopWidgets();
-}
-
-function clearDesktopWidgets() {
-  desktopWidgets = [];
-  saveDesktopWidgets();
-  renderDesktopWidgets();
-  showToast('Widgets Limpiados', 'Se retiraron todos los widgets del escritorio.', 'trash-2');
-  hideContextMenu();
-}
-
-function saveDesktopWidgets() {
-  try {
-    localStorage.setItem(WIDGETS_STORAGE_KEY, JSON.stringify(desktopWidgets));
-  } catch (e) {}
-}
-
-function renderDesktopWidgets() {
-  const layer = document.getElementById('desktop-widgets-layer');
-  if (!layer) return;
-  layer.innerHTML = '';
-
-  const validTypes = new Set(['clock', 'weather', 'gaming-hub', 'now-playing', 'system-monitor-pro', 'music-visualizer']);
-  desktopWidgets = desktopWidgets.filter(w => validTypes.has(w.type));
-
-  desktopWidgets.forEach(widget => {
-    const el = document.createElement('div');
-    el.className = 'desktop-widget';
-    el.id = widget.id;
-    el.style.left = `${widget.x}px`;
-    el.style.top = `${widget.y}px`;
-
-    let bodyHTML = '';
-    let title = '';
-    let iconName = 'activity';
-    let extraClass = '';
-
-    if (widget.type === 'clock') {
-      title = 'RELOJ DIGITAL';
-      iconName = 'clock';
-      const now = new Date();
-      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      const weekdays = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-      const dateStr = `${weekdays[now.getDay()]}, ${now.getDate()}`;
-      bodyHTML = `
-        <div class="clock-widget-body">
-          <div class="clock-widget-big" id="w-clock-time">${timeStr}</div>
-          <div class="clock-widget-date">${dateStr}</div>
-        </div>
-      `;
-    } else if (widget.type === 'gaming-hub') {
-      title = 'GAMING HUB';
-      iconName = 'gamepad-2';
-      extraClass = 'gaming-hub-widget';
-      bodyHTML = renderGamingHubWidgetHTML();
-    } else if (widget.type === 'now-playing') {
-      title = 'AHORA SUENA';
-      iconName = 'music';
-      extraClass = 'now-playing-widget';
-      bodyHTML = renderNowPlayingWidgetHTML();
-    } else if (widget.type === 'weather') {
-      title = 'CLIMA';
-      iconName = 'cloud-sun';
-      extraClass = 'weather-widget';
-      const cached = weatherCache[widget.cityId]?.data;
-      bodyHTML = renderWeatherWidgetHTML(widget, cached);
-
-      if (!cached) {
-        fetchWeatherForCity(widget.cityId, { force: false }).then(result => {
-          if (!result.ok) return;
-          const el2 = document.getElementById(widget.id);
-          if (!el2) return;
-          const body2 = el2.querySelector('.weather-body');
-          if (body2) {
-            body2.outerHTML = renderWeatherWidgetHTML(widget, result.data);
-            refreshIcons();
-            attachWeatherWidgetListeners(widget.id);
-          }
-        });
-      }
-    } else if (widget.type === 'system-monitor-pro') {
-      title = 'SYSTEM MONITOR PRO';
-      iconName = 'activity';
-      extraClass = 'system-monitor-pro-widget';
-      bodyHTML = `<div class="system-monitor-pro-body" style="color:var(--text-sub);font-size:10px;text-align:center;padding:20px;">Widget de monitoreo avanzado (demo)</div>`;
-    } else if (widget.type === 'music-visualizer') {
-      title = 'MUSIC VISUALIZER';
-      iconName = 'audio-waveform';
-      extraClass = 'music-visualizer-widget';
-      bodyHTML = `<div class="music-visualizer-body" style="color:var(--text-sub);font-size:10px;text-align:center;padding:20px;">Visualizador de audio (demo)</div>`;
-    }
-
-    el.className = `desktop-widget ${extraClass}`.trim();
-
-    el.innerHTML = `
-      <div class="widget-titlebar">
-        <strong><i data-lucide="${iconName}"></i> ${title}</strong>
-        <button class="widget-close-btn" onclick="removeDesktopWidget('${widget.id}')" title="Cerrar widget"><i data-lucide="x"></i></button>
-      </div>
-      ${bodyHTML}
-    `;
-
-    setupDraggableWidget(el, widget);
-    layer.appendChild(el);
-
-    if (widget.type === 'weather') {
-      attachWeatherWidgetListeners(widget.id);
-    }
-    if (widget.type === 'now-playing') {
-      attachNowPlayingWidgetListeners(el);
-    }
-  });
-  refreshIcons();
-}
-
-function setupDraggableWidget(el, widgetData) {
-  const titlebar = el.querySelector('.widget-titlebar');
-  if (!titlebar) return;
-
-  titlebar.addEventListener('mousedown', (e) => {
-    if (e.target.closest('.widget-close-btn')) return;
-    if (e.target.closest('.weather-city-selector')) return;
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const initialLeft = el.offsetLeft;
-    const initialTop = el.offsetTop;
-
-    function move(ev) {
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
-      const newX = Math.max(10, Math.min(window.innerWidth - el.offsetWidth - 10, initialLeft + dx));
-      const newY = Math.max(50, Math.min(window.innerHeight - el.offsetHeight - 10, initialTop + dy));
-      el.style.left = `${newX}px`;
-      el.style.top = `${newY}px`;
-      widgetData.x = newX;
-      widgetData.y = newY;
-    }
-
-    function stop() {
-      document.removeEventListener('mousemove', move);
-      document.removeEventListener('mouseup', stop);
-      saveDesktopWidgets();
-    }
-
-    document.addEventListener('mousemove', move);
-    document.addEventListener('mouseup', stop);
-  });
-}
-
-function updateWidgetStats() {
-  const clockTime = document.getElementById('w-clock-time');
-  if (clockTime) {
-    const now = new Date();
-    clockTime.textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  }
-}
-
-/* ─── Widget: Clima ─── */
-
-function addWeatherWidget(x = null, y = null) {
-  addDesktopWidget('weather', x, y);
-}
-
-function removeWeatherWidget(id) {
-  removeDesktopWidget(id);
-  showToast('Widget Removido', 'Clima retirado del escritorio.', 'trash-2');
-}
-
-function removeAllWeatherWidgets() {
-  const ids = desktopWidgets.filter(w => w.type === 'weather').map(w => w.id);
-  if (ids.length === 0) {
-    showToast('Sin widgets', 'No hay widgets de clima en el escritorio.', 'info');
-    return;
-  }
-  desktopWidgets = desktopWidgets.filter(w => w.type !== 'weather');
-  saveDesktopWidgets();
-  renderDesktopWidgets();
-  showToast('Widgets Removidos', `${ids.length} widget${ids.length === 1 ? '' : 's'} de clima retirado${ids.length === 1 ? '' : 's'}.`, 'trash-2');
-}
-
-async function fetchWeatherForCity(cityId, { force = false } = {}) {
-  const city = getCityById(cityId);
-  const now = Date.now();
-  const cached = weatherCache[cityId];
-
-  if (!force && cached && (now - cached.fetchedAt) < WEATHER_CACHE_STALE_MS) {
-    return { ok: true, data: cached.data, fromCache: true };
-  }
-
-  try {
-    const params = new URLSearchParams({
-      latitude: city.lat,
-      longitude: city.lon,
-      current: 'temperature_2m,weather_code,is_day',
-      daily: 'temperature_2m_max,temperature_2m_min,weather_code',
-      timezone: 'auto',
-      forecast_days: '4'
-    });
-    const url = `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-
-    const current = json.current || {};
-    const daily = json.daily || {};
-
-    const dailyDates = daily.time || [];
-    const dailyMax = daily.temperature_2m_max || [];
-    const dailyMin = daily.temperature_2m_min || [];
-    const dailyCode = daily.weather_code || [];
-
-    const forecast = [];
-    for (let i = 1; i < Math.min(4, dailyDates.length); i++) {
-      forecast.push({
-        date: dailyDates[i],
-        max: Math.round(dailyMax[i]),
-        min: Math.round(dailyMin[i]),
-        code: dailyCode[i]
-      });
-    }
-
-    const data = {
-      temp: Math.round(current.temperature_2m),
-      code: current.weather_code ?? 0,
-      isDay: current.is_day ?? 1,
-      forecast,
-      fetchedAt: now,
-      cityId: city.id,
-      timezone: city.timezone
-    };
-
-    weatherCache[cityId] = { data, fetchedAt: now };
-    return { ok: true, data, fromCache: false };
-  } catch (err) {
-    if (cached) {
-      return { ok: true, data: cached.data, fromCache: true, stale: true };
-    }
-    return { ok: false, error: err };
-  }
-}
-
-function renderWeatherWidgetHTML(widget, weatherData = null) {
-  const city = getCityById(widget.cityId || DEFAULT_WEATHER_CITY_ID);
-  const data = weatherData || weatherCache[widget.cityId]?.data || null;
-
-  const dateStr = formatWeatherDateForCity(city);
-  const timeStr = getCityTimeForHeader(city);
-
-  let iconName, label, color, temp;
-  let high = '—', low = '—';
-  let forecast = [];
-  let offline = false;
-
-  if (data) {
-    const info = getWmoInfo(data.code, data.isDay);
-    iconName = info.icon;
-    label = info.label;
-    color = info.color;
-    temp = data.temp;
-    forecast = data.forecast || [];
-    if (forecast.length > 0) {
-      high = forecast[0].max;
-      low = forecast[0].min;
-    }
-  } else {
-    iconName = 'cloud-off';
-    label = 'Sin conexión';
-    color = '#6b7280';
-    temp = '—';
-    offline = true;
-  }
-
-  const forecastHTML = forecast.length ? forecast.map(day => {
-    const info = getWmoInfo(day.code, 1);
-    const dayName = getForecastDayName(day.date);
-    return `
-      <div class="weather-forecast-day">
-        <span class="weather-forecast-name">${dayName}</span>
-        <span class="weather-forecast-icon" style="color: ${info.color};">
-          <i data-lucide="${info.icon}"></i>
-        </span>
-        <span class="weather-forecast-temps">
-          <strong>${day.max}°</strong>
-          <small>${day.min}°</small>
-        </span>
-      </div>
-    `;
-  }).join('') : `
-    <div class="weather-forecast-empty">Sin datos de pronóstico</div>
-  `;
-
-  return `
-    <div class="weather-body">
-      <div class="weather-header">
-        <span class="weather-date">${dateStr} · ${timeStr}</span>
-        <div class="weather-city-selector" data-widget-id="${widget.id}">
-          <button class="weather-city-btn" type="button" data-city-toggle>
-            <span class="weather-city-name">${city.name}</span>
-            <i data-lucide="chevron-down" class="weather-city-chevron"></i>
-          </button>
-        </div>
-      </div>
-
-      <div class="weather-main${offline ? ' offline' : ''}">
-        <div class="weather-icon-wrap" style="color: ${color};">
-          <i data-lucide="${iconName}"></i>
-        </div>
-        <div class="weather-info">
-          <div class="weather-temp">${temp}<span class="weather-temp-unit">°</span></div>
-          <div class="weather-cond">${label}</div>
-        </div>
-      </div>
-
-      <div class="weather-minmax">
-        <span class="weather-minmax-item">H: <strong>${high}°</strong></span>
-        <span class="weather-minmax-item">L: <strong>${low}°</strong></span>
-      </div>
-
-      <div class="weather-forecast">
-        ${forecastHTML}
-      </div>
-    </div>
-  `;
-}
-
-function attachWeatherWidgetListeners(widgetId) {
-  const el = document.getElementById(widgetId);
-  if (!el) return;
-
-  const selector = el.querySelector('.weather-city-selector');
-  if (!selector || selector.dataset.bound === '1') return;
-  selector.dataset.bound = '1';
-
-  const btn = selector.querySelector('[data-city-toggle]');
-  if (btn) {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (document.querySelector('.weather-city-dropdown.open')?.dataset.widgetId === widgetId) {
-        closeAllCityDropdowns();
-      } else {
-        openCityDropdown(widgetId, btn);
-      }
-    });
-  }
-}
-
-/* ─── Widget: Gaming Hub ─── */
-
-function addGamingHubWidget() {
-  addDesktopWidget('gaming-hub');
-  renderSettingsApp();
-}
-
-function removeGamingHubWidget() {
-  const existing = desktopWidgets.find(w => w.type === 'gaming-hub');
-  if (existing) {
-    removeDesktopWidget(existing.id);
-    showToast('Widget Removido', 'Gaming Hub retirado del escritorio.', 'trash-2');
-  }
-  renderSettingsApp();
-}
-
-function renderGamingHubWidgetHTML() {
-  const fps = systemMetrics.fps;
-  const gpu = systemMetrics.gpu;
-  const cpu = systemMetrics.cpu;
-  const vram = systemMetrics.vram;
-  const gpuTemp = Math.round(48 + systemMetrics.gpu * 0.15);
-  const cpuTemp = Math.round(35 + systemMetrics.cpu * 0.35);
-  const ping = pingHistory[pingHistory.length - 1] || 23;
-
-  const fpsClass = fps >= 120 ? 'good' : fps >= 60 ? 'warn' : 'bad';
-  const gpuTempClass = gpuTemp <= 65 ? 'good' : gpuTemp <= 80 ? 'warn' : 'bad';
-  const cpuTempClass = cpuTemp <= 60 ? 'good' : cpuTemp <= 75 ? 'warn' : 'bad';
-  const pingClass = ping <= 30 ? 'good' : ping <= 70 ? 'warn' : 'bad';
-
-  const fpsBarPct = Math.min(100, (fps / 144) * 100);
-  const gpuBarPct = Math.min(100, gpu);
-  const cpuBarPct = Math.min(100, cpu);
-  const vramPct = Math.min(100, (vram / 16) * 100);
-
-  const sparkBars = pingHistory.map(p => {
-    const h = Math.min(100, (p / 120) * 100);
-    const cls = p <= 30 ? '' : p <= 70 ? 'high' : 'critical';
-    return `<span class="spark-bar ${cls}" style="height:${Math.max(8, h)}%;"></span>`;
-  }).join('');
-
-  return `
-    <div class="gaming-hub-grid">
-      <div class="gaming-hub-tile ${fpsClass}">
-        <span class="tile-icon"><i data-lucide="gauge"></i></span>
-        <span class="gaming-hub-tile-value" id="gh-fps">${fps}</span>
-        <span class="gaming-hub-tile-label">FPS</span>
-        <div class="gaming-hub-tile-bar"><span id="gh-fps-bar" style="width:${fpsBarPct}%;"></span></div>
-      </div>
-      <div class="gaming-hub-tile ${gpuTempClass}">
-        <span class="tile-icon"><i data-lucide="cpu"></i></span>
-        <span class="gaming-hub-tile-value" id="gh-gpu-temp">${gpuTemp}°</span>
-        <span class="gaming-hub-tile-label">GPU TEMP</span>
-        <div class="gaming-hub-tile-bar"><span id="gh-gpu-bar" style="width:${gpuBarPct}%;"></span></div>
-      </div>
-      <div class="gaming-hub-tile ${cpuTempClass}">
-        <span class="tile-icon"><i data-lucide="hard-drive"></i></span>
-        <span class="gaming-hub-tile-value" id="gh-cpu-temp">${cpuTemp}°</span>
-        <span class="gaming-hub-tile-label">CPU TEMP</span>
-        <div class="gaming-hub-tile-bar"><span id="gh-cpu-bar" style="width:${cpuBarPct}%;"></span></div>
-      </div>
-      <div class="gaming-hub-tile">
-        <span class="tile-icon"><i data-lucide="memory-stick"></i></span>
-        <span class="gaming-hub-tile-value" id="gh-vram">${vram.toFixed(1)}</span>
-        <span class="gaming-hub-tile-label">VRAM GB</span>
-        <div class="gaming-hub-tile-bar"><span id="gh-vram-bar" style="width:${vramPct}%;"></span></div>
-      </div>
-      <div class="gaming-hub-tile ${pingClass}" style="grid-column: span 2;">
-        <div style="display:flex; align-items:center; gap:6px;">
-          <span class="tile-icon"><i data-lucide="wifi"></i></span>
-          <span class="gaming-hub-tile-value" id="gh-ping">${ping}<span class="gaming-hub-tile-unit"> ms</span></span>
-        </div>
-        <span class="gaming-hub-tile-label">LATENCIA DE RED</span>
-        <div class="gaming-hub-ping-spark" id="gh-ping-spark">${sparkBars}</div>
-      </div>
-    </div>
-    <div class="gaming-hub-footer">
-      <span class="gaming-hub-footer-label ${gameModeActive ? 'active' : ''}" id="gh-gamemode-label"><i data-lucide="gamepad-2"></i> GAME MODE</span>
-      <button class="quick-switch ${gameModeActive ? 'active' : ''}" onclick="toggleGameMode()" type="button" aria-label="Toggle Game Mode" style="padding:0; border:0; background:transparent;">
-        <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
-      </button>
-    </div>
-  `;
-}
-
-function updateGamingHubWidget() {
-  const widget = desktopWidgets.find(w => w.type === 'gaming-hub');
-  if (!widget) return;
-  const el = document.getElementById(widget.id);
-  if (!el) return;
-
-  const fps = systemMetrics.fps;
-  const gpu = systemMetrics.gpu;
-  const cpu = systemMetrics.cpu;
-  const vram = systemMetrics.vram;
-  const gpuTemp = Math.round(48 + systemMetrics.gpu * 0.15);
-  const cpuTemp = Math.round(35 + systemMetrics.cpu * 0.35);
-  const ping = pingHistory[pingHistory.length - 1] || 23;
-
-  const fpsEl = el.querySelector('#gh-fps');
-  const gpuTempEl = el.querySelector('#gh-gpu-temp');
-  const cpuTempEl = el.querySelector('#gh-cpu-temp');
-  const vramEl = el.querySelector('#gh-vram');
-  const pingEl = el.querySelector('#gh-ping');
-  const fpsBar = el.querySelector('#gh-fps-bar');
-  const gpuBar = el.querySelector('#gh-gpu-bar');
-  const cpuBar = el.querySelector('#gh-cpu-bar');
-  const vramBar = el.querySelector('#gh-vram-bar');
-  const pingSpark = el.querySelector('#gh-ping-spark');
-  const gmLabel = el.querySelector('#gh-gamemode-label');
-  const gmSwitch = el.querySelector('.gaming-hub-footer .quick-switch');
-
-  if (fpsEl) fpsEl.textContent = String(fps);
-  if (gpuTempEl) gpuTempEl.textContent = `${gpuTemp}°`;
-  if (cpuTempEl) cpuTempEl.textContent = `${cpuTemp}°`;
-  if (vramEl) vramEl.textContent = vram.toFixed(1);
-  if (pingEl) pingEl.innerHTML = `${ping}<span class="gaming-hub-tile-unit"> ms</span>`;
-  if (fpsBar) fpsBar.style.width = `${Math.min(100, (fps / 144) * 100)}%`;
-  if (gpuBar) gpuBar.style.width = `${Math.min(100, gpu)}%`;
-  if (cpuBar) cpuBar.style.width = `${Math.min(100, cpu)}%`;
-  if (vramBar) vramBar.style.width = `${Math.min(100, (vram / 16) * 100)}%`;
-
-  const fpsTile = fpsEl?.closest('.gaming-hub-tile');
-  if (fpsTile) {
-    fpsTile.classList.remove('good', 'warn', 'bad');
-    fpsTile.classList.add(fps >= 120 ? 'good' : fps >= 60 ? 'warn' : 'bad');
-  }
-  const gpuTile = gpuTempEl?.closest('.gaming-hub-tile');
-  if (gpuTile) {
-    gpuTile.classList.remove('good', 'warn', 'bad');
-    gpuTile.classList.add(gpuTemp <= 65 ? 'good' : gpuTemp <= 80 ? 'warn' : 'bad');
-  }
-  const cpuTile = cpuTempEl?.closest('.gaming-hub-tile');
-  if (cpuTile) {
-    cpuTile.classList.remove('good', 'warn', 'bad');
-    cpuTile.classList.add(cpuTemp <= 60 ? 'good' : cpuTemp <= 75 ? 'warn' : 'bad');
-  }
-  const pingTile = pingEl?.closest('.gaming-hub-tile');
-  if (pingTile) {
-    pingTile.classList.remove('good', 'warn', 'bad');
-    pingTile.classList.add(ping <= 30 ? 'good' : ping <= 70 ? 'warn' : 'bad');
-  }
-
-  if (pingSpark) {
-    const bars = pingHistory.map(p => {
-      const h = Math.min(100, (p / 120) * 100);
-      const cls = p <= 30 ? '' : p <= 70 ? 'high' : 'critical';
-      return `<span class="spark-bar ${cls}" style="height:${Math.max(8, h)}%;"></span>`;
-    }).join('');
-    pingSpark.innerHTML = bars;
-  }
-
-  if (gmLabel) gmLabel.classList.toggle('active', gameModeActive);
-  if (gmSwitch) gmSwitch.classList.toggle('active', gameModeActive);
-  refreshIcons();
-}
-
-/* ─── Widget: Now Playing (Reproductor) ─── */
-
-/** Mapa de suscripciones por elemento para limpiar al cerrar. */
-const npWidgetSubscriptions = new WeakMap();
-
-function addNowPlayingWidget() {
-  addDesktopWidget('now-playing');
-  renderSettingsApp();
-}
-
-function removeNowPlayingWidget() {
-  const existing = desktopWidgets.find(w => w.type === 'now-playing');
-  if (existing) {
-    removeDesktopWidget(existing.id);
-    showToast('Widget Removido', 'Reproductor retirado del escritorio.', 'trash-2');
-  }
-  renderSettingsApp();
-}
-
-function renderNowPlayingWidgetHTML() {
-  const current = window.SpotifyApp ? SpotifyApp.getCurrentTrack() : null;
-  const isPlaying = window.SpotifyApp ? SpotifyApp.isPlaying() : false;
-
-  if (!current) {
-    return `
-      <div class="np-widget-body is-empty">
-        <div class="np-empty-icon"><i data-lucide="music-4"></i></div>
-        <strong class="np-empty-title">Sin reproducción</strong>
-        <span class="np-empty-sub">Abrí Spotify y elegí una canción.</span>
-      </div>
-    `;
-  }
-
-  const cover = spGetTrackCover(current);
-  const liked = SpotifyApiIsLiked(current.id);
-  const cur = SpotifyApp.getCurrentTime();
-  const dur = SpotifyApp.getDuration() || current.duration || 0;
-  const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
-
-  return `
-    <div class="np-widget-body">
-      <div class="np-hero">
-        <div class="np-cover-wrap">
-          <img class="np-cover" src="${escapeHtml(cover)}" alt="" />
-          <span class="np-eq" aria-hidden="true"><i></i><i></i><i></i></span>
-        </div>
-        <div class="np-meta">
-          <span class="np-title" title="${escapeHtml(current.title)}">${escapeHtml(current.title)}</span>
-          <button class="np-artist" type="button" data-np-go-artist="${escapeHtml(current.artist)}" title="Ir al artista">
-            ${escapeHtml(current.artist)}
-          </button>
-          <span class="np-album" title="${escapeHtml(current.album)}">${escapeHtml(current.album)}</span>
-        </div>
-        <button class="np-like ${liked ? 'liked' : ''}" type="button" data-np-like="${escapeHtml(current.id)}" title="${liked ? 'Quitar de Tus me gusta' : 'Agregar a Tus me gusta'}">
-          <i data-lucide="heart"></i>
-        </button>
-      </div>
-
-      <div class="np-progress-row">
-        <span class="np-time np-time-cur">${spFormatTime(cur)}</span>
-        <div class="np-progress" data-np-progress>
-          <div class="np-progress-track">
-            <span class="np-progress-fill" style="width: ${pct}%"></span>
-          </div>
-        </div>
-        <span class="np-time np-time-total">${spFormatTime(dur)}</span>
-      </div>
-
-      <div class="np-controls">
-        <button class="np-ctrl" type="button" data-np-prev title="Anterior">
-          <i data-lucide="skip-back"></i>
-        </button>
-        <button class="np-ctrl np-ctrl-main" type="button" data-np-play-pause title="${isPlaying ? 'Pausar' : 'Reproducir'}">
-          <i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>
-        </button>
-        <button class="np-ctrl" type="button" data-np-next title="Siguiente">
-          <i data-lucide="skip-forward"></i>
-        </button>
-        <button class="np-ctrl np-ctrl-shuffle ${spotify.shuffle ? 'active' : ''}" type="button" data-np-shuffle title="Aleatorio">
-          <i data-lucide="shuffle"></i>
-        </button>
-        <button class="np-ctrl np-ctrl-repeat ${spotify.repeat !== 'off' ? 'active' : ''}" type="button" data-np-repeat data-np-repeat-mode="${spotify.repeat}" title="Repetir">
-          <i data-lucide="${spotify.repeat === 'one' ? 'repeat-1' : 'repeat'}"></i>
-        </button>
-      </div>
-    </div>
-  `;
-}
-
-/** Actualiza en vivo un widget existente SIN re-render completo. */
-function updateNowPlayingWidgetElement(el) {
-  if (!el || !window.SpotifyApp) return;
-
-  const current = SpotifyApp.getCurrentTrack();
-  const isPlaying = SpotifyApp.isPlaying();
-
-  // Si no hay track y estaba vacío, no hacemos nada
-  if (!current && el.querySelector('.np-widget-body.is-empty')) return;
-  if (!current && !el.querySelector('.np-widget-body.is-empty')) {
-    // Volvió a estado vacío: re-render completo
-    const body = el.querySelector('.np-widget-body');
-    if (body) {
-      body.outerHTML = renderNowPlayingWidgetHTML().trim();
-      refreshIcons();
-      attachNowPlayingWidgetListeners(el);
-    }
-    return;
-  }
-
-  // Actualizar cover
-  const coverEl = el.querySelector('.np-cover');
-  if (coverEl) coverEl.src = spGetTrackCover(current);
-
-  // Título / artista / álbum
-  const titleEl = el.querySelector('.np-title');
-  if (titleEl) {
-    titleEl.textContent = current.title;
-    titleEl.title = current.title;
-  }
-  const artistEl = el.querySelector('.np-artist');
-  if (artistEl) {
-    artistEl.textContent = current.artist;
-    artistEl.dataset.npGoArtist = current.artist;
-  }
-  const albumEl = el.querySelector('.np-album');
-  if (albumEl) {
-    albumEl.textContent = current.album;
-    albumEl.title = current.album;
-  }
-
-  // Like
-  const likeEl = el.querySelector('[data-np-like]');
-  if (likeEl) {
-    likeEl.classList.toggle('liked', SpotifyApiIsLiked(current.id));
-    likeEl.dataset.npLike = current.id;
-  }
-
-  // Progreso
-  const cur = SpotifyApp.getCurrentTime();
-  const dur = SpotifyApp.getDuration() || current.duration || 0;
-  const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
-
-  const fill = el.querySelector('.np-progress-fill');
-  if (fill) fill.style.width = `${pct}%`;
-
-  const curTime = el.querySelector('.np-time-cur');
-  if (curTime) curTime.textContent = spFormatTime(cur);
-  const totTime = el.querySelector('.np-time-total');
-  if (totTime) totTime.textContent = spFormatTime(dur);
-
-  // Botón play/pause
-  const ppBtn = el.querySelector('[data-np-play-pause]');
-  if (ppBtn) {
-    const icon = isPlaying ? 'pause' : 'play';
-    if (ppBtn.querySelector('[data-lucide]')?.getAttribute('data-lucide') !== icon) {
-      ppBtn.innerHTML = `<i data-lucide="${icon}"></i>`;
-      ppBtn.title = isPlaying ? 'Pausar' : 'Reproducir';
-    }
-  }
-
-  // Estado "playing" en el root para animar el EQ y estilos
-  el.classList.toggle('is-playing', isPlaying);
-
-  // Shuffle / repeat
-  const shuffleEl = el.querySelector('[data-np-shuffle]');
-  if (shuffleEl) shuffleEl.classList.toggle('active', spotify.shuffle);
-  const repeatEl = el.querySelector('[data-np-repeat]');
-  if (repeatEl) {
-    repeatEl.classList.toggle('active', spotify.repeat !== 'off');
-    repeatEl.dataset.npRepeatMode = spotify.repeat;
-    const icon = spotify.repeat === 'one' ? 'repeat-1' : 'repeat';
-    if (repeatEl.querySelector('[data-lucide]')?.getAttribute('data-lucide') !== icon) {
-      repeatEl.innerHTML = `<i data-lucide="${icon}"></i>`;
-    }
-  }
-
-  refreshIcons();
-}
-
-/** Suscribe el widget a los eventos de Spotify y cablea los controles. */
-function attachNowPlayingWidgetListeners(el) {
-  if (!el || !window.SpotifyApp) return;
-  if (npWidgetSubscriptions.has(el)) return;
-
-  // ─── Cablear botones ───
-  el.addEventListener('click', (e) => {
-    const playPause = e.target.closest('[data-np-play-pause]');
-    if (playPause) { e.stopPropagation(); SpotifyApp.togglePlayPause(); return; }
-
-    const prev = e.target.closest('[data-np-prev]');
-    if (prev) { e.stopPropagation(); SpotifyApp.prev(); return; }
-
-    const next = e.target.closest('[data-np-next]');
-    if (next) { e.stopPropagation(); SpotifyApp.next(); return; }
-
-    const shuffle = e.target.closest('[data-np-shuffle]');
-    if (shuffle) { e.stopPropagation(); SpotifyApp.toggleShuffle(); return; }
-
-    const repeat = e.target.closest('[data-np-repeat]');
-    if (repeat) { e.stopPropagation(); SpotifyApp.cycleRepeat(); return; }
-
-    const like = e.target.closest('[data-np-like]');
-    if (like) { e.stopPropagation(); SpotifyApp.toggleLike(like.dataset.npLike); return; }
-
-    const goArtist = e.target.closest('[data-np-go-artist]');
-    if (goArtist) {
-      e.stopPropagation();
-      openApp('music');
-      setTimeout(() => {
-        spotify.view = 'artist';
-        spotify.viewParams = { artistName: goArtist.dataset.npGoArtist };
-        getInstancesOfApp('music').forEach(id => {
-          const w = openWindows[id]?.win;
-          if (w) refreshSpotifyWindow(w);
-        });
-      }, 60);
-      return;
-    }
-  });
-
-  // ─── Click en barra de progreso → seek ───
-  const progress = el.querySelector('[data-np-progress]');
-  if (progress) {
-    const onSeek = (ev) => {
-      const rect = progress.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
-      const dur = SpotifyApp.getDuration() || SpotifyApp.getCurrentTrack()?.duration || 0;
-      SpotifyApp.seek(pct * dur);
-    };
-    progress.style.cursor = 'pointer';
-    progress.addEventListener('mousedown', (e) => {
-      e.stopPropagation();
-      onSeek(e);
-      const onMove = (ev) => onSeek(ev);
-      const onUp = () => {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-      };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    });
-  }
-
-  // ─── Suscripciones al motor ───
-  const unsubs = [];
-
-  unsubs.push(SpotifyApp.on('trackchange', () => updateNowPlayingWidgetElement(el)));
-  unsubs.push(SpotifyApp.on('play',        () => updateNowPlayingWidgetElement(el)));
-  unsubs.push(SpotifyApp.on('pause',       () => updateNowPlayingWidgetElement(el)));
-  unsubs.push(SpotifyApp.on('liked',       () => updateNowPlayingWidgetElement(el)));
-  unsubs.push(SpotifyApp.on('shuffle',     () => updateNowPlayingWidgetElement(el)));
-  unsubs.push(SpotifyApp.on('repeat',      () => updateNowPlayingWidgetElement(el)));
-  unsubs.push(SpotifyApp.on('progress',    () => {
-    // Actualización rápida solo del progreso (evita re-parsear todo)
-    if (!window.SpotifyApp) return;
-    const cur = SpotifyApp.getCurrentTime();
-    const dur = SpotifyApp.getDuration() || SpotifyApp.getCurrentTrack()?.duration || 0;
-    const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
-
-    const fill = el.querySelector('.np-progress-fill');
-    if (fill) fill.style.width = `${pct}%`;
-    const curEl = el.querySelector('.np-time-cur');
-    if (curEl) curEl.textContent = spFormatTime(cur);
-    const totEl = el.querySelector('.np-time-total');
-    if (totEl) totEl.textContent = spFormatTime(dur);
-  }));
-
-  npWidgetSubscriptions.set(el, unsubs);
-}
-
-/** Desuscribe y limpia. Se llama desde removeDesktopWidget cuando el tipo coincide. */
-function detachNowPlayingWidgetListeners(el) {
-  const unsubs = npWidgetSubscriptions.get(el);
-  if (!unsubs) return;
-  unsubs.forEach(fn => { try { fn(); } catch (_) {} });
-  npWidgetSubscriptions.delete(el);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ SISTEMA DE NOTIFICACIONES (Historial)
-═══════════════════════════════════════════════════════════════ */
-
-function addNotificationToHistory(title, message, iconName = 'sparkles') {
-  notifIdCounter++;
-  const notif = {
-    id: 'notif-' + Date.now() + '-' + notifIdCounter,
-    title: String(title),
-    message: String(message),
-    icon: iconName,
-    timestamp: Date.now(),
-    read: false
-  };
-
-  notifications.unshift(notif);
-  if (notifications.length > NOTIFICATIONS_MAX) {
-    notifications = notifications.slice(0, NOTIFICATIONS_MAX);
-  }
-
-  unreadCount++;
-  saveNotifications();
-  updateNotifBadge();
-
-  const panel = document.getElementById('notification-center');
-  if (panel && !panel.classList.contains('hidden')) {
-    renderNotificationCenter();
-  }
-}
-
-function updateNotifBadge() {
-  const badge = document.getElementById('notif-badge');
-  const btn = document.getElementById('tray-notif-btn');
-  if (!badge || !btn) return;
-
-  if (unreadCount > 0) {
-    badge.hidden = false;
-    badge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
-    btn.classList.add('has-unread');
-  } else {
-    badge.hidden = true;
-    btn.classList.remove('has-unread');
-  }
-}
-
-function markAllNotificationsAsRead() {
-  notifications.forEach(n => { n.read = true; });
-  unreadCount = 0;
-  saveNotifications();
-  updateNotifBadge();
-  renderNotificationCenter();
-}
-
-function clearAllNotifications() {
-  if (notifications.length === 0) {
-    showToast('Sin notificaciones', 'No hay nada para limpiar.', 'info');
-    return;
-  }
-  const count = notifications.length;
-  notifications = [];
-  unreadCount = 0;
-  saveNotifications();
-  updateNotifBadge();
-  renderNotificationCenter();
-  showToast('Notificaciones limpiadas', `Se eliminaron ${count} notificacion${count === 1 ? '' : 'es'}.`, 'trash-2');
-}
-
-function removeNotification(id) {
-  const idx = notifications.findIndex(n => n.id === id);
-  if (idx === -1) return;
-  const wasUnread = !notifications[idx].read;
-  notifications.splice(idx, 1);
-  if (wasUnread) unreadCount = Math.max(0, unreadCount - 1);
-  saveNotifications();
-  updateNotifBadge();
-  renderNotificationCenter();
-}
-
-function renderNotificationCenter() {
-  const list = document.getElementById('notif-list');
-  const empty = document.getElementById('notif-empty');
-  const subtitle = document.getElementById('notif-subtitle');
-  const clearBtn = document.getElementById('notif-clear-btn');
-  if (!list || !empty) return;
-
-  if (notifications.length === 0) {
-    list.innerHTML = '';
-    list.hidden = true;
-    empty.hidden = false;
-    if (subtitle) subtitle.textContent = 'Sin notificaciones';
-    if (clearBtn) clearBtn.disabled = true;
-    return;
-  }
-
-  list.hidden = false;
-  empty.hidden = true;
-  if (subtitle) {
-    subtitle.textContent = `${notifications.length} notificacion${notifications.length === 1 ? '' : 'es'} · ${unreadCount} sin leer`;
-  }
-  if (clearBtn) clearBtn.disabled = false;
-
-  list.innerHTML = notifications.map(n => `
-    <div class="notif-item ${n.read ? '' : 'unread'}" data-notif-id="${n.id}">
-      <span class="notif-item-icon"><i data-lucide="${n.icon || 'bell'}"></i></span>
-      <div class="notif-item-body">
-        <strong>${escapeHtml(n.title)}</strong>
-        <small>${escapeHtml(n.message)}</small>
-      </div>
-      <div class="notif-item-meta">
-        <span class="notif-item-time">${getRelativeTime(n.timestamp)}</span>
-        <button class="notif-item-close" type="button" title="Eliminar" data-notif-remove="${n.id}">
-          <i data-lucide="x"></i>
-        </button>
-      </div>
-    </div>
-  `).join('');
-
-  list.querySelectorAll('[data-notif-remove]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      removeNotification(btn.dataset.notifRemove);
-    });
-  });
-
-  refreshIcons();
-}
-
-function saveNotifications() {
-  try {
-    const serializable = notifications.map(n => ({ ...n }));
-    localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(serializable));
-  } catch (e) {}
-}
-
-function loadNotifications() {
-  try {
-    const raw = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return;
-    notifications = parsed
-      .filter(n => n && typeof n === 'object' && n.id && n.title)
-      .map(n => ({
-        id: String(n.id),
-        title: String(n.title),
-        message: String(n.message || ''),
-        icon: n.icon || 'bell',
-        timestamp: typeof n.timestamp === 'number' ? n.timestamp : Date.now(),
-        read: !!n.read
-      }));
-    unreadCount = notifications.filter(n => !n.read).length;
-  } catch (e) {}
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ SISTEMA DE TOASTS
-═══════════════════════════════════════════════════════════════ */
-
-function showToast(title, message, iconName = 'sparkles', force = false, options = {}) {
-  if (dndEnabled && !force) return;
-
-  let opts = options;
-  if (typeof iconName === 'object' && iconName !== null) {
-    opts = iconName;
-    iconName = opts.icon || 'sparkles';
-  }
-
-  const level = opts.level || inferToastLevel(iconName);
-  const actions = Array.isArray(opts.actions) ? opts.actions : [];
-  const duration = typeof opts.duration === 'number' ? opts.duration : TOAST_DURATIONS[level] || 4000;
-  const isPersistent = duration === 0 || (level === 'danger' && actions.length > 0);
-
-  addNotificationToHistory(title, message, iconName);
-
-  const container = document.getElementById('toast-container');
-  if (!container) return;
-
-  // Intentar agrupar con un toast similar
-  const groupMatch = activeToasts.find(t =>
-    t.title === title &&
-    t.level === level &&
-    t.icon === iconName &&
-    !t.closing &&
-    t.actions.length === 0 &&
-    actions.length === 0
-  );
-
-  if (groupMatch) {
-    groupMatch.groupCount = (groupMatch.groupCount || 1) + 1;
-    groupMatch.message = message;
-    groupMatch.updatedAt = Date.now();
-
-    const strongEl = groupMatch.el.querySelector('.toast-content strong');
-    const smallEl = groupMatch.el.querySelector('.toast-content small');
-    if (strongEl) {
-      strongEl.dataset.groupCount = String(groupMatch.groupCount);
-    }
-    if (smallEl) smallEl.textContent = message;
-    groupMatch.el.classList.add('grouped');
-
-    groupMatch.el.style.animation = 'none';
-    void groupMatch.el.offsetWidth;
-    groupMatch.el.style.animation = '';
-
-    if (!isPersistent && groupMatch.timer) {
-      clearTimeout(groupMatch.timer);
-      resetToastTimer(groupMatch, duration);
-    }
-    return;
-  }
-
-  // Crear nuevo toast
-  const id = 'toast-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-
-  const toast = document.createElement('div');
-  toast.className = 'toast-notification';
-  toast.dataset.level = level;
-  toast.dataset.toastId = id;
-
-  const actionsHTML = actions.length > 0 ? `
-    <div class="toast-actions">
-      ${actions.map(a => `
-        <button class="toast-action-btn ${a.variant === 'primary' ? 'primary' : ''}"
-                type="button"
-                data-action-id="${escapeHtml(a.id || '')}">
-          ${a.icon ? `<i data-lucide="${escapeHtml(a.icon)}"></i>` : ''}
-          ${escapeHtml(a.label || 'Acción')}
-        </button>
-      `).join('')}
-    </div>
-  ` : '';
-
-  toast.innerHTML = `
-    <span class="toast-icon"><i data-lucide="${iconName}"></i></span>
-    <div class="toast-content">
-      <strong>${escapeHtml(title)}</strong>
-      <small>${escapeHtml(message)}</small>
-      ${actionsHTML}
-    </div>
-    <button class="toast-close-btn" type="button" title="Cerrar" data-toast-close>
-      <i data-lucide="x"></i>
-    </button>
-    ${!isPersistent ? `
-      <div class="toast-progress">
-        <div class="toast-progress-fill"></div>
-      </div>
-    ` : ''}
-  `;
-
-  container.appendChild(toast);
-
-  const entry = {
-    id,
-    level,
-    title,
-    message,
-    icon: iconName,
-    el: toast,
-    timer: null,
-    remaining: duration,
-    startedAt: Date.now(),
-    duration,
-    actions,
-    groupCount: 1,
-    isPersistent,
-    paused: false,
-    progressFill: toast.querySelector('.toast-progress-fill'),
-    progressAnim: null
-  };
-
-  activeToasts.push(entry);
-
-  if (!isPersistent && entry.progressFill) {
-    startProgressBar(entry, duration);
-  }
-
-  if (!isPersistent) {
-    resetToastTimer(entry, duration);
-  }
-
-  // Pausar al hover
-  toast.addEventListener('mouseenter', () => {
-    if (isPersistent || entry.closing) return;
-    entry.paused = true;
-    entry.remaining -= (Date.now() - entry.startedAt);
-    if (entry.timer) {
-      clearTimeout(entry.timer);
-      entry.timer = null;
-    }
-  });
-
-  toast.addEventListener('mouseleave', () => {
-    if (isPersistent || entry.closing || !entry.paused) return;
-    entry.paused = false;
-    entry.startedAt = Date.now();
-    resetToastTimer(entry, entry.remaining);
-  });
-
-  // Click en el toast → abrir Centro de Notificaciones
-  toast.addEventListener('click', (e) => {
-    if (e.target.closest('.toast-close-btn')) return;
-    if (e.target.closest('.toast-action-btn')) return;
-    closeToast(id);
-    openNotificationCenter();
-  });
-
-  // Botón de cerrar
-  toast.querySelector('[data-toast-close]')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    closeToast(id);
-  });
-
-  // Botones de acción
-  toast.querySelectorAll('.toast-action-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const actionId = btn.dataset.actionId;
-      const action = actions.find(a => String(a.id) === String(actionId));
-      if (action && typeof action.onClick === 'function') {
-        try { action.onClick(); } catch (err) {}
-      }
-      if (action && action.close !== false) {
-        closeToast(id);
-      }
-    });
-  });
-
-  refreshIcons();
-}
-
-function resetToastTimer(entry, duration) {
-  if (entry.timer) clearTimeout(entry.timer);
-  entry.startedAt = Date.now();
-  entry.remaining = duration;
-  entry.timer = setTimeout(() => closeToast(entry.id), duration);
-}
-
-function startProgressBar(entry, duration) {
-  const fill = entry.progressFill;
-  if (!fill) return;
-
-  fill.style.transition = 'none';
-  fill.style.transform = 'scaleX(1)';
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      fill.style.transition = `transform ${duration}ms linear`;
-      fill.style.transform = 'scaleX(0)';
-    });
-  });
-}
-
-function closeToast(id) {
-  const idx = activeToasts.findIndex(t => t.id === id);
-  if (idx === -1) return;
-
-  const entry = activeToasts[idx];
-  if (entry.closing) return;
-  entry.closing = true;
-
-  if (entry.timer) {
-    clearTimeout(entry.timer);
-    entry.timer = null;
-  }
-
-  entry.el.classList.add('closing');
-  setTimeout(() => {
-    entry.el.remove();
-    const i = activeToasts.indexOf(entry);
-    if (i !== -1) activeToasts.splice(i, 1);
-  }, 300);
-}
-
-function closeAllToasts() {
-  [...activeToasts].forEach(t => closeToast(t.id));
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ CALENDARIO Y NOTAS
-═══════════════════════════════════════════════════════════════ */
-
-function calendarKey(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
-function resetCalendarToToday() {
-  calendarState.date = new Date();
-  calendarState.selectedDate = null;
-  editingNoteKey = null;
-  editingNoteIndex = null;
-
-  const editor = document.getElementById('note-editor');
-  if (editor) editor.hidden = true;
-  const input = document.getElementById('note-input');
-  if (input) input.value = '';
-  const saveBtn = document.getElementById('save-note');
-  if (saveBtn) {
-    saveBtn.textContent = 'Guardar';
-    saveBtn.classList.remove('editing');
-  }
-
-  renderCalendar();
-  renderNotesList();
-}
-
-function renderCalendar() {
-  const grid = document.getElementById('calendar-grid');
-  if (!grid) return;
-  const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-  const year = calendarState.date.getFullYear();
-  const month = calendarState.date.getMonth();
-  const mEl = document.getElementById('calendar-month');
-  const yEl = document.getElementById('calendar-year');
-  if (mEl) mEl.textContent = monthNames[month];
-  if (yEl) yEl.textContent = year;
-  grid.innerHTML = '';
-
-  const firstDay = new Date(year, month, 1);
-  const startOffset = (firstDay.getDay() + 6) % 7;
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const todayKey = calendarKey(new Date());
-
-  for (let index = 0; index < 42; index += 1) {
-    const dayNumber = index - startOffset + 1;
-    const cellDate = new Date(year, month, dayNumber);
-    const isOutside = dayNumber < 1 || dayNumber > daysInMonth;
-    if (isOutside && index >= startOffset + daysInMonth && index >= 35) continue;
-    const day = document.createElement('button');
-    day.type = 'button';
-    day.className = 'calendar-day';
-    if (isOutside) day.classList.add('outside');
-    const key = calendarKey(cellDate);
-    if (key === todayKey) day.classList.add('today');
-    if (key === calendarState.selectedDate) day.classList.add('selected');
-    day.textContent = String(cellDate.getDate());
-    const dayNotes = calendarState.notes[key];
-    if (Array.isArray(dayNotes) && dayNotes.length > 0) {
-      const dot = document.createElement('span');
-      dot.className = 'note-dot';
-      day.appendChild(dot);
-    }
-    day.addEventListener('click', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      selectCalendarDate(cellDate);
-    });
-    grid.appendChild(day);
-  }
-  refreshIcons();
-}
-
-function changeCalendarMonth(offset) {
-  calendarState.date.setMonth(calendarState.date.getMonth() + offset);
-  renderCalendar();
-}
-
-function selectCalendarDate(date) {
-  calendarState.selectedDate = calendarKey(date);
-  editingNoteKey = null;
-  editingNoteIndex = null;
-
-  const editor = document.getElementById('note-editor');
-  const input = document.getElementById('note-input');
-  const label = document.getElementById('selected-date-label');
-  const saveBtn = document.getElementById('save-note');
-
-  if (label) label.textContent = `Nueva nota para ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
-  if (input) input.value = '';
-  if (editor) editor.hidden = false;
-  if (saveBtn) {
-    saveBtn.textContent = 'Guardar';
-    saveBtn.classList.remove('editing');
-  }
-  if (input) input.focus();
-
-  renderCalendar();
-  renderNotesList();
-}
-
-function saveCalendarNote() {
-  const input = document.getElementById('note-input');
-  const value = input ? input.value.trim() : '';
-
-  if (!value && editingNoteKey === null) {
-    showToast('Sin cambios', 'Escribí algo para guardar un recordatorio.', 'info');
-    return;
-  }
-
-  if (editingNoteKey !== null && editingNoteIndex !== null) {
-    const key = editingNoteKey;
-    const idx = editingNoteIndex;
-
-    if (!calendarState.notes[key]) calendarState.notes[key] = [];
-
-    if (!value) {
-      calendarState.notes[key].splice(idx, 1);
-      if (calendarState.notes[key].length === 0) delete calendarState.notes[key];
-      showToast('Nota eliminada', 'El recordatorio fue borrado.', 'trash-2');
-    } else {
-      calendarState.notes[key][idx] = value;
-    }
-  } else {
-    const key = calendarState.selectedDate;
-    if (!key) return;
-    if (!calendarState.notes[key]) calendarState.notes[key] = [];
-    calendarState.notes[key].push(value);
-  }
-
-  localStorage.setItem(CALENDAR_NOTES_STORAGE_KEY, JSON.stringify(calendarState.notes));
-
-  editingNoteKey = null;
-  editingNoteIndex = null;
-  if (input) input.value = '';
-  const saveBtn = document.getElementById('save-note');
-  if (saveBtn) {
-    saveBtn.textContent = 'Guardar';
-    saveBtn.classList.remove('editing');
-  }
-
-  renderCalendar();
-  renderNotesList();
-}
-
-function editCalendarNote(key, index) {
-  editingNoteKey = key;
-  editingNoteIndex = index;
-  calendarState.selectedDate = key;
-
-  const editor = document.getElementById('note-editor');
-  const input = document.getElementById('note-input');
-  const label = document.getElementById('selected-date-label');
-  const saveBtn = document.getElementById('save-note');
-
-  const [y, m, d] = key.split('-').map(Number);
-  const notes = calendarState.notes[key] || [];
-
-  if (label) label.textContent = `Editando nota del ${d}/${m}/${y}`;
-  if (input) {
-    input.value = notes[index] || '';
-    input.focus();
-  }
-  if (editor) editor.hidden = false;
-  if (saveBtn) {
-    saveBtn.textContent = 'Actualizar';
-    saveBtn.classList.add('editing');
-  }
-  renderNotesList();
-}
-
-function deleteCalendarNote(key, index) {
-  if (!key) return;
-  const notes = calendarState.notes[key];
-  if (!Array.isArray(notes)) return;
-
-  notes.splice(index, 1);
-  if (notes.length === 0) delete calendarState.notes[key];
-
-  localStorage.setItem(CALENDAR_NOTES_STORAGE_KEY, JSON.stringify(calendarState.notes));
-
-  if (editingNoteKey === key && editingNoteIndex === index) {
-    editingNoteKey = null;
-    editingNoteIndex = null;
-    const input = document.getElementById('note-input');
-    if (input) input.value = '';
-    const saveBtn = document.getElementById('save-note');
-    if (saveBtn) {
-      saveBtn.textContent = 'Guardar';
-      saveBtn.classList.remove('editing');
-    }
-  }
-
-  renderCalendar();
-  renderNotesList();
-  showToast('Nota eliminada', 'El recordatorio fue borrado.', 'trash-2');
-}
-
-function renderNotesList() {
-  const list = document.getElementById('notes-list');
-  if (!list) return;
-
-  const targetKey = calendarState.selectedDate || calendarKey(new Date());
-  const notes = calendarState.notes[targetKey];
-
-  list.innerHTML = '';
-
-  if (!Array.isArray(notes) || notes.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'notes-empty';
-    empty.textContent = 'Sin recordatorios para este día.';
-    list.appendChild(empty);
-    return;
-  }
-
-  const [y, m, d] = targetKey.split('-').map(Number);
-
-  notes.forEach((noteText, index) => {
-    const item = document.createElement('div');
-    item.className = 'note-item';
-    item.innerHTML = `
-      <span class="note-item-date">${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}</span>
-      <span class="note-item-text" title="${escapeHtml(noteText)}">${escapeHtml(noteText)}</span>
-      <div class="note-actions">
-        <button class="note-btn" type="button" data-action="edit" title="Editar"><i data-lucide="pencil"></i></button>
-        <button class="note-btn danger" type="button" data-action="delete" title="Eliminar"><i data-lucide="trash-2"></i></button>
-      </div>
-    `;
-
-    item.querySelector('[data-action="edit"]')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      editCalendarNote(targetKey, index);
-    });
-    item.querySelector('[data-action="delete"]')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      deleteCalendarNote(targetKey, index);
-    });
-
-    list.appendChild(item);
-  });
-
-  refreshIcons();
-}
-/* ═══════════════════════════════════════════════════════════════
-   ★ PARTE 8/12 — MULTIMEDIA: APP SPOTIFY COMPLETA
+   ★ PARTE 6/10 — APPS (6B + 6C)
    ═══════════════════════════════════════════════════════════════
-
-   Estructura del bloque:
-     8A → Motor `SpotifyApp` (este sub-bloque)
-     8B → HTML + UI (`getSpotifyAppHTML` + `setupSpotifyApp`)
-     8C → Wrappers globales + integración final
-*/
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ SPOTIFY APP — MOTOR DE AUDIO Y BIBLIOTECA
-   API pública expuesta en `window.SpotifyApp`
-   ═══════════════════════════════════════════════════════════════ */
-
-const SpotifyApp = (() => {
-
-  /* ─────────────────────────────────────────────────────────────
-     ★ HELPERS INTERNOS
-  ───────────────────────────────────────────────────────────── */
-
-  function _clone(obj) {
-    if (obj == null || typeof obj !== 'object') return obj;
-    if (Array.isArray(obj)) return obj.map(_clone);
-    const out = {};
-    for (const k of Object.keys(obj)) out[k] = _clone(obj[k]);
-    return out;
-  }
-
-  function _safeStr(v) {
-    return v == null ? '' : String(v);
-  }
-
-  function _normalizeTrack(raw, fallbackId) {
-    if (!raw || typeof raw !== 'object') return null;
-    const title = _safeStr(raw.title || raw.name).trim();
-    if (!title) return null;
-    const id = _safeStr(raw.id || fallbackId || '').trim() ||
-               (spSlug(title) + '-' + spSlug(raw.artist || 'unknown'));
-    return {
-      id,
-      title,
-      artist: _safeStr(raw.artist || raw.artistName).trim() || 'Desconocido',
-      album: _safeStr(raw.album).trim() || 'Sin álbum',
-      year: Number.isFinite(+raw.year) ? +raw.year : null,
-      duration: Number.isFinite(+raw.duration) ? +raw.duration : SPOTIFY_DEFAULT_DURATION,
-      src: _safeStr(raw.src || raw.path).trim(),
-      cover: _safeStr(raw.cover || raw.art).trim() ||
-             './assets/images/apps/spotify/tapaAlbum1.jpg'
-    };
-  }
-
-  function _normalizePlaylist(raw, fallbackId) {
-    if (!raw || typeof raw !== 'object') return null;
-    const name = _safeStr(raw.name).trim();
-    if (!name) return null;
-    const id = _safeStr(raw.id || fallbackId || '').trim() || spSlug(name);
-    return {
-      id,
-      name,
-      description: _safeStr(raw.description).trim() || 'Playlist',
-      cover: _safeStr(raw.cover).trim() || null,
-      color: _safeStr(raw.color).trim() || '#1ed760',
-      trackIds: Array.isArray(raw.trackIds) ? raw.trackIds.map(_safeStr) : []
-    };
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     ★ ESTADO PERSISTENTE (se guarda en localStorage)
-  ───────────────────────────────────────────────────────────── */
-
-  let _state = _clone(SPOTIFY_DEFAULT_STATE);
-  let _saveTimer = null;
-
-  function _loadState() {
-    try {
-      const raw = localStorage.getItem(SPOTIFY_STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== 'object') return;
-      _state = Object.assign({}, _clone(SPOTIFY_DEFAULT_STATE), parsed);
-      _state.likedIds = Array.isArray(_state.likedIds) ? _state.likedIds : [];
-      _state.queue = Array.isArray(_state.queue) ? _state.queue : [];
-      _state.recentIds = Array.isArray(_state.recentIds) ? _state.recentIds : [];
-      _state.customPlaylists = Array.isArray(_state.customPlaylists) ? _state.customPlaylists : [];
-      _state.playCount = _state.playCount && typeof _state.playCount === 'object'
-        ? _state.playCount : {};
-    } catch (e) {
-      console.warn('[Spotify] No se pudo cargar el estado persistido:', e);
-    }
-  }
-
-  function _scheduleSave() {
-    if (_saveTimer) clearTimeout(_saveTimer);
-    _saveTimer = setTimeout(() => {
-      _saveTimer = null;
-      _saveNow();
-    }, 400);
-  }
-
-  function _saveNow() {
-    try {
-      _state.lastUpdatedAt = Date.now();
-      localStorage.setItem(SPOTIFY_STORAGE_KEY, JSON.stringify(_state));
-    } catch (e) {
-      console.warn('[Spotify] No se pudo guardar el estado:', e);
-    }
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     ★ EVENT BUS
-  ───────────────────────────────────────────────────────────── */
-
-  const _listeners = new Map();
-
-  function _on(event, fn) {
-    if (!event || typeof fn !== 'function') return () => {};
-    if (!_listeners.has(event)) _listeners.set(event, new Set());
-    _listeners.get(event).add(fn);
-    return () => _off(event, fn);
-  }
-
-  function _off(event, fn) {
-    const set = _listeners.get(event);
-    if (!set) return;
-    if (fn) set.delete(fn);
-    else set.clear();
-  }
-
-  function _emit(event, data) {
-    const set = _listeners.get(event);
-    if (!set) return;
-    for (const fn of Array.from(set)) {
-      try { fn(data); } catch (e) { console.warn('[Spotify] listener error:', e); }
-    }
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     ★ AUDIO: HTMLAudioElement + Web Audio API (Analyser)
-  ───────────────────────────────────────────────────────────── */
-
-  function _ensureAudioElement() {
-    if (spotify.audioEl) return spotify.audioEl;
-
-    const audio = new Audio();
-    audio.preload = 'metadata';
-    audio.crossOrigin = 'anonymous';
-    audio.volume = _state.volume;
-
-    audio.addEventListener('loadedmetadata', () => {
-      spotify.duration = Number.isFinite(audio.duration) ? audio.duration : 0;
-      _emit('loaded', { duration: spotify.duration });
-    });
-
-    audio.addEventListener('timeupdate', () => {
-      spotify.currentTime = audio.currentTime || 0;
-      _emit('progress', {
-        currentTime: spotify.currentTime,
-        duration: spotify.duration
-      });
-    });
-
-    audio.addEventListener('play', () => {
-      spotify.isPlaying = true;
-      _state.isPlaying = true;
-      _emit('play', { trackId: spotify.currentTrackId });
-      _scheduleSave();
-    });
-
-    audio.addEventListener('pause', () => {
-      spotify.isPlaying = false;
-      _state.isPlaying = false;
-      _emit('pause', { trackId: spotify.currentTrackId });
-      _scheduleSave();
-    });
-
-    audio.addEventListener('ended', () => {
-      _handleTrackEnded();
-    });
-
-    audio.addEventListener('error', (e) => {
-      spotify.lastError = e;
-      _emit('error', { error: e, context: 'audio-element' });
-    });
-
-    spotify.audioEl = audio;
-    return audio;
-  }
-
-  function _ensureAudioContext() {
-    if (spotify.audioCtx) return spotify.audioCtx;
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return null;
-
-    try {
-      const ctx = new Ctx();
-      const audio = _ensureAudioElement();
-      const source = ctx.createMediaElementSource(audio);
-      const gain = ctx.createGain();
-      const analyser = ctx.createAnalyser();
-
-      analyser.fftSize = SPOTIFY_VISUALIZER_FFT;
-      analyser.smoothingTimeConstant = SPOTIFY_VISUALIZER_SMOOTHING;
-
-      source.connect(gain);
-      gain.connect(analyser);
-      analyser.connect(ctx.destination);
-
-      spotify.audioCtx = ctx;
-      spotify.sourceNode = source;
-      spotify.gainNode = gain;
-      spotify.analyserNode = analyser;
-      spotify.visualizerData = new Uint8Array(analyser.frequencyBinCount);
-
-      return ctx;
-    } catch (e) {
-      console.warn('[Spotify] No se pudo crear AudioContext:', e);
-      spotify.audioCtx = null;
-      return null;
-    }
-  }
-
-  function _resumeAudioContextIfNeeded() {
-    const ctx = spotify.audioCtx;
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-    }
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     ★ CARGA DE BIBLIOTECA (JSON + fallback)
-  ───────────────────────────────────────────────────────────── */
-
-  async function _loadLibraryFromJSON() {
-    try {
-      const res = await fetch(SPOTIFY_LIBRARY_URL, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const text = await res.text();
-      const cleaned = text.replace(/^\uFEFF/, '').trim();
-      const json = JSON.parse(cleaned);
-      if (!json || typeof json !== 'object') throw new Error('JSON inválido');
-      if (!Array.isArray(json.tracks)) throw new Error('Sin tracks');
-      return { json, source: 'json' };
-    } catch (e) {
-      console.warn('[Spotify] library.json no disponible, usando fallback:', e);
-      return { json: SPOTIFY_DEFAULT_LIBRARY, source: 'fallback' };
-    }
-  }
-
-  function _buildIndexes(library) {
-    spotify.library = { tracks: [], playlists: [] };
-    spotify.tracksById.clear();
-    spotify.playlistsById.clear();
-    spotify.artistsIndex.clear();
-    spotify.albumsIndex.clear();
-
-    // Tracks
-    const tracks = [];
-    (library.tracks || []).forEach((raw, i) => {
-      const t = _normalizeTrack(raw, `track-${i}`);
-      if (!t) return;
-      if (spotify.tracksById.has(t.id)) return;
-      tracks.push(t);
-      spotify.tracksById.set(t.id, t);
-
-      // Índice de artistas
-      if (!spotify.artistsIndex.has(t.artist)) {
-        spotify.artistsIndex.set(t.artist, {
-          name: t.artist,
-          tracks: [],
-          albums: new Set(),
-          cover: t.cover
-        });
-      }
-      const artist = spotify.artistsIndex.get(t.artist);
-      artist.tracks.push(t);
-      artist.albums.add(`${t.artist}::${t.album}`);
-
-      // Índice de álbumes
-      const albumKey = `${t.artist}::${t.album}`;
-      if (!spotify.albumsIndex.has(albumKey)) {
-        spotify.albumsIndex.set(albumKey, {
-          key: albumKey,
-          name: t.album,
-          artist: t.artist,
-          year: t.year,
-          cover: t.cover,
-          tracks: []
-        });
-      }
-      spotify.albumsIndex.get(albumKey).tracks.push(t);
-    });
-    spotify.library.tracks = tracks;
-
-    // Playlists
-    const playlists = [];
-    (library.playlists || []).forEach((raw, i) => {
-      const p = _normalizePlaylist(raw, `playlist-${i}`);
-      if (!p) return;
-      if (spotify.playlistsById.has(p.id)) return;
-      // Filtrar trackIds que no existen
-      p.trackIds = p.trackIds.filter(id => spotify.tracksById.has(id));
-      playlists.push(p);
-      spotify.playlistsById.set(p.id, p);
-    });
-    spotify.library.playlists = playlists;
-
-    // Playlist virtual "Tus me gusta"
-    const likedPlaylist = {
-      id: '__liked__',
-      name: 'Tus me gusta',
-      description: 'Playlist automática',
-      cover: null,
-      color: '#1ed760',
-      trackIds: [], // se rellena dinámicamente
-      __virtual: 'liked'
-    };
-    spotify.playlistsById.set(likedPlaylist.id, likedPlaylist);
-    spotify.library.playlists.unshift(likedPlaylist);
-
-    _refreshLikedPlaylist();
-  }
-
-  function _refreshLikedPlaylist() {
-    const likedPlaylist = spotify.playlistsById.get('__liked__');
-    if (!likedPlaylist) return;
-    likedPlaylist.trackIds = Array.from(spotify.likedIds)
-      .filter(id => spotify.tracksById.has(id));
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     ★ PLAYBACK — CORE
-  ───────────────────────────────────────────────────────────── */
-
-  function _fadeOut(ms = SPOTIFY_FADE_MS) {
-    const audio = spotify.audioEl;
-    if (!audio) return Promise.resolve();
-    if (spotify.fadeTimer) {
-      clearInterval(spotify.fadeTimer);
-      spotify.fadeTimer = null;
-    }
-    return new Promise(resolve => {
-      const startVol = audio.volume;
-      const startTime = performance.now();
-      const target = 0;
-      spotify.fadeTimer = setInterval(() => {
-        const elapsed = performance.now() - startTime;
-        const k = Math.min(1, elapsed / ms);
-        audio.volume = startVol + (target - startVol) * k;
-        if (k >= 1) {
-          clearInterval(spotify.fadeTimer);
-          spotify.fadeTimer = null;
-          resolve();
-        }
-      }, 16);
-    });
-  }
-
-  function _fadeIn(ms = SPOTIFY_FADE_MS) {
-    const audio = spotify.audioEl;
-    if (!audio) return Promise.resolve();
-    const targetVol = _state.muted ? 0 : _state.volume;
-    return new Promise(resolve => {
-      const startVol = audio.volume;
-      const startTime = performance.now();
-      spotify.fadeTimer = setInterval(() => {
-        const elapsed = performance.now() - startTime;
-        const k = Math.min(1, elapsed / ms);
-        audio.volume = startVol + (targetVol - startVol) * k;
-        if (k >= 1) {
-          clearInterval(spotify.fadeTimer);
-          spotify.fadeTimer = null;
-          resolve();
-        }
-      }, 16);
-    });
-  }
-
-  function _setAudioVolume(v, muted = false) {
-    const audio = spotify.audioEl;
-    if (!audio) return;
-    audio.volume = muted ? 0 : Math.max(0, Math.min(1, v));
-  }
-
-  async function _playTrack(trackId, { autoplay = true, resetQueue = false } = {}) {
-    const track = spotify.tracksById.get(trackId);
-    if (!track) {
-      _emit('error', { error: new Error('Track no encontrado'), context: 'play', trackId });
-      return false;
-    }
-
-    _resumeAudioContextIfNeeded();
-    const audio = _ensureAudioElement();
-    _ensureAudioContext();
-
-    // Fade out si ya hay algo sonando
-    if (spotify.currentTrackId && spotify.currentTrackId !== trackId && !audio.paused) {
-      await _fadeOut();
-    }
-
-    spotify.currentTrackId = trackId;
-    _state.currentTrackId = trackId;
-    spotify.currentTime = 0;
-    _state.currentTime = 0;
-
-    // Actualizar cola si hace falta
-    if (resetQueue || !spotify.queue.includes(trackId)) {
-      // Si no está en la cola, reconstruimos desde la biblioteca completa
-      spotify.queue = spotify.library.tracks.map(t => t.id);
-    }
-    const idx = spotify.queue.indexOf(trackId);
-    spotify.queueIndex = idx >= 0 ? idx : 0;
-    _state.queue = spotify.queue.slice();
-    _state.queueIndex = spotify.queueIndex;
-
-    // Registrar reciente + contador de reproducciones
-    _registerRecent(trackId);
-
-    // Cargar fuente
-    if (track.src) {
-      audio.src = track.src;
-      audio.currentTime = 0;
-    } else {
-      // Sin src: no podemos reproducir, pero avisamos y simulamos
-      console.warn('[Spotify] Track sin src:', track);
-      _emit('error', { error: new Error('Track sin src'), context: 'play', trackId });
-    }
-
-    // Volumen inicial
-    _setAudioVolume(0, _state.muted);
-
-    if (autoplay) {
-      try {
-        const playPromise = audio.play();
-        if (playPromise && typeof playPromise.then === 'function') {
-          await playPromise;
-        }
-        await _fadeIn();
-      } catch (e) {
-        console.warn('[Spotify] No se pudo reproducir:', e);
-        _emit('error', { error: e, context: 'play-promise', trackId });
-      }
-    }
-
-    _emit('trackchange', {
-      track,
-      trackId,
-      queueIndex: spotify.queueIndex,
-      queueLength: spotify.queue.length
-    });
-
-    _scheduleSave();
-    return true;
-  }
-
-  function _registerRecent(trackId) {
-    const list = _state.recentIds.filter(id => id !== trackId);
-    list.unshift(trackId);
-    _state.recentIds = list.slice(0, SPOTIFY_RECENT_MAX);
-    _state.playCount[trackId] = (_state.playCount[trackId] || 0) + 1;
-    spotify.recentIds = _state.recentIds.slice();
-    spotify.playCount = _state.playCount;
-  }
-
-  function _handleTrackEnded() {
-    if (_state.repeat === 'one') {
-      const audio = spotify.audioEl;
-      if (audio) {
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-      }
-      return;
-    }
-    _emit('ended', { trackId: spotify.currentTrackId });
-
-    // Avanzar
-    const nextId = _computeNextTrackId();
-    if (nextId) {
-      _playTrack(nextId, { autoplay: true });
-    } else {
-      // Fin de la cola sin repeat
-      spotify.isPlaying = false;
-      _state.isPlaying = false;
-      _emit('pause', { trackId: spotify.currentTrackId, reason: 'queue-ended' });
-      _scheduleSave();
-    }
-  }
-
-  function _computeNextTrackId() {
-    const { queue, queueIndex } = spotify;
-    if (queue.length === 0) return null;
-
-    if (_state.shuffle) {
-      // Random distinto al actual
-      const candidates = queue.filter(id => id !== spotify.currentTrackId);
-      if (candidates.length === 0) return queue[queueIndex] || null;
-      return candidates[Math.floor(Math.random() * candidates.length)];
-    }
-
-    const nextIdx = queueIndex + 1;
-    if (nextIdx < queue.length) return queue[nextIdx];
-    if (_state.repeat === 'all') return queue[0];
-    return null;
-  }
-
-  function _computePrevTrackId() {
-    const { queue, queueIndex } = spotify;
-    if (queue.length === 0) return null;
-
-    if (_state.shuffle) {
-      const candidates = queue.filter(id => id !== spotify.currentTrackId);
-      if (candidates.length === 0) return queue[queueIndex] || null;
-      return candidates[Math.floor(Math.random() * candidates.length)];
-    }
-
-    const prevIdx = queueIndex - 1;
-    if (prevIdx >= 0) return queue[prevIdx];
-    if (_state.repeat === 'all') return queue[queue.length - 1];
-    return null;
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     ★ API PÚBLICA
-  ───────────────────────────────────────────────────────────── */
-
-  const api = {
-
-    /* ══════════════════════════════════════════════════════════
-       INIT
-    ══════════════════════════════════════════════════════════ */
-    async init() {
-      if (spotify.initPromise) return spotify.initPromise;
-
-      spotify.initPromise = (async () => {
-        try {
-          // 1. Cargar estado persistido
-          _loadState();
-
-          // 2. Cargar biblioteca (JSON o fallback)
-          const { json, source } = await _loadLibraryFromJSON();
-          _buildIndexes(json);
-          _state.libraryLoaded = true;
-          _state.librarySource = source;
-          spotify.mockMode = (source === 'fallback');
-
-          // 3. Preferencias al runtime
-          spotify.volume = _state.volume;
-          spotify.muted = _state.muted;
-          spotify.shuffle = _state.shuffle;
-          spotify.repeat = _state.repeat;
-          spotify.likedIds = new Set(_state.likedIds);
-          spotify.customPlaylists = _state.customPlaylists.slice();
-          spotify.recentIds = _state.recentIds.slice();
-          spotify.playCount = Object.assign({}, _state.playCount);
-
-          // 4. Audio element (sin ctx todavía, para evitar warnings)
-          _ensureAudioElement();
-
-          // 5. Restaurar última canción (pausada, sin autoplay)
-          if (_state.currentTrackId && spotify.tracksById.has(_state.currentTrackId)) {
-            spotify.currentTrackId = _state.currentTrackId;
-            const audio = _ensureAudioElement();
-            const track = spotify.tracksById.get(_state.currentTrackId);
-            if (track && track.src) {
-              audio.src = track.src;
-              audio.currentTime = 0;
-            }
-            spotify.queue = Array.isArray(_state.queue) && _state.queue.length
-              ? _state.queue.filter(id => spotify.tracksById.has(id))
-              : spotify.library.tracks.map(t => t.id);
-            spotify.queueIndex = Math.max(0, spotify.queue.indexOf(_state.currentTrackId));
-          } else {
-            // Por defecto: primera canción de la biblioteca (cargada pero pausada)
-            if (spotify.library.tracks.length > 0) {
-              const first = spotify.library.tracks[0];
-              spotify.currentTrackId = first.id;
-              spotify.queue = spotify.library.tracks.map(t => t.id);
-              spotify.queueIndex = 0;
-              const audio = _ensureAudioElement();
-              if (first.src) {
-                audio.src = first.src;
-                audio.currentTime = 0;
-              }
-            }
-          }
-
-          spotify.initResolved = true;
-          _emit('loaded', {
-            trackCount: spotify.library.tracks.length,
-            playlistCount: spotify.library.playlists.length,
-            source
-          });
-
-          return true;
-        } catch (e) {
-          spotify.lastError = e;
-          console.error('[Spotify] Falló init:', e);
-          spotify.initResolved = true;
-          _emit('error', { error: e, context: 'init' });
-          return false;
-        }
-      })();
-
-      return spotify.initPromise;
-    },
-
-    /* ══════════════════════════════════════════════════════════
-       PLAYBACK
-    ══════════════════════════════════════════════════════════ */
-
-    play(trackId) {
-      const id = trackId || spotify.currentTrackId;
-      if (!id) return Promise.resolve(false);
-      return _playTrack(id, { autoplay: true, resetQueue: true });
-    },
-
-    pause() {
-      const audio = spotify.audioEl;
-      if (!audio) return;
-      audio.pause();
-    },
-
-    resume() {
-      const audio = spotify.audioEl;
-      if (!audio) return;
-      if (!spotify.currentTrackId) return;
-      _resumeAudioContextIfNeeded();
-      _ensureAudioContext();
-      audio.play().catch(e => {
-        _emit('error', { error: e, context: 'resume' });
-      });
-    },
-
-    togglePlayPause() {
-      if (spotify.isPlaying) {
-        api.pause();
-      } else {
-        api.resume();
-      }
-    },
-
-    next() {
-      const nextId = _computeNextTrackId();
-      if (!nextId) {
-        api.pause();
-        return;
-      }
-      // Actualizar índice de cola
-      spotify.queueIndex = spotify.queue.indexOf(nextId);
-      _playTrack(nextId, { autoplay: true });
-    },
-
-    prev() {
-      const audio = spotify.audioEl;
-      // Si pasaron más de 3 segundos, reiniciar la canción actual
-      if (audio && audio.currentTime > 3) {
-        audio.currentTime = 0;
-        spotify.currentTime = 0;
-        _emit('progress', { currentTime: 0, duration: spotify.duration });
-        return;
-      }
-
-      const prevId = _computePrevTrackId();
-      if (!prevId) {
-        if (audio) audio.currentTime = 0;
-        return;
-      }
-      spotify.queueIndex = spotify.queue.indexOf(prevId);
-      _playTrack(prevId, { autoplay: true });
-    },
-
-    seek(seconds) {
-      const audio = spotify.audioEl;
-      if (!audio) return;
-      const dur = spotify.duration || (audio.duration || 0);
-      const target = Math.max(0, Math.min(dur || 0, Number(seconds) || 0));
-      try {
-        audio.currentTime = target;
-        spotify.currentTime = target;
-        _emit('progress', { currentTime: target, duration: dur });
-      } catch (e) {}
-    },
-
-    setVolume(value) {
-      const v = Math.max(0, Math.min(1, Number(value)));
-      _state.volume = v;
-      spotify.volume = v;
-      _setAudioVolume(v, _state.muted);
-      _emit('volume', { volume: v, muted: _state.muted });
-      _scheduleSave();
-    },
-
-    getVolume() {
-      return _state.volume;
-    },
-
-    toggleMute() {
-      _state.muted = !_state.muted;
-      spotify.muted = _state.muted;
-      _setAudioVolume(_state.volume, _state.muted);
-      _emit('volume', { volume: _state.volume, muted: _state.muted });
-      _scheduleSave();
-      return _state.muted;
-    },
-
-    isMuted() {
-      return _state.muted;
-    },
-
-    toggleShuffle() {
-      _state.shuffle = !_state.shuffle;
-      spotify.shuffle = _state.shuffle;
-      _emit('shuffle', { shuffle: _state.shuffle });
-      _scheduleSave();
-      return _state.shuffle;
-    },
-
-    setShuffle(v) {
-      _state.shuffle = !!v;
-      spotify.shuffle = _state.shuffle;
-      _emit('shuffle', { shuffle: _state.shuffle });
-      _scheduleSave();
-    },
-
-    cycleRepeat() {
-      const modes = SPOTIFY_REPEAT_MODES;
-      const idx = modes.indexOf(_state.repeat);
-      const next = modes[(idx + 1) % modes.length];
-      _state.repeat = next;
-      spotify.repeat = next;
-      _emit('repeat', { repeat: next });
-      _scheduleSave();
-      return next;
-    },
-
-    setRepeat(mode) {
-      if (!SPOTIFY_REPEAT_MODES.includes(mode)) return;
-      _state.repeat = mode;
-      spotify.repeat = mode;
-      _emit('repeat', { repeat: mode });
-      _scheduleSave();
-    },
-
-    /* ══════════════════════════════════════════════════════════
-       GETTERS DE ESTADO / BIBLIOTECA
-    ══════════════════════════════════════════════════════════ */
-
-    isPlaying() {
-      return spotify.isPlaying;
-    },
-
-    getCurrentTrack() {
-      if (!spotify.currentTrackId) return null;
-      return spotify.tracksById.get(spotify.currentTrackId) || null;
-    },
-
-    getCurrentTime() {
-      return spotify.currentTime || 0;
-    },
-
-    getDuration() {
-      return spotify.duration || 0;
-    },
-
-    getQueue() {
-      return spotify.queue.slice();
-    },
-
-    getQueueIndex() {
-      return spotify.queueIndex;
-    },
-
-    getAllTracks() {
-      return spotify.library ? spotify.library.tracks.slice() : [];
-    },
-
-    getTrackById(id) {
-      if (!id) return null;
-      return spotify.tracksById.get(id) || null;
-    },
-
-    getPlaylists() {
-      return spotify.library ? spotify.library.playlists.slice() : [];
-    },
-
-    getPlaylistById(id) {
-      if (!id) return null;
-      return spotify.playlistsById.get(id) || null;
-    },
-
-    getArtistByName(name) {
-      if (!name) return null;
-      const a = spotify.artistsIndex.get(name);
-      if (!a) return null;
-      return {
-        name: a.name,
-        cover: a.cover,
-        albums: Array.from(a.albums),
-        tracks: a.tracks.slice(),
-        trackCount: a.tracks.length
-      };
-    },
-
-    getAlbumByKey(key) {
-      if (!key) return null;
-      const alb = spotify.albumsIndex.get(key);
-      if (!alb) return null;
-      return {
-        key: alb.key,
-        name: alb.name,
-        artist: alb.artist,
-        year: alb.year,
-        cover: alb.cover,
-        tracks: alb.tracks.slice(),
-        trackCount: alb.tracks.length
-      };
-    },
-
-    getRecentTracks() {
-      return _state.recentIds
-        .map(id => spotify.tracksById.get(id))
-        .filter(Boolean);
-    },
-
-    getMostPlayed(limit = 10) {
-      const entries = Object.entries(_state.playCount)
-        .map(([id, count]) => ({ track: spotify.tracksById.get(id), count }))
-        .filter(e => e.track)
-        .sort((a, b) => b.count - a.count)
-        .slice(0, limit);
-      return entries;
-    },
-
-    /* ══════════════════════════════════════════════════════════
-       LIKES
-    ══════════════════════════════════════════════════════════ */
-
-    isLiked(trackId) {
-      return spotify.likedIds.has(trackId);
-    },
-
-    getLikedIds() {
-      return Array.from(spotify.likedIds);
-    },
-
-    getLikedTracks() {
-      return Array.from(spotify.likedIds)
-        .map(id => spotify.tracksById.get(id))
-        .filter(Boolean);
-    },
-
-    toggleLike(trackId) {
-      if (!trackId) return false;
-      if (spotify.likedIds.has(trackId)) {
-        spotify.likedIds.delete(trackId);
-      } else {
-        spotify.likedIds.add(trackId);
-      }
-      _state.likedIds = Array.from(spotify.likedIds);
-      _refreshLikedPlaylist();
-      _emit('liked', { trackId, liked: spotify.likedIds.has(trackId) });
-      _scheduleSave();
-      return spotify.likedIds.has(trackId);
-    },
-
-    /* ══════════════════════════════════════════════════════════
-       PLAYLISTS CUSTOM
-    ══════════════════════════════════════════════════════════ */
-
-    getCustomPlaylists() {
-      return spotify.customPlaylists.slice();
-    },
-
-    createPlaylist({ name, description = '', cover = null, color = '#1ed760', trackIds = [] } = {}) {
-      if (spotify.customPlaylists.length >= SPOTIFY_CUSTOM_PLAYLISTS_MAX) {
-        _emit('error', { error: new Error('Máximo de playlists alcanzado'), context: 'createPlaylist' });
-        return null;
-      }
-      const cleanName = _safeStr(name).trim();
-      if (!cleanName) return null;
-
-      const id = spRandomId('pl');
-      const playlist = {
-        id,
-        name: cleanName,
-        description: _safeStr(description).trim(),
-        cover: _safeStr(cover).trim() || null,
-        color: _safeStr(color).trim() || '#1ed760',
-        trackIds: Array.isArray(trackIds) ? trackIds.filter(id => spotify.tracksById.has(id)) : [],
-        createdAt: Date.now()
-      };
-      spotify.customPlaylists.unshift(playlist);
-      _state.customPlaylists = spotify.customPlaylists.slice();
-      _emit('playlists-change', { action: 'create', playlist });
-      _scheduleSave();
-      return playlist;
-    },
-
-    updatePlaylist(id, patch = {}) {
-      const idx = spotify.customPlaylists.findIndex(p => p.id === id);
-      if (idx === -1) return null;
-      const current = spotify.customPlaylists[idx];
-      const next = Object.assign({}, current, patch);
-      if (patch.name != null) next.name = _safeStr(patch.name).trim() || current.name;
-      if (patch.description != null) next.description = _safeStr(patch.description).trim();
-      if (patch.color != null) next.color = _safeStr(patch.color).trim() || current.color;
-      if (patch.cover != null) next.cover = _safeStr(patch.cover).trim() || null;
-      if (Array.isArray(patch.trackIds)) {
-        next.trackIds = patch.trackIds
-          .filter(tid => spotify.tracksById.has(tid))
-          .slice(0, SPOTIFY_PLAYLIST_TRACKS_MAX);
-      }
-      next.updatedAt = Date.now();
-      spotify.customPlaylists[idx] = next;
-      _state.customPlaylists = spotify.customPlaylists.slice();
-      _emit('playlists-change', { action: 'update', playlist: next });
-      _scheduleSave();
-      return next;
-    },
-
-    deletePlaylist(id) {
-      const idx = spotify.customPlaylists.findIndex(p => p.id === id);
-      if (idx === -1) return false;
-      const [removed] = spotify.customPlaylists.splice(idx, 1);
-      _state.customPlaylists = spotify.customPlaylists.slice();
-      _emit('playlists-change', { action: 'delete', playlist: removed });
-      _scheduleSave();
-      return true;
-    },
-
-    addToPlaylist(playlistId, trackId) {
-      const playlist = spotify.customPlaylists.find(p => p.id === playlistId);
-      if (!playlist) return false;
-      if (!spotify.tracksById.has(trackId)) return false;
-      if (playlist.trackIds.includes(trackId)) return false;
-      if (playlist.trackIds.length >= SPOTIFY_PLAYLIST_TRACKS_MAX) return false;
-      playlist.trackIds.push(trackId);
-      playlist.updatedAt = Date.now();
-      _state.customPlaylists = spotify.customPlaylists.slice();
-      _emit('playlists-change', { action: 'add-track', playlist, trackId });
-      _scheduleSave();
-      return true;
-    },
-
-    removeFromPlaylist(playlistId, trackId) {
-      const playlist = spotify.customPlaylists.find(p => p.id === playlistId);
-      if (!playlist) return false;
-      const idx = playlist.trackIds.indexOf(trackId);
-      if (idx === -1) return false;
-      playlist.trackIds.splice(idx, 1);
-      playlist.updatedAt = Date.now();
-      _state.customPlaylists = spotify.customPlaylists.slice();
-      _emit('playlists-change', { action: 'remove-track', playlist, trackId });
-      _scheduleSave();
-      return true;
-    },
-
-    /* ══════════════════════════════════════════════════════════
-       SEARCH
-    ══════════════════════════════════════════════════════════ */
-
-    search(query) {
-      const q = _safeStr(query).trim().toLowerCase();
-      const result = { tracks: [], artists: [], albums: [], playlists: [] };
-
-      if (!q) return result;
-
-      // Tracks
-      for (const track of spotify.library.tracks) {
-        const haystack = `${track.title} ${track.artist} ${track.album}`.toLowerCase();
-        if (haystack.includes(q)) result.tracks.push(track);
-      }
-
-      // Artistas
-      for (const [name, data] of spotify.artistsIndex) {
-        if (name.toLowerCase().includes(q)) {
-          result.artists.push({
-            name,
-            cover: data.cover,
-            trackCount: data.tracks.length
-          });
-        }
-      }
-
-      // Álbumes
-      for (const alb of spotify.albumsIndex.values()) {
-        const haystack = `${alb.name} ${alb.artist}`.toLowerCase();
-        if (haystack.includes(q)) {
-          result.albums.push({
-            key: alb.key,
-            name: alb.name,
-            artist: alb.artist,
-            year: alb.year,
-            cover: alb.cover,
-            trackCount: alb.tracks.length
-          });
-        }
-      }
-
-      // Playlists (custom + library)
-      for (const pl of spotify.library.playlists) {
-        if (pl.name.toLowerCase().includes(q)) result.playlists.push(pl);
-      }
-      for (const pl of spotify.customPlaylists) {
-        if (pl.name.toLowerCase().includes(q)) result.playlists.push(pl);
-      }
-
-      return result;
-    },
-
-    /* ══════════════════════════════════════════════════════════
-       VISUALIZER
-    ══════════════════════════════════════════════════════════ */
-
-    getAnalyserData() {
-      if (!spotify.analyserNode || !spotify.visualizerData) return null;
-      const data = new Uint8Array(spotify.analyserNode.frequencyBinCount);
-      spotify.analyserNode.getByteFrequencyData(data);
-      spotify.visualizerData = data;
-      return data;
-    },
-
-    getAnalyserNode() {
-      return spotify.analyserNode;
-    },
-
-    /* ══════════════════════════════════════════════════════════
-       EVENTOS
-    ══════════════════════════════════════════════════════════ */
-
-    on(event, fn) {
-      return _on(event, fn);
-    },
-
-    off(event, fn) {
-      _off(event, fn);
-    },
-
-    emit(event, data) {
-      _emit(event, data);
-    },
-
-    /* ══════════════════════════════════════════════════════════
-       PERSISTENCIA
-    ══════════════════════════════════════════════════════════ */
-
-    flushState() {
-      if (_saveTimer) {
-        clearTimeout(_saveTimer);
-        _saveTimer = null;
-      }
-      // Sincronizar runtime → state
-      _state.currentTrackId = spotify.currentTrackId;
-      _state.queue = spotify.queue.slice();
-      _state.queueIndex = spotify.queueIndex;
-      _state.volume = spotify.volume;
-      _state.muted = spotify.muted;
-      _state.shuffle = spotify.shuffle;
-      _state.repeat = spotify.repeat;
-      _state.likedIds = Array.from(spotify.likedIds);
-      _state.customPlaylists = spotify.customPlaylists.slice();
-      _state.recentIds = spotify.recentIds.slice();
-      _state.playCount = Object.assign({}, spotify.playCount);
-      _saveNow();
-    },
-
-    resetState() {
-      try {
-        localStorage.removeItem(SPOTIFY_STORAGE_KEY);
-      } catch (e) {}
-      _state = _clone(SPOTIFY_DEFAULT_STATE);
-      spotify.likedIds = new Set();
-      spotify.customPlaylists = [];
-      spotify.recentIds = [];
-      spotify.playCount = {};
-      _refreshLikedPlaylist();
-    },
-
-    /* ══════════════════════════════════════════════════════════
-       DEBUG
-    ══════════════════════════════════════════════════════════ */
-
-    isReady() {
-      return spotify.initResolved;
-    },
-
-    isMockMode() {
-      return spotify.mockMode;
-    },
-
-    getInternalState() {
-      return _state;
-    }
-  };
-
-  return api;
-})();
-
-// Exponer globalmente
-window.SpotifyApp = SpotifyApp;
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ SPOTIFY APP — UI (HTML, vistas, player, listeners)
-   ═══════════════════════════════════════════════════════════════ */
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ HTML PRINCIPAL
-═══════════════════════════════════════════════════════════════ */
-
-function getSpotifyAppHTML() {
-  const current = SpotifyApp.getCurrentTrack();
-  const volumePct = Math.round(SpotifyApp.getVolume() * 100);
-  const shuffle = spotify.shuffle;
-  const repeat = spotify.repeat;
-  const isPlaying = spotify.isPlaying;
-  const isLiked = current ? SpotifyApp.isLiked(current.id) : false;
-
-  return `
-    <div class="sp-app" data-spotify-root>
-      <!-- ═══ TOPBAR ═══ -->
-      <header class="sp-topbar">
-        <div class="sp-topbar-nav">
-          <button class="sp-nav-btn" data-sp-nav="back" title="Atrás" aria-label="Atrás">
-            <i data-lucide="chevron-left"></i>
-          </button>
-          <button class="sp-nav-btn" data-sp-nav="forward" title="Adelante" aria-label="Adelante">
-            <i data-lucide="chevron-right"></i>
-          </button>
-        </div>
-
-        <label class="sp-search">
-          <i data-lucide="search" class="sp-search-icon"></i>
-          <input
-            type="search"
-            class="sp-search-input"
-            placeholder="¿Qué querés escuchar?"
-            autocomplete="off"
-            value="${spEscapeHtml(spotify.searchQuery || '')}"
-          />
-          <button class="sp-search-clear" data-sp-search-clear type="button" title="Limpiar" ${spotify.searchQuery ? '' : 'hidden'}>
-            <i data-lucide="x"></i>
-          </button>
-        </label>
-
-        <div class="sp-topbar-right">
-          <button class="sp-topbar-btn" data-sp-action="queue" title="Cola de reproducción">
-            <i data-lucide="list-music"></i>
-          </button>
-          <button class="sp-topbar-btn" data-sp-action="now-playing" title="Now Playing">
-            <i data-lucide="disc-3"></i>
-          </button>
-          <div class="sp-avatar" title="Perfil">
-            <span>N</span>
-          </div>
-        </div>
-      </header>
-
-      <!-- ═══ BODY: SIDEBAR + MAIN ═══ -->
-      <div class="sp-body">
-        <aside class="sp-sidebar">
-          <div class="sp-sidebar-head">
-            <button class="sp-sidebar-lib-btn" data-sp-nav="library" title="Tu biblioteca">
-              <i data-lucide="library"></i>
-              <span>Tu biblioteca</span>
-            </button>
-            <button class="sp-sidebar-create" data-sp-action="create-playlist" title="Crear playlist">
-              <i data-lucide="plus"></i>
-            </button>
-          </div>
-
-          <div class="sp-sidebar-filters">
-            <button class="sp-chip ${spotify.libraryFilter === 'all' ? 'active' : ''}" data-sp-filter="all">Todo</button>
-            <button class="sp-chip ${spotify.libraryFilter === 'playlists' ? 'active' : ''}" data-sp-filter="playlists">Playlists</button>
-            <button class="sp-chip ${spotify.libraryFilter === 'albums' ? 'active' : ''}" data-sp-filter="albums">Álbumes</button>
-            <button class="sp-chip ${spotify.libraryFilter === 'artists' ? 'active' : ''}" data-sp-filter="artists">Artistas</button>
-          </div>
-
-          <div class="sp-sidebar-scroll" data-sp-sidebar-scroll>
-            ${renderSpotifySidebarLibrary()}
-          </div>
-        </aside>
-
-        <main class="sp-main" data-sp-main>
-          ${renderSpotifyMain()}
-        </main>
-      </div>
-
-      <!-- ═══ PLAYER INFERIOR ═══ -->
-      <footer class="sp-player" data-sp-player>
-        <div class="sp-player-left">
-          ${current ? `
-            <img class="sp-player-cover" src="${spEscapeHtml(spGetTrackCover(current))}" alt="" />
-            <div class="sp-player-info">
-              <button class="sp-player-title-btn" data-sp-action="now-playing" title="${spEscapeHtml(current.title)}">
-                <span class="sp-player-title">${spEscapeHtml(current.title)}</span>
-              </button>
-              <button class="sp-player-artist-btn" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(current.artist)}">
-                <span class="sp-player-artist">${spEscapeHtml(current.artist)}</span>
-              </button>
-            </div>
-            <button class="sp-player-like ${isLiked ? 'liked' : ''}" data-sp-action="like-current" title="${isLiked ? 'Quitar de Tus me gusta' : 'Agregar a Tus me gusta'}">
-              <i data-lucide="heart"></i>
-            </button>
-          ` : `
-            <div class="sp-player-cover sp-player-cover--empty"><i data-lucide="music"></i></div>
-            <div class="sp-player-info">
-              <span class="sp-player-title">Sin reproducción</span>
-              <span class="sp-player-artist">Elegí un track para empezar</span>
-            </div>
-          `}
-        </div>
-
-        <div class="sp-player-center">
-          <div class="sp-player-controls">
-            <button class="sp-ctrl ${shuffle ? 'active' : ''}" data-sp-action="shuffle" title="Aleatorio">
-              <i data-lucide="shuffle"></i>
-            </button>
-            <button class="sp-ctrl" data-sp-action="prev" title="Anterior">
-              <i data-lucide="skip-back"></i>
-            </button>
-            <button class="sp-ctrl sp-ctrl-main" data-sp-action="play-pause" title="${isPlaying ? 'Pausar' : 'Reproducir'}">
-              <i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>
-            </button>
-            <button class="sp-ctrl" data-sp-action="next" title="Siguiente">
-              <i data-lucide="skip-forward"></i>
-            </button>
-            <button class="sp-ctrl sp-ctrl-repeat ${repeat !== 'off' ? 'active' : ''}" data-sp-action="repeat" data-sp-repeat="${repeat}" title="Repetir">
-              <i data-lucide="${repeat === 'one' ? 'repeat-1' : 'repeat'}"></i>
-            </button>
-          </div>
-
-          <div class="sp-player-progress">
-            <span class="sp-time" data-sp-time="current">${spFormatTime(SpotifyApp.getCurrentTime())}</span>
-            <div class="sp-progress" data-sp-progress>
-              <div class="sp-progress-track">
-                <div class="sp-progress-fill" data-sp-progress-fill style="width: 0%"></div>
-                <div class="sp-progress-knob" data-sp-progress-knob style="left: 0%"></div>
-              </div>
-            </div>
-            <span class="sp-time" data-sp-time="duration">${spFormatTime(current ? (current.duration || 0) : 0)}</span>
-          </div>
-        </div>
-
-        <div class="sp-player-right">
-          <button class="sp-ctrl" data-sp-action="now-playing" title="Now Playing">
-            <i data-lucide="mic-2"></i>
-          </button>
-          <button class="sp-ctrl" data-sp-action="queue" title="Cola de reproducción">
-            <i data-lucide="list-music"></i>
-          </button>
-          <button class="sp-ctrl" data-sp-action="devices" title="Dispositivos">
-            <i data-lucide="monitor-speaker"></i>
-          </button>
-          <div class="sp-volume">
-            <button class="sp-ctrl sp-volume-btn" data-sp-action="mute" title="${spotify.muted ? 'Activar sonido' : 'Silenciar'}">
-              <i data-lucide="${spotify.muted ? 'volume-x' : (volumePct === 0 ? 'volume' : volumePct < 50 ? 'volume-1' : 'volume-2')}"></i>
-            </button>
-            <div class="sp-volume-track" data-sp-volume>
-              <div class="sp-volume-fill" data-sp-volume-fill style="width: ${spotify.muted ? 0 : volumePct}%"></div>
-            </div>
-          </div>
-          <button class="sp-ctrl" data-sp-action="fullscreen" title="Pantalla completa">
-            <i data-lucide="maximize-2"></i>
-          </button>
-        </div>
-      </footer>
-    </div>
-  `;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ SIDEBAR — Lista de biblioteca
-═══════════════════════════════════════════════════════════════ */
-
-function renderSpotifySidebarLibrary() {
-  const filter = spotify.libraryFilter || 'all';
-  const items = [];
-
-  // Playlists virtuales fijas
-  if (filter === 'all' || filter === 'playlists') {
-    items.push({
-      id: '__liked__',
-      type: 'playlist',
-      name: 'Tus me gusta',
-      subtitle: `Playlist · ${SpotifyApp.getLikedTracks().length} canciones`,
-      cover: null,
-      color: '#1ed760',
-      icon: 'heart'
-    });
-
-    // Playlists del library
-    SpotifyApp.getPlaylists().forEach(pl => {
-      if (pl.id === '__liked__') return;
-      const cover = getPlaylistCover(pl);
-      items.push({
-        id: pl.id,
-        type: 'playlist',
-        name: pl.name,
-        subtitle: `Playlist · ${pl.trackIds.length} canciones`,
-        cover,
-        color: pl.color || '#1ed760',
-        icon: 'music'
-      });
-    });
-
-    // Playlists custom
-    SpotifyApp.getCustomPlaylists().forEach(pl => {
-      const cover = getPlaylistCover(pl);
-      items.push({
-        id: pl.id,
-        type: 'playlist',
-        name: pl.name,
-        subtitle: `Playlist tuya · ${pl.trackIds.length} canciones`,
-        cover,
-        color: pl.color || '#1ed760',
-        icon: 'music',
-        custom: true
-      });
-    });
-  }
-
-  if (filter === 'all' || filter === 'artists') {
-    const artists = new Map();
-    SpotifyApp.getAllTracks().forEach(t => {
-      if (!artists.has(t.artist)) {
-        artists.set(t.artist, { name: t.artist, cover: t.cover, count: 0 });
-      }
-      artists.get(t.artist).count++;
-    });
-    artists.forEach((a, name) => {
-      items.push({
-        id: name,
-        type: 'artist',
-        name: a.name,
-        subtitle: `Artista · ${a.count} canciones`,
-        cover: a.cover,
-        color: '#a855f7',
-        icon: 'user'
-      });
-    });
-  }
-
-  if (filter === 'all' || filter === 'albums') {
-    const albums = new Map();
-    SpotifyApp.getAllTracks().forEach(t => {
-      const key = `${t.artist}::${t.album}`;
-      if (!albums.has(key)) {
-        albums.set(key, { key, name: t.album, artist: t.artist, cover: t.cover, count: 0 });
-      }
-      albums.get(key).count++;
-    });
-    albums.forEach((a) => {
-      items.push({
-        id: a.key,
-        type: 'album',
-        name: a.name,
-        subtitle: `Álbum · ${a.artist} · ${a.count} canciones`,
-        cover: a.cover,
-        color: '#f59e0b',
-        icon: 'disc-3'
-      });
-    });
-  }
-
-  if (items.length === 0) {
-    return `
-      <div class="sp-sidebar-empty">
-        <i data-lucide="library"></i>
-        <span>Nada por acá todavía</span>
-      </div>
-    `;
-  }
-
-  return items.map(item => {
-    const coverHTML = item.cover
-      ? `<img src="${spEscapeHtml(item.cover)}" alt="" loading="lazy" />`
-      : `<div class="sp-sidebar-item-icon" style="background: ${item.color}22; color: ${item.color};">
-           <i data-lucide="${item.icon || 'music'}"></i>
-         </div>`;
-
-    return `
-      <button class="sp-sidebar-item" data-sp-nav="${item.type}" data-sp-id="${spEscapeHtml(item.id)}" data-sp-artist="${item.type === 'artist' ? spEscapeHtml(item.id) : ''}" data-sp-album="${item.type === 'album' ? spEscapeHtml(item.id) : ''}">
-        <div class="sp-sidebar-item-cover ${item.type === 'artist' ? 'is-artist' : ''}">
-          ${coverHTML}
-        </div>
-        <div class="sp-sidebar-item-meta">
-          <span class="sp-sidebar-item-title">${spEscapeHtml(item.name)}</span>
-          <span class="sp-sidebar-item-sub">${spEscapeHtml(item.subtitle)}</span>
-        </div>
-      </button>
-    `;
-  }).join('');
-}
-
-function getPlaylistCover(pl) {
-  if (pl.cover) return pl.cover;
-  if (pl.trackIds && pl.trackIds.length) {
-    const first = SpotifyApp.getTrackById(pl.trackIds[0]);
-    if (first) return spGetTrackCover(first);
-  }
-  return null;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ MAIN — Router de vistas
-═══════════════════════════════════════════════════════════════ */
-
-function renderSpotifyMain() {
-  const view = spotify.view || 'home';
-  switch (view) {
-    case 'home':      return renderSpotifyHome();
-    case 'playlist':  return renderSpotifyPlaylist(spotify.viewParams.playlistId);
-    case 'artist':    return renderSpotifyArtist(spotify.viewParams.artistName);
-    case 'album':     return renderSpotifyAlbum(spotify.viewParams.albumKey);
-    case 'search':    return renderSpotifySearch();
-    case 'liked':     return renderSpotifyLiked();
-    case 'library':   return renderSpotifyLibrary();
-    case 'queue':     return renderSpotifyQueue();
-    default:          return renderSpotifyHome();
-  }
-}
-
-/* ─── Vista: HOME ─── */
-
-function renderSpotifyHome() {
-  const allTracks = SpotifyApp.getAllTracks();
-  const recent = SpotifyApp.getRecentTracks().slice(0, 8);
-  const liked = SpotifyApp.getLikedTracks().slice(0, 6);
-
-  // Destacar un álbum aleatorio de la biblioteca
-  const albumsMap = new Map();
-  allTracks.forEach(t => {
-    const key = `${t.artist}::${t.album}`;
-    if (!albumsMap.has(key)) albumsMap.set(key, { key, name: t.album, artist: t.artist, cover: t.cover });
-  });
-  const albums = Array.from(albumsMap.values());
-
-  // Artista destacado (el más frecuente)
-  const artistCounts = {};
-  allTracks.forEach(t => { artistCounts[t.artist] = (artistCounts[t.artist] || 0) + 1; });
-  const featuredArtistName = spGetMostFrequent(allTracks.map(t => t.artist));
-  const featuredArtist = featuredArtistName ? SpotifyApp.getArtistByName(featuredArtistName) : null;
-
-  const greeting = getSpotifyGreeting();
-
-  return `
-    <div class="sp-view sp-view-home">
-      <div class="sp-hero">
-        <div class="sp-hero-inner">
-          <div class="sp-hero-text">
-            <span class="sp-hero-kicker">${greeting}</span>
-            <h1 class="sp-hero-title">Buenas vibras</h1>
-            <p class="sp-hero-sub">${allTracks.length} canciones en tu biblioteca</p>
-          </div>
-          <div class="sp-hero-actions">
-            <button class="sp-btn sp-btn-primary" data-sp-action="play-all">
-              <i data-lucide="play"></i> Reproducir
-            </button>
-            <button class="sp-btn sp-btn-ghost" data-sp-action="shuffle-all">
-              <i data-lucide="shuffle"></i> Aleatorio
-            </button>
-          </div>
-        </div>
-      </div>
-
-      ${recent.length > 0 ? `
-        <section class="sp-section">
-          <div class="sp-section-head">
-            <h2 class="sp-section-title">Escuchado recientemente</h2>
-            <button class="sp-section-link" data-sp-nav="recent">Ver todo</button>
-          </div>
-          <div class="sp-cards-grid">
-            ${recent.map(track => renderSpotifyCard(track)).join('')}
-          </div>
-        </section>
-      ` : ''}
-
-      ${liked.length > 0 ? `
-        <section class="sp-section">
-          <div class="sp-section-head">
-            <h2 class="sp-section-title">Tus me gusta</h2>
-            <button class="sp-section-link" data-sp-nav="liked">Ver todo</button>
-          </div>
-          <div class="sp-cards-grid">
-            ${liked.map(track => renderSpotifyCard(track)).join('')}
-          </div>
-        </section>
-      ` : ''}
-
-      ${albums.length > 0 ? `
-        <section class="sp-section">
-          <div class="sp-section-head">
-            <h2 class="sp-section-title">Álbumes en tu biblioteca</h2>
-          </div>
-          <div class="sp-cards-grid">
-            ${albums.slice(0, 8).map(alb => `
-              <button class="sp-card sp-card-album" data-sp-nav="album" data-sp-album="${spEscapeHtml(alb.key)}">
-                <div class="sp-card-cover">
-                  <img src="${spEscapeHtml(alb.cover)}" alt="" loading="lazy" />
-                  <span class="sp-card-play" aria-hidden="true"><i data-lucide="play"></i></span>
-                </div>
-                <div class="sp-card-meta">
-                  <span class="sp-card-title">${spEscapeHtml(alb.name)}</span>
-                  <span class="sp-card-sub">${spEscapeHtml(alb.artist)}</span>
-                </div>
-              </button>
-            `).join('')}
-          </div>
-        </section>
-      ` : ''}
-
-      ${featuredArtist ? `
-        <section class="sp-section">
-          <div class="sp-section-head">
-            <h2 class="sp-section-title">Artista destacado</h2>
-          </div>
-          <div class="sp-featured-artist">
-            <div class="sp-featured-cover" style="background-image: url('${spEscapeHtml(featuredArtist.cover)}');">
-              <button class="sp-featured-play" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(featuredArtist.name)}">
-                <i data-lucide="play"></i>
-              </button>
-            </div>
-            <div class="sp-featured-info">
-              <span class="sp-featured-kicker">ARTISTA</span>
-              <h3 class="sp-featured-name">${spEscapeHtml(featuredArtist.name)}</h3>
-              <p class="sp-featured-meta">${featuredArtist.trackCount} canciones · ${featuredArtist.albums.length} álbumes</p>
-              <button class="sp-btn sp-btn-ghost" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(featuredArtist.name)}">
-                <i data-lucide="arrow-right"></i> Ver artista
-              </button>
-            </div>
-          </div>
-        </section>
-      ` : ''}
-
-      ${allTracks.length === 0 ? `
-        <div class="sp-empty">
-          <i data-lucide="music-2"></i>
-          <h2>No hay música todavía</h2>
-          <p>Agregá archivos MP3 en <code>assets/music/</code> y un <code>library.json</code> para empezar.</p>
-        </div>
-      ` : ''}
-    </div>
-  `;
-}
-
-function getSpotifyGreeting() {
-  const h = new Date().getHours();
-  if (h < 6) return 'Buenas noches';
-  if (h < 12) return 'Buenos días';
-  if (h < 19) return 'Buenas tardes';
-  return 'Buenas noches';
-}
-
-/* ─── Card de track (grid) ─── */
-
-function renderSpotifyCard(track) {
-  const isCurrent = spotify.currentTrackId === track.id;
-  return `
-    <button class="sp-card ${isCurrent ? 'is-current' : ''}" data-sp-play="${spEscapeHtml(track.id)}">
-      <div class="sp-card-cover">
-        <img src="${spEscapeHtml(spGetTrackCover(track))}" alt="" loading="lazy" />
-        <span class="sp-card-play" aria-hidden="true">
-          <i data-lucide="${isCurrent && spotify.isPlaying ? 'pause' : 'play'}"></i>
-        </span>
-      </div>
-      <div class="sp-card-meta">
-        <span class="sp-card-title">${spEscapeHtml(track.title)}</span>
-        <span class="sp-card-sub">${spEscapeHtml(track.artist)}</span>
-      </div>
-    </button>
-  `;
-}
-
-/* ─── Vista: PLAYLIST ─── */
-
-function renderSpotifyPlaylist(playlistId) {
-  const playlist = SpotifyApp.getPlaylistById(playlistId);
-  const custom = SpotifyApp.getCustomPlaylists().find(p => p.id === playlistId);
-
-  const target = playlist || custom;
-  if (!target) return renderSpotifyHome();
-
-  const tracks = target.trackIds
-    .map(id => SpotifyApp.getTrackById(id))
-    .filter(Boolean);
-
-  const totalDuration = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
-  const cover = getPlaylistCover(target);
-
-  return `
-    <div class="sp-view sp-view-playlist">
-      <header class="sp-playlist-header">
-        <div class="sp-playlist-cover" style="--pl-color: ${target.color || '#1ed760'}">
-          ${cover
-            ? `<img src="${spEscapeHtml(cover)}" alt="" />`
-            : `<i data-lucide="music-2"></i>`}
-        </div>
-        <div class="sp-playlist-info">
-          <span class="sp-playlist-kicker">Playlist</span>
-          <h1 class="sp-playlist-title">${spEscapeHtml(target.name)}</h1>
-          ${target.description ? `<p class="sp-playlist-desc">${spEscapeHtml(target.description)}</p>` : ''}
-          <div class="sp-playlist-meta">
-            <span>${tracks.length} canciones</span>
-            <span class="sp-dot">·</span>
-            <span>${spFormatTotalDuration(totalDuration)}</span>
-          </div>
-          <div class="sp-playlist-actions">
-            <button class="sp-btn sp-btn-primary sp-btn-large" data-sp-action="play-playlist" data-sp-playlist-id="${spEscapeHtml(target.id)}">
-              <i data-lucide="play"></i> Reproducir
-            </button>
-            <button class="sp-btn sp-btn-ghost" data-sp-action="shuffle-playlist" data-sp-playlist-id="${spEscapeHtml(target.id)}">
-              <i data-lucide="shuffle"></i> Aleatorio
-            </button>
-            ${custom ? `
-              <button class="sp-btn-icon" data-sp-action="edit-playlist" data-sp-playlist-id="${spEscapeHtml(target.id)}" title="Editar">
-                <i data-lucide="pencil"></i>
-              </button>
-              <button class="sp-btn-icon danger" data-sp-action="delete-playlist" data-sp-playlist-id="${spEscapeHtml(target.id)}" title="Eliminar">
-                <i data-lucide="trash-2"></i>
-              </button>
-            ` : ''}
-          </div>
-        </div>
-      </header>
-
-      ${renderSpotifyTrackList(tracks, { context: 'playlist', contextId: target.id })}
-    </div>
-  `;
-}
-
-/* ─── Vista: ARTISTA ─── */
-
-function renderSpotifyArtist(artistName) {
-  const artist = SpotifyApp.getArtistByName(artistName);
-  if (!artist) return renderSpotifyHome();
-
-  // Álbumes del artista
-  const albumsMap = new Map();
-  artist.tracks.forEach(t => {
-    const key = `${t.artist}::${t.album}`;
-    if (!albumsMap.has(key)) {
-      albumsMap.set(key, { key, name: t.album, year: t.year, cover: t.cover, trackCount: 0 });
-    }
-    albumsMap.get(key).trackCount++;
-  });
-  const albums = Array.from(albumsMap.values());
-
-  // Top tracks (por duración como heurística)
-  const topTracks = artist.tracks.slice(0, 5);
-
-  return `
-    <div class="sp-view sp-view-artist">
-      <header class="sp-artist-hero" style="--hero-cover: url('${spEscapeHtml(artist.cover)}');">
-        <div class="sp-artist-hero-inner">
-          <div class="sp-artist-avatar">
-            <img src="${spEscapeHtml(artist.cover)}" alt="" />
-          </div>
-          <div class="sp-artist-info">
-            <span class="sp-artist-kicker">Artista verificado</span>
-            <h1 class="sp-artist-name">${spEscapeHtml(artist.name)}</h1>
-            <div class="sp-artist-meta">
-              <span>${artist.trackCount} canciones</span>
-              <span class="sp-dot">·</span>
-              <span>${artist.albums.length} álbumes</span>
-            </div>
-            <div class="sp-artist-actions">
-              <button class="sp-btn sp-btn-primary" data-sp-action="play-artist" data-sp-artist="${spEscapeHtml(artist.name)}">
-                <i data-lucide="play"></i> Reproducir
-              </button>
-              <button class="sp-btn sp-btn-ghost" data-sp-action="shuffle-artist" data-sp-artist="${spEscapeHtml(artist.name)}">
-                <i data-lucide="shuffle"></i> Aleatorio
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      ${topTracks.length > 0 ? `
-        <section class="sp-section">
-          <h2 class="sp-section-title">Populares</h2>
-          ${renderSpotifyTrackList(topTracks, { context: 'artist', contextId: artist.name, compact: true })}
-        </section>
-      ` : ''}
-
-      ${albums.length > 0 ? `
-        <section class="sp-section">
-          <h2 class="sp-section-title">Discografía</h2>
-          <div class="sp-cards-grid">
-            ${albums.map(alb => `
-              <button class="sp-card sp-card-album" data-sp-nav="album" data-sp-album="${spEscapeHtml(alb.key)}">
-                <div class="sp-card-cover">
-                  <img src="${spEscapeHtml(alb.cover)}" alt="" loading="lazy" />
-                  <span class="sp-card-play" aria-hidden="true"><i data-lucide="play"></i></span>
-                </div>
-                <div class="sp-card-meta">
-                  <span class="sp-card-title">${spEscapeHtml(alb.name)}</span>
-                  <span class="sp-card-sub">${alb.year || ''} · ${alb.trackCount} canciones</span>
-                </div>
-              </button>
-            `).join('')}
-          </div>
-        </section>
-      ` : ''}
-    </div>
-  `;
-}
-
-/* ─── Vista: ÁLBUM ─── */
-
-function renderSpotifyAlbum(albumKey) {
-  const album = SpotifyApp.getAlbumByKey(albumKey);
-  if (!album) return renderSpotifyHome();
-
-  const totalDuration = album.tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
-
-  return `
-    <div class="sp-view sp-view-album">
-      <header class="sp-playlist-header">
-        <div class="sp-playlist-cover">
-          <img src="${spEscapeHtml(album.cover)}" alt="" />
-        </div>
-        <div class="sp-playlist-info">
-          <span class="sp-playlist-kicker">Álbum</span>
-          <h1 class="sp-playlist-title">${spEscapeHtml(album.name)}</h1>
-          <p class="sp-playlist-desc">
-            <button class="sp-inline-link" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(album.artist)}">${spEscapeHtml(album.artist)}</button>
-            ${album.year ? ` · ${album.year}` : ''}
-          </p>
-          <div class="sp-playlist-meta">
-            <span>${album.tracks.length} canciones</span>
-            <span class="sp-dot">·</span>
-            <span>${spFormatTotalDuration(totalDuration)}</span>
-          </div>
-          <div class="sp-playlist-actions">
-            <button class="sp-btn sp-btn-primary sp-btn-large" data-sp-action="play-album" data-sp-album="${spEscapeHtml(album.key)}">
-              <i data-lucide="play"></i> Reproducir
-            </button>
-            <button class="sp-btn sp-btn-ghost" data-sp-action="shuffle-album" data-sp-album="${spEscapeHtml(album.key)}">
-              <i data-lucide="shuffle"></i> Aleatorio
-            </button>
-          </div>
-        </div>
-      </header>
-
-      ${renderSpotifyTrackList(album.tracks, { context: 'album', contextId: album.key })}
-    </div>
-  `;
-}
-
-/* ─── Vista: BÚSQUEDA ─── */
-
-function renderSpotifySearch() {
-  const q = spotify.searchQuery || '';
-  if (!q.trim()) {
-    const history = spotify.searchHistory || [];
-    return `
-      <div class="sp-view sp-view-search">
-        <h1 class="sp-view-title">Buscar</h1>
-        ${history.length > 0 ? `
-          <section class="sp-section">
-            <h2 class="sp-section-title">Búsquedas recientes</h2>
-            <div class="sp-chips-row">
-              ${history.map(h => `
-                <button class="sp-chip" data-sp-search-suggestion="${spEscapeHtml(h)}">
-                  <i data-lucide="history"></i> ${spEscapeHtml(h)}
-                </button>
-              `).join('')}
-            </div>
-          </section>
-        ` : ''}
-        <div class="sp-empty">
-          <i data-lucide="search"></i>
-          <h2>Buscá algo</h2>
-          <p>Encontrá canciones, artistas, álbumes o playlists.</p>
-        </div>
-      </div>
-    `;
-  }
-
-  const results = SpotifyApp.search(q);
-  const noResults = results.tracks.length === 0
-    && results.artists.length === 0
-    && results.albums.length === 0
-    && results.playlists.length === 0;
-
-  if (noResults) {
-    return `
-      <div class="sp-view sp-view-search">
-        <h1 class="sp-view-title">Resultados para "${spEscapeHtml(q)}"</h1>
-        <div class="sp-empty">
-          <i data-lucide="search-x"></i>
-          <h2>Sin resultados</h2>
-          <p>Probá con otra búsqueda.</p>
-        </div>
-      </div>
-    `;
-  }
-
-  return `
-    <div class="sp-view sp-view-search">
-      <h1 class="sp-view-title">Resultados para "${spEscapeHtml(q)}"</h1>
-
-      ${results.tracks.length > 0 ? `
-        <section class="sp-section">
-          <h2 class="sp-section-title">Canciones</h2>
-          ${renderSpotifyTrackList(results.tracks.slice(0, 8), { context: 'search', contextId: 'tracks', compact: true })}
-        </section>
-      ` : ''}
-
-      ${results.artists.length > 0 ? `
-        <section class="sp-section">
-          <h2 class="sp-section-title">Artistas</h2>
-          <div class="sp-cards-grid">
-            ${results.artists.slice(0, 6).map(a => `
-              <button class="sp-card sp-card-artist" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(a.name)}">
-                <div class="sp-card-cover is-round">
-                  <img src="${spEscapeHtml(a.cover)}" alt="" loading="lazy" />
-                </div>
-                <div class="sp-card-meta">
-                  <span class="sp-card-title">${spEscapeHtml(a.name)}</span>
-                  <span class="sp-card-sub">Artista · ${a.trackCount} canciones</span>
-                </div>
-              </button>
-            `).join('')}
-          </div>
-        </section>
-      ` : ''}
-
-      ${results.albums.length > 0 ? `
-        <section class="sp-section">
-          <h2 class="sp-section-title">Álbumes</h2>
-          <div class="sp-cards-grid">
-            ${results.albums.slice(0, 6).map(alb => `
-              <button class="sp-card" data-sp-nav="album" data-sp-album="${spEscapeHtml(alb.key)}">
-                <div class="sp-card-cover">
-                  <img src="${spEscapeHtml(alb.cover)}" alt="" loading="lazy" />
-                </div>
-                <div class="sp-card-meta">
-                  <span class="sp-card-title">${spEscapeHtml(alb.name)}</span>
-                  <span class="sp-card-sub">${spEscapeHtml(alb.artist)}</span>
-                </div>
-              </button>
-            `).join('')}
-          </div>
-        </section>
-      ` : ''}
-
-      ${results.playlists.length > 0 ? `
-        <section class="sp-section">
-          <h2 class="sp-section-title">Playlists</h2>
-          <div class="sp-cards-grid">
-            ${results.playlists.slice(0, 6).map(pl => {
-              const cover = getPlaylistCover(pl);
-              return `
-                <button class="sp-card" data-sp-nav="playlist" data-sp-id="${spEscapeHtml(pl.id)}">
-                  <div class="sp-card-cover">
-                    ${cover
-                      ? `<img src="${spEscapeHtml(cover)}" alt="" loading="lazy" />`
-                      : `<div class="sp-card-cover-placeholder" style="background: ${pl.color || '#1ed760'}22;"><i data-lucide="music-2"></i></div>`}
-                  </div>
-                  <div class="sp-card-meta">
-                    <span class="sp-card-title">${spEscapeHtml(pl.name)}</span>
-                    <span class="sp-card-sub">Playlist · ${pl.trackIds.length} canciones</span>
-                  </div>
-                </button>
-              `;
-            }).join('')}
-          </div>
-        </section>
-      ` : ''}
-    </div>
-  `;
-}
-
-/* ─── Vista: LIKED ─── */
-
-function renderSpotifyLiked() {
-  const tracks = SpotifyApp.getLikedTracks();
-  const totalDuration = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
-
-  return `
-    <div class="sp-view sp-view-liked">
-      <header class="sp-playlist-header sp-liked-header">
-        <div class="sp-playlist-cover sp-liked-cover">
-          <i data-lucide="heart"></i>
-        </div>
-        <div class="sp-playlist-info">
-          <span class="sp-playlist-kicker">Playlist</span>
-          <h1 class="sp-playlist-title">Tus me gusta</h1>
-          <div class="sp-playlist-meta">
-            <span>${tracks.length} canciones</span>
-            <span class="sp-dot">·</span>
-            <span>${spFormatTotalDuration(totalDuration)}</span>
-          </div>
-          ${tracks.length > 0 ? `
-            <div class="sp-playlist-actions">
-              <button class="sp-btn sp-btn-primary sp-btn-large" data-sp-action="play-liked">
-                <i data-lucide="play"></i> Reproducir
-              </button>
-              <button class="sp-btn sp-btn-ghost" data-sp-action="shuffle-liked">
-                <i data-lucide="shuffle"></i> Aleatorio
-              </button>
-            </div>
-          ` : ''}
-        </div>
-      </header>
-
-      ${tracks.length > 0
-        ? renderSpotifyTrackList(tracks, { context: 'liked', contextId: '__liked__' })
-        : `<div class="sp-empty">
-            <i data-lucide="heart-off"></i>
-            <h2>Aún no tenés favoritos</h2>
-            <p>Tocá el corazón en cualquier canción para guardarla acá.</p>
-          </div>`}
-    </div>
-  `;
-}
-
-/* ─── Vista: LIBRARY ─── */
-
-function renderSpotifyLibrary() {
-  const playlists = SpotifyApp.getPlaylists().filter(p => p.id !== '__liked__');
-  const custom = SpotifyApp.getCustomPlaylists();
-  const allPlaylists = [
-    { id: '__liked__', name: 'Tus me gusta', color: '#1ed760', trackIds: SpotifyApp.getLikedIds(), __virtual: 'liked' },
-    ...playlists,
-    ...custom
-  ];
-
-  const allTracks = SpotifyApp.getAllTracks();
-  const albumsMap = new Map();
-  allTracks.forEach(t => {
-    const key = `${t.artist}::${t.album}`;
-    if (!albumsMap.has(key)) albumsMap.set(key, { key, name: t.album, artist: t.artist, cover: t.cover });
-  });
-  const albums = Array.from(albumsMap.values());
-
-  const artists = new Map();
-  allTracks.forEach(t => {
-    if (!artists.has(t.artist)) artists.set(t.artist, { name: t.artist, cover: t.cover, count: 0 });
-    artists.get(t.artist).count++;
-  });
-
-  return `
-    <div class="sp-view sp-view-library">
-      <h1 class="sp-view-title">Tu biblioteca</h1>
-
-      ${allPlaylists.length > 0 ? `
-        <section class="sp-section">
-          <h2 class="sp-section-title">Playlists</h2>
-          <div class="sp-cards-grid">
-            ${allPlaylists.map(pl => {
-              const cover = getPlaylistCover(pl);
-              return `
-                <button class="sp-card" data-sp-nav="playlist" data-sp-id="${spEscapeHtml(pl.id)}">
-                  <div class="sp-card-cover">
-                    ${pl.id === '__liked__'
-                      ? `<div class="sp-card-cover-liked"><i data-lucide="heart"></i></div>`
-                      : (cover
-                        ? `<img src="${spEscapeHtml(cover)}" alt="" loading="lazy" />`
-                        : `<div class="sp-card-cover-placeholder" style="background: ${pl.color || '#1ed760'}22;"><i data-lucide="music-2"></i></div>`)}
-                  </div>
-                  <div class="sp-card-meta">
-                    <span class="sp-card-title">${spEscapeHtml(pl.name)}</span>
-                    <span class="sp-card-sub">Playlist · ${(pl.trackIds || []).length} canciones</span>
-                  </div>
-                </button>
-              `;
-            }).join('')}
-          </div>
-        </section>
-      ` : ''}
-
-      ${albums.length > 0 ? `
-        <section class="sp-section">
-          <h2 class="sp-section-title">Álbumes</h2>
-          <div class="sp-cards-grid">
-            ${albums.slice(0, 12).map(alb => `
-              <button class="sp-card" data-sp-nav="album" data-sp-album="${spEscapeHtml(alb.key)}">
-                <div class="sp-card-cover">
-                  <img src="${spEscapeHtml(alb.cover)}" alt="" loading="lazy" />
-                </div>
-                <div class="sp-card-meta">
-                  <span class="sp-card-title">${spEscapeHtml(alb.name)}</span>
-                  <span class="sp-card-sub">${spEscapeHtml(alb.artist)}</span>
-                </div>
-              </button>
-            `).join('')}
-          </div>
-        </section>
-      ` : ''}
-
-      ${artists.size > 0 ? `
-        <section class="sp-section">
-          <h2 class="sp-section-title">Artistas</h2>
-          <div class="sp-cards-grid">
-            ${Array.from(artists.values()).slice(0, 12).map(a => `
-              <button class="sp-card sp-card-artist" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(a.name)}">
-                <div class="sp-card-cover is-round">
-                  <img src="${spEscapeHtml(a.cover)}" alt="" loading="lazy" />
-                </div>
-                <div class="sp-card-meta">
-                  <span class="sp-card-title">${spEscapeHtml(a.name)}</span>
-                  <span class="sp-card-sub">Artista · ${a.count} canciones</span>
-                </div>
-              </button>
-            `).join('')}
-          </div>
-        </section>
-      ` : ''}
-    </div>
-  `;
-}
-
-/* ─── Vista: QUEUE ─── */
-
-function renderSpotifyQueue() {
-  const queue = SpotifyApp.getQueue();
-  const queueIndex = SpotifyApp.getQueueIndex();
-  const upcoming = queue.slice(queueIndex + 1);
-
-  return `
-    <div class="sp-view sp-view-queue">
-      <h1 class="sp-view-title">Cola de reproducción</h1>
-
-      ${queueIndex >= 0 && queue[queueIndex] ? `
-        <section class="sp-section">
-          <h2 class="sp-section-title">Reproduciendo ahora</h2>
-          ${renderSpotifyTrackList([SpotifyApp.getTrackById(queue[queueIndex])].filter(Boolean), { context: 'queue', compact: true, hidePlayedAt: true })}
-        </section>
-      ` : ''}
-
-      <section class="sp-section">
-        <h2 class="sp-section-title">Próximas (${upcoming.length})</h2>
-        ${upcoming.length > 0
-          ? renderSpotifyTrackList(upcoming.map(id => SpotifyApp.getTrackById(id)).filter(Boolean), { context: 'queue', compact: true })
-          : `<p class="sp-empty-inline">No hay más canciones en la cola.</p>`}
-      </section>
-    </div>
-  `;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ LISTA DE TRACKS (componente reutilizable)
-═══════════════════════════════════════════════════════════════ */
-
-function renderSpotifyTrackList(tracks, { context = '', contextId = '', compact = false } = {}) {
-  if (!tracks || tracks.length === 0) {
-    return `<div class="sp-empty-inline">Sin canciones.</div>`;
-  }
-
-  return `
-    <div class="sp-tracklist ${compact ? 'is-compact' : ''}" data-sp-tracklist data-sp-context="${context}" data-sp-context-id="${spEscapeHtml(contextId)}">
-      <div class="sp-tracklist-head">
-        <span class="sp-track-num">#</span>
-        <span class="sp-track-title-col">Título</span>
-        <span class="sp-track-album-col">Álbum</span>
-        <span class="sp-track-duration-col"><i data-lucide="clock-3"></i></span>
-      </div>
-      ${tracks.map((track, i) => renderSpotifyTrackRow(track, i, context, contextId)).join('')}
-    </div>
-  `;
-}
-
-function renderSpotifyTrackRow(track, index, context, contextId) {
-  const isCurrent = spotify.currentTrackId === track.id;
-  const isPlaying = isCurrent && spotify.isPlaying;
-  const liked = SpotifyApiIsLiked(track.id);
-
-  return `
-    <div class="sp-track-row ${isCurrent ? 'is-current' : ''}" data-sp-track-id="${spEscapeHtml(track.id)}">
-      <div class="sp-track-num">
-        <span class="sp-track-index">${index + 1}</span>
-        <button class="sp-track-play-btn" data-sp-play="${spEscapeHtml(track.id)}" title="${isPlaying ? 'Pausar' : 'Reproducir'}">
-          <i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>
-        </button>
-      </div>
-      <div class="sp-track-title">
-        <img class="sp-track-cover" src="${spEscapeHtml(spGetTrackCover(track))}" alt="" loading="lazy" />
-        <div class="sp-track-title-meta">
-          <span class="sp-track-name ${isCurrent ? 'is-accent' : ''}">${spEscapeHtml(track.title)}</span>
-          <button class="sp-track-artist-btn" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(track.artist)}">
-            ${spEscapeHtml(track.artist)}
-          </button>
-        </div>
-      </div>
-      <button class="sp-track-album" data-sp-nav="album" data-sp-album="${spEscapeHtml(`${track.artist}::${track.album}`)}">
-        ${spEscapeHtml(track.album)}
-      </button>
-      <div class="sp-track-actions">
-        <button class="sp-icon-btn sp-track-like ${liked ? 'liked' : ''}" data-sp-like="${spEscapeHtml(track.id)}" title="${liked ? 'Quitar de Tus me gusta' : 'Agregar a Tus me gusta'}">
-          <i data-lucide="heart"></i>
-        </button>
-        <button class="sp-icon-btn sp-track-menu" data-sp-track-menu="${spEscapeHtml(track.id)}" title="Más opciones">
-          <i data-lucide="more-horizontal"></i>
-        </button>
-      </div>
-      <span class="sp-track-duration">${spFormatTime(track.duration || 0)}</span>
-    </div>
-  `;
-}
-
-/* Helper local para evitar referencia circular */
-function SpotifyApiIsLiked(id) {
-  return spotify.likedIds.has(id);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ SETUP DE LA APP — listeners completos
-═══════════════════════════════════════════════════════════════ */
-
-function setupSpotifyApp(win) {
-  if (!win) return;
-
-  // Registrar UI en el WeakMap para no duplicar listeners
-  const ui = spotifyUIState.get(win) || {};
-  if (ui.bound) {
-    // Ya estaba bound; solo refrescamos el HTML
-    refreshSpotifyWindow(win);
-    return;
-  }
-
-  const root = win.querySelector('[data-spotify-root]');
-  if (!root) return;
-
-  ui.bound = true;
-  ui.win = win;
-  spotifyUIState.set(win, ui);
-
-  // ─── Delegación de eventos ───
-  root.addEventListener('click', (e) => handleSpotifyClick(e, win));
-
-  // ─── Search input ───
-  const searchInput = root.querySelector('.sp-search-input');
-  if (searchInput) {
-    const handler = spDebounce((value) => {
-      spotify.searchQuery = value;
-      if (value.trim()) {
-        spotify.view = 'search';
-        spotify.viewParams = { query: value };
-        // Guardar en historial
-        const hist = spotify.searchHistory || [];
-        if (value.trim() && !hist.includes(value.trim())) {
-          hist.unshift(value.trim());
-          spotify.searchHistory = hist.slice(0, 10);
-        }
-      } else if (spotify.view === 'search') {
-        spotify.view = 'home';
-      }
-      refreshSpotifyWindow(win);
-    }, SPOTIFY_SEARCH_DEBOUNCE_MS);
-
-    searchInput.addEventListener('input', (e) => handler(e.target.value));
-    searchInput.addEventListener('focus', () => {
-      // Expandir placeholder, etc.
-    });
-  }
-
-  // ─── Barra de progreso (click para seek) ───
-  const progress = root.querySelector('[data-sp-progress]');
-  if (progress) {
-    const onSeek = (e) => {
-      const rect = progress.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      const dur = SpotifyApp.getDuration() || (SpotifyApp.getCurrentTrack()?.duration || 0);
-      SpotifyApp.seek(pct * dur);
-    };
-    let seeking = false;
-    progress.addEventListener('mousedown', (e) => {
-      seeking = true;
-      onSeek(e);
-      const onMove = (ev) => seeking && onSeek(ev);
-      const onUp = () => {
-        seeking = false;
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-      };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    });
-  }
-
-  // ─── Slider de volumen ───
-  const volumeTrack = root.querySelector('[data-sp-volume]');
-  if (volumeTrack) {
-    const onVol = (e) => {
-      const rect = volumeTrack.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      SpotifyApp.setVolume(pct);
-      if (pct > 0 && SpotifyApp.isMuted()) SpotifyApp.toggleMute();
-    };
-    let volDragging = false;
-    volumeTrack.addEventListener('mousedown', (e) => {
-      volDragging = true;
-      onVol(e);
-      const onMove = (ev) => volDragging && onVol(ev);
-      const onUp = () => {
-        volDragging = false;
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-      };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    });
-  }
-
-  // ─── Atajos locales de la app ───
-  win.addEventListener('keydown', (e) => {
-    if (e.target.closest('.sp-search-input')) return;
-    const tag = e.target.tagName?.toLowerCase();
-    if (tag === 'input' || tag === 'textarea') return;
-
-    if (e.code === 'Space' || e.key === ' ') {
-      e.preventDefault();
-      SpotifyApp.togglePlayPause();
-    } else if (e.key === 'ArrowRight' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      SpotifyApp.next();
-    } else if (e.key === 'ArrowLeft' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      SpotifyApp.prev();
-    } else if (e.key === 'ArrowUp' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      SpotifyApp.setVolume(Math.min(1, SpotifyApp.getVolume() + 0.05));
-    } else if (e.key === 'ArrowDown' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      SpotifyApp.setVolume(Math.max(0, SpotifyApp.getVolume() - 0.05));
-    } else if (e.key === 'f' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      const input = win.querySelector('.sp-search-input');
-      if (input) input.focus();
-    } else if (e.key === 'l' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      const current = SpotifyApp.getCurrentTrack();
-      if (current) SpotifyApp.toggleLike(current.id);
-    }
-  });
-
-  // ─── Escuchar eventos del motor para refrescar la UI ───
-  const unsubs = ui.unsubs || (ui.unsubs = []);
-  unsubs.push(SpotifyApp.on('trackchange', () => refreshSpotifyWindow(win)));
-  unsubs.push(SpotifyApp.on('play', () => refreshSpotifyPlayerBar(win)));
-  unsubs.push(SpotifyApp.on('pause', () => refreshSpotifyPlayerBar(win)));
-  unsubs.push(SpotifyApp.on('volume', () => refreshSpotifyVolumeUI(win)));
-  unsubs.push(SpotifyApp.on('shuffle', () => refreshSpotifyPlayerBar(win)));
-  unsubs.push(SpotifyApp.on('repeat', () => refreshSpotifyPlayerBar(win)));
-  unsubs.push(SpotifyApp.on('liked', ({ trackId }) => {
-    // Actualizar corazones en TODA la ventana
-    win.querySelectorAll(`[data-sp-like="${trackId}"]`).forEach(btn => {
-      const liked = SpotifyApp.isLiked(trackId);
-      btn.classList.toggle('liked', liked);
-      btn.title = liked ? 'Quitar de Tus me gusta' : 'Agregar a Tus me gusta';
-    });
-    // Actualizar el corazón del player
-    const current = SpotifyApp.getCurrentTrack();
-    if (current && current.id === trackId) {
-      const playerLike = win.querySelector('[data-sp-action="like-current"]');
-      if (playerLike) playerLike.classList.toggle('liked', SpotifyApp.isLiked(trackId));
-    }
-    // Sidebar "Tus me gusta"
-    if (spotify.view === 'liked') refreshSpotifyWindow(win);
-  }));
-  unsubs.push(SpotifyApp.on('playlists-change', () => {
-    refreshSpotifyWindow(win);
-  }));
-
-  // ─── Arrancar loop del visualizador (si hay barra) ───
-  startSpotifyVisualizerLoop(win);
-
-  // ─── Loop de progreso (por si timeupdate no dispara) ───
-  const progressInterval = setInterval(() => {
-    if (!win.isConnected) {
-      clearInterval(progressInterval);
-      return;
-    }
-    refreshSpotifyProgressUI(win);
-  }, 250);
-  ui.progressInterval = progressInterval;
-
-  // ─── Refrescar por primera vez ───
-  refreshSpotifyWindow(win);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ MANEJO DE CLICKS (delegación)
-═══════════════════════════════════════════════════════════════ */
-
-function handleSpotifyClick(e, win) {
-  const target = e.target;
-
-  // ─── Botón play/pause global ───
-  const playPause = target.closest('[data-sp-action="play-pause"]');
-  if (playPause) {
-    e.stopPropagation();
-    SpotifyApp.togglePlayPause();
-    return;
-  }
-
-  // ─── Reproducir un track específico ───
-  const playTrack = target.closest('[data-sp-play]');
-  if (playTrack) {
-    e.stopPropagation();
-    const trackId = playTrack.dataset.spPlay;
-    if (SpotifyApp.getCurrentTrack()?.id === trackId && spotify.isPlaying) {
-      SpotifyApp.pause();
-    } else if (SpotifyApp.getCurrentTrack()?.id === trackId && !spotify.isPlaying) {
-      SpotifyApp.resume();
-    } else {
-      SpotifyApp.play(trackId);
-    }
-    return;
-  }
-
-  // ─── Like de un track ───
-  const likeBtn = target.closest('[data-sp-like]');
-  if (likeBtn) {
-    e.stopPropagation();
-    SpotifyApp.toggleLike(likeBtn.dataset.spLike);
-    return;
-  }
-
-  // ─── Menú contextual de un track ───
-  const menuBtn = target.closest('[data-sp-track-menu]');
-  if (menuBtn) {
-    e.stopPropagation();
-    openSpotifyTrackMenu(win, menuBtn.dataset.spTrackMenu, menuBtn);
-    return;
-  }
-
-  // ─── Navegación ───
-  const nav = target.closest('[data-sp-nav]');
-  if (nav) {
-    e.stopPropagation();
-    navigateSpotify(win, nav.dataset.spNav, nav);
-    return;
-  }
-
-  // ─── Filtros de sidebar ───
-  const filter = target.closest('[data-sp-filter]');
-  if (filter) {
-    e.stopPropagation();
-    spotify.libraryFilter = filter.dataset.spFilter;
-    refreshSpotifyWindow(win);
-    return;
-  }
-
-  // ─── Limpiar búsqueda ───
-  if (target.closest('[data-sp-search-clear]')) {
-    e.stopPropagation();
-    spotify.searchQuery = '';
-    if (spotify.view === 'search') spotify.view = 'home';
-    refreshSpotifyWindow(win);
-    return;
-  }
-
-  // ─── Sugerencia de búsqueda (historial) ───
-  const suggestion = target.closest('[data-sp-search-suggestion]');
-  if (suggestion) {
-    e.stopPropagation();
-    spotify.searchQuery = suggestion.dataset.spSearchSuggestion;
-    spotify.view = 'search';
-    refreshSpotifyWindow(win);
-    return;
-  }
-
-  // ─── Botón "back" del topbar ───
-  if (target.closest('[data-sp-nav="back"]')) {
-    e.stopPropagation();
-    // volver a home
-    spotify.view = 'home';
-    spotify.viewParams = {};
-    refreshSpotifyWindow(win);
-    return;
-  }
-
-  // ─── Acciones ───
-  const action = target.closest('[data-sp-action]');
-  if (action) {
-    e.stopPropagation();
-    handleSpotifyAction(win, action.dataset.spAction, action);
-    return;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ NAVEGACIÓN INTERNA
-═══════════════════════════════════════════════════════════════ */
-
-function navigateSpotify(win, type, el) {
-  switch (type) {
-    case 'home':
-      spotify.view = 'home';
-      spotify.viewParams = {};
-      break;
-
-    case 'library':
-      spotify.view = 'library';
-      spotify.viewParams = {};
-      break;
-
-    case 'liked':
-      spotify.view = 'liked';
-      spotify.viewParams = {};
-      break;
-
-    case 'playlist':
-      spotify.view = 'playlist';
-      spotify.viewParams = { playlistId: el.dataset.spId };
-      break;
-
-    case 'artist':
-      spotify.view = 'artist';
-      spotify.viewParams = { artistName: el.dataset.spArtist || el.dataset.spId };
-      break;
-
-    case 'album':
-      spotify.view = 'album';
-      spotify.viewParams = { albumKey: el.dataset.spAlbum || el.dataset.spId };
-      break;
-
-    case 'search':
-      spotify.view = 'search';
-      spotify.viewParams = { query: spotify.searchQuery };
-      break;
-
-    case 'queue':
-      spotify.view = 'queue';
-      spotify.viewParams = {};
-      break;
-
-    case 'now-playing':
-      // Abrir HUD overlay con el track actual (o hacer scroll al player)
-      scrollSpotifyToPlayer(win);
-      return;
-
-    case 'recent':
-      // Vista "recientes" → usar vista liked pero con recientes
-      spotify.view = 'home';
-      spotify.viewParams = {};
-      break;
-
-    default:
-      spotify.view = 'home';
-      spotify.viewParams = {};
-  }
-
-  refreshSpotifyWindow(win);
-}
-
-function scrollSpotifyToPlayer(win) {
-  const player = win.querySelector('[data-sp-player]');
-  if (player) player.scrollIntoView({ behavior: 'smooth', block: 'end' });
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ ACCIONES ESPECÍFICAS
-═══════════════════════════════════════════════════════════════ */
-
-function handleSpotifyAction(win, action, el) {
-  switch (action) {
-    case 'play-pause':
-      SpotifyApp.togglePlayPause();
-      break;
-
-    case 'prev':
-      SpotifyApp.prev();
-      break;
-
-    case 'next':
-      SpotifyApp.next();
-      break;
-
-    case 'shuffle':
-      SpotifyApp.toggleShuffle();
-      break;
-
-    case 'repeat':
-      SpotifyApp.cycleRepeat();
-      break;
-
-    case 'mute':
-      SpotifyApp.toggleMute();
-      break;
-
-    case 'like-current': {
-      const current = SpotifyApp.getCurrentTrack();
-      if (current) SpotifyApp.toggleLike(current.id);
-      break;
-    }
-
-    case 'play-all': {
-      const all = SpotifyApp.getAllTracks();
-      if (all.length > 0) SpotifyApp.play(all[0].id);
-      break;
-    }
-
-    case 'shuffle-all': {
-      const all = SpotifyApp.getAllTracks();
-      if (all.length === 0) break;
-      const shuffled = spShuffleArray(all);
-      SpotifyApp.setShuffle(true);
-      SpotifyApp.play(shuffled[0].id);
-      break;
-    }
-
-    case 'play-playlist': {
-      const pl = SpotifyApp.getPlaylistById(el.dataset.spPlaylistId)
-        || SpotifyApp.getCustomPlaylists().find(p => p.id === el.dataset.spPlaylistId);
-      if (pl && pl.trackIds.length > 0) {
-        spotify.queue = pl.trackIds.slice();
-        spotify.queueIndex = 0;
-        SpotifyApp.setShuffle(false);
-        SpotifyApp.play(pl.trackIds[0]);
-      }
-      break;
-    }
-
-    case 'shuffle-playlist': {
-      const pl = SpotifyApp.getPlaylistById(el.dataset.spPlaylistId)
-        || SpotifyApp.getCustomPlaylists().find(p => p.id === el.dataset.spPlaylistId);
-      if (pl && pl.trackIds.length > 0) {
-        const shuffled = spShuffleArray(pl.trackIds);
-        spotify.queue = shuffled;
-        spotify.queueIndex = 0;
-        SpotifyApp.setShuffle(true);
-        SpotifyApp.play(shuffled[0]);
-      }
-      break;
-    }
-
-    case 'play-artist': {
-      const artist = SpotifyApp.getArtistByName(el.dataset.spArtist);
-      if (artist && artist.tracks.length > 0) {
-        spotify.queue = artist.tracks.map(t => t.id);
-        spotify.queueIndex = 0;
-        SpotifyApp.setShuffle(false);
-        SpotifyApp.play(artist.tracks[0].id);
-      }
-      break;
-    }
-
-    case 'shuffle-artist': {
-      const artist = SpotifyApp.getArtistByName(el.dataset.spArtist);
-      if (artist && artist.tracks.length > 0) {
-        const shuffled = spShuffleArray(artist.tracks);
-        spotify.queue = shuffled.map(t => t.id);
-        spotify.queueIndex = 0;
-        SpotifyApp.setShuffle(true);
-        SpotifyApp.play(shuffled[0].id);
-      }
-      break;
-    }
-
-    case 'play-album': {
-      const album = SpotifyApp.getAlbumByKey(el.dataset.spAlbum);
-      if (album && album.tracks.length > 0) {
-        spotify.queue = album.tracks.map(t => t.id);
-        spotify.queueIndex = 0;
-        SpotifyApp.setShuffle(false);
-        SpotifyApp.play(album.tracks[0].id);
-      }
-      break;
-    }
-
-    case 'shuffle-album': {
-      const album = SpotifyApp.getAlbumByKey(el.dataset.spAlbum);
-      if (album && album.tracks.length > 0) {
-        const shuffled = spShuffleArray(album.tracks);
-        spotify.queue = shuffled.map(t => t.id);
-        spotify.queueIndex = 0;
-        SpotifyApp.setShuffle(true);
-        SpotifyApp.play(shuffled[0].id);
-      }
-      break;
-    }
-
-    case 'play-liked': {
-      const liked = SpotifyApp.getLikedTracks();
-      if (liked.length > 0) {
-        spotify.queue = liked.map(t => t.id);
-        spotify.queueIndex = 0;
-        SpotifyApp.setShuffle(false);
-        SpotifyApp.play(liked[0].id);
-      }
-      break;
-    }
-
-    case 'shuffle-liked': {
-      const liked = SpotifyApp.getLikedTracks();
-      if (liked.length > 0) {
-        const shuffled = spShuffleArray(liked);
-        spotify.queue = shuffled.map(t => t.id);
-        spotify.queueIndex = 0;
-        SpotifyApp.setShuffle(true);
-        SpotifyApp.play(shuffled[0].id);
-      }
-      break;
-    }
-
-    case 'queue':
-      navigateSpotify(win, 'queue', el);
-      break;
-
-    case 'now-playing':
-      scrollSpotifyToPlayer(win);
-      break;
-
-    case 'devices':
-      showToast('Dispositivos', 'Esta PC · Nebula Audio', 'monitor-speaker');
-      break;
-
-    case 'fullscreen': {
-      const root = win.querySelector('[data-spotify-root]');
-      if (root) root.classList.toggle('is-fullscreen');
-      break;
-    }
-
-    case 'create-playlist':
-      openSpotifyCreatePlaylistModal(win);
-      break;
-
-    case 'edit-playlist':
-      openSpotifyEditPlaylistModal(win, el.dataset.spPlaylistId);
-      break;
-
-    case 'delete-playlist': {
-      const id = el.dataset.spPlaylistId;
-      const pl = SpotifyApp.getCustomPlaylists().find(p => p.id === id);
-      if (!pl) break;
-      if (confirm(`¿Eliminar la playlist "${pl.name}"?`)) {
-        SpotifyApp.deletePlaylist(id);
-        navigateSpotify(win, 'home', el);
-        showToast('Playlist eliminada', pl.name, 'trash-2');
-      }
-      break;
-    }
-
-    case 'add-to-playlist': {
-      // El menú contextual ya maneja esto
-      break;
-    }
-
-    default:
-      console.warn('[Spotify] Acción no manejada:', action);
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ REFRESH PARCIAL DE LA UI
-═══════════════════════════════════════════════════════════════ */
-
-function refreshSpotifyWindow(win) {
-  if (!win || !win.isConnected) return;
-
-  const root = win.querySelector('[data-spotify-root]');
-  if (!root) return;
-
-  // Buscar el scroll actual del main
-  const mainEl = root.querySelector('[data-sp-main]');
-  const scrollTop = mainEl ? mainEl.scrollTop : 0;
-
-  // Reemplazar todo el contenido de la app
-  const temp = document.createElement('div');
-  temp.innerHTML = getSpotifyAppHTML().trim();
-  const newRoot = temp.firstElementChild;
-
-  // Preservar foco del input de búsqueda
-  const oldInput = root.querySelector('.sp-search-input');
-  const hadFocus = oldInput && document.activeElement === oldInput;
-  const oldSelStart = oldInput ? oldInput.selectionStart : null;
-  const oldSelEnd = oldInput ? oldInput.selectionEnd : null;
-
-  root.replaceWith(newRoot);
-
-  // Re-bind de eventos (la delegación está en root, así que hay que re-hacerla)
-  const ui = spotifyUIState.get(win);
-  if (ui) {
-    ui.bound = false;
-    // Mantener unsubs
-    const unsubs = ui.unsubs;
-    const progressInterval = ui.progressInterval;
-    spotifyUIState.delete(win);
-    spotifyUIState.set(win, { bound: false, win, unsubs, progressInterval });
-  }
-
-  // Re-setup
-  const newUi = spotifyUIState.get(win);
-  if (newUi) newUi.bound = false;
-  setupSpotifyAppLight(win);
-
-  // Restaurar scroll
-  const newMain = win.querySelector('[data-sp-main]');
-  if (newMain && scrollTop > 0) newMain.scrollTop = scrollTop;
-
-  // Restaurar foco
-  if (hadFocus) {
-    const newInput = win.querySelector('.sp-search-input');
-    if (newInput) {
-      newInput.focus();
-      if (oldSelStart != null && oldSelEnd != null) {
-        newInput.setSelectionRange(oldSelStart, oldSelEnd);
-      }
-    }
-  }
-
-  refreshIcons();
-}
-
-/**
- * Re-bind ligero: solo agrega delegación de clicks y search input.
- * Se usa después de replaceWith para no duplicar listeners de eventos del motor.
- */
-function setupSpotifyAppLight(win) {
-  const root = win.querySelector('[data-spotify-root]');
-  if (!root) return;
-
-  // Delegación de clicks (una sola vez por root)
-  if (!root.dataset.boundClick) {
-    root.dataset.boundClick = '1';
-    root.addEventListener('click', (e) => handleSpotifyClick(e, win));
-  }
-
-  // Search input
-  const searchInput = root.querySelector('.sp-search-input');
-  if (searchInput && !searchInput.dataset.bound) {
-    searchInput.dataset.bound = '1';
-    const handler = spDebounce((value) => {
-      spotify.searchQuery = value;
-      if (value.trim()) {
-        spotify.view = 'search';
-        const hist = spotify.searchHistory || [];
-        if (!hist.includes(value.trim())) {
-          hist.unshift(value.trim());
-          spotify.searchHistory = hist.slice(0, 10);
-        }
-      } else if (spotify.view === 'search') {
-        spotify.view = 'home';
-      }
-      refreshSpotifyWindow(win);
-    }, SPOTIFY_SEARCH_DEBOUNCE_MS);
-    searchInput.addEventListener('input', (e) => handler(e.target.value));
-  }
-
-  // Progreso
-  const progress = root.querySelector('[data-sp-progress]');
-  if (progress && !progress.dataset.bound) {
-    progress.dataset.bound = '1';
-    const onSeek = (e) => {
-      const rect = progress.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      const dur = SpotifyApp.getDuration() || (SpotifyApp.getCurrentTrack()?.duration || 0);
-      SpotifyApp.seek(pct * dur);
-    };
-    let seeking = false;
-    progress.addEventListener('mousedown', (e) => {
-      seeking = true;
-      onSeek(e);
-      const onMove = (ev) => seeking && onSeek(ev);
-      const onUp = () => {
-        seeking = false;
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-      };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    });
-  }
-
-  // Volumen
-  const vol = root.querySelector('[data-sp-volume]');
-  if (vol && !vol.dataset.bound) {
-    vol.dataset.bound = '1';
-    const onVol = (e) => {
-      const rect = vol.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      SpotifyApp.setVolume(pct);
-      if (pct > 0 && SpotifyApp.isMuted()) SpotifyApp.toggleMute();
-    };
-    let dragging = false;
-    vol.addEventListener('mousedown', (e) => {
-      dragging = true;
-      onVol(e);
-      const onMove = (ev) => dragging && onVol(ev);
-      const onUp = () => {
-        dragging = false;
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-      };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    });
-  }
-
-  // Refrescar barra de progreso y visualizador
-  refreshSpotifyProgressUI(win);
-  startSpotifyVisualizerLoop(win);
-}
-
-/**
- * Refresca solo el player inferior (más liviano que rebuild completo).
- */
-function refreshSpotifyPlayerBar(win) {
-  if (!win || !win.isConnected) return;
-  const root = win.querySelector('[data-spotify-root]');
-  if (!root) return;
-
-  const player = root.querySelector('[data-sp-player]');
-  if (!player) return;
-
-  const current = SpotifyApp.getCurrentTrack();
-  const isPlaying = spotify.isPlaying;
-  const shuffle = spotify.shuffle;
-  const repeat = spotify.repeat;
-  const isLiked = current ? SpotifyApp.isLiked(current.id) : false;
-
-  // Actualizar cover + info
-  const cover = player.querySelector('.sp-player-cover');
-  if (cover && current) {
-    cover.src = spGetTrackCover(current);
-  }
-
-  const title = player.querySelector('.sp-player-title');
-  if (title && current) title.textContent = current.title;
-
-  const artist = player.querySelector('.sp-player-artist');
-  if (artist && current) artist.textContent = current.artist;
-
-  // Play/pause button
-  const playBtn = player.querySelector('[data-sp-action="play-pause"]');
-  if (playBtn) {
-    playBtn.innerHTML = `<i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>`;
-    playBtn.title = isPlaying ? 'Pausar' : 'Reproducir';
-  }
-
-  // Shuffle
-  const shuffleBtn = player.querySelector('[data-sp-action="shuffle"]');
-  if (shuffleBtn) shuffleBtn.classList.toggle('active', shuffle);
-
-  // Repeat
-  const repeatBtn = player.querySelector('[data-sp-action="repeat"]');
-  if (repeatBtn) {
-    repeatBtn.classList.toggle('active', repeat !== 'off');
-    repeatBtn.dataset.spRepeat = repeat;
-    repeatBtn.innerHTML = `<i data-lucide="${repeat === 'one' ? 'repeat-1' : 'repeat'}"></i>`;
-  }
-
-  // Like
-  const likeBtn = player.querySelector('[data-sp-action="like-current"]');
-  if (likeBtn) likeBtn.classList.toggle('liked', isLiked);
-
-  // Mute icon
-  refreshSpotifyVolumeUI(win);
-
-  // Duraciones
-  const durEl = player.querySelector('[data-sp-time="duration"]');
-  if (durEl && current) durEl.textContent = spFormatTime(current.duration || 0);
-
-  refreshIcons();
-}
-
-function refreshSpotifyVolumeUI(win) {
-  const root = win.querySelector('[data-spotify-root]');
-  if (!root) return;
-
-  const volPct = Math.round(SpotifyApp.getVolume() * 100);
-  const muted = SpotifyApp.isMuted();
-
-  const fill = root.querySelector('[data-sp-volume-fill]');
-  if (fill) fill.style.width = `${muted ? 0 : volPct}%`;
-
-  const muteBtn = root.querySelector('[data-sp-action="mute"]');
-  if (muteBtn) {
-    const icon = muted ? 'volume-x' : (volPct === 0 ? 'volume' : volPct < 50 ? 'volume-1' : 'volume-2');
-    muteBtn.innerHTML = `<i data-lucide="${icon}"></i>`;
-    muteBtn.title = muted ? 'Activar sonido' : 'Silenciar';
-  }
-
-  refreshIcons();
-}
-
-function refreshSpotifyProgressUI(win) {
-  const root = win.querySelector('[data-spotify-root]');
-  if (!root) return;
-
-  const cur = SpotifyApp.getCurrentTime();
-  const dur = SpotifyApp.getDuration() || (SpotifyApp.getCurrentTrack()?.duration || 0);
-  const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
-
-  const fill = root.querySelector('[data-sp-progress-fill]');
-  if (fill) fill.style.width = `${pct}%`;
-  const knob = root.querySelector('[data-sp-progress-knob]');
-  if (knob) knob.style.left = `${pct}%`;
-
-  const curEl = root.querySelector('[data-sp-time="current"]');
-  if (curEl) curEl.textContent = spFormatTime(cur);
-  const durEl = root.querySelector('[data-sp-time="duration"]');
-  if (durEl) durEl.textContent = spFormatTime(dur);
-
-  // Actualizar íconos de play/pause en TODA la ventana
-  const isPlaying = spotify.isPlaying;
-  const currentId = spotify.currentTrackId;
-  root.querySelectorAll('[data-sp-play]').forEach(btn => {
-    const isThis = btn.dataset.spPlay === currentId;
-    if (isThis) {
-      const icon = isPlaying ? 'pause' : 'play';
-      const svg = btn.querySelector('svg, i');
-      if (svg && svg.getAttribute('data-lucide') !== icon) {
-        btn.innerHTML = `<i data-lucide="${icon}"></i>`;
-      }
-    } else {
-      const svg = btn.querySelector('svg, i');
-      if (svg && svg.getAttribute('data-lucide') !== 'play') {
-        btn.innerHTML = `<i data-lucide="play"></i>`;
-      }
-    }
-  });
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ VISUALIZADOR (Web Audio API)
-═══════════════════════════════════════════════════════════════ */
-
-function startSpotifyVisualizerLoop(win) {
-  const ui = spotifyUIState.get(win);
-  if (!ui) return;
-  if (ui.visualizerRaf) return;
-
-  const tick = () => {
-    if (!win.isConnected) {
-      ui.visualizerRaf = null;
-      return;
-    }
-    updateSpotifyVisualizer(win);
-    ui.visualizerRaf = requestAnimationFrame(tick);
-  };
-  ui.visualizerRaf = requestAnimationFrame(tick);
-}
-
-function updateSpotifyVisualizer(win) {
-  // Buscar cualquier canvas de visualizer dentro de la ventana
-  const canvases = win.querySelectorAll('.sp-visualizer canvas');
-  if (canvases.length === 0) return;
-
-  const data = SpotifyApp.getAnalyserData();
-  canvases.forEach(canvas => {
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const w = canvas.width = canvas.clientWidth;
-    const h = canvas.height = canvas.clientHeight;
-
-    ctx.clearRect(0, 0, w, h);
-
-    if (!data || data.length === 0) {
-      // Sin audio: dibujar líneas base
-      ctx.fillStyle = 'rgba(255,255,255,0.06)';
-      const barW = w / SPOTIFY_VISUALIZER_BARS;
-      for (let i = 0; i < SPOTIFY_VISUALIZER_BARS; i++) {
-        ctx.fillRect(i * barW + 1, h - 2, barW - 2, 2);
-      }
-      return;
-    }
-
-    const step = Math.floor(data.length / SPOTIFY_VISUALIZER_BARS);
-    const barW = w / SPOTIFY_VISUALIZER_BARS;
-
-    for (let i = 0; i < SPOTIFY_VISUALIZER_BARS; i++) {
-      const v = data[i * step] / 255;
-      const barH = v * h * 0.9;
-      const x = i * barW;
-      const y = h - barH;
-
-      const grad = ctx.createLinearGradient(0, h, 0, y);
-      grad.addColorStop(0, 'rgba(30, 215, 96, 0.3)');
-      grad.addColorStop(0.5, 'rgba(30, 215, 96, 0.7)');
-      grad.addColorStop(1, '#1ed760');
-      ctx.fillStyle = grad;
-
-      ctx.fillRect(x + 1, y, barW - 2, barH);
-    }
-  });
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ MENÚ CONTEXTUAL DE TRACK
-═══════════════════════════════════════════════════════════════ */
-
-let spotifyTrackMenuEl = null;
-
-function openSpotifyTrackMenu(win, trackId, anchorEl) {
-  closeSpotifyTrackMenu();
-
-  const track = SpotifyApp.getTrackById(trackId);
-  if (!track) return;
-
-  const liked = SpotifyApiIsLiked(trackId);
-  const customPlaylists = SpotifyApp.getCustomPlaylists();
-
-  const menu = document.createElement('div');
-  menu.className = 'sp-track-menu-popover';
-  menu.innerHTML = `
-    <div class="sp-track-menu-head">
-      <img src="${spEscapeHtml(spGetTrackCover(track))}" alt="" />
-      <div>
-        <strong>${spEscapeHtml(track.title)}</strong>
-        <small>${spEscapeHtml(track.artist)}</small>
-      </div>
-    </div>
-
-    <button class="sp-track-menu-item" data-menu-action="play">
-      <i data-lucide="play"></i> Reproducir ahora
-    </button>
-    <button class="sp-track-menu-item" data-menu-action="queue">
-      <i data-lucide="list-plus"></i> Agregar a la cola
-    </button>
-    <button class="sp-track-menu-item ${liked ? 'active' : ''}" data-menu-action="like">
-      <i data-lucide="heart"></i> ${liked ? 'Quitar de Tus me gusta' : 'Agregar a Tus me gusta'}
-    </button>
-
-    <div class="sp-track-menu-sep"></div>
-
-    <button class="sp-track-menu-item" data-menu-action="add-to-playlist">
-      <i data-lucide="folder-plus"></i> Agregar a playlist
-    </button>
-    <button class="sp-track-menu-item" data-menu-action="create-playlist">
-      <i data-lucide="plus-square"></i> Crear playlist con esta canción
-    </button>
-
-    <div class="sp-track-menu-sep"></div>
-
-    <button class="sp-track-menu-item" data-menu-action="go-album">
-      <i data-lucide="disc-3"></i> Ir al álbum
-    </button>
-    <button class="sp-track-menu-item" data-menu-action="go-artist">
-      <i data-lucide="user"></i> Ir al artista
-    </button>
-    <button class="sp-track-menu-item" data-menu-action="copy">
-      <i data-lucide="link"></i> Copiar enlace
-    </button>
-  `;
-
-  document.body.appendChild(menu);
-  spotifyTrackMenuEl = menu;
-
-  const rect = anchorEl.getBoundingClientRect();
-  const menuRect = menu.getBoundingClientRect();
-  let left = rect.right + 6;
-  let top = rect.top;
-  if (left + menuRect.width + 10 > window.innerWidth) left = rect.left - menuRect.width - 6;
-  if (top + menuRect.height + 10 > window.innerHeight) top = window.innerHeight - menuRect.height - 10;
-  left = Math.max(10, left);
-  top = Math.max(10, top);
-  menu.style.left = `${left}px`;
-  menu.style.top = `${top}px`;
-
-  menu.addEventListener('click', (e) => {
-    const item = e.target.closest('[data-menu-action]');
-    if (!item) return;
-    e.stopPropagation();
-    handleSpotifyTrackMenuAction(win, item.dataset.menuAction, track);
-    closeSpotifyTrackMenu();
-  });
-
-  // Cerrar al clickear fuera
-  setTimeout(() => {
-    const onOut = (e) => {
-      if (!menu.contains(e.target)) {
-        closeSpotifyTrackMenu();
-        document.removeEventListener('mousedown', onOut);
-      }
-    };
-    document.addEventListener('mousedown', onOut);
-  }, 0);
-
-  requestAnimationFrame(() => menu.classList.add('open'));
-  refreshIcons();
-}
-
-function closeSpotifyTrackMenu() {
-  if (spotifyTrackMenuEl) {
-    spotifyTrackMenuEl.remove();
-    spotifyTrackMenuEl = null;
-  }
-}
-
-function handleSpotifyTrackMenuAction(win, action, track) {
-  switch (action) {
-    case 'play':
-      SpotifyApp.play(track.id);
-      break;
-
-    case 'queue':
-      if (!spotify.queue.includes(track.id)) {
-        spotify.queue.splice(spotify.queueIndex + 1, 0, track.id);
-        showToast('Agregado a la cola', track.title, 'list-plus');
-      } else {
-        showToast('Ya está en la cola', track.title, 'info');
-      }
-      break;
-
-    case 'like':
-      SpotifyApp.toggleLike(track.id);
-      break;
-
-    case 'add-to-playlist':
-      openSpotifyAddToPlaylistModal(win, track.id);
-      break;
-
-    case 'create-playlist': {
-      const pl = SpotifyApp.createPlaylist({
-        name: `Mi playlist · ${new Date().toLocaleDateString()}`,
-        description: 'Creada desde el menú contextual',
-        trackIds: [track.id]
-      });
-      if (pl) {
-        showToast('Playlist creada', pl.name, 'plus');
-        refreshSpotifyWindow(win);
-      }
-      break;
-    }
-
-    case 'go-album':
-      navigateSpotify(win, 'album', {
-        dataset: { spAlbum: `${track.artist}::${track.album}` }
-      });
-      break;
-
-    case 'go-artist':
-      navigateSpotify(win, 'artist', {
-        dataset: { spArtist: track.artist }
-      });
-      break;
-
-    case 'copy': {
-      const text = `${track.title} — ${track.artist}`;
-      navigator.clipboard?.writeText(text).then(() => {
-        showToast('Copiado', 'Enlace copiado al portapapeles.', 'clipboard-check');
-      }).catch(() => {
-        showToast('Copiado', text, 'clipboard');
-      });
-      break;
-    }
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ MODALES: CREAR / EDITAR PLAYLIST, AGREGAR A PLAYLIST
-═══════════════════════════════════════════════════════════════ */
-
-let spotifyPlaylistModalEl = null;
-
-function openSpotifyCreatePlaylistModal(win, initialTrackIds = []) {
-  closeSpotifyPlaylistModal();
-
-  const modal = document.createElement('div');
-  modal.className = 'sp-modal';
-  modal.innerHTML = `
-    <div class="sp-modal-dialog">
-      <header class="sp-modal-header">
-        <h2>Crear playlist</h2>
-        <button class="sp-icon-btn" data-modal-close><i data-lucide="x"></i></button>
-      </header>
-      <div class="sp-modal-body">
-        <label class="sp-field">
-          <span>Nombre</span>
-          <input type="text" data-field="name" placeholder="Mi playlist #1" maxlength="60" autofocus />
-        </label>
-        <label class="sp-field">
-          <span>Descripción</span>
-          <textarea data-field="description" placeholder="Contale al mundo de qué va..." maxlength="180" rows="3"></textarea>
-        </label>
-        <label class="sp-field">
-          <span>Color</span>
-          <input type="color" data-field="color" value="#1ed760" />
-        </label>
-      </div>
-      <footer class="sp-modal-footer">
-        <button class="sp-btn sp-btn-ghost" data-modal-close>Cancelar</button>
-        <button class="sp-btn sp-btn-primary" data-modal-confirm>Crear</button>
-      </footer>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-  spotifyPlaylistModalEl = modal;
-
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) closeSpotifyPlaylistModal();
-    if (e.target.closest('[data-modal-close]')) closeSpotifyPlaylistModal();
-    if (e.target.closest('[data-modal-confirm]')) {
-      const name = modal.querySelector('[data-field="name"]').value.trim();
-      const description = modal.querySelector('[data-field="description"]').value.trim();
-      const color = modal.querySelector('[data-field="color"]').value;
-
-      if (!name) {
-        showToast('Falta el nombre', 'Escribí un nombre para la playlist.', 'alert-circle');
-        return;
-      }
-
-      const pl = SpotifyApp.createPlaylist({ name, description, color, trackIds: initialTrackIds });
-      if (pl) {
-        showToast('Playlist creada', pl.name, 'plus');
-        closeSpotifyPlaylistModal();
-        refreshSpotifyWindow(win);
-        navigateSpotify(win, 'playlist', { dataset: { spId: pl.id } });
-      }
-    }
-  });
-
-  requestAnimationFrame(() => modal.classList.add('open'));
-  refreshIcons();
-}
-
-function openSpotifyEditPlaylistModal(win, playlistId) {
-  const pl = SpotifyApp.getCustomPlaylists().find(p => p.id === playlistId);
-  if (!pl) return;
-  closeSpotifyPlaylistModal();
-
-  const modal = document.createElement('div');
-  modal.className = 'sp-modal';
-  modal.innerHTML = `
-    <div class="sp-modal-dialog">
-      <header class="sp-modal-header">
-        <h2>Editar playlist</h2>
-        <button class="sp-icon-btn" data-modal-close><i data-lucide="x"></i></button>
-      </header>
-      <div class="sp-modal-body">
-        <label class="sp-field">
-          <span>Nombre</span>
-          <input type="text" data-field="name" value="${spEscapeHtml(pl.name)}" maxlength="60" />
-        </label>
-        <label class="sp-field">
-          <span>Descripción</span>
-          <textarea data-field="description" maxlength="180" rows="3">${spEscapeHtml(pl.description || '')}</textarea>
-        </label>
-        <label class="sp-field">
-          <span>Color</span>
-          <input type="color" data-field="color" value="${spEscapeHtml(pl.color || '#1ed760')}" />
-        </label>
-      </div>
-      <footer class="sp-modal-footer">
-        <button class="sp-btn sp-btn-ghost" data-modal-close>Cancelar</button>
-        <button class="sp-btn sp-btn-primary" data-modal-confirm>Guardar</button>
-      </footer>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-  spotifyPlaylistModalEl = modal;
-
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) closeSpotifyPlaylistModal();
-    if (e.target.closest('[data-modal-close]')) closeSpotifyPlaylistModal();
-    if (e.target.closest('[data-modal-confirm]')) {
-      const name = modal.querySelector('[data-field="name"]').value.trim();
-      const description = modal.querySelector('[data-field="description"]').value.trim();
-      const color = modal.querySelector('[data-field="color"]').value;
-
-      if (!name) {
-        showToast('Falta el nombre', 'Escribí un nombre para la playlist.', 'alert-circle');
-        return;
-      }
-
-      SpotifyApp.updatePlaylist(playlistId, { name, description, color });
-      showToast('Playlist actualizada', name, 'check');
-      closeSpotifyPlaylistModal();
-      refreshSpotifyWindow(win);
-    }
-  });
-
-  requestAnimationFrame(() => modal.classList.add('open'));
-  refreshIcons();
-}
-
-function closeSpotifyPlaylistModal() {
-  if (spotifyPlaylistModalEl) {
-    spotifyPlaylistModalEl.remove();
-    spotifyPlaylistModalEl = null;
-  }
-}
-
-function openSpotifyAddToPlaylistModal(win, trackId) {
-  closeSpotifyPlaylistModal();
-
-  const custom = SpotifyApp.getCustomPlaylists();
-  const track = SpotifyApp.getTrackById(trackId);
-
-  const modal = document.createElement('div');
-  modal.className = 'sp-modal';
-  modal.innerHTML = `
-    <div class="sp-modal-dialog">
-      <header class="sp-modal-header">
-        <h2>Agregar a playlist</h2>
-        <button class="sp-icon-btn" data-modal-close><i data-lucide="x"></i></button>
-      </header>
-      <div class="sp-modal-body">
-        <div class="sp-modal-track-preview">
-          <img src="${spEscapeHtml(spGetTrackCover(track))}" alt="" />
-          <div>
-            <strong>${spEscapeHtml(track.title)}</strong>
-            <small>${spEscapeHtml(track.artist)}</small>
-          </div>
-        </div>
-
-        ${custom.length === 0 ? `
-          <p class="sp-empty-inline">No tenés playlists propias todavía.</p>
-          <button class="sp-btn sp-btn-primary" data-modal-confirm-new>
-            <i data-lucide="plus"></i> Crear nueva playlist
-          </button>
-        ` : `
-          <ul class="sp-playlist-picker">
-            ${custom.map(pl => `
-              <li>
-                <button class="sp-playlist-picker-item" data-playlist-pick="${spEscapeHtml(pl.id)}">
-                  <span class="sp-playlist-picker-icon" style="background: ${pl.color}22; color: ${pl.color};">
-                    <i data-lucide="music-2"></i>
-                  </span>
-                  <span class="sp-playlist-picker-name">${spEscapeHtml(pl.name)}</span>
-                  <span class="sp-playlist-picker-count">${pl.trackIds.length}</span>
-                </button>
-              </li>
-            `).join('')}
-          </ul>
-          <button class="sp-btn sp-btn-ghost" data-modal-confirm-new>
-            <i data-lucide="plus"></i> Nueva playlist
-          </button>
-        `}
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-  spotifyPlaylistModalEl = modal;
-
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) closeSpotifyPlaylistModal();
-    if (e.target.closest('[data-modal-close]')) closeSpotifyPlaylistModal();
-
-    const pick = e.target.closest('[data-playlist-pick]');
-    if (pick) {
-      const plId = pick.dataset.playlistPick;
-      const ok = SpotifyApp.addToPlaylist(plId, trackId);
-      if (ok) {
-        showToast('Agregado', 'La canción se agregó a la playlist.', 'check');
-      } else {
-        showToast('Ya está', 'Esta canción ya estaba en la playlist.', 'info');
-      }
-      closeSpotifyPlaylistModal();
-      refreshSpotifyWindow(win);
-    }
-
-    if (e.target.closest('[data-modal-confirm-new]')) {
-      closeSpotifyPlaylistModal();
-      openSpotifyCreatePlaylistModal(win, [trackId]);
-    }
-  });
-
-  requestAnimationFrame(() => modal.classList.add('open'));
-  refreshIcons();
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ SPOTIFY — Wrappers globales (compatibilidad con el resto del sistema)
-   ═══════════════════════════════════════════════════════════════
-
-   El `index.html` y varios bloques del sistema llaman a funciones
-   con nombres "viejos" que ya no existen en el motor nuevo.
-   Estos wrappers mantienen la API pública y delegan en SpotifyApp.
-*/
-
-/* ─── Control de reproducción ─── */
-
-function toggleMediaPlayback() {
-  if (window.SpotifyApp) SpotifyApp.togglePlayPause();
-}
-
-function nextTrack() {
-  if (window.SpotifyApp) SpotifyApp.next();
-}
-
-function previousTrack() {
-  if (window.SpotifyApp) SpotifyApp.prev();
-}
-
-function playFirstTrack() {
-  if (!window.SpotifyApp) return;
-  const all = SpotifyApp.getAllTracks();
-  if (all.length === 0) return;
-  SpotifyApp.play(all[0].id);
-}
-
-/* ─── Volumen del sistema → Spotify ─── */
-/* (setSystemVolume ya está definido en el BLOQUE 4 y delega en SpotifyApp) */
-
-/* ─── Progress / Background (visual, sin estado) ─── */
-
-function updateHUDMediaInfo() {
-  if (!gamerOverlayVisible) return;
-  if (!window.SpotifyApp) return;
-
-  const current = SpotifyApp.getCurrentTrack();
-  const cur = SpotifyApp.getCurrentTime();
-  const dur = SpotifyApp.getDuration() || (current ? current.duration : 0);
-  const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
-
-  const hudFill = document.getElementById('hud-progress-fill');
-  const hudTime = document.getElementById('hud-progress-time');
-  if (hudFill) hudFill.style.width = `${pct}%`;
-  if (hudTime) hudTime.textContent = `${spFormatTime(cur)} / ${spFormatTime(dur)}`;
-}
-
-function updatePlayerBackground() {
-  const current = window.SpotifyApp ? SpotifyApp.getCurrentTrack() : null;
-  if (!current) return;
-
-  const cover = spGetTrackCover(current);
-  const ccBg = document.getElementById('cc-media-bg');
-  if (ccBg) ccBg.style.backgroundImage = `url("${cover}")`;
-  const hudBg = document.getElementById('hud-media-bg');
-  if (hudBg) hudBg.style.backgroundImage = `url("${cover}")`;
-}
-
-/* ─── Shuffle / Repeat sync global ─── */
-
-function syncSpotifyShuffleRepeatUI() {
-  if (!window.SpotifyApp) return;
-  const shuffle = spotify.shuffle;
-  const repeat = spotify.repeat;
-
-  document.querySelectorAll('#cc-shuffle, #spot-shuffle, [data-sp-action="shuffle"]').forEach(el => {
-    el.classList.toggle('active', shuffle);
-  });
-  document.querySelectorAll('#cc-repeat, #spot-repeat, [data-sp-action="repeat"]').forEach(el => {
-    el.classList.toggle('active', repeat !== 'off');
-    el.dataset.repeat = repeat;
-  });
-}
-
-/* ─── Quick Center Player: stub (la lógica real vive en SpotifyApp) ─── */
-
-function setupQuickCenterPlayer() {
-  // No-op: la integración se hace en setupSpotifyIntegration (BLOQUE 4).
-  // Este stub existe solo por compatibilidad con llamadas antiguas.
-}
-
-/* ─── Control Center + HUD: sincronización completa ─── */
-
-/**
- * Refresca los reproductores globales (Control Center + HUD + Topbar).
- * Se llama desde setupSpotifyIntegration y desde los listeners de eventos.
- */
-function updateSpotifyGlobalUI() {
-  if (!window.SpotifyApp) return;
-  const current = SpotifyApp.getCurrentTrack();
-
-  // ─── Control Center ───
-  const ccArt = document.getElementById('cc-media-art');
-  const ccTitle = document.getElementById('cc-media-title');
-  const ccArtist = document.getElementById('cc-media-artist');
-  const ccBg = document.getElementById('cc-media-bg');
-  const ccTotal = document.getElementById('cc-time-total');
-  const ccCurrent = document.getElementById('cc-time-current');
-
-  if (current) {
-    const cover = spGetTrackCover(current);
-    if (ccArt) ccArt.src = cover;
-    if (ccTitle) ccTitle.textContent = current.title || '—';
-    if (ccArtist) ccArtist.textContent = current.artist || '—';
-    if (ccBg) ccBg.style.backgroundImage = `url("${cover}")`;
-    if (ccTotal) ccTotal.textContent = spFormatTime(current.duration || 0);
-    if (ccCurrent) ccCurrent.textContent = spFormatTime(SpotifyApp.getCurrentTime());
-  } else {
-    if (ccTitle) ccTitle.textContent = 'Sin reproducción';
-    if (ccArtist) ccArtist.textContent = 'Elegí un track';
-    if (ccBg) ccBg.style.backgroundImage = '';
-    if (ccTotal) ccTotal.textContent = '0:00';
-    if (ccCurrent) ccCurrent.textContent = '0:00';
-  }
-
-  // ─── HUD (gaming overlay) ───
-  const hudArt = document.getElementById('hud-media-art');
-  const hudTitle = document.getElementById('hud-media-title');
-  const hudArtist = document.getElementById('hud-media-artist');
-  const hudBg = document.getElementById('hud-media-bg');
-
-  if (current) {
-    const cover = spGetTrackCover(current);
-    if (hudArt) hudArt.src = cover;
-    if (hudTitle) hudTitle.textContent = current.title || '—';
-    if (hudArtist) hudArtist.textContent = current.artist || '—';
-    if (hudBg) hudBg.style.backgroundImage = `url("${cover}")`;
-  }
-
-  // ─── Topbar ───
-  updateSpotifyTopbar();
-
-  // ─── Estado de play/pause global ───
-  updateSpotifyGlobalPlayState(spotify.isPlaying);
-
-  // ─── Volumen ───
-  updateSpotifyVolumeUI(spotify.volume, spotify.muted);
-
-  // ─── Shuffle / repeat ───
-  syncSpotifyShuffleRepeatUI();
-
-  refreshIcons();
-}
-
-/* ─── Play/pause global (CC + HUD + Spotify app) ─── */
-
-function updateSpotifyGlobalPlayState(isPlaying) {
-  const iconName = isPlaying ? 'pause' : 'play';
-
-  // Control Center
-  const ccPlayBtn = document.getElementById('cc-play-btn');
-  if (ccPlayBtn) {
-    ccPlayBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
-    ccPlayBtn.title = isPlaying ? 'Pausar' : 'Reproducir';
-  }
-
-  // HUD
-  const hudPlayBtn = document.getElementById('hud-play-btn');
-  if (hudPlayBtn) {
-    hudPlayBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
-    hudPlayBtn.title = isPlaying ? 'Pausar' : 'Reproducir';
-  }
-
-  // Topbar (botón mini)
-  const tnpPlay = document.getElementById('tnp-play');
-  if (tnpPlay) {
-    tnpPlay.innerHTML = `<i data-lucide="${iconName}"></i>`;
-  }
-
-  // Eq dot del Control Center
-  const dot = document.getElementById('cc-eq-dot');
-  if (dot) dot.classList.toggle('paused', !isPlaying);
-
-  // Topbar now playing: clase playing
-  const tnp = document.getElementById('topbar-now-playing');
-  if (tnp) tnp.classList.toggle('playing', isPlaying);
-
-  refreshIcons();
-}
-
-/* ─── Volumen: sincronizar TODOS los sliders y labels globales ─── */
-
-function updateSpotifyVolumeUI(volume, muted) {
-  const pct = Math.round((muted ? 0 : volume) * 100);
-
-  // Slider del Control Center
-  const volSlider = document.getElementById('volume-slider');
-  if (volSlider && Number(volSlider.value) !== pct) {
-    volSlider.value = String(pct);
-    syncSliderFill(volSlider);
-  }
-
-  // Labels del Quick Center y tray
-  const quickVal = document.getElementById('quick-volume-value');
-  if (quickVal) quickVal.textContent = `${pct}%`;
-  const trayNum = document.getElementById('tray-volume-num');
-  if (trayNum) trayNum.textContent = `${pct}%`;
-
-  // Ícono del tray (mute / volumen)
-  const trayVolIcon = document.querySelector('#sys-tray-btn .sys-tray .item[title="Volumen"] i');
-  if (trayVolIcon) {
-    const iconName = muted ? 'volume-x' : (pct === 0 ? 'volume' : pct < 50 ? 'volume-1' : 'volume-2');
-    if (trayVolIcon.getAttribute('data-lucide') !== iconName) {
-      trayVolIcon.setAttribute('data-lucide', iconName);
-    }
-  }
-
-  // Sliders dentro de la app Spotify (por si hay varias ventanas)
-  getInstancesOfApp('music').forEach(winId => {
-    const win = openWindows[winId]?.win;
-    if (!win) return;
-    refreshSpotifyVolumeUI(win);
-  });
-
-  refreshIcons();
-}
-
-/* ─── HUD: barra de progreso de reproducción ─── */
-
-function updateHUDMediaInfo() {
-  if (!gamerOverlayVisible) return;
-  if (!window.SpotifyApp) return;
-
-  const current = SpotifyApp.getCurrentTrack();
-  const cur = SpotifyApp.getCurrentTime();
-  const dur = SpotifyApp.getDuration() || (current ? current.duration : 0);
-  const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
-
-  const hudFill = document.getElementById('hud-progress-fill');
-  const hudTime = document.getElementById('hud-progress-time');
-  if (hudFill) hudFill.style.width = `${pct}%`;
-  if (hudTime) hudTime.textContent = `${spFormatTime(cur)} / ${spFormatTime(dur)}`;
-
-  // Media info del HUD
-  if (current) {
-    const hudArt = document.getElementById('hud-media-art');
-    const hudTitle = document.getElementById('hud-media-title');
-    const hudArtist = document.getElementById('hud-media-artist');
-    if (hudArt) hudArt.src = spGetTrackCover(current);
-    if (hudTitle) hudTitle.textContent = current.title || '—';
-    if (hudArtist) hudArtist.textContent = current.artist || '—';
-  }
-}
-
-/* ─── Progress: forzar actualización de la UI global cada 500ms ─── */
-/* El motor ya emite 'progress' pero solo actuliza el Spotify app.
-   Para el Control Center y el HUD, hacemos un poll liviano. */
-
-(function startGlobalSpotifyProgressPoll() {
-  let ticks = 0;
-  setInterval(() => {
-    if (!window.SpotifyApp) return;
-    if (!spotify.isPlaying) return;
-
-    const dur = SpotifyApp.getDuration() || (SpotifyApp.getCurrentTrack()?.duration || 0);
-    const pct = dur > 0 ? Math.min(100, (SpotifyApp.getCurrentTime() / dur) * 100) : 0;
-
-    // Control Center: tiempo actual
-    const ccCurrent = document.getElementById('cc-time-current');
-    if (ccCurrent) ccCurrent.textContent = spFormatTime(SpotifyApp.getCurrentTime());
-
-    // Control Center: barra de progreso
-    const ccFill = document.getElementById('cc-progress-fill');
-    if (ccFill) ccFill.style.width = `${pct}%`;
-
-    // ★ Topbar Now Playing: barra de progreso
-    const tnpFill = document.getElementById('tnp-progress-fill');
-    if (tnpFill) tnpFill.style.width = `${pct}%`;
-
-    // HUD
-    updateHUDMediaInfo();
-
-    // Cada ~5s (10 ticks), refresh completo por si hubo cambios
-    ticks++;
-    if (ticks >= 10) {
-      ticks = 0;
-      // Por si cambió algo externamente
-    }
-  }, 500);
-})();
-
-/* ─── Suscripción de eventos para actualizar la UI global ─── */
-
-(function bindSpotifyGlobalEvents() {
-  if (!window.SpotifyApp) return;
-
-  SpotifyApp.on('trackchange', () => {
-    updateSpotifyGlobalUI();
-    // Notificar (silencioso si HUD visible)
-    if (!gamerOverlayVisible && !dndEnabled) {
-      const current = SpotifyApp.getCurrentTrack();
-      if (current) {
-        addNotificationToHistory(
-          `♪ ${current.title}`,
-          `${current.artist}${current.album ? ' · ' + current.album : ''}`,
-          'music'
-        );
-      }
-    }
-  });
-
-  SpotifyApp.on('play', () => {
-    updateSpotifyGlobalPlayState(true);
-  });
-
-  SpotifyApp.on('pause', () => {
-    updateSpotifyGlobalPlayState(false);
-  });
-
-  SpotifyApp.on('volume', ({ volume, muted }) => {
-    updateSpotifyVolumeUI(volume, muted);
-  });
-
-  SpotifyApp.on('shuffle', () => {
-    syncSpotifyShuffleRepeatUI();
-  });
-
-  SpotifyApp.on('repeat', () => {
-    syncSpotifyShuffleRepeatUI();
-  });
-
-  SpotifyApp.on('liked', () => {
-    // Refrescar corazones en el Control Center si aplica
-    // (el CC no muestra corazón actualmente, pero dejamos el hook)
-  });
-
-  SpotifyApp.on('error', ({ error, context }) => {
-    // Silencioso en consola, toast solo si es error de reproducción
-    if (context === 'play' || context === 'play-promise' || context === 'audio-element') {
-      // Evitar spam: solo mostrar 1 por minuto
-      const now = Date.now();
-      if (!window.__lastSpotifyErrorToast || now - window.__lastSpotifyErrorToast > 60000) {
-        window.__lastSpotifyErrorToast = now;
-        showToast('Spotify', 'No se pudo reproducir la canción. Revisá los archivos MP3.', 'alert-circle');
-      }
-    }
-  });
-})();
-
-/* ─── Atajos del Control Center (botones del HTML) ─── */
-
-/**
- * El HTML del Control Center tiene onclick inline que llaman a:
- *   - previousTrack()
- *   - toggleMediaPlayback()
- *   - nextTrack()
- *   - toggleShuffle()  ← no existe, hay que crearlo
- *   - cycleRepeat()    ← no existe, hay que crearlo
- *
- * Los tres primeros ya están arriba como wrappers.
- * Los dos últimos los agregamos acá.
- */
-
-function toggleShuffle() {
-  if (window.SpotifyApp) SpotifyApp.toggleShuffle();
-}
-
-function cycleRepeat() {
-  if (window.SpotifyApp) SpotifyApp.cycleRepeat();
-}
-
-/* ─── Botones del Control Center y HUD con id (agregar listeners) ─── */
-
-document.addEventListener('DOMContentLoaded', () => {
-  // Los botones del CC y del HUD ya tienen onclick inline en el HTML.
-  // Pero por las dudas, si alguno tiene un ID y no onclick, lo bindeamos.
-  // Este DOMContentLoaded corre después del principal (registro tardío),
-  // así que solo actúa sobre elementos que ya existen.
-
-  const ccShuffle = document.getElementById('cc-shuffle');
-  if (ccShuffle && !ccShuffle.dataset.bound) {
-    ccShuffle.dataset.bound = '1';
-    ccShuffle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleShuffle();
-    });
-  }
-
-  const ccRepeat = document.getElementById('cc-repeat');
-  if (ccRepeat && !ccRepeat.dataset.bound) {
-    ccRepeat.dataset.bound = '1';
-    ccRepeat.addEventListener('click', (e) => {
-      e.stopPropagation();
-      cycleRepeat();
-    });
-  }
-
-  // Botón de play/pause del CC
-  const ccPlay = document.getElementById('cc-play-btn');
-  if (ccPlay && !ccPlay.dataset.bound) {
-    ccPlay.dataset.bound = '1';
-    ccPlay.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleMediaPlayback();
-    });
-  }
-
-  // Botón de play/pause del HUD
-  const hudPlay = document.getElementById('hud-play-btn');
-  if (hudPlay && !hudPlay.dataset.bound) {
-    hudPlay.dataset.bound = '1';
-    hudPlay.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleMediaPlayback();
-    });
-  }
-});
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ SPOTIFY — Comandos desde Nova AI
-   ═══════════════════════════════════════════════════════════════
-   Función helper que Nova puede llamar para controlar el reproductor
-   por lenguaje natural. Se usa desde parseAndExecuteNovaAction.
-*/
-
-function handleSpotifyNovaCommand(query) {
-  if (!window.SpotifyApp) return null;
-  const q = String(query || '').toLowerCase().trim();
-
-  // ─── Reproducir canción específica ───
-  const playMatch = q.match(/(?:reproduc[ií]|pon[eé]?|toc[áa]|play)\s+(?:la\s+)?(?:canci[oó]n\s+)?["“']?(.+?)["”']?\s*(?:de\s+(.+))?$/i);
-  if (playMatch) {
-    const [, songQuery, artistQuery] = playMatch;
-    const results = SpotifyApp.search(songQuery.trim());
-    let target = results.tracks[0];
-
-    // Si hay artista, filtrar
-    if (target && artistQuery) {
-      const filtered = results.tracks.filter(t =>
-        t.artist.toLowerCase().includes(artistQuery.toLowerCase().trim())
-      );
-      if (filtered.length > 0) target = filtered[0];
-    }
-
-    if (target) {
-      SpotifyApp.play(target.id);
-      return {
-        replyText: `Reproduciendo "${target.title}" de ${target.artist}.`,
-        actionTaken: `Spotify: ${target.title}`
-      };
-    }
-    return {
-      replyText: `No encontré "${songQuery.trim()}" en tu biblioteca.`,
-      actionTaken: null
-    };
-  }
-
-  // ─── Pausar ───
-  if (/\b(paus[áa]|pausar|deten[eé]|stop|par[áa])\b/.test(q) && /(m[uú]sica|canci[oó]n|spotify|reproducci[oó]n|track)/.test(q)) {
-    SpotifyApp.pause();
-    return {
-      replyText: 'Música pausada.',
-      actionTaken: 'Spotify: Pausa'
-    };
-  }
-
-  // ─── Siguiente ───
-  if (/\b(siguiente|next|salta|saltar|pr[oó]xima)\b/.test(q) && /(m[uú]sica|canci[oó]n|spotify|track)/.test(q)) {
-    SpotifyApp.next();
-    const next = SpotifyApp.getCurrentTrack();
-    return {
-      replyText: next ? `Reproduciendo "${next.title}" de ${next.artist}.` : 'Cambiando de canción...',
-      actionTaken: 'Spotify: Siguiente'
-    };
-  }
-
-  // ─── Anterior ───
-  if (/\b(anterior|prev|volver|atr[áa]s)\b/.test(q) && /(m[uú]sica|canci[oó]n|spotify|track)/.test(q)) {
-    SpotifyApp.prev();
-    const prev = SpotifyApp.getCurrentTrack();
-    return {
-      replyText: prev ? `Reproduciendo "${prev.title}" de ${prev.artist}.` : 'Volviendo a la canción anterior...',
-      actionTaken: 'Spotify: Anterior'
-    };
-  }
-
-  // ─── Play / Resume genérico ───
-  if (/\b(reproduc[ií]|pon[eé]?|toc[áa]|play|dale)\b/.test(q) && /(m[uú]sica|canci[oó]n|spotify|algo|track)/.test(q)) {
-    if (SpotifyApp.getCurrentTrack() && SpotifyApp.isPlaying() === false) {
-      SpotifyApp.resume();
-      return { replyText: 'Reanudando la música.', actionTaken: 'Spotify: Play' };
-    }
-    const all = SpotifyApp.getAllTracks();
-    if (all.length > 0) {
-      SpotifyApp.play(all[0].id);
-      return { replyText: `Reproduciendo "${all[0].title}" de ${all[0].artist}.`, actionTaken: 'Spotify: Play' };
-    }
-    return { replyText: 'No hay música en tu biblioteca todavía.', actionTaken: null };
-  }
-
-  // ─── Subir volumen ───
-  if (/(sub[íi]|sube|aument[áa]|m[áa]s)\s*(el\s+)?volumen/.test(q) || /^volumen\s*\+\s*\d+/.test(q)) {
-    const match = q.match(/\+\s*(\d+)/);
-    const delta = match ? parseInt(match[1], 10) / 100 : 0.1;
-    const newVol = Math.min(1, SpotifyApp.getVolume() + delta);
-    SpotifyApp.setVolume(newVol);
-    return {
-      replyText: `Volumen al ${Math.round(newVol * 100)}%.`,
-      actionTaken: 'Spotify: Volumen'
-    };
-  }
-
-  // ─── Bajar volumen ───
-  if (/(baj[áa]|baja|reduc[íi]|reduce|menos)\s*(el\s+)?volumen/.test(q) || /^volumen\s*-\s*\d+/.test(q)) {
-    const match = q.match(/-\s*(\d+)/);
-    const delta = match ? parseInt(match[1], 10) / 100 : 0.1;
-    const newVol = Math.max(0, SpotifyApp.getVolume() - delta);
-    SpotifyApp.setVolume(newVol);
-    return {
-      replyText: `Volumen al ${Math.round(newVol * 100)}%.`,
-      actionTaken: 'Spotify: Volumen'
-    };
-  }
-
-  // ─── Me gusta ───
-  if (/(me gusta|like|favorit[oa]|guardar?)\s+(esta|la|esta canci[oó]n)/.test(q)) {
-    const current = SpotifyApp.getCurrentTrack();
-    if (current) {
-      SpotifyApp.toggleLike(current.id);
-      const liked = SpotifyApp.isLiked(current.id);
-      return {
-        replyText: liked ? `Agregué "${current.title}" a Tus me gusta.` : `Quité "${current.title}" de Tus me gusta.`,
-        actionTaken: liked ? 'Spotify: Like' : 'Spotify: Unlike'
-      };
-    }
-  }
-
-  // ─── Aleatorio ───
-  if (/(aleatorio|shuffle|random)/.test(q) && /(m[uú]sica|reproduc|spotify|poner)/.test(q)) {
-    SpotifyApp.setShuffle(true);
-    return { replyText: 'Modo aleatorio activado.', actionTaken: 'Spotify: Shuffle' };
-  }
-
-  // ─── Abrir Spotify ───
-  if (/(abr[íi]|abre|open|mostrar)\s+spotify/.test(q) || /\bspotify\b/.test(q) && /(abr|mostrar|open)/.test(q)) {
-    openApp('music');
-    return { replyText: 'Abriendo Spotify.', actionTaken: 'Spotify: Abrir app' };
-  }
-
-  return null;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ SPOTIFY — Limpieza al cerrar ventana
-   ═══════════════════════════════════════════════════════════════
-   Cuando se cierra una ventana de Spotify, cancelamos los RAF
-   y timers asociados a esa ventana para no dejar leaks.
-*/
-
-window.addEventListener('beforeunload', () => {
-  if (window.SpotifyApp && typeof SpotifyApp.flushState === 'function') {
-    SpotifyApp.flushState();
-  }
-});
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ SPOTIFY — Decorador para closeApp (agrega cleanup)
-   ═══════════════════════════════════════════════════════════════
-   Envolvemos closeApp para que, cuando se cierra una ventana de
-   Spotify, cancelemos el RAF del visualizador y el interval de
-   progreso asociados a esa ventana.
-*/
-
-(function decorateSpotifyCloseApp() {
-  if (typeof closeApp !== 'function') return;
-  if (closeApp.__spotifyDecorated) return;
-
-  const original = closeApp;
-  window.closeApp = function(winId) {
-    const entry = openWindows[winId];
-    if (entry?.appId === 'music') {
-      const win = entry.win;
-      const ui = spotifyUIState.get(win);
-      if (ui) {
-        if (ui.visualizerRaf) cancelAnimationFrame(ui.visualizerRaf);
-        if (ui.progressInterval) clearInterval(ui.progressInterval);
-        if (Array.isArray(ui.unsubs)) {
-          ui.unsubs.forEach(unsub => { try { unsub(); } catch (e) {} });
-        }
-        spotifyUIState.delete(win);
-      }
-    }
-    return original.call(this, winId);
-  };
-  window.closeApp.__spotifyDecorated = true;
-})();
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ SPOTIFY — Fin del bloque de multimedia
-   ═══════════════════════════════════════════════════════════════ */
-   /* ═══════════════════════════════════════════════════════════════
-   ★ PARTE 9A/12 — APPS: Nova AI + Files + Settings
+   6B → Nova AI + Files + Settings
+   6C → Vault + Activity + Task Manager
    ═══════════════════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════════════
@@ -15361,7 +8390,7 @@ function getSettingsNavHTML() {
   `;
 }
 /* ═══════════════════════════════════════════════════════════════
-   ★ PARTE 9B-1/12 — APPS: Vault + Activity + Task Manager
+   ★ PARTE 6/10 — APPS (6C) — Vault + Activity + Task Manager
    ═══════════════════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════════════
@@ -17227,8 +10256,12 @@ function setupTaskmgrApp(win) {
   if (!win) return;
   startTaskmgrMetricsLoop();
 }
+
 /* ═══════════════════════════════════════════════════════════════
-   ★ PARTE 9B-2/12 — APPS: Game Library + VSCode + Browser
+   ★ PARTE 6/10 — APPS (6D + 6E)
+   ═══════════════════════════════════════════════════════════════
+   6D → Game Library + VSCode + Browser
+   6E → Spotify UI (HTML + setup + refresh + track menu + modales)
    ═══════════════════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════════════
@@ -18678,7 +11711,5605 @@ function setupBrowserApp(win) {
   updateNavButtons();
 }
 /* ═══════════════════════════════════════════════════════════════
-   ★ PARTE 10/12 — FEATURES DEL SISTEMA
+   ★ PARTE 6/10 — APPS (6E) — Spotify UI
+   ═══════════════════════════════════════════════════════════════
+   HTML, setup, vistas, player, listeners, track menu, modales.
+   (El motor vive en PARTE 4/10.)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ HTML PRINCIPAL
+═══════════════════════════════════════════════════════════════ */
+
+function getSpotifyAppHTML() {
+  const current = SpotifyApp.getCurrentTrack();
+  const volumePct = Math.round(SpotifyApp.getVolume() * 100);
+  const shuffle = spotify.shuffle;
+  const repeat = spotify.repeat;
+  const isPlaying = spotify.isPlaying;
+  const isLiked = current ? SpotifyApp.isLiked(current.id) : false;
+
+  return `
+    <div class="sp-app" data-spotify-root>
+      <!-- ═══ TOPBAR ═══ -->
+      <header class="sp-topbar">
+        <div class="sp-topbar-nav">
+          <button class="sp-nav-btn" data-sp-nav="back" title="Atrás" aria-label="Atrás">
+            <i data-lucide="chevron-left"></i>
+          </button>
+          <button class="sp-nav-btn" data-sp-nav="forward" title="Adelante" aria-label="Adelante">
+            <i data-lucide="chevron-right"></i>
+          </button>
+        </div>
+
+        <label class="sp-search">
+          <i data-lucide="search" class="sp-search-icon"></i>
+          <input
+            type="search"
+            class="sp-search-input"
+            placeholder="¿Qué querés escuchar?"
+            autocomplete="off"
+            value="${spEscapeHtml(spotify.searchQuery || '')}"
+          />
+          <button class="sp-search-clear" data-sp-search-clear type="button" title="Limpiar" ${spotify.searchQuery ? '' : 'hidden'}>
+            <i data-lucide="x"></i>
+          </button>
+        </label>
+
+        <div class="sp-topbar-right">
+          <button class="sp-topbar-btn" data-sp-action="queue" title="Cola de reproducción">
+            <i data-lucide="list-music"></i>
+          </button>
+          <button class="sp-topbar-btn" data-sp-action="now-playing" title="Now Playing">
+            <i data-lucide="disc-3"></i>
+          </button>
+          <div class="sp-avatar" title="Perfil">
+            <span>N</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- ═══ BODY: SIDEBAR + MAIN ═══ -->
+      <div class="sp-body">
+        <aside class="sp-sidebar">
+          <div class="sp-sidebar-head">
+            <button class="sp-sidebar-lib-btn" data-sp-nav="library" title="Tu biblioteca">
+              <i data-lucide="library"></i>
+              <span>Tu biblioteca</span>
+            </button>
+            <button class="sp-sidebar-create" data-sp-action="create-playlist" title="Crear playlist">
+              <i data-lucide="plus"></i>
+            </button>
+          </div>
+
+          <div class="sp-sidebar-filters">
+            <button class="sp-chip ${spotify.libraryFilter === 'all' ? 'active' : ''}" data-sp-filter="all">Todo</button>
+            <button class="sp-chip ${spotify.libraryFilter === 'playlists' ? 'active' : ''}" data-sp-filter="playlists">Playlists</button>
+            <button class="sp-chip ${spotify.libraryFilter === 'albums' ? 'active' : ''}" data-sp-filter="albums">Álbumes</button>
+            <button class="sp-chip ${spotify.libraryFilter === 'artists' ? 'active' : ''}" data-sp-filter="artists">Artistas</button>
+          </div>
+
+          <div class="sp-sidebar-scroll" data-sp-sidebar-scroll>
+            ${renderSpotifySidebarLibrary()}
+          </div>
+        </aside>
+
+        <main class="sp-main" data-sp-main>
+          ${renderSpotifyMain()}
+        </main>
+      </div>
+
+      <!-- ═══ PLAYER INFERIOR ═══ -->
+      <footer class="sp-player" data-sp-player>
+        <div class="sp-player-left">
+          ${current ? `
+            <img class="sp-player-cover" src="${spEscapeHtml(spGetTrackCover(current))}" alt="" />
+            <div class="sp-player-info">
+              <button class="sp-player-title-btn" data-sp-action="now-playing" title="${spEscapeHtml(current.title)}">
+                <span class="sp-player-title">${spEscapeHtml(current.title)}</span>
+              </button>
+              <button class="sp-player-artist-btn" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(current.artist)}">
+                <span class="sp-player-artist">${spEscapeHtml(current.artist)}</span>
+              </button>
+            </div>
+            <button class="sp-player-like ${isLiked ? 'liked' : ''}" data-sp-action="like-current" title="${isLiked ? 'Quitar de Tus me gusta' : 'Agregar a Tus me gusta'}">
+              <i data-lucide="heart"></i>
+            </button>
+          ` : `
+            <div class="sp-player-cover sp-player-cover--empty"><i data-lucide="music"></i></div>
+            <div class="sp-player-info">
+              <span class="sp-player-title">Sin reproducción</span>
+              <span class="sp-player-artist">Elegí un track para empezar</span>
+            </div>
+          `}
+        </div>
+
+        <div class="sp-player-center">
+          <div class="sp-player-controls">
+            <button class="sp-ctrl ${shuffle ? 'active' : ''}" data-sp-action="shuffle" title="Aleatorio">
+              <i data-lucide="shuffle"></i>
+            </button>
+            <button class="sp-ctrl" data-sp-action="prev" title="Anterior">
+              <i data-lucide="skip-back"></i>
+            </button>
+            <button class="sp-ctrl sp-ctrl-main" data-sp-action="play-pause" title="${isPlaying ? 'Pausar' : 'Reproducir'}">
+              <i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>
+            </button>
+            <button class="sp-ctrl" data-sp-action="next" title="Siguiente">
+              <i data-lucide="skip-forward"></i>
+            </button>
+            <button class="sp-ctrl sp-ctrl-repeat ${repeat !== 'off' ? 'active' : ''}" data-sp-action="repeat" data-sp-repeat="${repeat}" title="Repetir">
+              <i data-lucide="${repeat === 'one' ? 'repeat-1' : 'repeat'}"></i>
+            </button>
+          </div>
+
+          <div class="sp-player-progress">
+            <span class="sp-time" data-sp-time="current">${spFormatTime(SpotifyApp.getCurrentTime())}</span>
+            <div class="sp-progress" data-sp-progress>
+              <div class="sp-progress-track">
+                <div class="sp-progress-fill" data-sp-progress-fill style="width: 0%"></div>
+                <div class="sp-progress-knob" data-sp-progress-knob style="left: 0%"></div>
+              </div>
+            </div>
+            <span class="sp-time" data-sp-time="duration">${spFormatTime(current ? (current.duration || 0) : 0)}</span>
+          </div>
+        </div>
+
+        <div class="sp-player-right">
+          <button class="sp-ctrl" data-sp-action="now-playing" title="Now Playing">
+            <i data-lucide="mic-2"></i>
+          </button>
+          <button class="sp-ctrl" data-sp-action="queue" title="Cola de reproducción">
+            <i data-lucide="list-music"></i>
+          </button>
+          <button class="sp-ctrl" data-sp-action="devices" title="Dispositivos">
+            <i data-lucide="monitor-speaker"></i>
+          </button>
+          <div class="sp-volume">
+            <button class="sp-ctrl sp-volume-btn" data-sp-action="mute" title="${spotify.muted ? 'Activar sonido' : 'Silenciar'}">
+              <i data-lucide="${spotify.muted ? 'volume-x' : (volumePct === 0 ? 'volume' : volumePct < 50 ? 'volume-1' : 'volume-2')}"></i>
+            </button>
+            <div class="sp-volume-track" data-sp-volume>
+              <div class="sp-volume-fill" data-sp-volume-fill style="width: ${spotify.muted ? 0 : volumePct}%"></div>
+            </div>
+          </div>
+          <button class="sp-ctrl" data-sp-action="fullscreen" title="Pantalla completa">
+            <i data-lucide="maximize-2"></i>
+          </button>
+        </div>
+      </footer>
+    </div>
+  `;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SIDEBAR — Lista de biblioteca
+═══════════════════════════════════════════════════════════════ */
+
+function renderSpotifySidebarLibrary() {
+  const filter = spotify.libraryFilter || 'all';
+  const items = [];
+
+  // Playlists virtuales fijas
+  if (filter === 'all' || filter === 'playlists') {
+    items.push({
+      id: '__liked__',
+      type: 'playlist',
+      name: 'Tus me gusta',
+      subtitle: `Playlist · ${SpotifyApp.getLikedTracks().length} canciones`,
+      cover: null,
+      color: '#1ed760',
+      icon: 'heart'
+    });
+
+    // Playlists del library
+    SpotifyApp.getPlaylists().forEach(pl => {
+      if (pl.id === '__liked__') return;
+      const cover = getPlaylistCover(pl);
+      items.push({
+        id: pl.id,
+        type: 'playlist',
+        name: pl.name,
+        subtitle: `Playlist · ${pl.trackIds.length} canciones`,
+        cover,
+        color: pl.color || '#1ed760',
+        icon: 'music'
+      });
+    });
+
+    // Playlists custom
+    SpotifyApp.getCustomPlaylists().forEach(pl => {
+      const cover = getPlaylistCover(pl);
+      items.push({
+        id: pl.id,
+        type: 'playlist',
+        name: pl.name,
+        subtitle: `Playlist tuya · ${pl.trackIds.length} canciones`,
+        cover,
+        color: pl.color || '#1ed760',
+        icon: 'music',
+        custom: true
+      });
+    });
+  }
+
+  if (filter === 'all' || filter === 'artists') {
+    const artists = new Map();
+    SpotifyApp.getAllTracks().forEach(t => {
+      if (!artists.has(t.artist)) {
+        artists.set(t.artist, { name: t.artist, cover: t.cover, count: 0 });
+      }
+      artists.get(t.artist).count++;
+    });
+    artists.forEach((a, name) => {
+      items.push({
+        id: name,
+        type: 'artist',
+        name: a.name,
+        subtitle: `Artista · ${a.count} canciones`,
+        cover: a.cover,
+        color: '#a855f7',
+        icon: 'user'
+      });
+    });
+  }
+
+  if (filter === 'all' || filter === 'albums') {
+    const albums = new Map();
+    SpotifyApp.getAllTracks().forEach(t => {
+      const key = `${t.artist}::${t.album}`;
+      if (!albums.has(key)) {
+        albums.set(key, { key, name: t.album, artist: t.artist, cover: t.cover, count: 0 });
+      }
+      albums.get(key).count++;
+    });
+    albums.forEach((a) => {
+      items.push({
+        id: a.key,
+        type: 'album',
+        name: a.name,
+        subtitle: `Álbum · ${a.artist} · ${a.count} canciones`,
+        cover: a.cover,
+        color: '#f59e0b',
+        icon: 'disc-3'
+      });
+    });
+  }
+
+  if (items.length === 0) {
+    return `
+      <div class="sp-sidebar-empty">
+        <i data-lucide="library"></i>
+        <span>Nada por acá todavía</span>
+      </div>
+    `;
+  }
+
+  return items.map(item => {
+    const coverHTML = item.cover
+      ? `<img src="${spEscapeHtml(item.cover)}" alt="" loading="lazy" />`
+      : `<div class="sp-sidebar-item-icon" style="background: ${item.color}22; color: ${item.color};">
+           <i data-lucide="${item.icon || 'music'}"></i>
+         </div>`;
+
+    return `
+      <button class="sp-sidebar-item" data-sp-nav="${item.type}" data-sp-id="${spEscapeHtml(item.id)}" data-sp-artist="${item.type === 'artist' ? spEscapeHtml(item.id) : ''}" data-sp-album="${item.type === 'album' ? spEscapeHtml(item.id) : ''}">
+        <div class="sp-sidebar-item-cover ${item.type === 'artist' ? 'is-artist' : ''}">
+          ${coverHTML}
+        </div>
+        <div class="sp-sidebar-item-meta">
+          <span class="sp-sidebar-item-title">${spEscapeHtml(item.name)}</span>
+          <span class="sp-sidebar-item-sub">${spEscapeHtml(item.subtitle)}</span>
+        </div>
+      </button>
+    `;
+  }).join('');
+}
+
+function getPlaylistCover(pl) {
+  if (pl.cover) return pl.cover;
+  if (pl.trackIds && pl.trackIds.length) {
+    const first = SpotifyApp.getTrackById(pl.trackIds[0]);
+    if (first) return spGetTrackCover(first);
+  }
+  return null;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ MAIN — Router de vistas
+═══════════════════════════════════════════════════════════════ */
+
+function renderSpotifyMain() {
+  const view = spotify.view || 'home';
+  switch (view) {
+    case 'home':      return renderSpotifyHome();
+    case 'playlist':  return renderSpotifyPlaylist(spotify.viewParams.playlistId);
+    case 'artist':    return renderSpotifyArtist(spotify.viewParams.artistName);
+    case 'album':     return renderSpotifyAlbum(spotify.viewParams.albumKey);
+    case 'search':    return renderSpotifySearch();
+    case 'liked':     return renderSpotifyLiked();
+    case 'library':   return renderSpotifyLibrary();
+    case 'queue':     return renderSpotifyQueue();
+    default:          return renderSpotifyHome();
+  }
+}
+
+/* ─── Vista: HOME ─── */
+
+function renderSpotifyHome() {
+  const allTracks = SpotifyApp.getAllTracks();
+  const recent = SpotifyApp.getRecentTracks().slice(0, 8);
+  const liked = SpotifyApp.getLikedTracks().slice(0, 6);
+
+  // Destacar un álbum aleatorio de la biblioteca
+  const albumsMap = new Map();
+  allTracks.forEach(t => {
+    const key = `${t.artist}::${t.album}`;
+    if (!albumsMap.has(key)) albumsMap.set(key, { key, name: t.album, artist: t.artist, cover: t.cover });
+  });
+  const albums = Array.from(albumsMap.values());
+
+  // Artista destacado (el más frecuente)
+  const artistCounts = {};
+  allTracks.forEach(t => { artistCounts[t.artist] = (artistCounts[t.artist] || 0) + 1; });
+  const featuredArtistName = spGetMostFrequent(allTracks.map(t => t.artist));
+  const featuredArtist = featuredArtistName ? SpotifyApp.getArtistByName(featuredArtistName) : null;
+
+  const greeting = getSpotifyGreeting();
+
+  return `
+    <div class="sp-view sp-view-home">
+      <div class="sp-hero">
+        <div class="sp-hero-inner">
+          <div class="sp-hero-text">
+            <span class="sp-hero-kicker">${greeting}</span>
+            <h1 class="sp-hero-title">Buenas vibras</h1>
+            <p class="sp-hero-sub">${allTracks.length} canciones en tu biblioteca</p>
+          </div>
+          <div class="sp-hero-actions">
+            <button class="sp-btn sp-btn-primary" data-sp-action="play-all">
+              <i data-lucide="play"></i> Reproducir
+            </button>
+            <button class="sp-btn sp-btn-ghost" data-sp-action="shuffle-all">
+              <i data-lucide="shuffle"></i> Aleatorio
+            </button>
+          </div>
+        </div>
+      </div>
+
+      ${recent.length > 0 ? `
+        <section class="sp-section">
+          <div class="sp-section-head">
+            <h2 class="sp-section-title">Escuchado recientemente</h2>
+            <button class="sp-section-link" data-sp-nav="recent">Ver todo</button>
+          </div>
+          <div class="sp-cards-grid">
+            ${recent.map(track => renderSpotifyCard(track)).join('')}
+          </div>
+        </section>
+      ` : ''}
+
+      ${liked.length > 0 ? `
+        <section class="sp-section">
+          <div class="sp-section-head">
+            <h2 class="sp-section-title">Tus me gusta</h2>
+            <button class="sp-section-link" data-sp-nav="liked">Ver todo</button>
+          </div>
+          <div class="sp-cards-grid">
+            ${liked.map(track => renderSpotifyCard(track)).join('')}
+          </div>
+        </section>
+      ` : ''}
+
+      ${albums.length > 0 ? `
+        <section class="sp-section">
+          <div class="sp-section-head">
+            <h2 class="sp-section-title">Álbumes en tu biblioteca</h2>
+          </div>
+          <div class="sp-cards-grid">
+            ${albums.slice(0, 8).map(alb => `
+              <button class="sp-card sp-card-album" data-sp-nav="album" data-sp-album="${spEscapeHtml(alb.key)}">
+                <div class="sp-card-cover">
+                  <img src="${spEscapeHtml(alb.cover)}" alt="" loading="lazy" />
+                  <span class="sp-card-play" aria-hidden="true"><i data-lucide="play"></i></span>
+                </div>
+                <div class="sp-card-meta">
+                  <span class="sp-card-title">${spEscapeHtml(alb.name)}</span>
+                  <span class="sp-card-sub">${spEscapeHtml(alb.artist)}</span>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+        </section>
+      ` : ''}
+
+      ${featuredArtist ? `
+        <section class="sp-section">
+          <div class="sp-section-head">
+            <h2 class="sp-section-title">Artista destacado</h2>
+          </div>
+          <div class="sp-featured-artist">
+            <div class="sp-featured-cover" style="background-image: url('${spEscapeHtml(featuredArtist.cover)}');">
+              <button class="sp-featured-play" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(featuredArtist.name)}">
+                <i data-lucide="play"></i>
+              </button>
+            </div>
+            <div class="sp-featured-info">
+              <span class="sp-featured-kicker">ARTISTA</span>
+              <h3 class="sp-featured-name">${spEscapeHtml(featuredArtist.name)}</h3>
+              <p class="sp-featured-meta">${featuredArtist.trackCount} canciones · ${featuredArtist.albums.length} álbumes</p>
+              <button class="sp-btn sp-btn-ghost" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(featuredArtist.name)}">
+                <i data-lucide="arrow-right"></i> Ver artista
+              </button>
+            </div>
+          </div>
+        </section>
+      ` : ''}
+
+      ${allTracks.length === 0 ? `
+        <div class="sp-empty">
+          <i data-lucide="music-2"></i>
+          <h2>No hay música todavía</h2>
+          <p>Agregá archivos MP3 en <code>assets/music/</code> y un <code>library.json</code> para empezar.</p>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function getSpotifyGreeting() {
+  const h = new Date().getHours();
+  if (h < 6) return 'Buenas noches';
+  if (h < 12) return 'Buenos días';
+  if (h < 19) return 'Buenas tardes';
+  return 'Buenas noches';
+}
+
+/* ─── Card de track (grid) ─── */
+
+function renderSpotifyCard(track) {
+  const isCurrent = spotify.currentTrackId === track.id;
+  return `
+    <button class="sp-card ${isCurrent ? 'is-current' : ''}" data-sp-play="${spEscapeHtml(track.id)}">
+      <div class="sp-card-cover">
+        <img src="${spEscapeHtml(spGetTrackCover(track))}" alt="" loading="lazy" />
+        <span class="sp-card-play" aria-hidden="true">
+          <i data-lucide="${isCurrent && spotify.isPlaying ? 'pause' : 'play'}"></i>
+        </span>
+      </div>
+      <div class="sp-card-meta">
+        <span class="sp-card-title">${spEscapeHtml(track.title)}</span>
+        <span class="sp-card-sub">${spEscapeHtml(track.artist)}</span>
+      </div>
+    </button>
+  `;
+}
+
+/* ─── Vista: PLAYLIST ─── */
+
+function renderSpotifyPlaylist(playlistId) {
+  const playlist = SpotifyApp.getPlaylistById(playlistId);
+  const custom = SpotifyApp.getCustomPlaylists().find(p => p.id === playlistId);
+
+  const target = playlist || custom;
+  if (!target) return renderSpotifyHome();
+
+  const tracks = target.trackIds
+    .map(id => SpotifyApp.getTrackById(id))
+    .filter(Boolean);
+
+  const totalDuration = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+  const cover = getPlaylistCover(target);
+
+  return `
+    <div class="sp-view sp-view-playlist">
+      <header class="sp-playlist-header">
+        <div class="sp-playlist-cover" style="--pl-color: ${target.color || '#1ed760'}">
+          ${cover
+            ? `<img src="${spEscapeHtml(cover)}" alt="" />`
+            : `<i data-lucide="music-2"></i>`}
+        </div>
+        <div class="sp-playlist-info">
+          <span class="sp-playlist-kicker">Playlist</span>
+          <h1 class="sp-playlist-title">${spEscapeHtml(target.name)}</h1>
+          ${target.description ? `<p class="sp-playlist-desc">${spEscapeHtml(target.description)}</p>` : ''}
+          <div class="sp-playlist-meta">
+            <span>${tracks.length} canciones</span>
+            <span class="sp-dot">·</span>
+            <span>${spFormatTotalDuration(totalDuration)}</span>
+          </div>
+          <div class="sp-playlist-actions">
+            <button class="sp-btn sp-btn-primary sp-btn-large" data-sp-action="play-playlist" data-sp-playlist-id="${spEscapeHtml(target.id)}">
+              <i data-lucide="play"></i> Reproducir
+            </button>
+            <button class="sp-btn sp-btn-ghost" data-sp-action="shuffle-playlist" data-sp-playlist-id="${spEscapeHtml(target.id)}">
+              <i data-lucide="shuffle"></i> Aleatorio
+            </button>
+            ${custom ? `
+              <button class="sp-btn-icon" data-sp-action="edit-playlist" data-sp-playlist-id="${spEscapeHtml(target.id)}" title="Editar">
+                <i data-lucide="pencil"></i>
+              </button>
+              <button class="sp-btn-icon danger" data-sp-action="delete-playlist" data-sp-playlist-id="${spEscapeHtml(target.id)}" title="Eliminar">
+                <i data-lucide="trash-2"></i>
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      </header>
+
+      ${renderSpotifyTrackList(tracks, { context: 'playlist', contextId: target.id })}
+    </div>
+  `;
+}
+
+/* ─── Vista: ARTISTA ─── */
+
+function renderSpotifyArtist(artistName) {
+  const artist = SpotifyApp.getArtistByName(artistName);
+  if (!artist) return renderSpotifyHome();
+
+  // Álbumes del artista
+  const albumsMap = new Map();
+  artist.tracks.forEach(t => {
+    const key = `${t.artist}::${t.album}`;
+    if (!albumsMap.has(key)) {
+      albumsMap.set(key, { key, name: t.album, year: t.year, cover: t.cover, trackCount: 0 });
+    }
+    albumsMap.get(key).trackCount++;
+  });
+  const albums = Array.from(albumsMap.values());
+
+  // Top tracks (por duración como heurística)
+  const topTracks = artist.tracks.slice(0, 5);
+
+  return `
+    <div class="sp-view sp-view-artist">
+      <header class="sp-artist-hero" style="--hero-cover: url('${spEscapeHtml(artist.cover)}');">
+        <div class="sp-artist-hero-inner">
+          <div class="sp-artist-avatar">
+            <img src="${spEscapeHtml(artist.cover)}" alt="" />
+          </div>
+          <div class="sp-artist-info">
+            <span class="sp-artist-kicker">Artista verificado</span>
+            <h1 class="sp-artist-name">${spEscapeHtml(artist.name)}</h1>
+            <div class="sp-artist-meta">
+              <span>${artist.trackCount} canciones</span>
+              <span class="sp-dot">·</span>
+              <span>${artist.albums.length} álbumes</span>
+            </div>
+            <div class="sp-artist-actions">
+              <button class="sp-btn sp-btn-primary" data-sp-action="play-artist" data-sp-artist="${spEscapeHtml(artist.name)}">
+                <i data-lucide="play"></i> Reproducir
+              </button>
+              <button class="sp-btn sp-btn-ghost" data-sp-action="shuffle-artist" data-sp-artist="${spEscapeHtml(artist.name)}">
+                <i data-lucide="shuffle"></i> Aleatorio
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      ${topTracks.length > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Populares</h2>
+          ${renderSpotifyTrackList(topTracks, { context: 'artist', contextId: artist.name, compact: true })}
+        </section>
+      ` : ''}
+
+      ${albums.length > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Discografía</h2>
+          <div class="sp-cards-grid">
+            ${albums.map(alb => `
+              <button class="sp-card sp-card-album" data-sp-nav="album" data-sp-album="${spEscapeHtml(alb.key)}">
+                <div class="sp-card-cover">
+                  <img src="${spEscapeHtml(alb.cover)}" alt="" loading="lazy" />
+                  <span class="sp-card-play" aria-hidden="true"><i data-lucide="play"></i></span>
+                </div>
+                <div class="sp-card-meta">
+                  <span class="sp-card-title">${spEscapeHtml(alb.name)}</span>
+                  <span class="sp-card-sub">${alb.year || ''} · ${alb.trackCount} canciones</span>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+        </section>
+      ` : ''}
+    </div>
+  `;
+}
+
+/* ─── Vista: ÁLBUM ─── */
+
+function renderSpotifyAlbum(albumKey) {
+  const album = SpotifyApp.getAlbumByKey(albumKey);
+  if (!album) return renderSpotifyHome();
+
+  const totalDuration = album.tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+
+  return `
+    <div class="sp-view sp-view-album">
+      <header class="sp-playlist-header">
+        <div class="sp-playlist-cover">
+          <img src="${spEscapeHtml(album.cover)}" alt="" />
+        </div>
+        <div class="sp-playlist-info">
+          <span class="sp-playlist-kicker">Álbum</span>
+          <h1 class="sp-playlist-title">${spEscapeHtml(album.name)}</h1>
+          <p class="sp-playlist-desc">
+            <button class="sp-inline-link" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(album.artist)}">${spEscapeHtml(album.artist)}</button>
+            ${album.year ? ` · ${album.year}` : ''}
+          </p>
+          <div class="sp-playlist-meta">
+            <span>${album.tracks.length} canciones</span>
+            <span class="sp-dot">·</span>
+            <span>${spFormatTotalDuration(totalDuration)}</span>
+          </div>
+          <div class="sp-playlist-actions">
+            <button class="sp-btn sp-btn-primary sp-btn-large" data-sp-action="play-album" data-sp-album="${spEscapeHtml(album.key)}">
+              <i data-lucide="play"></i> Reproducir
+            </button>
+            <button class="sp-btn sp-btn-ghost" data-sp-action="shuffle-album" data-sp-album="${spEscapeHtml(album.key)}">
+              <i data-lucide="shuffle"></i> Aleatorio
+            </button>
+          </div>
+        </div>
+      </header>
+
+      ${renderSpotifyTrackList(album.tracks, { context: 'album', contextId: album.key })}
+    </div>
+  `;
+}
+
+/* ─── Vista: BÚSQUEDA ─── */
+
+function renderSpotifySearch() {
+  const q = spotify.searchQuery || '';
+  if (!q.trim()) {
+    const history = spotify.searchHistory || [];
+    return `
+      <div class="sp-view sp-view-search">
+        <h1 class="sp-view-title">Buscar</h1>
+        ${history.length > 0 ? `
+          <section class="sp-section">
+            <h2 class="sp-section-title">Búsquedas recientes</h2>
+            <div class="sp-chips-row">
+              ${history.map(h => `
+                <button class="sp-chip" data-sp-search-suggestion="${spEscapeHtml(h)}">
+                  <i data-lucide="history"></i> ${spEscapeHtml(h)}
+                </button>
+              `).join('')}
+            </div>
+          </section>
+        ` : ''}
+        <div class="sp-empty">
+          <i data-lucide="search"></i>
+          <h2>Buscá algo</h2>
+          <p>Encontrá canciones, artistas, álbumes o playlists.</p>
+        </div>
+      </div>
+    `;
+  }
+
+  const results = SpotifyApp.search(q);
+  const noResults = results.tracks.length === 0
+    && results.artists.length === 0
+    && results.albums.length === 0
+    && results.playlists.length === 0;
+
+  if (noResults) {
+    return `
+      <div class="sp-view sp-view-search">
+        <h1 class="sp-view-title">Resultados para "${spEscapeHtml(q)}"</h1>
+        <div class="sp-empty">
+          <i data-lucide="search-x"></i>
+          <h2>Sin resultados</h2>
+          <p>Probá con otra búsqueda.</p>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="sp-view sp-view-search">
+      <h1 class="sp-view-title">Resultados para "${spEscapeHtml(q)}"</h1>
+
+      ${results.tracks.length > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Canciones</h2>
+          ${renderSpotifyTrackList(results.tracks.slice(0, 8), { context: 'search', contextId: 'tracks', compact: true })}
+        </section>
+      ` : ''}
+
+      ${results.artists.length > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Artistas</h2>
+          <div class="sp-cards-grid">
+            ${results.artists.slice(0, 6).map(a => `
+              <button class="sp-card sp-card-artist" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(a.name)}">
+                <div class="sp-card-cover is-round">
+                  <img src="${spEscapeHtml(a.cover)}" alt="" loading="lazy" />
+                </div>
+                <div class="sp-card-meta">
+                  <span class="sp-card-title">${spEscapeHtml(a.name)}</span>
+                  <span class="sp-card-sub">Artista · ${a.trackCount} canciones</span>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+        </section>
+      ` : ''}
+
+      ${results.albums.length > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Álbumes</h2>
+          <div class="sp-cards-grid">
+            ${results.albums.slice(0, 6).map(alb => `
+              <button class="sp-card" data-sp-nav="album" data-sp-album="${spEscapeHtml(alb.key)}">
+                <div class="sp-card-cover">
+                  <img src="${spEscapeHtml(alb.cover)}" alt="" loading="lazy" />
+                </div>
+                <div class="sp-card-meta">
+                  <span class="sp-card-title">${spEscapeHtml(alb.name)}</span>
+                  <span class="sp-card-sub">${spEscapeHtml(alb.artist)}</span>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+        </section>
+      ` : ''}
+
+      ${results.playlists.length > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Playlists</h2>
+          <div class="sp-cards-grid">
+            ${results.playlists.slice(0, 6).map(pl => {
+              const cover = getPlaylistCover(pl);
+              return `
+                <button class="sp-card" data-sp-nav="playlist" data-sp-id="${spEscapeHtml(pl.id)}">
+                  <div class="sp-card-cover">
+                    ${cover
+                      ? `<img src="${spEscapeHtml(cover)}" alt="" loading="lazy" />`
+                      : `<div class="sp-card-cover-placeholder" style="background: ${pl.color || '#1ed760'}22;"><i data-lucide="music-2"></i></div>`}
+                  </div>
+                  <div class="sp-card-meta">
+                    <span class="sp-card-title">${spEscapeHtml(pl.name)}</span>
+                    <span class="sp-card-sub">Playlist · ${pl.trackIds.length} canciones</span>
+                  </div>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </section>
+      ` : ''}
+    </div>
+  `;
+}
+
+/* ─── Vista: LIKED ─── */
+
+function renderSpotifyLiked() {
+  const tracks = SpotifyApp.getLikedTracks();
+  const totalDuration = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+
+  return `
+    <div class="sp-view sp-view-liked">
+      <header class="sp-playlist-header sp-liked-header">
+        <div class="sp-playlist-cover sp-liked-cover">
+          <i data-lucide="heart"></i>
+        </div>
+        <div class="sp-playlist-info">
+          <span class="sp-playlist-kicker">Playlist</span>
+          <h1 class="sp-playlist-title">Tus me gusta</h1>
+          <div class="sp-playlist-meta">
+            <span>${tracks.length} canciones</span>
+            <span class="sp-dot">·</span>
+            <span>${spFormatTotalDuration(totalDuration)}</span>
+          </div>
+          ${tracks.length > 0 ? `
+            <div class="sp-playlist-actions">
+              <button class="sp-btn sp-btn-primary sp-btn-large" data-sp-action="play-liked">
+                <i data-lucide="play"></i> Reproducir
+              </button>
+              <button class="sp-btn sp-btn-ghost" data-sp-action="shuffle-liked">
+                <i data-lucide="shuffle"></i> Aleatorio
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      </header>
+
+      ${tracks.length > 0
+        ? renderSpotifyTrackList(tracks, { context: 'liked', contextId: '__liked__' })
+        : `<div class="sp-empty">
+            <i data-lucide="heart-off"></i>
+            <h2>Aún no tenés favoritos</h2>
+            <p>Tocá el corazón en cualquier canción para guardarla acá.</p>
+          </div>`}
+    </div>
+  `;
+}
+
+/* ─── Vista: LIBRARY ─── */
+
+function renderSpotifyLibrary() {
+  const playlists = SpotifyApp.getPlaylists().filter(p => p.id !== '__liked__');
+  const custom = SpotifyApp.getCustomPlaylists();
+  const allPlaylists = [
+    { id: '__liked__', name: 'Tus me gusta', color: '#1ed760', trackIds: SpotifyApp.getLikedIds(), __virtual: 'liked' },
+    ...playlists,
+    ...custom
+  ];
+
+  const allTracks = SpotifyApp.getAllTracks();
+  const albumsMap = new Map();
+  allTracks.forEach(t => {
+    const key = `${t.artist}::${t.album}`;
+    if (!albumsMap.has(key)) albumsMap.set(key, { key, name: t.album, artist: t.artist, cover: t.cover });
+  });
+  const albums = Array.from(albumsMap.values());
+
+  const artists = new Map();
+  allTracks.forEach(t => {
+    if (!artists.has(t.artist)) artists.set(t.artist, { name: t.artist, cover: t.cover, count: 0 });
+    artists.get(t.artist).count++;
+  });
+
+  return `
+    <div class="sp-view sp-view-library">
+      <h1 class="sp-view-title">Tu biblioteca</h1>
+
+      ${allPlaylists.length > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Playlists</h2>
+          <div class="sp-cards-grid">
+            ${allPlaylists.map(pl => {
+              const cover = getPlaylistCover(pl);
+              return `
+                <button class="sp-card" data-sp-nav="playlist" data-sp-id="${spEscapeHtml(pl.id)}">
+                  <div class="sp-card-cover">
+                    ${pl.id === '__liked__'
+                      ? `<div class="sp-card-cover-liked"><i data-lucide="heart"></i></div>`
+                      : (cover
+                        ? `<img src="${spEscapeHtml(cover)}" alt="" loading="lazy" />`
+                        : `<div class="sp-card-cover-placeholder" style="background: ${pl.color || '#1ed760'}22;"><i data-lucide="music-2"></i></div>`)}
+                  </div>
+                  <div class="sp-card-meta">
+                    <span class="sp-card-title">${spEscapeHtml(pl.name)}</span>
+                    <span class="sp-card-sub">Playlist · ${(pl.trackIds || []).length} canciones</span>
+                  </div>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </section>
+      ` : ''}
+
+      ${albums.length > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Álbumes</h2>
+          <div class="sp-cards-grid">
+            ${albums.slice(0, 12).map(alb => `
+              <button class="sp-card" data-sp-nav="album" data-sp-album="${spEscapeHtml(alb.key)}">
+                <div class="sp-card-cover">
+                  <img src="${spEscapeHtml(alb.cover)}" alt="" loading="lazy" />
+                </div>
+                <div class="sp-card-meta">
+                  <span class="sp-card-title">${spEscapeHtml(alb.name)}</span>
+                  <span class="sp-card-sub">${spEscapeHtml(alb.artist)}</span>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+        </section>
+      ` : ''}
+
+      ${artists.size > 0 ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Artistas</h2>
+          <div class="sp-cards-grid">
+            ${Array.from(artists.values()).slice(0, 12).map(a => `
+              <button class="sp-card sp-card-artist" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(a.name)}">
+                <div class="sp-card-cover is-round">
+                  <img src="${spEscapeHtml(a.cover)}" alt="" loading="lazy" />
+                </div>
+                <div class="sp-card-meta">
+                  <span class="sp-card-title">${spEscapeHtml(a.name)}</span>
+                  <span class="sp-card-sub">Artista · ${a.count} canciones</span>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+        </section>
+      ` : ''}
+    </div>
+  `;
+}
+
+/* ─── Vista: QUEUE ─── */
+
+function renderSpotifyQueue() {
+  const queue = SpotifyApp.getQueue();
+  const queueIndex = SpotifyApp.getQueueIndex();
+  const upcoming = queue.slice(queueIndex + 1);
+
+  return `
+    <div class="sp-view sp-view-queue">
+      <h1 class="sp-view-title">Cola de reproducción</h1>
+
+      ${queueIndex >= 0 && queue[queueIndex] ? `
+        <section class="sp-section">
+          <h2 class="sp-section-title">Reproduciendo ahora</h2>
+          ${renderSpotifyTrackList([SpotifyApp.getTrackById(queue[queueIndex])].filter(Boolean), { context: 'queue', compact: true, hidePlayedAt: true })}
+        </section>
+      ` : ''}
+
+      <section class="sp-section">
+        <h2 class="sp-section-title">Próximas (${upcoming.length})</h2>
+        ${upcoming.length > 0
+          ? renderSpotifyTrackList(upcoming.map(id => SpotifyApp.getTrackById(id)).filter(Boolean), { context: 'queue', compact: true })
+          : `<p class="sp-empty-inline">No hay más canciones en la cola.</p>`}
+      </section>
+    </div>
+  `;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ LISTA DE TRACKS (componente reutilizable)
+═══════════════════════════════════════════════════════════════ */
+
+function renderSpotifyTrackList(tracks, { context = '', contextId = '', compact = false } = {}) {
+  if (!tracks || tracks.length === 0) {
+    return `<div class="sp-empty-inline">Sin canciones.</div>`;
+  }
+
+  return `
+    <div class="sp-tracklist ${compact ? 'is-compact' : ''}" data-sp-tracklist data-sp-context="${context}" data-sp-context-id="${spEscapeHtml(contextId)}">
+      <div class="sp-tracklist-head">
+        <span class="sp-track-num">#</span>
+        <span class="sp-track-title-col">Título</span>
+        <span class="sp-track-album-col">Álbum</span>
+        <span class="sp-track-duration-col"><i data-lucide="clock-3"></i></span>
+      </div>
+      ${tracks.map((track, i) => renderSpotifyTrackRow(track, i, context, contextId)).join('')}
+    </div>
+  `;
+}
+
+function renderSpotifyTrackRow(track, index, context, contextId) {
+  const isCurrent = spotify.currentTrackId === track.id;
+  const isPlaying = isCurrent && spotify.isPlaying;
+  const liked = SpotifyApiIsLiked(track.id);
+
+  return `
+    <div class="sp-track-row ${isCurrent ? 'is-current' : ''}" data-sp-track-id="${spEscapeHtml(track.id)}">
+      <div class="sp-track-num">
+        <span class="sp-track-index">${index + 1}</span>
+        <button class="sp-track-play-btn" data-sp-play="${spEscapeHtml(track.id)}" title="${isPlaying ? 'Pausar' : 'Reproducir'}">
+          <i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>
+        </button>
+      </div>
+      <div class="sp-track-title">
+        <img class="sp-track-cover" src="${spEscapeHtml(spGetTrackCover(track))}" alt="" loading="lazy" />
+        <div class="sp-track-title-meta">
+          <span class="sp-track-name ${isCurrent ? 'is-accent' : ''}">${spEscapeHtml(track.title)}</span>
+          <button class="sp-track-artist-btn" data-sp-nav="artist" data-sp-artist="${spEscapeHtml(track.artist)}">
+            ${spEscapeHtml(track.artist)}
+          </button>
+        </div>
+      </div>
+      <button class="sp-track-album" data-sp-nav="album" data-sp-album="${spEscapeHtml(`${track.artist}::${track.album}`)}">
+        ${spEscapeHtml(track.album)}
+      </button>
+      <div class="sp-track-actions">
+        <button class="sp-icon-btn sp-track-like ${liked ? 'liked' : ''}" data-sp-like="${spEscapeHtml(track.id)}" title="${liked ? 'Quitar de Tus me gusta' : 'Agregar a Tus me gusta'}">
+          <i data-lucide="heart"></i>
+        </button>
+        <button class="sp-icon-btn sp-track-menu" data-sp-track-menu="${spEscapeHtml(track.id)}" title="Más opciones">
+          <i data-lucide="more-horizontal"></i>
+        </button>
+      </div>
+      <span class="sp-track-duration">${spFormatTime(track.duration || 0)}</span>
+    </div>
+  `;
+}
+
+/* Helper local para evitar referencia circular */
+function SpotifyApiIsLiked(id) {
+  return spotify.likedIds.has(id);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SETUP DE LA APP — listeners completos
+═══════════════════════════════════════════════════════════════ */
+
+function setupSpotifyApp(win) {
+  if (!win) return;
+
+  // Registrar UI en el WeakMap para no duplicar listeners
+  const ui = spotifyUIState.get(win) || {};
+  if (ui.bound) {
+    // Ya estaba bound; solo refrescamos el HTML
+    refreshSpotifyWindow(win);
+    return;
+  }
+
+  const root = win.querySelector('[data-spotify-root]');
+  if (!root) return;
+
+  ui.bound = true;
+  ui.win = win;
+  spotifyUIState.set(win, ui);
+
+  // ─── Delegación de eventos ───
+  root.addEventListener('click', (e) => handleSpotifyClick(e, win));
+
+  // ─── Search input ───
+  const searchInput = root.querySelector('.sp-search-input');
+  if (searchInput) {
+    const handler = spDebounce((value) => {
+      spotify.searchQuery = value;
+      if (value.trim()) {
+        spotify.view = 'search';
+        spotify.viewParams = { query: value };
+        // Guardar en historial
+        const hist = spotify.searchHistory || [];
+        if (value.trim() && !hist.includes(value.trim())) {
+          hist.unshift(value.trim());
+          spotify.searchHistory = hist.slice(0, 10);
+        }
+      } else if (spotify.view === 'search') {
+        spotify.view = 'home';
+      }
+      refreshSpotifyWindow(win);
+    }, SPOTIFY_SEARCH_DEBOUNCE_MS);
+
+    searchInput.addEventListener('input', (e) => handler(e.target.value));
+    searchInput.addEventListener('focus', () => {
+      // Expandir placeholder, etc.
+    });
+  }
+
+  // ─── Barra de progreso (click para seek) ───
+  const progress = root.querySelector('[data-sp-progress]');
+  if (progress) {
+    const onSeek = (e) => {
+      const rect = progress.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const dur = SpotifyApp.getDuration() || (SpotifyApp.getCurrentTrack()?.duration || 0);
+      SpotifyApp.seek(pct * dur);
+    };
+    let seeking = false;
+    progress.addEventListener('mousedown', (e) => {
+      seeking = true;
+      onSeek(e);
+      const onMove = (ev) => seeking && onSeek(ev);
+      const onUp = () => {
+        seeking = false;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  // ─── Slider de volumen ───
+  const volumeTrack = root.querySelector('[data-sp-volume]');
+  if (volumeTrack) {
+    const onVol = (e) => {
+      const rect = volumeTrack.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      SpotifyApp.setVolume(pct);
+      if (pct > 0 && SpotifyApp.isMuted()) SpotifyApp.toggleMute();
+    };
+    let volDragging = false;
+    volumeTrack.addEventListener('mousedown', (e) => {
+      volDragging = true;
+      onVol(e);
+      const onMove = (ev) => volDragging && onVol(ev);
+      const onUp = () => {
+        volDragging = false;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  // ─── Atajos locales de la app ───
+  win.addEventListener('keydown', (e) => {
+    if (e.target.closest('.sp-search-input')) return;
+    const tag = e.target.tagName?.toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return;
+
+    if (e.code === 'Space' || e.key === ' ') {
+      e.preventDefault();
+      SpotifyApp.togglePlayPause();
+    } else if (e.key === 'ArrowRight' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      SpotifyApp.next();
+    } else if (e.key === 'ArrowLeft' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      SpotifyApp.prev();
+    } else if (e.key === 'ArrowUp' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      SpotifyApp.setVolume(Math.min(1, SpotifyApp.getVolume() + 0.05));
+    } else if (e.key === 'ArrowDown' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      SpotifyApp.setVolume(Math.max(0, SpotifyApp.getVolume() - 0.05));
+    } else if (e.key === 'f' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      const input = win.querySelector('.sp-search-input');
+      if (input) input.focus();
+    } else if (e.key === 'l' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      const current = SpotifyApp.getCurrentTrack();
+      if (current) SpotifyApp.toggleLike(current.id);
+    }
+  });
+
+  // ─── Escuchar eventos del motor para refrescar la UI ───
+  const unsubs = ui.unsubs || (ui.unsubs = []);
+  unsubs.push(SpotifyApp.on('trackchange', () => refreshSpotifyWindow(win)));
+  unsubs.push(SpotifyApp.on('play', () => refreshSpotifyPlayerBar(win)));
+  unsubs.push(SpotifyApp.on('pause', () => refreshSpotifyPlayerBar(win)));
+  unsubs.push(SpotifyApp.on('volume', () => refreshSpotifyVolumeUI(win)));
+  unsubs.push(SpotifyApp.on('shuffle', () => refreshSpotifyPlayerBar(win)));
+  unsubs.push(SpotifyApp.on('repeat', () => refreshSpotifyPlayerBar(win)));
+  unsubs.push(SpotifyApp.on('liked', ({ trackId }) => {
+    // Actualizar corazones en TODA la ventana
+    win.querySelectorAll(`[data-sp-like="${trackId}"]`).forEach(btn => {
+      const liked = SpotifyApp.isLiked(trackId);
+      btn.classList.toggle('liked', liked);
+      btn.title = liked ? 'Quitar de Tus me gusta' : 'Agregar a Tus me gusta';
+    });
+    // Actualizar el corazón del player
+    const current = SpotifyApp.getCurrentTrack();
+    if (current && current.id === trackId) {
+      const playerLike = win.querySelector('[data-sp-action="like-current"]');
+      if (playerLike) playerLike.classList.toggle('liked', SpotifyApp.isLiked(trackId));
+    }
+    // Sidebar "Tus me gusta"
+    if (spotify.view === 'liked') refreshSpotifyWindow(win);
+  }));
+  unsubs.push(SpotifyApp.on('playlists-change', () => {
+    refreshSpotifyWindow(win);
+  }));
+
+  // ─── Arrancar loop del visualizador (si hay barra) ───
+  startSpotifyVisualizerLoop(win);
+
+  // ─── Loop de progreso (por si timeupdate no dispara) ───
+  const progressInterval = setInterval(() => {
+    if (!win.isConnected) {
+      clearInterval(progressInterval);
+      return;
+    }
+    refreshSpotifyProgressUI(win);
+  }, 250);
+  ui.progressInterval = progressInterval;
+
+  // ─── Refrescar por primera vez ───
+  refreshSpotifyWindow(win);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ MANEJO DE CLICKS (delegación)
+═══════════════════════════════════════════════════════════════ */
+
+function handleSpotifyClick(e, win) {
+  const target = e.target;
+
+  // ─── Botón play/pause global ───
+  const playPause = target.closest('[data-sp-action="play-pause"]');
+  if (playPause) {
+    e.stopPropagation();
+    SpotifyApp.togglePlayPause();
+    return;
+  }
+
+  // ─── Reproducir un track específico ───
+  const playTrack = target.closest('[data-sp-play]');
+  if (playTrack) {
+    e.stopPropagation();
+    const trackId = playTrack.dataset.spPlay;
+    if (SpotifyApp.getCurrentTrack()?.id === trackId && spotify.isPlaying) {
+      SpotifyApp.pause();
+    } else if (SpotifyApp.getCurrentTrack()?.id === trackId && !spotify.isPlaying) {
+      SpotifyApp.resume();
+    } else {
+      SpotifyApp.play(trackId);
+    }
+    return;
+  }
+
+  // ─── Like de un track ───
+  const likeBtn = target.closest('[data-sp-like]');
+  if (likeBtn) {
+    e.stopPropagation();
+    SpotifyApp.toggleLike(likeBtn.dataset.spLike);
+    return;
+  }
+
+  // ─── Menú contextual de un track ───
+  const menuBtn = target.closest('[data-sp-track-menu]');
+  if (menuBtn) {
+    e.stopPropagation();
+    openSpotifyTrackMenu(win, menuBtn.dataset.spTrackMenu, menuBtn);
+    return;
+  }
+
+  // ─── Navegación ───
+  const nav = target.closest('[data-sp-nav]');
+  if (nav) {
+    e.stopPropagation();
+    navigateSpotify(win, nav.dataset.spNav, nav);
+    return;
+  }
+
+  // ─── Filtros de sidebar ───
+  const filter = target.closest('[data-sp-filter]');
+  if (filter) {
+    e.stopPropagation();
+    spotify.libraryFilter = filter.dataset.spFilter;
+    refreshSpotifyWindow(win);
+    return;
+  }
+
+  // ─── Limpiar búsqueda ───
+  if (target.closest('[data-sp-search-clear]')) {
+    e.stopPropagation();
+    spotify.searchQuery = '';
+    if (spotify.view === 'search') spotify.view = 'home';
+    refreshSpotifyWindow(win);
+    return;
+  }
+
+  // ─── Sugerencia de búsqueda (historial) ───
+  const suggestion = target.closest('[data-sp-search-suggestion]');
+  if (suggestion) {
+    e.stopPropagation();
+    spotify.searchQuery = suggestion.dataset.spSearchSuggestion;
+    spotify.view = 'search';
+    refreshSpotifyWindow(win);
+    return;
+  }
+
+  // ─── Botón "back" del topbar ───
+  if (target.closest('[data-sp-nav="back"]')) {
+    e.stopPropagation();
+    // volver a home
+    spotify.view = 'home';
+    spotify.viewParams = {};
+    refreshSpotifyWindow(win);
+    return;
+  }
+
+  // ─── Acciones ───
+  const action = target.closest('[data-sp-action]');
+  if (action) {
+    e.stopPropagation();
+    handleSpotifyAction(win, action.dataset.spAction, action);
+    return;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ NAVEGACIÓN INTERNA
+═══════════════════════════════════════════════════════════════ */
+
+function navigateSpotify(win, type, el) {
+  switch (type) {
+    case 'home':
+      spotify.view = 'home';
+      spotify.viewParams = {};
+      break;
+
+    case 'library':
+      spotify.view = 'library';
+      spotify.viewParams = {};
+      break;
+
+    case 'liked':
+      spotify.view = 'liked';
+      spotify.viewParams = {};
+      break;
+
+    case 'playlist':
+      spotify.view = 'playlist';
+      spotify.viewParams = { playlistId: el.dataset.spId };
+      break;
+
+    case 'artist':
+      spotify.view = 'artist';
+      spotify.viewParams = { artistName: el.dataset.spArtist || el.dataset.spId };
+      break;
+
+    case 'album':
+      spotify.view = 'album';
+      spotify.viewParams = { albumKey: el.dataset.spAlbum || el.dataset.spId };
+      break;
+
+    case 'search':
+      spotify.view = 'search';
+      spotify.viewParams = { query: spotify.searchQuery };
+      break;
+
+    case 'queue':
+      spotify.view = 'queue';
+      spotify.viewParams = {};
+      break;
+
+    case 'now-playing':
+      // Abrir HUD overlay con el track actual (o hacer scroll al player)
+      scrollSpotifyToPlayer(win);
+      return;
+
+    case 'recent':
+      // Vista "recientes" → usar vista liked pero con recientes
+      spotify.view = 'home';
+      spotify.viewParams = {};
+      break;
+
+    default:
+      spotify.view = 'home';
+      spotify.viewParams = {};
+  }
+
+  refreshSpotifyWindow(win);
+}
+
+function scrollSpotifyToPlayer(win) {
+  const player = win.querySelector('[data-sp-player]');
+  if (player) player.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ ACCIONES ESPECÍFICAS
+═══════════════════════════════════════════════════════════════ */
+
+function handleSpotifyAction(win, action, el) {
+  switch (action) {
+    case 'play-pause':
+      SpotifyApp.togglePlayPause();
+      break;
+
+    case 'prev':
+      SpotifyApp.prev();
+      break;
+
+    case 'next':
+      SpotifyApp.next();
+      break;
+
+    case 'shuffle':
+      SpotifyApp.toggleShuffle();
+      break;
+
+    case 'repeat':
+      SpotifyApp.cycleRepeat();
+      break;
+
+    case 'mute':
+      SpotifyApp.toggleMute();
+      break;
+
+    case 'like-current': {
+      const current = SpotifyApp.getCurrentTrack();
+      if (current) SpotifyApp.toggleLike(current.id);
+      break;
+    }
+
+    case 'play-all': {
+      const all = SpotifyApp.getAllTracks();
+      if (all.length > 0) SpotifyApp.play(all[0].id);
+      break;
+    }
+
+    case 'shuffle-all': {
+      const all = SpotifyApp.getAllTracks();
+      if (all.length === 0) break;
+      const shuffled = spShuffleArray(all);
+      SpotifyApp.setShuffle(true);
+      SpotifyApp.play(shuffled[0].id);
+      break;
+    }
+
+    case 'play-playlist': {
+      const pl = SpotifyApp.getPlaylistById(el.dataset.spPlaylistId)
+        || SpotifyApp.getCustomPlaylists().find(p => p.id === el.dataset.spPlaylistId);
+      if (pl && pl.trackIds.length > 0) {
+        spotify.queue = pl.trackIds.slice();
+        spotify.queueIndex = 0;
+        SpotifyApp.setShuffle(false);
+        SpotifyApp.play(pl.trackIds[0]);
+      }
+      break;
+    }
+
+    case 'shuffle-playlist': {
+      const pl = SpotifyApp.getPlaylistById(el.dataset.spPlaylistId)
+        || SpotifyApp.getCustomPlaylists().find(p => p.id === el.dataset.spPlaylistId);
+      if (pl && pl.trackIds.length > 0) {
+        const shuffled = spShuffleArray(pl.trackIds);
+        spotify.queue = shuffled;
+        spotify.queueIndex = 0;
+        SpotifyApp.setShuffle(true);
+        SpotifyApp.play(shuffled[0]);
+      }
+      break;
+    }
+
+    case 'play-artist': {
+      const artist = SpotifyApp.getArtistByName(el.dataset.spArtist);
+      if (artist && artist.tracks.length > 0) {
+        spotify.queue = artist.tracks.map(t => t.id);
+        spotify.queueIndex = 0;
+        SpotifyApp.setShuffle(false);
+        SpotifyApp.play(artist.tracks[0].id);
+      }
+      break;
+    }
+
+    case 'shuffle-artist': {
+      const artist = SpotifyApp.getArtistByName(el.dataset.spArtist);
+      if (artist && artist.tracks.length > 0) {
+        const shuffled = spShuffleArray(artist.tracks);
+        spotify.queue = shuffled.map(t => t.id);
+        spotify.queueIndex = 0;
+        SpotifyApp.setShuffle(true);
+        SpotifyApp.play(shuffled[0].id);
+      }
+      break;
+    }
+
+    case 'play-album': {
+      const album = SpotifyApp.getAlbumByKey(el.dataset.spAlbum);
+      if (album && album.tracks.length > 0) {
+        spotify.queue = album.tracks.map(t => t.id);
+        spotify.queueIndex = 0;
+        SpotifyApp.setShuffle(false);
+        SpotifyApp.play(album.tracks[0].id);
+      }
+      break;
+    }
+
+    case 'shuffle-album': {
+      const album = SpotifyApp.getAlbumByKey(el.dataset.spAlbum);
+      if (album && album.tracks.length > 0) {
+        const shuffled = spShuffleArray(album.tracks);
+        spotify.queue = shuffled.map(t => t.id);
+        spotify.queueIndex = 0;
+        SpotifyApp.setShuffle(true);
+        SpotifyApp.play(shuffled[0].id);
+      }
+      break;
+    }
+
+    case 'play-liked': {
+      const liked = SpotifyApp.getLikedTracks();
+      if (liked.length > 0) {
+        spotify.queue = liked.map(t => t.id);
+        spotify.queueIndex = 0;
+        SpotifyApp.setShuffle(false);
+        SpotifyApp.play(liked[0].id);
+      }
+      break;
+    }
+
+    case 'shuffle-liked': {
+      const liked = SpotifyApp.getLikedTracks();
+      if (liked.length > 0) {
+        const shuffled = spShuffleArray(liked);
+        spotify.queue = shuffled.map(t => t.id);
+        spotify.queueIndex = 0;
+        SpotifyApp.setShuffle(true);
+        SpotifyApp.play(shuffled[0].id);
+      }
+      break;
+    }
+
+    case 'queue':
+      navigateSpotify(win, 'queue', el);
+      break;
+
+    case 'now-playing':
+      scrollSpotifyToPlayer(win);
+      break;
+
+    case 'devices':
+      showToast('Dispositivos', 'Esta PC · Nebula Audio', 'monitor-speaker');
+      break;
+
+    case 'fullscreen': {
+      const root = win.querySelector('[data-spotify-root]');
+      if (root) root.classList.toggle('is-fullscreen');
+      break;
+    }
+
+    case 'create-playlist':
+      openSpotifyCreatePlaylistModal(win);
+      break;
+
+    case 'edit-playlist':
+      openSpotifyEditPlaylistModal(win, el.dataset.spPlaylistId);
+      break;
+
+    case 'delete-playlist': {
+      const id = el.dataset.spPlaylistId;
+      const pl = SpotifyApp.getCustomPlaylists().find(p => p.id === id);
+      if (!pl) break;
+      if (confirm(`¿Eliminar la playlist "${pl.name}"?`)) {
+        SpotifyApp.deletePlaylist(id);
+        navigateSpotify(win, 'home', el);
+        showToast('Playlist eliminada', pl.name, 'trash-2');
+      }
+      break;
+    }
+
+    case 'add-to-playlist': {
+      // El menú contextual ya maneja esto
+      break;
+    }
+
+    default:
+      console.warn('[Spotify] Acción no manejada:', action);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ REFRESH PARCIAL DE LA UI
+═══════════════════════════════════════════════════════════════ */
+
+function refreshSpotifyWindow(win) {
+  if (!win || !win.isConnected) return;
+
+  const root = win.querySelector('[data-spotify-root]');
+  if (!root) return;
+
+  // Buscar el scroll actual del main
+  const mainEl = root.querySelector('[data-sp-main]');
+  const scrollTop = mainEl ? mainEl.scrollTop : 0;
+
+  // Reemplazar todo el contenido de la app
+  const temp = document.createElement('div');
+  temp.innerHTML = getSpotifyAppHTML().trim();
+  const newRoot = temp.firstElementChild;
+
+  // Preservar foco del input de búsqueda
+  const oldInput = root.querySelector('.sp-search-input');
+  const hadFocus = oldInput && document.activeElement === oldInput;
+  const oldSelStart = oldInput ? oldInput.selectionStart : null;
+  const oldSelEnd = oldInput ? oldInput.selectionEnd : null;
+
+  root.replaceWith(newRoot);
+
+  // Re-bind de eventos (la delegación está en root, así que hay que re-hacerla)
+  const ui = spotifyUIState.get(win);
+  if (ui) {
+    ui.bound = false;
+    // Mantener unsubs
+    const unsubs = ui.unsubs;
+    const progressInterval = ui.progressInterval;
+    spotifyUIState.delete(win);
+    spotifyUIState.set(win, { bound: false, win, unsubs, progressInterval });
+  }
+
+  // Re-setup
+  const newUi = spotifyUIState.get(win);
+  if (newUi) newUi.bound = false;
+  setupSpotifyAppLight(win);
+
+  // Restaurar scroll
+  const newMain = win.querySelector('[data-sp-main]');
+  if (newMain && scrollTop > 0) newMain.scrollTop = scrollTop;
+
+  // Restaurar foco
+  if (hadFocus) {
+    const newInput = win.querySelector('.sp-search-input');
+    if (newInput) {
+      newInput.focus();
+      if (oldSelStart != null && oldSelEnd != null) {
+        newInput.setSelectionRange(oldSelStart, oldSelEnd);
+      }
+    }
+  }
+
+  refreshIcons();
+}
+
+/**
+ * Re-bind ligero: solo agrega delegación de clicks y search input.
+ * Se usa después de replaceWith para no duplicar listeners de eventos del motor.
+ */
+function setupSpotifyAppLight(win) {
+  const root = win.querySelector('[data-spotify-root]');
+  if (!root) return;
+
+  // Delegación de clicks (una sola vez por root)
+  if (!root.dataset.boundClick) {
+    root.dataset.boundClick = '1';
+    root.addEventListener('click', (e) => handleSpotifyClick(e, win));
+  }
+
+  // Search input
+  const searchInput = root.querySelector('.sp-search-input');
+  if (searchInput && !searchInput.dataset.bound) {
+    searchInput.dataset.bound = '1';
+    const handler = spDebounce((value) => {
+      spotify.searchQuery = value;
+      if (value.trim()) {
+        spotify.view = 'search';
+        const hist = spotify.searchHistory || [];
+        if (!hist.includes(value.trim())) {
+          hist.unshift(value.trim());
+          spotify.searchHistory = hist.slice(0, 10);
+        }
+      } else if (spotify.view === 'search') {
+        spotify.view = 'home';
+      }
+      refreshSpotifyWindow(win);
+    }, SPOTIFY_SEARCH_DEBOUNCE_MS);
+    searchInput.addEventListener('input', (e) => handler(e.target.value));
+  }
+
+  // Progreso
+  const progress = root.querySelector('[data-sp-progress]');
+  if (progress && !progress.dataset.bound) {
+    progress.dataset.bound = '1';
+    const onSeek = (e) => {
+      const rect = progress.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const dur = SpotifyApp.getDuration() || (SpotifyApp.getCurrentTrack()?.duration || 0);
+      SpotifyApp.seek(pct * dur);
+    };
+    let seeking = false;
+    progress.addEventListener('mousedown', (e) => {
+      seeking = true;
+      onSeek(e);
+      const onMove = (ev) => seeking && onSeek(ev);
+      const onUp = () => {
+        seeking = false;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  // Volumen
+  const vol = root.querySelector('[data-sp-volume]');
+  if (vol && !vol.dataset.bound) {
+    vol.dataset.bound = '1';
+    const onVol = (e) => {
+      const rect = vol.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      SpotifyApp.setVolume(pct);
+      if (pct > 0 && SpotifyApp.isMuted()) SpotifyApp.toggleMute();
+    };
+    let dragging = false;
+    vol.addEventListener('mousedown', (e) => {
+      dragging = true;
+      onVol(e);
+      const onMove = (ev) => dragging && onVol(ev);
+      const onUp = () => {
+        dragging = false;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  // Refrescar barra de progreso y visualizador
+  refreshSpotifyProgressUI(win);
+  startSpotifyVisualizerLoop(win);
+}
+
+/**
+ * Refresca solo el player inferior (más liviano que rebuild completo).
+ */
+function refreshSpotifyPlayerBar(win) {
+  if (!win || !win.isConnected) return;
+  const root = win.querySelector('[data-spotify-root]');
+  if (!root) return;
+
+  const player = root.querySelector('[data-sp-player]');
+  if (!player) return;
+
+  const current = SpotifyApp.getCurrentTrack();
+  const isPlaying = spotify.isPlaying;
+  const shuffle = spotify.shuffle;
+  const repeat = spotify.repeat;
+  const isLiked = current ? SpotifyApp.isLiked(current.id) : false;
+
+  // Actualizar cover + info
+  const cover = player.querySelector('.sp-player-cover');
+  if (cover && current) {
+    cover.src = spGetTrackCover(current);
+  }
+
+  const title = player.querySelector('.sp-player-title');
+  if (title && current) title.textContent = current.title;
+
+  const artist = player.querySelector('.sp-player-artist');
+  if (artist && current) artist.textContent = current.artist;
+
+  // Play/pause button
+  const playBtn = player.querySelector('[data-sp-action="play-pause"]');
+  if (playBtn) {
+    playBtn.innerHTML = `<i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>`;
+    playBtn.title = isPlaying ? 'Pausar' : 'Reproducir';
+  }
+
+  // Shuffle
+  const shuffleBtn = player.querySelector('[data-sp-action="shuffle"]');
+  if (shuffleBtn) shuffleBtn.classList.toggle('active', shuffle);
+
+  // Repeat
+  const repeatBtn = player.querySelector('[data-sp-action="repeat"]');
+  if (repeatBtn) {
+    repeatBtn.classList.toggle('active', repeat !== 'off');
+    repeatBtn.dataset.spRepeat = repeat;
+    repeatBtn.innerHTML = `<i data-lucide="${repeat === 'one' ? 'repeat-1' : 'repeat'}"></i>`;
+  }
+
+  // Like
+  const likeBtn = player.querySelector('[data-sp-action="like-current"]');
+  if (likeBtn) likeBtn.classList.toggle('liked', isLiked);
+
+  // Mute icon
+  refreshSpotifyVolumeUI(win);
+
+  // Duraciones
+  const durEl = player.querySelector('[data-sp-time="duration"]');
+  if (durEl && current) durEl.textContent = spFormatTime(current.duration || 0);
+
+  refreshIcons();
+}
+
+function refreshSpotifyVolumeUI(win) {
+  const root = win.querySelector('[data-spotify-root]');
+  if (!root) return;
+
+  const volPct = Math.round(SpotifyApp.getVolume() * 100);
+  const muted = SpotifyApp.isMuted();
+
+  const fill = root.querySelector('[data-sp-volume-fill]');
+  if (fill) fill.style.width = `${muted ? 0 : volPct}%`;
+
+  const muteBtn = root.querySelector('[data-sp-action="mute"]');
+  if (muteBtn) {
+    const icon = muted ? 'volume-x' : (volPct === 0 ? 'volume' : volPct < 50 ? 'volume-1' : 'volume-2');
+    muteBtn.innerHTML = `<i data-lucide="${icon}"></i>`;
+    muteBtn.title = muted ? 'Activar sonido' : 'Silenciar';
+  }
+
+  refreshIcons();
+}
+
+function refreshSpotifyProgressUI(win) {
+  const root = win.querySelector('[data-spotify-root]');
+  if (!root) return;
+
+  const cur = SpotifyApp.getCurrentTime();
+  const dur = SpotifyApp.getDuration() || (SpotifyApp.getCurrentTrack()?.duration || 0);
+  const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
+
+  const fill = root.querySelector('[data-sp-progress-fill]');
+  if (fill) fill.style.width = `${pct}%`;
+  const knob = root.querySelector('[data-sp-progress-knob]');
+  if (knob) knob.style.left = `${pct}%`;
+
+  const curEl = root.querySelector('[data-sp-time="current"]');
+  if (curEl) curEl.textContent = spFormatTime(cur);
+  const durEl = root.querySelector('[data-sp-time="duration"]');
+  if (durEl) durEl.textContent = spFormatTime(dur);
+
+  // Actualizar íconos de play/pause en TODA la ventana
+  const isPlaying = spotify.isPlaying;
+  const currentId = spotify.currentTrackId;
+  root.querySelectorAll('[data-sp-play]').forEach(btn => {
+    const isThis = btn.dataset.spPlay === currentId;
+    if (isThis) {
+      const icon = isPlaying ? 'pause' : 'play';
+      const svg = btn.querySelector('svg, i');
+      if (svg && svg.getAttribute('data-lucide') !== icon) {
+        btn.innerHTML = `<i data-lucide="${icon}"></i>`;
+      }
+    } else {
+      const svg = btn.querySelector('svg, i');
+      if (svg && svg.getAttribute('data-lucide') !== 'play') {
+        btn.innerHTML = `<i data-lucide="play"></i>`;
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ VISUALIZADOR (Web Audio API)
+═══════════════════════════════════════════════════════════════ */
+
+function startSpotifyVisualizerLoop(win) {
+  const ui = spotifyUIState.get(win);
+  if (!ui) return;
+  if (ui.visualizerRaf) return;
+
+  const tick = () => {
+    if (!win.isConnected) {
+      ui.visualizerRaf = null;
+      return;
+    }
+    updateSpotifyVisualizer(win);
+    ui.visualizerRaf = requestAnimationFrame(tick);
+  };
+  ui.visualizerRaf = requestAnimationFrame(tick);
+}
+
+function updateSpotifyVisualizer(win) {
+  // Buscar cualquier canvas de visualizer dentro de la ventana
+  const canvases = win.querySelectorAll('.sp-visualizer canvas');
+  if (canvases.length === 0) return;
+
+  const data = SpotifyApp.getAnalyserData();
+  canvases.forEach(canvas => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = canvas.width = canvas.clientWidth;
+    const h = canvas.height = canvas.clientHeight;
+
+    ctx.clearRect(0, 0, w, h);
+
+    if (!data || data.length === 0) {
+      // Sin audio: dibujar líneas base
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      const barW = w / SPOTIFY_VISUALIZER_BARS;
+      for (let i = 0; i < SPOTIFY_VISUALIZER_BARS; i++) {
+        ctx.fillRect(i * barW + 1, h - 2, barW - 2, 2);
+      }
+      return;
+    }
+
+    const step = Math.floor(data.length / SPOTIFY_VISUALIZER_BARS);
+    const barW = w / SPOTIFY_VISUALIZER_BARS;
+
+    for (let i = 0; i < SPOTIFY_VISUALIZER_BARS; i++) {
+      const v = data[i * step] / 255;
+      const barH = v * h * 0.9;
+      const x = i * barW;
+      const y = h - barH;
+
+      const grad = ctx.createLinearGradient(0, h, 0, y);
+      grad.addColorStop(0, 'rgba(30, 215, 96, 0.3)');
+      grad.addColorStop(0.5, 'rgba(30, 215, 96, 0.7)');
+      grad.addColorStop(1, '#1ed760');
+      ctx.fillStyle = grad;
+
+      ctx.fillRect(x + 1, y, barW - 2, barH);
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ MENÚ CONTEXTUAL DE TRACK
+═══════════════════════════════════════════════════════════════ */
+
+let spotifyTrackMenuEl = null;
+
+function openSpotifyTrackMenu(win, trackId, anchorEl) {
+  closeSpotifyTrackMenu();
+
+  const track = SpotifyApp.getTrackById(trackId);
+  if (!track) return;
+
+  const liked = SpotifyApiIsLiked(trackId);
+  const customPlaylists = SpotifyApp.getCustomPlaylists();
+
+  const menu = document.createElement('div');
+  menu.className = 'sp-track-menu-popover';
+  menu.innerHTML = `
+    <div class="sp-track-menu-head">
+      <img src="${spEscapeHtml(spGetTrackCover(track))}" alt="" />
+      <div>
+        <strong>${spEscapeHtml(track.title)}</strong>
+        <small>${spEscapeHtml(track.artist)}</small>
+      </div>
+    </div>
+
+    <button class="sp-track-menu-item" data-menu-action="play">
+      <i data-lucide="play"></i> Reproducir ahora
+    </button>
+    <button class="sp-track-menu-item" data-menu-action="queue">
+      <i data-lucide="list-plus"></i> Agregar a la cola
+    </button>
+    <button class="sp-track-menu-item ${liked ? 'active' : ''}" data-menu-action="like">
+      <i data-lucide="heart"></i> ${liked ? 'Quitar de Tus me gusta' : 'Agregar a Tus me gusta'}
+    </button>
+
+    <div class="sp-track-menu-sep"></div>
+
+    <button class="sp-track-menu-item" data-menu-action="add-to-playlist">
+      <i data-lucide="folder-plus"></i> Agregar a playlist
+    </button>
+    <button class="sp-track-menu-item" data-menu-action="create-playlist">
+      <i data-lucide="plus-square"></i> Crear playlist con esta canción
+    </button>
+
+    <div class="sp-track-menu-sep"></div>
+
+    <button class="sp-track-menu-item" data-menu-action="go-album">
+      <i data-lucide="disc-3"></i> Ir al álbum
+    </button>
+    <button class="sp-track-menu-item" data-menu-action="go-artist">
+      <i data-lucide="user"></i> Ir al artista
+    </button>
+    <button class="sp-track-menu-item" data-menu-action="copy">
+      <i data-lucide="link"></i> Copiar enlace
+    </button>
+  `;
+
+  document.body.appendChild(menu);
+  spotifyTrackMenuEl = menu;
+
+  const rect = anchorEl.getBoundingClientRect();
+  const menuRect = menu.getBoundingClientRect();
+  let left = rect.right + 6;
+  let top = rect.top;
+  if (left + menuRect.width + 10 > window.innerWidth) left = rect.left - menuRect.width - 6;
+  if (top + menuRect.height + 10 > window.innerHeight) top = window.innerHeight - menuRect.height - 10;
+  left = Math.max(10, left);
+  top = Math.max(10, top);
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+
+  menu.addEventListener('click', (e) => {
+    const item = e.target.closest('[data-menu-action]');
+    if (!item) return;
+    e.stopPropagation();
+    handleSpotifyTrackMenuAction(win, item.dataset.menuAction, track);
+    closeSpotifyTrackMenu();
+  });
+
+  // Cerrar al clickear fuera
+  setTimeout(() => {
+    const onOut = (e) => {
+      if (!menu.contains(e.target)) {
+        closeSpotifyTrackMenu();
+        document.removeEventListener('mousedown', onOut);
+      }
+    };
+    document.addEventListener('mousedown', onOut);
+  }, 0);
+
+  requestAnimationFrame(() => menu.classList.add('open'));
+  refreshIcons();
+}
+
+function closeSpotifyTrackMenu() {
+  if (spotifyTrackMenuEl) {
+    spotifyTrackMenuEl.remove();
+    spotifyTrackMenuEl = null;
+  }
+}
+
+function handleSpotifyTrackMenuAction(win, action, track) {
+  switch (action) {
+    case 'play':
+      SpotifyApp.play(track.id);
+      break;
+
+    case 'queue':
+      if (!spotify.queue.includes(track.id)) {
+        spotify.queue.splice(spotify.queueIndex + 1, 0, track.id);
+        showToast('Agregado a la cola', track.title, 'list-plus');
+      } else {
+        showToast('Ya está en la cola', track.title, 'info');
+      }
+      break;
+
+    case 'like':
+      SpotifyApp.toggleLike(track.id);
+      break;
+
+    case 'add-to-playlist':
+      openSpotifyAddToPlaylistModal(win, track.id);
+      break;
+
+    case 'create-playlist': {
+      const pl = SpotifyApp.createPlaylist({
+        name: `Mi playlist · ${new Date().toLocaleDateString()}`,
+        description: 'Creada desde el menú contextual',
+        trackIds: [track.id]
+      });
+      if (pl) {
+        showToast('Playlist creada', pl.name, 'plus');
+        refreshSpotifyWindow(win);
+      }
+      break;
+    }
+
+    case 'go-album':
+      navigateSpotify(win, 'album', {
+        dataset: { spAlbum: `${track.artist}::${track.album}` }
+      });
+      break;
+
+    case 'go-artist':
+      navigateSpotify(win, 'artist', {
+        dataset: { spArtist: track.artist }
+      });
+      break;
+
+    case 'copy': {
+      const text = `${track.title} — ${track.artist}`;
+      navigator.clipboard?.writeText(text).then(() => {
+        showToast('Copiado', 'Enlace copiado al portapapeles.', 'clipboard-check');
+      }).catch(() => {
+        showToast('Copiado', text, 'clipboard');
+      });
+      break;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ MODALES: CREAR / EDITAR PLAYLIST, AGREGAR A PLAYLIST
+═══════════════════════════════════════════════════════════════ */
+
+let spotifyPlaylistModalEl = null;
+
+function openSpotifyCreatePlaylistModal(win, initialTrackIds = []) {
+  closeSpotifyPlaylistModal();
+
+  const modal = document.createElement('div');
+  modal.className = 'sp-modal';
+  modal.innerHTML = `
+    <div class="sp-modal-dialog">
+      <header class="sp-modal-header">
+        <h2>Crear playlist</h2>
+        <button class="sp-icon-btn" data-modal-close><i data-lucide="x"></i></button>
+      </header>
+      <div class="sp-modal-body">
+        <label class="sp-field">
+          <span>Nombre</span>
+          <input type="text" data-field="name" placeholder="Mi playlist #1" maxlength="60" autofocus />
+        </label>
+        <label class="sp-field">
+          <span>Descripción</span>
+          <textarea data-field="description" placeholder="Contale al mundo de qué va..." maxlength="180" rows="3"></textarea>
+        </label>
+        <label class="sp-field">
+          <span>Color</span>
+          <input type="color" data-field="color" value="#1ed760" />
+        </label>
+      </div>
+      <footer class="sp-modal-footer">
+        <button class="sp-btn sp-btn-ghost" data-modal-close>Cancelar</button>
+        <button class="sp-btn sp-btn-primary" data-modal-confirm>Crear</button>
+      </footer>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  spotifyPlaylistModalEl = modal;
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeSpotifyPlaylistModal();
+    if (e.target.closest('[data-modal-close]')) closeSpotifyPlaylistModal();
+    if (e.target.closest('[data-modal-confirm]')) {
+      const name = modal.querySelector('[data-field="name"]').value.trim();
+      const description = modal.querySelector('[data-field="description"]').value.trim();
+      const color = modal.querySelector('[data-field="color"]').value;
+
+      if (!name) {
+        showToast('Falta el nombre', 'Escribí un nombre para la playlist.', 'alert-circle');
+        return;
+      }
+
+      const pl = SpotifyApp.createPlaylist({ name, description, color, trackIds: initialTrackIds });
+      if (pl) {
+        showToast('Playlist creada', pl.name, 'plus');
+        closeSpotifyPlaylistModal();
+        refreshSpotifyWindow(win);
+        navigateSpotify(win, 'playlist', { dataset: { spId: pl.id } });
+      }
+    }
+  });
+
+  requestAnimationFrame(() => modal.classList.add('open'));
+  refreshIcons();
+}
+
+function openSpotifyEditPlaylistModal(win, playlistId) {
+  const pl = SpotifyApp.getCustomPlaylists().find(p => p.id === playlistId);
+  if (!pl) return;
+  closeSpotifyPlaylistModal();
+
+  const modal = document.createElement('div');
+  modal.className = 'sp-modal';
+  modal.innerHTML = `
+    <div class="sp-modal-dialog">
+      <header class="sp-modal-header">
+        <h2>Editar playlist</h2>
+        <button class="sp-icon-btn" data-modal-close><i data-lucide="x"></i></button>
+      </header>
+      <div class="sp-modal-body">
+        <label class="sp-field">
+          <span>Nombre</span>
+          <input type="text" data-field="name" value="${spEscapeHtml(pl.name)}" maxlength="60" />
+        </label>
+        <label class="sp-field">
+          <span>Descripción</span>
+          <textarea data-field="description" maxlength="180" rows="3">${spEscapeHtml(pl.description || '')}</textarea>
+        </label>
+        <label class="sp-field">
+          <span>Color</span>
+          <input type="color" data-field="color" value="${spEscapeHtml(pl.color || '#1ed760')}" />
+        </label>
+      </div>
+      <footer class="sp-modal-footer">
+        <button class="sp-btn sp-btn-ghost" data-modal-close>Cancelar</button>
+        <button class="sp-btn sp-btn-primary" data-modal-confirm>Guardar</button>
+      </footer>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  spotifyPlaylistModalEl = modal;
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeSpotifyPlaylistModal();
+    if (e.target.closest('[data-modal-close]')) closeSpotifyPlaylistModal();
+    if (e.target.closest('[data-modal-confirm]')) {
+      const name = modal.querySelector('[data-field="name"]').value.trim();
+      const description = modal.querySelector('[data-field="description"]').value.trim();
+      const color = modal.querySelector('[data-field="color"]').value;
+
+      if (!name) {
+        showToast('Falta el nombre', 'Escribí un nombre para la playlist.', 'alert-circle');
+        return;
+      }
+
+      SpotifyApp.updatePlaylist(playlistId, { name, description, color });
+      showToast('Playlist actualizada', name, 'check');
+      closeSpotifyPlaylistModal();
+      refreshSpotifyWindow(win);
+    }
+  });
+
+  requestAnimationFrame(() => modal.classList.add('open'));
+  refreshIcons();
+}
+
+function closeSpotifyPlaylistModal() {
+  if (spotifyPlaylistModalEl) {
+    spotifyPlaylistModalEl.remove();
+    spotifyPlaylistModalEl = null;
+  }
+}
+
+function openSpotifyAddToPlaylistModal(win, trackId) {
+  closeSpotifyPlaylistModal();
+
+  const custom = SpotifyApp.getCustomPlaylists();
+  const track = SpotifyApp.getTrackById(trackId);
+
+  const modal = document.createElement('div');
+  modal.className = 'sp-modal';
+  modal.innerHTML = `
+    <div class="sp-modal-dialog">
+      <header class="sp-modal-header">
+        <h2>Agregar a playlist</h2>
+        <button class="sp-icon-btn" data-modal-close><i data-lucide="x"></i></button>
+      </header>
+      <div class="sp-modal-body">
+        <div class="sp-modal-track-preview">
+          <img src="${spEscapeHtml(spGetTrackCover(track))}" alt="" />
+          <div>
+            <strong>${spEscapeHtml(track.title)}</strong>
+            <small>${spEscapeHtml(track.artist)}</small>
+          </div>
+        </div>
+
+        ${custom.length === 0 ? `
+          <p class="sp-empty-inline">No tenés playlists propias todavía.</p>
+          <button class="sp-btn sp-btn-primary" data-modal-confirm-new>
+            <i data-lucide="plus"></i> Crear nueva playlist
+          </button>
+        ` : `
+          <ul class="sp-playlist-picker">
+            ${custom.map(pl => `
+              <li>
+                <button class="sp-playlist-picker-item" data-playlist-pick="${spEscapeHtml(pl.id)}">
+                  <span class="sp-playlist-picker-icon" style="background: ${pl.color}22; color: ${pl.color};">
+                    <i data-lucide="music-2"></i>
+                  </span>
+                  <span class="sp-playlist-picker-name">${spEscapeHtml(pl.name)}</span>
+                  <span class="sp-playlist-picker-count">${pl.trackIds.length}</span>
+                </button>
+              </li>
+            `).join('')}
+          </ul>
+          <button class="sp-btn sp-btn-ghost" data-modal-confirm-new>
+            <i data-lucide="plus"></i> Nueva playlist
+          </button>
+        `}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  spotifyPlaylistModalEl = modal;
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeSpotifyPlaylistModal();
+    if (e.target.closest('[data-modal-close]')) closeSpotifyPlaylistModal();
+
+    const pick = e.target.closest('[data-playlist-pick]');
+    if (pick) {
+      const plId = pick.dataset.playlistPick;
+      const ok = SpotifyApp.addToPlaylist(plId, trackId);
+      if (ok) {
+        showToast('Agregado', 'La canción se agregó a la playlist.', 'check');
+      } else {
+        showToast('Ya está', 'Esta canción ya estaba en la playlist.', 'info');
+      }
+      closeSpotifyPlaylistModal();
+      refreshSpotifyWindow(win);
+    }
+
+    if (e.target.closest('[data-modal-confirm-new]')) {
+      closeSpotifyPlaylistModal();
+      openSpotifyCreatePlaylistModal(win, [trackId]);
+    }
+  });
+
+  requestAnimationFrame(() => modal.classList.add('open'));
+  refreshIcons();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ PARTE 7/10 — WIDGETS + NOTIFICACIONES + TOASTS + CALENDARIO
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ WIDGETS DE ESCRITORIO — CRUD
+═══════════════════════════════════════════════════════════════ */
+
+function addDesktopWidget(type, x = null, y = null) {
+  const allowsMultiple = (type === 'weather');
+
+  if (!allowsMultiple) {
+    const existing = desktopWidgets.find(w => w.type === type);
+    if (existing) {
+      showToast('Widget Existente', `El widget de ${type} ya está en el escritorio.`, 'info');
+      return;
+    }
+  }
+
+  const id = 'widget-' + type + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+  const defaultPositions = {
+    clock:         { x: 24, y: 60 },
+    'gaming-hub':  { x: window.innerWidth - 400, y: 60 },
+    weather:       { x: window.innerWidth - 280, y: 60 },
+    'now-playing': { x: 24, y: 320 }
+  };
+
+  const offsetIndex = allowsMultiple ? desktopWidgets.filter(w => w.type === type).length : 0;
+  const baseX = x !== null ? x : (defaultPositions[type]?.x || 40);
+  const baseY = y !== null ? y : (defaultPositions[type]?.y || 90);
+
+  const posX = baseX + (offsetIndex * 30);
+  const posY = baseY + (offsetIndex * 30);
+
+  const widgetData = { id, type, x: posX, y: posY };
+
+  if (type === 'weather') {
+    widgetData.cityId = DEFAULT_WEATHER_CITY_ID;
+  }
+
+  desktopWidgets.push(widgetData);
+  saveDesktopWidgets();
+  renderDesktopWidgets();
+
+  const label = type === 'weather' ? 'Clima' : type === 'clock' ? 'Reloj' : type;
+  showToast('Widget Añadido', `Widget de ${label} colocado en el escritorio.`, 'plus');
+  hideContextMenu();
+}
+
+function removeDesktopWidget(id) {
+  const el = document.getElementById(id);
+  if (el) detachNowPlayingWidgetListeners(el);
+
+  desktopWidgets = desktopWidgets.filter(w => w.id !== id);
+  saveDesktopWidgets();
+  renderDesktopWidgets();
+}
+
+function clearDesktopWidgets() {
+  desktopWidgets = [];
+  saveDesktopWidgets();
+  renderDesktopWidgets();
+  showToast('Widgets Limpiados', 'Se retiraron todos los widgets del escritorio.', 'trash-2');
+  hideContextMenu();
+}
+
+function saveDesktopWidgets() {
+  try {
+    localStorage.setItem(WIDGETS_STORAGE_KEY, JSON.stringify(desktopWidgets));
+  } catch (e) {}
+}
+
+function renderDesktopWidgets() {
+  const layer = document.getElementById('desktop-widgets-layer');
+  if (!layer) return;
+  layer.innerHTML = '';
+
+  const validTypes = new Set(['clock', 'weather', 'gaming-hub', 'now-playing', 'system-monitor-pro', 'music-visualizer']);
+  desktopWidgets = desktopWidgets.filter(w => validTypes.has(w.type));
+
+  desktopWidgets.forEach(widget => {
+    const el = document.createElement('div');
+    el.className = 'desktop-widget';
+    el.id = widget.id;
+    el.style.left = `${widget.x}px`;
+    el.style.top = `${widget.y}px`;
+
+    let bodyHTML = '';
+    let title = '';
+    let iconName = 'activity';
+    let extraClass = '';
+
+    if (widget.type === 'clock') {
+      title = 'RELOJ DIGITAL';
+      iconName = 'clock';
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const weekdays = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+      const dateStr = `${weekdays[now.getDay()]}, ${now.getDate()}`;
+      bodyHTML = `
+        <div class="clock-widget-body">
+          <div class="clock-widget-big" id="w-clock-time">${timeStr}</div>
+          <div class="clock-widget-date">${dateStr}</div>
+        </div>
+      `;
+    } else if (widget.type === 'gaming-hub') {
+      title = 'GAMING HUB';
+      iconName = 'gamepad-2';
+      extraClass = 'gaming-hub-widget';
+      bodyHTML = renderGamingHubWidgetHTML();
+    } else if (widget.type === 'now-playing') {
+      title = 'AHORA SUENA';
+      iconName = 'music';
+      extraClass = 'now-playing-widget';
+      bodyHTML = renderNowPlayingWidgetHTML();
+    } else if (widget.type === 'weather') {
+      title = 'CLIMA';
+      iconName = 'cloud-sun';
+      extraClass = 'weather-widget';
+      const cached = weatherCache[widget.cityId]?.data;
+      bodyHTML = renderWeatherWidgetHTML(widget, cached);
+
+      if (!cached) {
+        fetchWeatherForCity(widget.cityId, { force: false }).then(result => {
+          if (!result.ok) return;
+          const el2 = document.getElementById(widget.id);
+          if (!el2) return;
+          const body2 = el2.querySelector('.weather-body');
+          if (body2) {
+            body2.outerHTML = renderWeatherWidgetHTML(widget, result.data);
+            refreshIcons();
+            attachWeatherWidgetListeners(widget.id);
+          }
+        });
+      }
+    } else if (widget.type === 'system-monitor-pro') {
+      title = 'SYSTEM MONITOR PRO';
+      iconName = 'activity';
+      extraClass = 'system-monitor-pro-widget';
+      bodyHTML = `<div class="system-monitor-pro-body" style="color:var(--text-sub);font-size:10px;text-align:center;padding:20px;">Widget de monitoreo avanzado (demo)</div>`;
+    } else if (widget.type === 'music-visualizer') {
+      title = 'MUSIC VISUALIZER';
+      iconName = 'audio-waveform';
+      extraClass = 'music-visualizer-widget';
+      bodyHTML = `<div class="music-visualizer-body" style="color:var(--text-sub);font-size:10px;text-align:center;padding:20px;">Visualizador de audio (demo)</div>`;
+    }
+
+    el.className = `desktop-widget ${extraClass}`.trim();
+
+    el.innerHTML = `
+      <div class="widget-titlebar">
+        <strong><i data-lucide="${iconName}"></i> ${title}</strong>
+        <button class="widget-close-btn" onclick="removeDesktopWidget('${widget.id}')" title="Cerrar widget"><i data-lucide="x"></i></button>
+      </div>
+      ${bodyHTML}
+    `;
+
+    setupDraggableWidget(el, widget);
+    layer.appendChild(el);
+
+    if (widget.type === 'weather') {
+      attachWeatherWidgetListeners(widget.id);
+    }
+    if (widget.type === 'now-playing') {
+      attachNowPlayingWidgetListeners(el);
+    }
+  });
+  refreshIcons();
+}
+
+function setupDraggableWidget(el, widgetData) {
+  const titlebar = el.querySelector('.widget-titlebar');
+  if (!titlebar) return;
+
+  titlebar.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.widget-close-btn')) return;
+    if (e.target.closest('.weather-city-selector')) return;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const initialLeft = el.offsetLeft;
+    const initialTop = el.offsetTop;
+
+    function move(ev) {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      const newX = Math.max(10, Math.min(window.innerWidth - el.offsetWidth - 10, initialLeft + dx));
+      const newY = Math.max(50, Math.min(window.innerHeight - el.offsetHeight - 10, initialTop + dy));
+      el.style.left = `${newX}px`;
+      el.style.top = `${newY}px`;
+      widgetData.x = newX;
+      widgetData.y = newY;
+    }
+
+    function stop() {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', stop);
+      saveDesktopWidgets();
+    }
+
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', stop);
+  });
+}
+
+function updateWidgetStats() {
+  const clockTime = document.getElementById('w-clock-time');
+  if (clockTime) {
+    const now = new Date();
+    clockTime.textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  }
+}
+
+/* ─── Widget: Clima ─── */
+
+function addWeatherWidget(x = null, y = null) {
+  addDesktopWidget('weather', x, y);
+}
+
+function removeWeatherWidget(id) {
+  removeDesktopWidget(id);
+  showToast('Widget Removido', 'Clima retirado del escritorio.', 'trash-2');
+}
+
+function removeAllWeatherWidgets() {
+  const ids = desktopWidgets.filter(w => w.type === 'weather').map(w => w.id);
+  if (ids.length === 0) {
+    showToast('Sin widgets', 'No hay widgets de clima en el escritorio.', 'info');
+    return;
+  }
+  desktopWidgets = desktopWidgets.filter(w => w.type !== 'weather');
+  saveDesktopWidgets();
+  renderDesktopWidgets();
+  showToast('Widgets Removidos', `${ids.length} widget${ids.length === 1 ? '' : 's'} de clima retirado${ids.length === 1 ? '' : 's'}.`, 'trash-2');
+}
+
+async function fetchWeatherForCity(cityId, { force = false } = {}) {
+  const city = getCityById(cityId);
+  const now = Date.now();
+  const cached = weatherCache[cityId];
+
+  if (!force && cached && (now - cached.fetchedAt) < WEATHER_CACHE_STALE_MS) {
+    return { ok: true, data: cached.data, fromCache: true };
+  }
+
+  try {
+    const params = new URLSearchParams({
+      latitude: city.lat,
+      longitude: city.lon,
+      current: 'temperature_2m,weather_code,is_day',
+      daily: 'temperature_2m_max,temperature_2m_min,weather_code',
+      timezone: 'auto',
+      forecast_days: '4'
+    });
+    const url = `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+
+    const current = json.current || {};
+    const daily = json.daily || {};
+
+    const dailyDates = daily.time || [];
+    const dailyMax = daily.temperature_2m_max || [];
+    const dailyMin = daily.temperature_2m_min || [];
+    const dailyCode = daily.weather_code || [];
+
+    const forecast = [];
+    for (let i = 1; i < Math.min(4, dailyDates.length); i++) {
+      forecast.push({
+        date: dailyDates[i],
+        max: Math.round(dailyMax[i]),
+        min: Math.round(dailyMin[i]),
+        code: dailyCode[i]
+      });
+    }
+
+    const data = {
+      temp: Math.round(current.temperature_2m),
+      code: current.weather_code ?? 0,
+      isDay: current.is_day ?? 1,
+      forecast,
+      fetchedAt: now,
+      cityId: city.id,
+      timezone: city.timezone
+    };
+
+    weatherCache[cityId] = { data, fetchedAt: now };
+    return { ok: true, data, fromCache: false };
+  } catch (err) {
+    if (cached) {
+      return { ok: true, data: cached.data, fromCache: true, stale: true };
+    }
+    return { ok: false, error: err };
+  }
+}
+
+function renderWeatherWidgetHTML(widget, weatherData = null) {
+  const city = getCityById(widget.cityId || DEFAULT_WEATHER_CITY_ID);
+  const data = weatherData || weatherCache[widget.cityId]?.data || null;
+
+  const dateStr = formatWeatherDateForCity(city);
+  const timeStr = getCityTimeForHeader(city);
+
+  let iconName, label, color, temp;
+  let high = '—', low = '—';
+  let forecast = [];
+  let offline = false;
+
+  if (data) {
+    const info = getWmoInfo(data.code, data.isDay);
+    iconName = info.icon;
+    label = info.label;
+    color = info.color;
+    temp = data.temp;
+    forecast = data.forecast || [];
+    if (forecast.length > 0) {
+      high = forecast[0].max;
+      low = forecast[0].min;
+    }
+  } else {
+    iconName = 'cloud-off';
+    label = 'Sin conexión';
+    color = '#6b7280';
+    temp = '—';
+    offline = true;
+  }
+
+  const forecastHTML = forecast.length ? forecast.map(day => {
+    const info = getWmoInfo(day.code, 1);
+    const dayName = getForecastDayName(day.date);
+    return `
+      <div class="weather-forecast-day">
+        <span class="weather-forecast-name">${dayName}</span>
+        <span class="weather-forecast-icon" style="color: ${info.color};">
+          <i data-lucide="${info.icon}"></i>
+        </span>
+        <span class="weather-forecast-temps">
+          <strong>${day.max}°</strong>
+          <small>${day.min}°</small>
+        </span>
+      </div>
+    `;
+  }).join('') : `
+    <div class="weather-forecast-empty">Sin datos de pronóstico</div>
+  `;
+
+  return `
+    <div class="weather-body">
+      <div class="weather-header">
+        <span class="weather-date">${dateStr} · ${timeStr}</span>
+        <div class="weather-city-selector" data-widget-id="${widget.id}">
+          <button class="weather-city-btn" type="button" data-city-toggle>
+            <span class="weather-city-name">${city.name}</span>
+            <i data-lucide="chevron-down" class="weather-city-chevron"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="weather-main${offline ? ' offline' : ''}">
+        <div class="weather-icon-wrap" style="color: ${color};">
+          <i data-lucide="${iconName}"></i>
+        </div>
+        <div class="weather-info">
+          <div class="weather-temp">${temp}<span class="weather-temp-unit">°</span></div>
+          <div class="weather-cond">${label}</div>
+        </div>
+      </div>
+
+      <div class="weather-minmax">
+        <span class="weather-minmax-item">H: <strong>${high}°</strong></span>
+        <span class="weather-minmax-item">L: <strong>${low}°</strong></span>
+      </div>
+
+      <div class="weather-forecast">
+        ${forecastHTML}
+      </div>
+    </div>
+  `;
+}
+
+function attachWeatherWidgetListeners(widgetId) {
+  const el = document.getElementById(widgetId);
+  if (!el) return;
+
+  const selector = el.querySelector('.weather-city-selector');
+  if (!selector || selector.dataset.bound === '1') return;
+  selector.dataset.bound = '1';
+
+  const btn = selector.querySelector('[data-city-toggle]');
+  if (btn) {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (document.querySelector('.weather-city-dropdown.open')?.dataset.widgetId === widgetId) {
+        closeAllCityDropdowns();
+      } else {
+        openCityDropdown(widgetId, btn);
+      }
+    });
+  }
+}
+
+/* ─── Widget: Gaming Hub ─── */
+
+function addGamingHubWidget() {
+  addDesktopWidget('gaming-hub');
+  renderSettingsApp();
+}
+
+function removeGamingHubWidget() {
+  const existing = desktopWidgets.find(w => w.type === 'gaming-hub');
+  if (existing) {
+    removeDesktopWidget(existing.id);
+    showToast('Widget Removido', 'Gaming Hub retirado del escritorio.', 'trash-2');
+  }
+  renderSettingsApp();
+}
+
+function renderGamingHubWidgetHTML() {
+  const fps = systemMetrics.fps;
+  const gpu = systemMetrics.gpu;
+  const cpu = systemMetrics.cpu;
+  const vram = systemMetrics.vram;
+  const gpuTemp = Math.round(48 + systemMetrics.gpu * 0.15);
+  const cpuTemp = Math.round(35 + systemMetrics.cpu * 0.35);
+  const ping = pingHistory[pingHistory.length - 1] || 23;
+
+  const fpsClass = fps >= 120 ? 'good' : fps >= 60 ? 'warn' : 'bad';
+  const gpuTempClass = gpuTemp <= 65 ? 'good' : gpuTemp <= 80 ? 'warn' : 'bad';
+  const cpuTempClass = cpuTemp <= 60 ? 'good' : cpuTemp <= 75 ? 'warn' : 'bad';
+  const pingClass = ping <= 30 ? 'good' : ping <= 70 ? 'warn' : 'bad';
+
+  const fpsBarPct = Math.min(100, (fps / 144) * 100);
+  const gpuBarPct = Math.min(100, gpu);
+  const cpuBarPct = Math.min(100, cpu);
+  const vramPct = Math.min(100, (vram / 16) * 100);
+
+  const sparkBars = pingHistory.map(p => {
+    const h = Math.min(100, (p / 120) * 100);
+    const cls = p <= 30 ? '' : p <= 70 ? 'high' : 'critical';
+    return `<span class="spark-bar ${cls}" style="height:${Math.max(8, h)}%;"></span>`;
+  }).join('');
+
+  return `
+    <div class="gaming-hub-grid">
+      <div class="gaming-hub-tile ${fpsClass}">
+        <span class="tile-icon"><i data-lucide="gauge"></i></span>
+        <span class="gaming-hub-tile-value" id="gh-fps">${fps}</span>
+        <span class="gaming-hub-tile-label">FPS</span>
+        <div class="gaming-hub-tile-bar"><span id="gh-fps-bar" style="width:${fpsBarPct}%;"></span></div>
+      </div>
+      <div class="gaming-hub-tile ${gpuTempClass}">
+        <span class="tile-icon"><i data-lucide="cpu"></i></span>
+        <span class="gaming-hub-tile-value" id="gh-gpu-temp">${gpuTemp}°</span>
+        <span class="gaming-hub-tile-label">GPU TEMP</span>
+        <div class="gaming-hub-tile-bar"><span id="gh-gpu-bar" style="width:${gpuBarPct}%;"></span></div>
+      </div>
+      <div class="gaming-hub-tile ${cpuTempClass}">
+        <span class="tile-icon"><i data-lucide="hard-drive"></i></span>
+        <span class="gaming-hub-tile-value" id="gh-cpu-temp">${cpuTemp}°</span>
+        <span class="gaming-hub-tile-label">CPU TEMP</span>
+        <div class="gaming-hub-tile-bar"><span id="gh-cpu-bar" style="width:${cpuBarPct}%;"></span></div>
+      </div>
+      <div class="gaming-hub-tile">
+        <span class="tile-icon"><i data-lucide="memory-stick"></i></span>
+        <span class="gaming-hub-tile-value" id="gh-vram">${vram.toFixed(1)}</span>
+        <span class="gaming-hub-tile-label">VRAM GB</span>
+        <div class="gaming-hub-tile-bar"><span id="gh-vram-bar" style="width:${vramPct}%;"></span></div>
+      </div>
+      <div class="gaming-hub-tile ${pingClass}" style="grid-column: span 2;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="tile-icon"><i data-lucide="wifi"></i></span>
+          <span class="gaming-hub-tile-value" id="gh-ping">${ping}<span class="gaming-hub-tile-unit"> ms</span></span>
+        </div>
+        <span class="gaming-hub-tile-label">LATENCIA DE RED</span>
+        <div class="gaming-hub-ping-spark" id="gh-ping-spark">${sparkBars}</div>
+      </div>
+    </div>
+    <div class="gaming-hub-footer">
+      <span class="gaming-hub-footer-label ${gameModeActive ? 'active' : ''}" id="gh-gamemode-label"><i data-lucide="gamepad-2"></i> GAME MODE</span>
+      <button class="quick-switch ${gameModeActive ? 'active' : ''}" onclick="toggleGameMode()" type="button" aria-label="Toggle Game Mode" style="padding:0; border:0; background:transparent;">
+        <span class="pill-switch-track"><span class="pill-switch-thumb"></span></span>
+      </button>
+    </div>
+  `;
+}
+
+function updateGamingHubWidget() {
+  const widget = desktopWidgets.find(w => w.type === 'gaming-hub');
+  if (!widget) return;
+  const el = document.getElementById(widget.id);
+  if (!el) return;
+
+  const fps = systemMetrics.fps;
+  const gpu = systemMetrics.gpu;
+  const cpu = systemMetrics.cpu;
+  const vram = systemMetrics.vram;
+  const gpuTemp = Math.round(48 + systemMetrics.gpu * 0.15);
+  const cpuTemp = Math.round(35 + systemMetrics.cpu * 0.35);
+  const ping = pingHistory[pingHistory.length - 1] || 23;
+
+  const fpsEl = el.querySelector('#gh-fps');
+  const gpuTempEl = el.querySelector('#gh-gpu-temp');
+  const cpuTempEl = el.querySelector('#gh-cpu-temp');
+  const vramEl = el.querySelector('#gh-vram');
+  const pingEl = el.querySelector('#gh-ping');
+  const fpsBar = el.querySelector('#gh-fps-bar');
+  const gpuBar = el.querySelector('#gh-gpu-bar');
+  const cpuBar = el.querySelector('#gh-cpu-bar');
+  const vramBar = el.querySelector('#gh-vram-bar');
+  const pingSpark = el.querySelector('#gh-ping-spark');
+  const gmLabel = el.querySelector('#gh-gamemode-label');
+  const gmSwitch = el.querySelector('.gaming-hub-footer .quick-switch');
+
+  if (fpsEl) fpsEl.textContent = String(fps);
+  if (gpuTempEl) gpuTempEl.textContent = `${gpuTemp}°`;
+  if (cpuTempEl) cpuTempEl.textContent = `${cpuTemp}°`;
+  if (vramEl) vramEl.textContent = vram.toFixed(1);
+  if (pingEl) pingEl.innerHTML = `${ping}<span class="gaming-hub-tile-unit"> ms</span>`;
+  if (fpsBar) fpsBar.style.width = `${Math.min(100, (fps / 144) * 100)}%`;
+  if (gpuBar) gpuBar.style.width = `${Math.min(100, gpu)}%`;
+  if (cpuBar) cpuBar.style.width = `${Math.min(100, cpu)}%`;
+  if (vramBar) vramBar.style.width = `${Math.min(100, (vram / 16) * 100)}%`;
+
+  const fpsTile = fpsEl?.closest('.gaming-hub-tile');
+  if (fpsTile) {
+    fpsTile.classList.remove('good', 'warn', 'bad');
+    fpsTile.classList.add(fps >= 120 ? 'good' : fps >= 60 ? 'warn' : 'bad');
+  }
+  const gpuTile = gpuTempEl?.closest('.gaming-hub-tile');
+  if (gpuTile) {
+    gpuTile.classList.remove('good', 'warn', 'bad');
+    gpuTile.classList.add(gpuTemp <= 65 ? 'good' : gpuTemp <= 80 ? 'warn' : 'bad');
+  }
+  const cpuTile = cpuTempEl?.closest('.gaming-hub-tile');
+  if (cpuTile) {
+    cpuTile.classList.remove('good', 'warn', 'bad');
+    cpuTile.classList.add(cpuTemp <= 60 ? 'good' : cpuTemp <= 75 ? 'warn' : 'bad');
+  }
+  const pingTile = pingEl?.closest('.gaming-hub-tile');
+  if (pingTile) {
+    pingTile.classList.remove('good', 'warn', 'bad');
+    pingTile.classList.add(ping <= 30 ? 'good' : ping <= 70 ? 'warn' : 'bad');
+  }
+
+  if (pingSpark) {
+    const bars = pingHistory.map(p => {
+      const h = Math.min(100, (p / 120) * 100);
+      const cls = p <= 30 ? '' : p <= 70 ? 'high' : 'critical';
+      return `<span class="spark-bar ${cls}" style="height:${Math.max(8, h)}%;"></span>`;
+    }).join('');
+    pingSpark.innerHTML = bars;
+  }
+
+  if (gmLabel) gmLabel.classList.toggle('active', gameModeActive);
+  if (gmSwitch) gmSwitch.classList.toggle('active', gameModeActive);
+  refreshIcons();
+}
+
+/* ─── Widget: Now Playing (Reproductor) ─── */
+
+/** Mapa de suscripciones por elemento para limpiar al cerrar. */
+const npWidgetSubscriptions = new WeakMap();
+
+function addNowPlayingWidget() {
+  addDesktopWidget('now-playing');
+  renderSettingsApp();
+}
+
+function removeNowPlayingWidget() {
+  const existing = desktopWidgets.find(w => w.type === 'now-playing');
+  if (existing) {
+    removeDesktopWidget(existing.id);
+    showToast('Widget Removido', 'Reproductor retirado del escritorio.', 'trash-2');
+  }
+  renderSettingsApp();
+}
+
+function renderNowPlayingWidgetHTML() {
+  const current = window.SpotifyApp ? SpotifyApp.getCurrentTrack() : null;
+  const isPlaying = window.SpotifyApp ? SpotifyApp.isPlaying() : false;
+
+  if (!current) {
+    return `
+      <div class="np-widget-body is-empty">
+        <div class="np-empty-icon"><i data-lucide="music-4"></i></div>
+        <strong class="np-empty-title">Sin reproducción</strong>
+        <span class="np-empty-sub">Abrí Spotify y elegí una canción.</span>
+      </div>
+    `;
+  }
+
+  const cover = spGetTrackCover(current);
+  const liked = SpotifyApiIsLiked(current.id);
+  const cur = SpotifyApp.getCurrentTime();
+  const dur = SpotifyApp.getDuration() || current.duration || 0;
+  const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
+
+  return `
+    <div class="np-widget-body">
+      <div class="np-hero">
+        <div class="np-cover-wrap">
+          <img class="np-cover" src="${escapeHtml(cover)}" alt="" />
+          <span class="np-eq" aria-hidden="true"><i></i><i></i><i></i></span>
+        </div>
+        <div class="np-meta">
+          <span class="np-title" title="${escapeHtml(current.title)}">${escapeHtml(current.title)}</span>
+          <button class="np-artist" type="button" data-np-go-artist="${escapeHtml(current.artist)}" title="Ir al artista">
+            ${escapeHtml(current.artist)}
+          </button>
+          <span class="np-album" title="${escapeHtml(current.album)}">${escapeHtml(current.album)}</span>
+        </div>
+        <button class="np-like ${liked ? 'liked' : ''}" type="button" data-np-like="${escapeHtml(current.id)}" title="${liked ? 'Quitar de Tus me gusta' : 'Agregar a Tus me gusta'}">
+          <i data-lucide="heart"></i>
+        </button>
+      </div>
+
+      <div class="np-progress-row">
+        <span class="np-time np-time-cur">${spFormatTime(cur)}</span>
+        <div class="np-progress" data-np-progress>
+          <div class="np-progress-track">
+            <span class="np-progress-fill" style="width: ${pct}%"></span>
+          </div>
+        </div>
+        <span class="np-time np-time-total">${spFormatTime(dur)}</span>
+      </div>
+
+      <div class="np-controls">
+        <button class="np-ctrl" type="button" data-np-prev title="Anterior">
+          <i data-lucide="skip-back"></i>
+        </button>
+        <button class="np-ctrl np-ctrl-main" type="button" data-np-play-pause title="${isPlaying ? 'Pausar' : 'Reproducir'}">
+          <i data-lucide="${isPlaying ? 'pause' : 'play'}"></i>
+        </button>
+        <button class="np-ctrl" type="button" data-np-next title="Siguiente">
+          <i data-lucide="skip-forward"></i>
+        </button>
+        <button class="np-ctrl np-ctrl-shuffle ${spotify.shuffle ? 'active' : ''}" type="button" data-np-shuffle title="Aleatorio">
+          <i data-lucide="shuffle"></i>
+        </button>
+        <button class="np-ctrl np-ctrl-repeat ${spotify.repeat !== 'off' ? 'active' : ''}" type="button" data-np-repeat data-np-repeat-mode="${spotify.repeat}" title="Repetir">
+          <i data-lucide="${spotify.repeat === 'one' ? 'repeat-1' : 'repeat'}"></i>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+/** Actualiza en vivo un widget existente SIN re-render completo. */
+function updateNowPlayingWidgetElement(el) {
+  if (!el || !window.SpotifyApp) return;
+
+  const current = SpotifyApp.getCurrentTrack();
+  const isPlaying = SpotifyApp.isPlaying();
+
+  // Si no hay track y estaba vacío, no hacemos nada
+  if (!current && el.querySelector('.np-widget-body.is-empty')) return;
+  if (!current && !el.querySelector('.np-widget-body.is-empty')) {
+    // Volvió a estado vacío: re-render completo
+    const body = el.querySelector('.np-widget-body');
+    if (body) {
+      body.outerHTML = renderNowPlayingWidgetHTML().trim();
+      refreshIcons();
+      attachNowPlayingWidgetListeners(el);
+    }
+    return;
+  }
+
+  // Actualizar cover
+  const coverEl = el.querySelector('.np-cover');
+  if (coverEl) coverEl.src = spGetTrackCover(current);
+
+  // Título / artista / álbum
+  const titleEl = el.querySelector('.np-title');
+  if (titleEl) {
+    titleEl.textContent = current.title;
+    titleEl.title = current.title;
+  }
+  const artistEl = el.querySelector('.np-artist');
+  if (artistEl) {
+    artistEl.textContent = current.artist;
+    artistEl.dataset.npGoArtist = current.artist;
+  }
+  const albumEl = el.querySelector('.np-album');
+  if (albumEl) {
+    albumEl.textContent = current.album;
+    albumEl.title = current.album;
+  }
+
+  // Like
+  const likeEl = el.querySelector('[data-np-like]');
+  if (likeEl) {
+    likeEl.classList.toggle('liked', SpotifyApiIsLiked(current.id));
+    likeEl.dataset.npLike = current.id;
+  }
+
+  // Progreso
+  const cur = SpotifyApp.getCurrentTime();
+  const dur = SpotifyApp.getDuration() || current.duration || 0;
+  const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
+
+  const fill = el.querySelector('.np-progress-fill');
+  if (fill) fill.style.width = `${pct}%`;
+
+  const curTime = el.querySelector('.np-time-cur');
+  if (curTime) curTime.textContent = spFormatTime(cur);
+  const totTime = el.querySelector('.np-time-total');
+  if (totTime) totTime.textContent = spFormatTime(dur);
+
+  // Botón play/pause
+  const ppBtn = el.querySelector('[data-np-play-pause]');
+  if (ppBtn) {
+    const icon = isPlaying ? 'pause' : 'play';
+    if (ppBtn.querySelector('[data-lucide]')?.getAttribute('data-lucide') !== icon) {
+      ppBtn.innerHTML = `<i data-lucide="${icon}"></i>`;
+      ppBtn.title = isPlaying ? 'Pausar' : 'Reproducir';
+    }
+  }
+
+  // Estado "playing" en el root para animar el EQ y estilos
+  el.classList.toggle('is-playing', isPlaying);
+
+  // Shuffle / repeat
+  const shuffleEl = el.querySelector('[data-np-shuffle]');
+  if (shuffleEl) shuffleEl.classList.toggle('active', spotify.shuffle);
+  const repeatEl = el.querySelector('[data-np-repeat]');
+  if (repeatEl) {
+    repeatEl.classList.toggle('active', spotify.repeat !== 'off');
+    repeatEl.dataset.npRepeatMode = spotify.repeat;
+    const icon = spotify.repeat === 'one' ? 'repeat-1' : 'repeat';
+    if (repeatEl.querySelector('[data-lucide]')?.getAttribute('data-lucide') !== icon) {
+      repeatEl.innerHTML = `<i data-lucide="${icon}"></i>`;
+    }
+  }
+
+  refreshIcons();
+}
+
+/** Suscribe el widget a los eventos de Spotify y cablea los controles. */
+function attachNowPlayingWidgetListeners(el) {
+  if (!el || !window.SpotifyApp) return;
+  if (npWidgetSubscriptions.has(el)) return;
+
+  // ─── Cablear botones ───
+  el.addEventListener('click', (e) => {
+    const playPause = e.target.closest('[data-np-play-pause]');
+    if (playPause) { e.stopPropagation(); SpotifyApp.togglePlayPause(); return; }
+
+    const prev = e.target.closest('[data-np-prev]');
+    if (prev) { e.stopPropagation(); SpotifyApp.prev(); return; }
+
+    const next = e.target.closest('[data-np-next]');
+    if (next) { e.stopPropagation(); SpotifyApp.next(); return; }
+
+    const shuffle = e.target.closest('[data-np-shuffle]');
+    if (shuffle) { e.stopPropagation(); SpotifyApp.toggleShuffle(); return; }
+
+    const repeat = e.target.closest('[data-np-repeat]');
+    if (repeat) { e.stopPropagation(); SpotifyApp.cycleRepeat(); return; }
+
+    const like = e.target.closest('[data-np-like]');
+    if (like) { e.stopPropagation(); SpotifyApp.toggleLike(like.dataset.npLike); return; }
+
+    const goArtist = e.target.closest('[data-np-go-artist]');
+    if (goArtist) {
+      e.stopPropagation();
+      openApp('music');
+      setTimeout(() => {
+        spotify.view = 'artist';
+        spotify.viewParams = { artistName: goArtist.dataset.npGoArtist };
+        getInstancesOfApp('music').forEach(id => {
+          const w = openWindows[id]?.win;
+          if (w) refreshSpotifyWindow(w);
+        });
+      }, 60);
+      return;
+    }
+  });
+
+  // ─── Click en barra de progreso → seek ───
+  const progress = el.querySelector('[data-np-progress]');
+  if (progress) {
+    const onSeek = (ev) => {
+      const rect = progress.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+      const dur = SpotifyApp.getDuration() || SpotifyApp.getCurrentTrack()?.duration || 0;
+      SpotifyApp.seek(pct * dur);
+    };
+    progress.style.cursor = 'pointer';
+    progress.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      onSeek(e);
+      const onMove = (ev) => onSeek(ev);
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  // ─── Suscripciones al motor ───
+  const unsubs = [];
+
+  unsubs.push(SpotifyApp.on('trackchange', () => updateNowPlayingWidgetElement(el)));
+  unsubs.push(SpotifyApp.on('play',        () => updateNowPlayingWidgetElement(el)));
+  unsubs.push(SpotifyApp.on('pause',       () => updateNowPlayingWidgetElement(el)));
+  unsubs.push(SpotifyApp.on('liked',       () => updateNowPlayingWidgetElement(el)));
+  unsubs.push(SpotifyApp.on('shuffle',     () => updateNowPlayingWidgetElement(el)));
+  unsubs.push(SpotifyApp.on('repeat',      () => updateNowPlayingWidgetElement(el)));
+  unsubs.push(SpotifyApp.on('progress',    () => {
+    // Actualización rápida solo del progreso (evita re-parsear todo)
+    if (!window.SpotifyApp) return;
+    const cur = SpotifyApp.getCurrentTime();
+    const dur = SpotifyApp.getDuration() || SpotifyApp.getCurrentTrack()?.duration || 0;
+    const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
+
+    const fill = el.querySelector('.np-progress-fill');
+    if (fill) fill.style.width = `${pct}%`;
+    const curEl = el.querySelector('.np-time-cur');
+    if (curEl) curEl.textContent = spFormatTime(cur);
+    const totEl = el.querySelector('.np-time-total');
+    if (totEl) totEl.textContent = spFormatTime(dur);
+  }));
+
+  npWidgetSubscriptions.set(el, unsubs);
+}
+
+/** Desuscribe y limpia. Se llama desde removeDesktopWidget cuando el tipo coincide. */
+function detachNowPlayingWidgetListeners(el) {
+  const unsubs = npWidgetSubscriptions.get(el);
+  if (!unsubs) return;
+  unsubs.forEach(fn => { try { fn(); } catch (_) {} });
+  npWidgetSubscriptions.delete(el);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SISTEMA DE NOTIFICACIONES (Historial)
+═══════════════════════════════════════════════════════════════ */
+
+function addNotificationToHistory(title, message, iconName = 'sparkles') {
+  notifIdCounter++;
+  const notif = {
+    id: 'notif-' + Date.now() + '-' + notifIdCounter,
+    title: String(title),
+    message: String(message),
+    icon: iconName,
+    timestamp: Date.now(),
+    read: false
+  };
+
+  notifications.unshift(notif);
+  if (notifications.length > NOTIFICATIONS_MAX) {
+    notifications = notifications.slice(0, NOTIFICATIONS_MAX);
+  }
+
+  unreadCount++;
+  saveNotifications();
+  updateNotifBadge();
+
+  const panel = document.getElementById('notification-center');
+  if (panel && !panel.classList.contains('hidden')) {
+    renderNotificationCenter();
+  }
+}
+
+function updateNotifBadge() {
+  const badge = document.getElementById('notif-badge');
+  const btn = document.getElementById('tray-notif-btn');
+  if (!badge || !btn) return;
+
+  if (unreadCount > 0) {
+    badge.hidden = false;
+    badge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+    btn.classList.add('has-unread');
+  } else {
+    badge.hidden = true;
+    btn.classList.remove('has-unread');
+  }
+}
+
+function markAllNotificationsAsRead() {
+  notifications.forEach(n => { n.read = true; });
+  unreadCount = 0;
+  saveNotifications();
+  updateNotifBadge();
+  renderNotificationCenter();
+}
+
+function clearAllNotifications() {
+  if (notifications.length === 0) {
+    showToast('Sin notificaciones', 'No hay nada para limpiar.', 'info');
+    return;
+  }
+  const count = notifications.length;
+  notifications = [];
+  unreadCount = 0;
+  saveNotifications();
+  updateNotifBadge();
+  renderNotificationCenter();
+  showToast('Notificaciones limpiadas', `Se eliminaron ${count} notificacion${count === 1 ? '' : 'es'}.`, 'trash-2');
+}
+
+function removeNotification(id) {
+  const idx = notifications.findIndex(n => n.id === id);
+  if (idx === -1) return;
+  const wasUnread = !notifications[idx].read;
+  notifications.splice(idx, 1);
+  if (wasUnread) unreadCount = Math.max(0, unreadCount - 1);
+  saveNotifications();
+  updateNotifBadge();
+  renderNotificationCenter();
+}
+
+function renderNotificationCenter() {
+  const list = document.getElementById('notif-list');
+  const empty = document.getElementById('notif-empty');
+  const subtitle = document.getElementById('notif-subtitle');
+  const clearBtn = document.getElementById('notif-clear-btn');
+  if (!list || !empty) return;
+
+  if (notifications.length === 0) {
+    list.innerHTML = '';
+    list.hidden = true;
+    empty.hidden = false;
+    if (subtitle) subtitle.textContent = 'Sin notificaciones';
+    if (clearBtn) clearBtn.disabled = true;
+    return;
+  }
+
+  list.hidden = false;
+  empty.hidden = true;
+  if (subtitle) {
+    subtitle.textContent = `${notifications.length} notificacion${notifications.length === 1 ? '' : 'es'} · ${unreadCount} sin leer`;
+  }
+  if (clearBtn) clearBtn.disabled = false;
+
+  list.innerHTML = notifications.map(n => `
+    <div class="notif-item ${n.read ? '' : 'unread'}" data-notif-id="${n.id}">
+      <span class="notif-item-icon"><i data-lucide="${n.icon || 'bell'}"></i></span>
+      <div class="notif-item-body">
+        <strong>${escapeHtml(n.title)}</strong>
+        <small>${escapeHtml(n.message)}</small>
+      </div>
+      <div class="notif-item-meta">
+        <span class="notif-item-time">${getRelativeTime(n.timestamp)}</span>
+        <button class="notif-item-close" type="button" title="Eliminar" data-notif-remove="${n.id}">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('[data-notif-remove]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeNotification(btn.dataset.notifRemove);
+    });
+  });
+
+  refreshIcons();
+}
+
+function saveNotifications() {
+  try {
+    const serializable = notifications.map(n => ({ ...n }));
+    localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(serializable));
+  } catch (e) {}
+}
+
+function loadNotifications() {
+  try {
+    const raw = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return;
+    notifications = parsed
+      .filter(n => n && typeof n === 'object' && n.id && n.title)
+      .map(n => ({
+        id: String(n.id),
+        title: String(n.title),
+        message: String(n.message || ''),
+        icon: n.icon || 'bell',
+        timestamp: typeof n.timestamp === 'number' ? n.timestamp : Date.now(),
+        read: !!n.read
+      }));
+    unreadCount = notifications.filter(n => !n.read).length;
+  } catch (e) {}
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SISTEMA DE TOASTS
+═══════════════════════════════════════════════════════════════ */
+
+function showToast(title, message, iconName = 'sparkles', force = false, options = {}) {
+  if (dndEnabled && !force) return;
+
+  let opts = options;
+  if (typeof iconName === 'object' && iconName !== null) {
+    opts = iconName;
+    iconName = opts.icon || 'sparkles';
+  }
+
+  const level = opts.level || inferToastLevel(iconName);
+  const actions = Array.isArray(opts.actions) ? opts.actions : [];
+  const duration = typeof opts.duration === 'number' ? opts.duration : TOAST_DURATIONS[level] || 4000;
+  const isPersistent = duration === 0 || (level === 'danger' && actions.length > 0);
+
+  addNotificationToHistory(title, message, iconName);
+
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  // Intentar agrupar con un toast similar
+  const groupMatch = activeToasts.find(t =>
+    t.title === title &&
+    t.level === level &&
+    t.icon === iconName &&
+    !t.closing &&
+    t.actions.length === 0 &&
+    actions.length === 0
+  );
+
+  if (groupMatch) {
+    groupMatch.groupCount = (groupMatch.groupCount || 1) + 1;
+    groupMatch.message = message;
+    groupMatch.updatedAt = Date.now();
+
+    const strongEl = groupMatch.el.querySelector('.toast-content strong');
+    const smallEl = groupMatch.el.querySelector('.toast-content small');
+    if (strongEl) {
+      strongEl.dataset.groupCount = String(groupMatch.groupCount);
+    }
+    if (smallEl) smallEl.textContent = message;
+    groupMatch.el.classList.add('grouped');
+
+    groupMatch.el.style.animation = 'none';
+    void groupMatch.el.offsetWidth;
+    groupMatch.el.style.animation = '';
+
+    if (!isPersistent && groupMatch.timer) {
+      clearTimeout(groupMatch.timer);
+      resetToastTimer(groupMatch, duration);
+    }
+    return;
+  }
+
+  // Crear nuevo toast
+  const id = 'toast-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+
+  const toast = document.createElement('div');
+  toast.className = 'toast-notification';
+  toast.dataset.level = level;
+  toast.dataset.toastId = id;
+
+  const actionsHTML = actions.length > 0 ? `
+    <div class="toast-actions">
+      ${actions.map(a => `
+        <button class="toast-action-btn ${a.variant === 'primary' ? 'primary' : ''}"
+                type="button"
+                data-action-id="${escapeHtml(a.id || '')}">
+          ${a.icon ? `<i data-lucide="${escapeHtml(a.icon)}"></i>` : ''}
+          ${escapeHtml(a.label || 'Acción')}
+        </button>
+      `).join('')}
+    </div>
+  ` : '';
+
+  toast.innerHTML = `
+    <span class="toast-icon"><i data-lucide="${iconName}"></i></span>
+    <div class="toast-content">
+      <strong>${escapeHtml(title)}</strong>
+      <small>${escapeHtml(message)}</small>
+      ${actionsHTML}
+    </div>
+    <button class="toast-close-btn" type="button" title="Cerrar" data-toast-close>
+      <i data-lucide="x"></i>
+    </button>
+    ${!isPersistent ? `
+      <div class="toast-progress">
+        <div class="toast-progress-fill"></div>
+      </div>
+    ` : ''}
+  `;
+
+  container.appendChild(toast);
+
+  const entry = {
+    id,
+    level,
+    title,
+    message,
+    icon: iconName,
+    el: toast,
+    timer: null,
+    remaining: duration,
+    startedAt: Date.now(),
+    duration,
+    actions,
+    groupCount: 1,
+    isPersistent,
+    paused: false,
+    progressFill: toast.querySelector('.toast-progress-fill'),
+    progressAnim: null
+  };
+
+  activeToasts.push(entry);
+
+  if (!isPersistent && entry.progressFill) {
+    startProgressBar(entry, duration);
+  }
+
+  if (!isPersistent) {
+    resetToastTimer(entry, duration);
+  }
+
+  // Pausar al hover
+  toast.addEventListener('mouseenter', () => {
+    if (isPersistent || entry.closing) return;
+    entry.paused = true;
+    entry.remaining -= (Date.now() - entry.startedAt);
+    if (entry.timer) {
+      clearTimeout(entry.timer);
+      entry.timer = null;
+    }
+  });
+
+  toast.addEventListener('mouseleave', () => {
+    if (isPersistent || entry.closing || !entry.paused) return;
+    entry.paused = false;
+    entry.startedAt = Date.now();
+    resetToastTimer(entry, entry.remaining);
+  });
+
+  // Click en el toast → abrir Centro de Notificaciones
+  toast.addEventListener('click', (e) => {
+    if (e.target.closest('.toast-close-btn')) return;
+    if (e.target.closest('.toast-action-btn')) return;
+    closeToast(id);
+    openNotificationCenter();
+  });
+
+  // Botón de cerrar
+  toast.querySelector('[data-toast-close]')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeToast(id);
+  });
+
+  // Botones de acción
+  toast.querySelectorAll('.toast-action-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const actionId = btn.dataset.actionId;
+      const action = actions.find(a => String(a.id) === String(actionId));
+      if (action && typeof action.onClick === 'function') {
+        try { action.onClick(); } catch (err) {}
+      }
+      if (action && action.close !== false) {
+        closeToast(id);
+      }
+    });
+  });
+
+  refreshIcons();
+}
+
+function resetToastTimer(entry, duration) {
+  if (entry.timer) clearTimeout(entry.timer);
+  entry.startedAt = Date.now();
+  entry.remaining = duration;
+  entry.timer = setTimeout(() => closeToast(entry.id), duration);
+}
+
+function startProgressBar(entry, duration) {
+  const fill = entry.progressFill;
+  if (!fill) return;
+
+  fill.style.transition = 'none';
+  fill.style.transform = 'scaleX(1)';
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      fill.style.transition = `transform ${duration}ms linear`;
+      fill.style.transform = 'scaleX(0)';
+    });
+  });
+}
+
+function closeToast(id) {
+  const idx = activeToasts.findIndex(t => t.id === id);
+  if (idx === -1) return;
+
+  const entry = activeToasts[idx];
+  if (entry.closing) return;
+  entry.closing = true;
+
+  if (entry.timer) {
+    clearTimeout(entry.timer);
+    entry.timer = null;
+  }
+
+  entry.el.classList.add('closing');
+  setTimeout(() => {
+    entry.el.remove();
+    const i = activeToasts.indexOf(entry);
+    if (i !== -1) activeToasts.splice(i, 1);
+  }, 300);
+}
+
+function closeAllToasts() {
+  [...activeToasts].forEach(t => closeToast(t.id));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ CALENDARIO Y NOTAS
+═══════════════════════════════════════════════════════════════ */
+
+function calendarKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function resetCalendarToToday() {
+  calendarState.date = new Date();
+  calendarState.selectedDate = null;
+  editingNoteKey = null;
+  editingNoteIndex = null;
+
+  const editor = document.getElementById('note-editor');
+  if (editor) editor.hidden = true;
+  const input = document.getElementById('note-input');
+  if (input) input.value = '';
+  const saveBtn = document.getElementById('save-note');
+  if (saveBtn) {
+    saveBtn.textContent = 'Guardar';
+    saveBtn.classList.remove('editing');
+  }
+
+  renderCalendar();
+  renderNotesList();
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('calendar-grid');
+  if (!grid) return;
+  const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const year = calendarState.date.getFullYear();
+  const month = calendarState.date.getMonth();
+  const mEl = document.getElementById('calendar-month');
+  const yEl = document.getElementById('calendar-year');
+  if (mEl) mEl.textContent = monthNames[month];
+  if (yEl) yEl.textContent = year;
+  grid.innerHTML = '';
+
+  const firstDay = new Date(year, month, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayKey = calendarKey(new Date());
+
+  for (let index = 0; index < 42; index += 1) {
+    const dayNumber = index - startOffset + 1;
+    const cellDate = new Date(year, month, dayNumber);
+    const isOutside = dayNumber < 1 || dayNumber > daysInMonth;
+    if (isOutside && index >= startOffset + daysInMonth && index >= 35) continue;
+    const day = document.createElement('button');
+    day.type = 'button';
+    day.className = 'calendar-day';
+    if (isOutside) day.classList.add('outside');
+    const key = calendarKey(cellDate);
+    if (key === todayKey) day.classList.add('today');
+    if (key === calendarState.selectedDate) day.classList.add('selected');
+    day.textContent = String(cellDate.getDate());
+    const dayNotes = calendarState.notes[key];
+    if (Array.isArray(dayNotes) && dayNotes.length > 0) {
+      const dot = document.createElement('span');
+      dot.className = 'note-dot';
+      day.appendChild(dot);
+    }
+    day.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      selectCalendarDate(cellDate);
+    });
+    grid.appendChild(day);
+  }
+  refreshIcons();
+}
+
+function changeCalendarMonth(offset) {
+  calendarState.date.setMonth(calendarState.date.getMonth() + offset);
+  renderCalendar();
+}
+
+function selectCalendarDate(date) {
+  calendarState.selectedDate = calendarKey(date);
+  editingNoteKey = null;
+  editingNoteIndex = null;
+
+  const editor = document.getElementById('note-editor');
+  const input = document.getElementById('note-input');
+  const label = document.getElementById('selected-date-label');
+  const saveBtn = document.getElementById('save-note');
+
+  if (label) label.textContent = `Nueva nota para ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+  if (input) input.value = '';
+  if (editor) editor.hidden = false;
+  if (saveBtn) {
+    saveBtn.textContent = 'Guardar';
+    saveBtn.classList.remove('editing');
+  }
+  if (input) input.focus();
+
+  renderCalendar();
+  renderNotesList();
+}
+
+function saveCalendarNote() {
+  const input = document.getElementById('note-input');
+  const value = input ? input.value.trim() : '';
+
+  if (!value && editingNoteKey === null) {
+    showToast('Sin cambios', 'Escribí algo para guardar un recordatorio.', 'info');
+    return;
+  }
+
+  if (editingNoteKey !== null && editingNoteIndex !== null) {
+    const key = editingNoteKey;
+    const idx = editingNoteIndex;
+
+    if (!calendarState.notes[key]) calendarState.notes[key] = [];
+
+    if (!value) {
+      calendarState.notes[key].splice(idx, 1);
+      if (calendarState.notes[key].length === 0) delete calendarState.notes[key];
+      showToast('Nota eliminada', 'El recordatorio fue borrado.', 'trash-2');
+    } else {
+      calendarState.notes[key][idx] = value;
+    }
+  } else {
+    const key = calendarState.selectedDate;
+    if (!key) return;
+    if (!calendarState.notes[key]) calendarState.notes[key] = [];
+    calendarState.notes[key].push(value);
+  }
+
+  localStorage.setItem(CALENDAR_NOTES_STORAGE_KEY, JSON.stringify(calendarState.notes));
+
+  editingNoteKey = null;
+  editingNoteIndex = null;
+  if (input) input.value = '';
+  const saveBtn = document.getElementById('save-note');
+  if (saveBtn) {
+    saveBtn.textContent = 'Guardar';
+    saveBtn.classList.remove('editing');
+  }
+
+  renderCalendar();
+  renderNotesList();
+}
+
+function editCalendarNote(key, index) {
+  editingNoteKey = key;
+  editingNoteIndex = index;
+  calendarState.selectedDate = key;
+
+  const editor = document.getElementById('note-editor');
+  const input = document.getElementById('note-input');
+  const label = document.getElementById('selected-date-label');
+  const saveBtn = document.getElementById('save-note');
+
+  const [y, m, d] = key.split('-').map(Number);
+  const notes = calendarState.notes[key] || [];
+
+  if (label) label.textContent = `Editando nota del ${d}/${m}/${y}`;
+  if (input) {
+    input.value = notes[index] || '';
+    input.focus();
+  }
+  if (editor) editor.hidden = false;
+  if (saveBtn) {
+    saveBtn.textContent = 'Actualizar';
+    saveBtn.classList.add('editing');
+  }
+  renderNotesList();
+}
+
+function deleteCalendarNote(key, index) {
+  if (!key) return;
+  const notes = calendarState.notes[key];
+  if (!Array.isArray(notes)) return;
+
+  notes.splice(index, 1);
+  if (notes.length === 0) delete calendarState.notes[key];
+
+  localStorage.setItem(CALENDAR_NOTES_STORAGE_KEY, JSON.stringify(calendarState.notes));
+
+  if (editingNoteKey === key && editingNoteIndex === index) {
+    editingNoteKey = null;
+    editingNoteIndex = null;
+    const input = document.getElementById('note-input');
+    if (input) input.value = '';
+    const saveBtn = document.getElementById('save-note');
+    if (saveBtn) {
+      saveBtn.textContent = 'Guardar';
+      saveBtn.classList.remove('editing');
+    }
+  }
+
+  renderCalendar();
+  renderNotesList();
+  showToast('Nota eliminada', 'El recordatorio fue borrado.', 'trash-2');
+}
+
+function renderNotesList() {
+  const list = document.getElementById('notes-list');
+  if (!list) return;
+
+  const targetKey = calendarState.selectedDate || calendarKey(new Date());
+  const notes = calendarState.notes[targetKey];
+
+  list.innerHTML = '';
+
+  if (!Array.isArray(notes) || notes.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'notes-empty';
+    empty.textContent = 'Sin recordatorios para este día.';
+    list.appendChild(empty);
+    return;
+  }
+
+  const [y, m, d] = targetKey.split('-').map(Number);
+
+  notes.forEach((noteText, index) => {
+    const item = document.createElement('div');
+    item.className = 'note-item';
+    item.innerHTML = `
+      <span class="note-item-date">${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}</span>
+      <span class="note-item-text" title="${escapeHtml(noteText)}">${escapeHtml(noteText)}</span>
+      <div class="note-actions">
+        <button class="note-btn" type="button" data-action="edit" title="Editar"><i data-lucide="pencil"></i></button>
+        <button class="note-btn danger" type="button" data-action="delete" title="Eliminar"><i data-lucide="trash-2"></i></button>
+      </div>
+    `;
+
+    item.querySelector('[data-action="edit"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      editCalendarNote(targetKey, index);
+    });
+    item.querySelector('[data-action="delete"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteCalendarNote(targetKey, index);
+    });
+
+    list.appendChild(item);
+  });
+
+  refreshIcons();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ PARTE 8/10 — OVERLAYS Y MENÚS
+   ═══════════════════════════════════════════════════════════════
+   Launcher · Context Menu · Control/Quick Center · Notif overlay ·
+   Store · WiFi · BT · Files ctx · Weather dropdown · Audio Panel
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ LAUNCHER (Nebula Menu)
+═══════════════════════════════════════════════════════════════ */
+
+const launcherOverlay = document.getElementById('launcher-overlay');
+const launcherInput = document.getElementById('launcher-input');
+const launcherResults = document.getElementById('launcher-results');
+
+function toggleLauncher() {
+  if (!launcherOverlay) return;
+  if (launcherOverlay.classList.contains('open')) closeLauncher();
+  else openLauncher();
+}
+
+function openLauncher() {
+  if (!launcherOverlay) return;
+  launcherOverlay.classList.add('open');
+  launcherState.query = '';
+  launcherState.selectedIndex = 0;
+  if (launcherInput) {
+    launcherInput.value = '';
+    renderLauncherResults('');
+    setTimeout(() => launcherInput.focus(), 50);
+  }
+  refreshIcons();
+}
+
+function closeLauncher() {
+  if (!launcherOverlay) return;
+  launcherOverlay.classList.remove('open');
+  launcherState.query = '';
+  launcherState.results = [];
+  launcherState.selectedIndex = 0;
+}
+
+launcherOverlay?.addEventListener('mousedown', e => {
+  if (e.target === launcherOverlay) closeLauncher();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && launcherOverlay?.classList.contains('open')) closeLauncher();
+});
+
+launcherInput?.addEventListener('input', e => {
+  launcherState.query = e.target.value;
+  launcherState.selectedIndex = 0;
+  renderLauncherResults(e.target.value);
+});
+
+launcherInput?.addEventListener('keydown', handleLauncherKeydown);
+
+/* ─── Construcción de listas del Launcher ─── */
+
+function buildLauncherActions() {
+  return [
+    { id: 'action-gamemode', title: 'Activar / Desactivar Modo Juego', sub: 'Boost de CPU/GPU, libera RAM y activa HUD', icon: 'gamepad-2', category: 'Acción', keywords: ['modo juego', 'game mode', 'gamemode', 'boost', 'gamer'], run: () => toggleGameMode() },
+    { id: 'action-hud', title: 'Alternar Gaming HUD', sub: 'Overlay con telemetría de hardware (Alt+Z)', icon: 'activity', category: 'Acción', keywords: ['hud', 'overlay', 'telemetria', 'gaming', 'alt z'], run: () => toggleGamerOverlay() },
+    { id: 'action-vpn', title: 'Alternar VPN Nebula Shield', sub: 'Conectar / desconectar la VPN', icon: 'shield-check', category: 'Acción', keywords: ['vpn', 'shield', 'privacidad'], run: () => toggleVpnConnection() },
+    { id: 'action-wallpaper-next', title: 'Siguiente fondo de pantalla', sub: 'Rota al siguiente wallpaper disponible', icon: 'image', category: 'Acción', keywords: ['wallpaper', 'fondo', 'siguiente', 'rotar'], run: () => applyWallpaper((currentWallpaperIndex + 1) % WALLPAPERS.length) },
+    { id: 'action-ram-boost', title: 'Optimizar RAM', sub: 'Libera memoria y limpia cache', icon: 'sparkles', category: 'Acción', keywords: ['optimizar', 'ram', 'limpiar', 'memoria', 'boost'], run: () => simulateRamBoost() },
+    { id: 'action-weather-widget', title: 'Añadir Widget de Clima', sub: 'Widget meteorológico con datos reales (Open-Meteo)', icon: 'cloud-sun', category: 'Acción', keywords: ['clima', 'weather', 'widget', 'tiempo', 'temperatura'], run: () => addWeatherWidget() },
+    { id: 'action-clear-widgets', title: 'Limpiar widgets del escritorio', sub: 'Remueve todos los widgets flotantes', icon: 'trash-2', category: 'Acción', keywords: ['limpiar', 'widgets', 'escritorio', 'borrar'], run: () => clearDesktopWidgets() },
+    { id: 'action-close-all', title: 'Cerrar todas las ventanas', sub: 'Cierra todas las apps abiertas', icon: 'x-circle', category: 'Acción', keywords: ['cerrar', 'close', 'todas', 'ventanas', 'apps'], run: () => { Object.keys(openWindows).forEach(id => closeApp(id)); showToast('Ventanas cerradas', 'Se cerraron todas las apps abiertas.', 'x-circle'); } },
+    { id: 'action-shield-scan', title: 'Escaneo de Seguridad (Nebula Shield)', sub: 'Inicia un análisis completo del sistema', icon: 'shield-check', category: 'Acción', keywords: ['escanear', 'seguridad', 'shield', 'virus', 'antivirus', 'scan'], run: () => { openApp('settings'); settingsState.activeSettingsTab = 'shield'; renderSettingsApp(); setTimeout(() => runShieldScan(), 400); } },
+    { id: 'action-check-updates', title: 'Buscar actualizaciones', sub: 'Verifica si hay nuevas versiones del sistema', icon: 'download', category: 'Acción', keywords: ['actualizar', 'update', 'version', 'updates'], run: () => { openApp('settings'); settingsState.activeSettingsTab = 'updates'; renderSettingsApp(); setTimeout(() => simulateUpdateCheck(), 400); } },
+    { id: 'action-notif-center', title: 'Abrir Centro de Notificaciones', sub: 'Ver historial de notificaciones del sistema', icon: 'bell', category: 'Acción', keywords: ['notificaciones', 'notif', 'historial', 'centro'], run: () => openNotificationCenter() },
+    { id: 'action-open-store', title: 'Abrir Nebula Store', sub: 'Tienda de temas, widgets, apps y juegos', icon: 'shopping-bag', category: 'Acción', keywords: ['tienda', 'store', 'temas', 'widgets', 'apps', 'juegos'], run: () => openStore() },
+    { id: 'action-open-vault', title: 'Abrir Nebula Vault', sub: 'Gestor de contraseñas seguro', icon: 'key-round', category: 'Acción', keywords: ['vault', 'contraseñas', 'passwords', 'boveda'], run: () => openApp('vault') },
+    { id: 'action-profile-gamer', title: 'Perfil: Gamer', sub: 'Aplica tema Cyberpunk + Game Mode + telemetría', icon: 'gamepad-2', category: 'Perfil', keywords: ['perfil', 'gamer', 'profile'], run: () => switchProfile('gamer') },
+    { id: 'action-profile-streamer', title: 'Perfil: Streamer', sub: 'Aplica tema Synthwave + widget multimedia', icon: 'radio', category: 'Perfil', keywords: ['perfil', 'streamer', 'profile'], run: () => switchProfile('streamer') },
+    { id: 'action-profile-studio', title: 'Perfil: Estudio', sub: 'Aplica tema Catppuccin + workspace 1', icon: 'terminal', category: 'Perfil', keywords: ['perfil', 'estudio', 'studio', 'dev'], run: () => switchProfile('studio') },
+    { id: 'action-theme-cyberpunk', title: 'Tema: Cyberpunk Neón', sub: 'Paleta cyan/rosa con alto contraste', icon: 'palette', category: 'Tema', keywords: ['tema', 'cyberpunk', 'neon', 'theme'], run: () => applyThemePreset('cyberpunk') },
+    { id: 'action-theme-catppuccin', title: 'Tema: Minimal Catppuccin', sub: 'Paleta pastel suave y relajante', icon: 'palette', category: 'Tema', keywords: ['tema', 'catppuccin', 'minimal', 'theme'], run: () => applyThemePreset('catppuccin') },
+    { id: 'action-theme-synthwave', title: 'Tema: Retro Synthwave', sub: 'Magenta brillante, estética 80s', icon: 'palette', category: 'Tema', keywords: ['tema', 'synthwave', 'retro', 'theme'], run: () => applyThemePreset('synthwave') },
+    { id: 'action-theme-stealth', title: 'Tema: Dark Stealth', sub: 'Carbón táctico, esmeralda de bajo consumo', icon: 'palette', category: 'Tema', keywords: ['tema', 'stealth', 'oscuro', 'dark', 'theme'], run: () => applyThemePreset('stealth') },
+    { id: 'action-theme-nord-arc', title: 'Tema: Nord Arc', sub: 'Acento cyan con fondo neutro oscuro', icon: 'palette', category: 'Tema', keywords: ['tema', 'nord', 'arc', 'theme', 'cyan'], run: () => applyThemePreset('nord-arc') },
+    { id: 'action-workspace-1', title: 'Ir al Space 1', sub: 'Cambiar al primer escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '1'], run: () => switchWorkspace(1) },
+    { id: 'action-workspace-2', title: 'Ir al Space 2', sub: 'Cambiar al segundo escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '2'], run: () => switchWorkspace(2) },
+    { id: 'action-workspace-3', title: 'Ir al Space 3', sub: 'Cambiar al tercer escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '3'], run: () => switchWorkspace(3) },
+    { id: 'action-workspace-4', title: 'Ir al Space 4', sub: 'Cambiar al cuarto escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '4'], run: () => switchWorkspace(4) },
+    { id: 'action-workspace-5', title: 'Ir al Space 5', sub: 'Cambiar al quinto escritorio virtual', icon: 'layout-grid', category: 'Space', keywords: ['space', 'workspace', 'escritorio', '5'], run: () => switchWorkspace(5) },
+    { id: 'action-open-wm', title: 'Abrir Administrador de Escritorios', sub: 'Vista general de spaces y ventanas', icon: 'layout-grid', category: 'Acción', keywords: ['wm', 'window manager', 'administrador', 'escritorios'], run: () => openWindowManager() },
+    { id: 'action-open-settings-designer', title: 'Abrir Nebula Designer', sub: 'Personalizar colores, blur y bordes', icon: 'palette', category: 'Acción', keywords: ['designer', 'ajustes', 'settings', 'personalizar'], run: () => openSettingsTab('designer') },
+    { id: 'action-audio-panel', title: 'Abrir Panel de Audio', sub: 'Mezclador por aplicación, dispositivos y peak meter', icon: 'volume-2', category: 'Acción', keywords: ['audio', 'volumen', 'mezclador', 'mixer', 'sonido'], run: () => { if (typeof openAudioPanel === 'function') openAudioPanel(); } }
+  ];
+}
+
+function buildLauncherCommands() {
+  return [
+    { id: 'cmd-help', title: '> help', sub: 'Ver todos los comandos disponibles', icon: 'help-circle', category: 'Comando', keywords: ['help', 'ayuda', 'comandos'], run: () => showToast('Comandos disponibles', '> gamemode on/off · > wallpaper 0-2 · > workspace 1-5 · > theme <nombre> · > optimize · > close-all', 'terminal') },
+    { id: 'cmd-optimize', title: '> optimize', sub: 'Libera RAM y limpia cache', icon: 'sparkles', category: 'Comando', keywords: ['optimize', 'optimizar', 'ram'], run: () => simulateRamBoost() },
+    { id: 'cmd-close-all', title: '> close-all', sub: 'Cierra todas las ventanas abiertas', icon: 'x-circle', category: 'Comando', keywords: ['close-all', 'cerrar todo'], run: () => { Object.keys(openWindows).forEach(id => closeApp(id)); showToast('Ventanas cerradas', 'Todas las apps fueron cerradas.', 'x-circle'); } },
+    { id: 'cmd-gamemode-on', title: '> gamemode on', sub: 'Activa Modo Juego', icon: 'gamepad-2', category: 'Comando', keywords: ['gamemode on', 'modo juego on'], run: () => toggleGameMode(true) },
+    { id: 'cmd-gamemode-off', title: '> gamemode off', sub: 'Desactiva Modo Juego', icon: 'gamepad-2', category: 'Comando', keywords: ['gamemode off', 'modo juego off'], run: () => toggleGameMode(false) },
+    { id: 'cmd-wallpaper-0', title: '> wallpaper 0', sub: 'Fondo Nebula', icon: 'image', category: 'Comando', keywords: ['wallpaper 0', 'fondo nebula'], run: () => applyWallpaper(0) },
+    { id: 'cmd-wallpaper-1', title: '> wallpaper 1', sub: 'Fondo Aurora', icon: 'image', category: 'Comando', keywords: ['wallpaper 1', 'fondo aurora'], run: () => applyWallpaper(1) },
+    { id: 'cmd-wallpaper-2', title: '> wallpaper 2', sub: 'Fondo Solar', icon: 'image', category: 'Comando', keywords: ['wallpaper 2', 'fondo solar'], run: () => applyWallpaper(2) },
+    { id: 'cmd-workspace-1', title: '> workspace 1', sub: 'Ir al Space 1', icon: 'layout-grid', category: 'Comando', keywords: ['workspace 1', 'space 1'], run: () => switchWorkspace(1) },
+    { id: 'cmd-workspace-2', title: '> workspace 2', sub: 'Ir al Space 2', icon: 'layout-grid', category: 'Comando', keywords: ['workspace 2', 'space 2'], run: () => switchWorkspace(2) },
+    { id: 'cmd-workspace-3', title: '> workspace 3', sub: 'Ir al Space 3', icon: 'layout-grid', category: 'Comando', keywords: ['workspace 3', 'space 3'], run: () => switchWorkspace(3) },
+    { id: 'cmd-workspace-4', title: '> workspace 4', sub: 'Ir al Space 4', icon: 'layout-grid', category: 'Comando', keywords: ['workspace 4', 'space 4'], run: () => switchWorkspace(4) },
+    { id: 'cmd-workspace-5', title: '> workspace 5', sub: 'Ir al Space 5', icon: 'layout-grid', category: 'Comando', keywords: ['workspace 5', 'space 5'], run: () => switchWorkspace(5) },
+    { id: 'cmd-theme-cyberpunk', title: '> theme cyberpunk', sub: 'Aplicar tema Cyberpunk Neón', icon: 'palette', category: 'Comando', keywords: ['theme cyberpunk', 'tema cyberpunk'], run: () => applyThemePreset('cyberpunk') },
+    { id: 'cmd-theme-catppuccin', title: '> theme catppuccin', sub: 'Aplicar tema Minimal Catppuccin', icon: 'palette', category: 'Comando', keywords: ['theme catppuccin', 'tema catppuccin'], run: () => applyThemePreset('catppuccin') },
+    { id: 'cmd-theme-synthwave', title: '> theme synthwave', sub: 'Aplicar tema Retro Synthwave', icon: 'palette', category: 'Comando', keywords: ['theme synthwave', 'tema synthwave'], run: () => applyThemePreset('synthwave') },
+    { id: 'cmd-theme-stealth', title: '> theme stealth', sub: 'Aplicar tema Dark Stealth', icon: 'palette', category: 'Comando', keywords: ['theme stealth', 'tema stealth'], run: () => applyThemePreset('stealth') },
+    { id: 'cmd-theme-nord-arc', title: '> theme nord-arc', sub: 'Aplicar tema Nord Arc', icon: 'palette', category: 'Comando', keywords: ['theme nord', 'tema nord', 'nord arc'], run: () => applyThemePreset('nord-arc') },
+    { id: 'cmd-audio', title: '> audio', sub: 'Abrir el mezclador de audio', icon: 'volume-2', category: 'Comando', keywords: ['audio', 'mezclador', 'volumen', 'mixer'], run: () => { if (typeof openAudioPanel === 'function') openAudioPanel(); } },
+  ];
+}
+
+function searchCalendarNotes(query) {
+  const q = query.toLowerCase();
+  const results = [];
+
+  Object.keys(calendarState.notes).forEach(key => {
+    const notes = calendarState.notes[key];
+    if (!Array.isArray(notes)) return;
+    notes.forEach((noteText, idx) => {
+      if (noteText.toLowerCase().includes(q)) {
+        const [y, m, d] = key.split('-').map(Number);
+        results.push({
+          id: 'note-' + key + '-' + idx,
+          title: noteText,
+          sub: `Nota del ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`,
+          icon: 'notebook-pen',
+          category: 'Nota',
+          keywords: [noteText],
+          run: () => {
+            const cc = document.getElementById('control-center');
+            if (cc && cc.classList.contains('hidden')) cc.classList.remove('hidden');
+            calendarState.selectedDate = key;
+            const [yy, mm, dd] = key.split('-').map(Number);
+            selectCalendarDate(new Date(yy, mm - 1, dd));
+            renderNotesList();
+            showToast('Nota encontrada', `Del ${String(dd).padStart(2, '0')}/${String(mm).padStart(2, '0')}/${yy}`, 'notebook-pen');
+          }
+        });
+      }
+    });
+  });
+
+  return results;
+}
+
+function searchAppsAndActions(query) {
+  const q = query.toLowerCase().trim();
+  const results = [];
+
+  Object.keys(APPS).forEach(id => {
+    const app = APPS[id];
+    const haystack = (app.title + ' ' + app.sub + ' ' + id).toLowerCase();
+    if (!q || haystack.includes(q)) {
+      results.push({
+        id: 'app-' + id,
+        title: app.title,
+        sub: app.sub,
+        icon: app.icon,
+        image: app.image,
+        tileClass: app.tileClass,
+        category: 'App',
+        keywords: [app.title, app.sub, id],
+        run: () => openApp(id)
+      });
+    }
+  });
+
+  if (q) {
+    const actions = buildLauncherActions();
+    actions.forEach(action => {
+      const haystack = (action.title + ' ' + action.sub + ' ' + (action.keywords || []).join(' ')).toLowerCase();
+      if (haystack.includes(q)) {
+        results.push({
+          id: action.id,
+          title: action.title,
+          sub: action.sub,
+          icon: action.icon,
+          category: action.category,
+          keywords: action.keywords || [],
+          run: action.run
+        });
+      }
+    });
+  }
+
+  return results;
+}
+
+function renderLauncherResults(rawQuery) {
+  if (!launcherResults) return;
+  launcherResults.innerHTML = '';
+  launcherState.results = [];
+
+  const raw = (rawQuery || '').trim();
+  let mode = 'default';
+  let query = raw;
+
+  if (raw.startsWith('>')) { mode = 'command'; query = raw.slice(1).trim(); }
+  else if (raw.startsWith('?')) { mode = 'files'; query = raw.slice(1).trim(); }
+  else if (raw.startsWith('@')) { mode = 'notes'; query = raw.slice(1).trim(); }
+
+  let items = [];
+
+  if (mode === 'command') {
+    const commands = buildLauncherCommands();
+    if (!query) items = commands;
+    else items = commands.filter(c => {
+      const haystack = (c.title + ' ' + c.sub + ' ' + (c.keywords || []).join(' ')).toLowerCase();
+      return haystack.includes(query.toLowerCase());
+    });
+  } else if (mode === 'files') {
+    if (query) items = searchFilesInSystem(query).slice(0, 30);
+  } else if (mode === 'notes') {
+    if (query) items = searchCalendarNotes(query).slice(0, 20);
+  } else {
+    items = searchAppsAndActions(query);
+    const catWeight = { 'App': 0, 'Acción': 1, 'Perfil': 2, 'Tema': 3, 'Space': 4 };
+    items.sort((a, b) => {
+      const wa = catWeight[a.category] ?? 99;
+      const wb = catWeight[b.category] ?? 99;
+      if (wa !== wb) return wa - wb;
+      return a.title.localeCompare(b.title);
+    });
+  }
+
+  launcherState.results = items;
+  if (launcherState.selectedIndex >= items.length) {
+    launcherState.selectedIndex = Math.max(0, items.length - 1);
+  }
+
+  if (items.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'launcher-empty';
+    if (mode === 'files' && !query) empty.innerHTML = `<strong>Buscá en tu sistema</strong>Escribí algo después de <code>?</code> para buscar archivos, mods, música o fondos.`;
+    else if (mode === 'notes' && !query) empty.innerHTML = `<strong>Buscá en tus notas</strong>Escribí algo después de <code>@</code> para buscar en los recordatorios del calendario.`;
+    else if (mode === 'command' && !query) empty.innerHTML = `<strong>Comandos disponibles</strong>Escribí <code>&gt; help</code> para ver el listado completo.`;
+    else empty.innerHTML = `<strong>Sin resultados</strong>No encontramos nada que coincida con "<em>${escapeHtml(raw)}</em>".`;
+    launcherResults.appendChild(empty);
+    launcherResults.appendChild(buildLauncherHint(mode));
+  } else {
+    items.forEach((item, index) => {
+      const res = document.createElement('div');
+      res.className = 'result' + (index === launcherState.selectedIndex ? ' selected' : '');
+      res.dataset.resultIndex = String(index);
+
+      const iconHTML = item.image
+        ? `<div class="app-tile ${item.tileClass || ''}"><img src="${item.image}" alt="${escapeHtml(item.title)}" class="app-tile-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" /><i data-lucide="${item.icon}" style="display:none;"></i></div>`
+        : `<div class="app-tile ${item.tileClass || ''}" style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12);"><i data-lucide="${item.icon}"></i></div>`;
+
+      res.innerHTML = `${iconHTML}<div class="meta"><div class="title">${escapeHtml(item.title)}</div><div class="sub">${escapeHtml(item.sub)}</div></div>`;
+
+      res.addEventListener('click', (e) => {
+        e.stopPropagation();
+        launcherState.selectedIndex = index;
+        executeLauncherItem(item);
+      });
+      res.addEventListener('mouseenter', () => {
+        launcherState.selectedIndex = index;
+        updateLauncherSelection();
+      });
+
+      launcherResults.appendChild(res);
+    });
+    launcherResults.appendChild(buildLauncherHint(mode));
+  }
+
+  refreshIcons();
+
+  const selectedEl = launcherResults.querySelector(`.result[data-result-index="${launcherState.selectedIndex}"]`);
+  if (selectedEl) selectedEl.scrollIntoView({ block: 'nearest' });
+}
+
+function buildLauncherHint(mode) {
+  const hint = document.createElement('div');
+  hint.className = 'launcher-hint';
+  hint.innerHTML = `
+    <span class="launcher-hint-item${mode === 'command' ? ' active' : ''}"><kbd>&gt;</kbd><span class="hint-label">Comandos</span></span>
+    <span class="launcher-hint-item${mode === 'files' ? ' active' : ''}"><kbd>?</kbd><span class="hint-label">Archivos</span></span>
+    <span class="launcher-hint-item${mode === 'notes' ? ' active' : ''}"><kbd>@</kbd><span class="hint-label">Notas</span></span>
+  `;
+  return hint;
+}
+
+function updateLauncherSelection() {
+  if (!launcherResults) return;
+  launcherResults.querySelectorAll('.result').forEach(el => {
+    const idx = parseInt(el.dataset.resultIndex, 10);
+    el.classList.toggle('selected', idx === launcherState.selectedIndex);
+  });
+  const selectedEl = launcherResults.querySelector(`.result[data-result-index="${launcherState.selectedIndex}"]`);
+  if (selectedEl) selectedEl.scrollIntoView({ block: 'nearest' });
+}
+
+function executeLauncherItem(item) {
+  if (!item || typeof item.run !== 'function') return;
+  closeLauncher();
+  setTimeout(() => {
+    try { item.run(); } catch (e) {}
+  }, 80);
+}
+
+function handleLauncherKeydown(e) {
+  if (!launcherState.results || launcherState.results.length === 0) return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    launcherState.selectedIndex = (launcherState.selectedIndex + 1) % launcherState.results.length;
+    updateLauncherSelection();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    launcherState.selectedIndex = (launcherState.selectedIndex - 1 + launcherState.results.length) % launcherState.results.length;
+    updateLauncherSelection();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const item = launcherState.results[launcherState.selectedIndex];
+    if (item) executeLauncherItem(item);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ CONTEXT MENU DEL ESCRITORIO
+═══════════════════════════════════════════════════════════════ */
+
+const contextMenu = document.getElementById('context-menu');
+
+function showContextMenu(x, y) {
+  if (!contextMenu) return;
+  contextMenu.classList.add('open');
+  contextMenu.style.left = `${Math.min(x, window.innerWidth - contextMenu.offsetWidth - 12)}px`;
+  contextMenu.style.top = `${Math.min(y, window.innerHeight - contextMenu.offsetHeight - 12)}px`;
+  refreshIcons();
+}
+
+function hideContextMenu() {
+  if (contextMenu) contextMenu.classList.remove('open');
+}
+
+function openContextApp(id) {
+  hideContextMenu();
+  openApp(id);
+}
+
+function openSettingsTab(tab) {
+  openApp('settings');
+  settingsState.activeSettingsTab = tab;
+  renderSettingsApp();
+  hideContextMenu();
+}
+
+function cycleWallpaper() {
+  applyWallpaper((currentWallpaperIndex + 1) % WALLPAPERS.length);
+  hideContextMenu();
+}
+
+function refreshDesktop() {
+  const background = document.getElementById('background-layer');
+  if (background) {
+    background.innerHTML = '';
+    createStars();
+  }
+  hideContextMenu();
+  showToast('Escritorio Actualizado', 'Vista y widgets recargados.', 'refresh-cw');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ CONTROL CENTER / QUICK CENTER
+═══════════════════════════════════════════════════════════════ */
+
+function closeControlCenter() {
+  const cc = document.getElementById('control-center');
+  if (!cc || cc.classList.contains('hidden')) return;
+  cc.classList.add('hidden');
+  resetCalendarToToday();
+}
+
+function closeQuickCenter() {
+  const qc = document.getElementById('quick-center');
+  if (!qc) return;
+  qc.classList.add('hidden');
+  updateToastPosition();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ NOTIFICATION CENTER (Overlay)
+═══════════════════════════════════════════════════════════════ */
+
+function openNotificationCenter() {
+  const panel = document.getElementById('notification-center');
+  if (!panel) return;
+
+  closeQuickCenter();
+  closeControlCenter();
+
+  panel.classList.remove('hidden');
+  renderNotificationCenter();
+
+  setTimeout(() => {
+    markAllNotificationsAsRead();
+  }, 300);
+}
+
+function closeNotificationCenter() {
+  const panel = document.getElementById('notification-center');
+  if (!panel) return;
+  panel.classList.add('hidden');
+}
+
+function toggleNotificationCenter() {
+  const panel = document.getElementById('notification-center');
+  if (!panel) return;
+  if (panel.classList.contains('hidden')) {
+    openNotificationCenter();
+  } else {
+    closeNotificationCenter();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ NEBULA STORE — Overlay
+═══════════════════════════════════════════════════════════════ */
+
+function openStore() {
+  const overlay = document.getElementById('store-overlay');
+  if (!overlay) return;
+
+  overlay.classList.remove('hidden');
+  renderStore();
+
+  // ─── Categorías ───
+  const cats = document.getElementById('store-categories');
+  if (cats) {
+    cats.querySelectorAll('.store-cat-btn').forEach(btn => {
+      btn.onclick = () => {
+        storeFilter = btn.dataset.cat || 'all';
+        renderStore();
+      };
+    });
+  }
+
+  // ─── Búsqueda ───
+  const searchInput = document.getElementById('store-search-input');
+  if (searchInput && !searchInput.dataset.bound) {
+    searchInput.dataset.bound = '1';
+    searchInput.addEventListener('input', (e) => {
+      storeSearchQuery = e.target.value;
+      renderStore();
+    });
+  }
+
+  // ─── Filtro "Solo instalados" ───
+  const installedToggle = document.getElementById('store-installed-toggle');
+  if (installedToggle && !installedToggle.dataset.bound) {
+    installedToggle.dataset.bound = '1';
+    installedToggle.addEventListener('click', () => {
+      storeShowInstalledOnly = !storeShowInstalledOnly;
+      renderStore();
+    });
+  }
+
+  // ─── Botón cerrar ───
+  const closeBtn = document.getElementById('store-close-btn');
+  if (closeBtn && !closeBtn.dataset.bound) {
+    closeBtn.dataset.bound = '1';
+    closeBtn.addEventListener('click', closeStore);
+  }
+
+  // ─── Click en el fondo del overlay → cerrar ───
+  if (!overlay.dataset.bound) {
+    overlay.dataset.bound = '1';
+    overlay.addEventListener('mousedown', (e) => {
+      if (e.target === overlay) closeStore();
+    });
+  }
+
+  refreshIcons();
+}
+
+function closeStore() {
+  const overlay = document.getElementById('store-overlay');
+  if (!overlay) return;
+  overlay.classList.add('hidden');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ WIFI PANEL — Overlay
+═══════════════════════════════════════════════════════════════ */
+
+function openWifiPanel() {
+  const panel = document.getElementById('wifi-panel');
+  if (!panel) return;
+  closeQuickCenter();
+  closeControlCenter();
+  closeNotificationCenter();
+  closeBluetoothPanel();
+  if (typeof closeAudioPanel === 'function') closeAudioPanel();
+  panel.classList.remove('hidden');
+  renderWifiPanel();
+  refreshIcons();
+  if (wifiEnabled && !connectedWifiId) {
+    rescanWifiNetworks();
+  }
+}
+
+function closeWifiPanel() {
+  const panel = document.getElementById('wifi-panel');
+  if (!panel) return;
+  panel.classList.add('hidden');
+}
+
+function toggleWifiPanel() {
+  const panel = document.getElementById('wifi-panel');
+  if (!panel) return;
+  if (panel.classList.contains('hidden')) openWifiPanel();
+  else closeWifiPanel();
+}
+
+function renderWifiPanel() {
+  const body = document.getElementById('wifi-panel-body');
+  const footer = document.getElementById('wifi-panel-footer');
+  const subtitle = document.getElementById('wifi-panel-subtitle');
+
+  if (!body) return;
+
+  // 1) Si WiFi está apagado → mostrar estado vacío
+  if (!wifiEnabled) {
+    body.innerHTML = `
+      <div class="network-empty-state">
+        <div class="network-empty-icon"><i data-lucide="wifi-off"></i></div>
+        <strong>WiFi está desactivado</strong>
+        <small>Activá WiFi para ver las redes disponibles en tu zona.</small>
+      </div>
+    `;
+    if (subtitle) subtitle.textContent = 'WiFi desactivado';
+    if (footer) footer.hidden = true;
+    refreshIcons();
+    return;
+  }
+
+  // 2) WiFi prendido → asegurar estructura
+  let list = document.getElementById('wifi-networks-list');
+  let loading = document.getElementById('wifi-loading');
+  if (!list) {
+    body.innerHTML = `
+      <div class="network-loading" id="wifi-loading" hidden>
+        <i data-lucide="loader-circle" class="network-spinner"></i>
+        <span>Escaneando redes...</span>
+      </div>
+      <div class="network-list" id="wifi-networks-list"></div>
+    `;
+    list = document.getElementById('wifi-networks-list');
+    loading = document.getElementById('wifi-loading');
+  }
+
+  if (!list) return;
+  if (footer) footer.hidden = false;
+
+  // 3) Si está escaneando
+  if (wifiScanInProgress) {
+    if (loading) loading.hidden = false;
+    list.innerHTML = '';
+    if (subtitle) subtitle.textContent = 'Escaneando redes...';
+    refreshIcons();
+    return;
+  }
+
+  // 4) Renderizar lista
+  if (loading) loading.hidden = true;
+
+  const sorted = [...WIFI_NETWORKS].sort((a, b) => {
+    if (connectedWifiId === a.id) return -1;
+    if (connectedWifiId === b.id) return 1;
+    return b.signal - a.signal;
+  });
+
+  list.innerHTML = sorted.map(getWifiNetworkHTML).join('');
+
+  if (subtitle) {
+    const count = WIFI_NETWORKS.length;
+    subtitle.textContent = connectedWifiId
+      ? `Conectada a ${getWifiNetworkById(connectedWifiId)?.ssid || '—'}`
+      : `${count} red${count === 1 ? '' : 'es'} disponible${count === 1 ? '' : 's'}`;
+  }
+
+  refreshIcons();
+}
+
+function getWifiNetworkHTML(network) {
+  const isConnected = connectedWifiId === network.id;
+  const isWeak = network.signal <= 1;
+  const signalBarsHTML = [1, 2, 3, 4].map(i =>
+    `<span class="${i <= network.signal ? 'on' : ''}"></span>`
+  ).join('');
+
+  const securityIcon = getWifiSecurityIcon(network.security);
+  const isOpen = network.security === 'open';
+
+  let actionHTML = '';
+  if (isConnected) {
+    actionHTML = `
+      <button class="network-connect-btn disconnect" type="button" onclick="event.stopPropagation(); disconnectWifi()">
+        Desconectar
+      </button>
+    `;
+  } else {
+    actionHTML = `
+      <button class="network-connect-btn" type="button" onclick="event.stopPropagation(); connectToWifi('${network.id}')">
+        Conectar
+      </button>
+    `;
+  }
+
+  let passwordHTML = '';
+  if (isConnected && wifiPasswordVisible === network.id && network.password) {
+    passwordHTML = `
+      <div class="network-password-row">
+        <span>${escapeHtml(network.password)}</span>
+        <button class="network-item-btn" type="button" title="Copiar contraseña" onclick="event.stopPropagation(); copyWifiPassword('${network.id}')">
+          <i data-lucide="copy"></i>
+        </button>
+      </div>
+    `;
+  }
+
+  const actionBtnsHTML = isConnected ? `
+    <button class="network-item-btn" type="button" title="${wifiPasswordVisible === network.id ? 'Ocultar contraseña' : 'Ver contraseña'}"
+            onclick="event.stopPropagation(); toggleWifiPassword('${network.id}')">
+      <i data-lucide="${wifiPasswordVisible === network.id ? 'eye-off' : 'eye'}"></i>
+    </button>
+    <button class="network-item-btn danger" type="button" title="Olvidar red"
+            onclick="event.stopPropagation(); forgetWifi('${network.id}')">
+      <i data-lucide="trash-2"></i>
+    </button>
+  ` : '';
+
+  return `
+    <div class="network-item ${isConnected ? 'connected' : ''} ${isWeak ? 'weak-signal' : ''}"
+         data-wifi-id="${network.id}"
+         onclick="connectToWifi('${network.id}')">
+      <div class="network-item-icon">
+        <i data-lucide="wifi"></i>
+      </div>
+      <div class="network-item-meta">
+        <div class="network-item-title">
+          ${escapeHtml(network.ssid)}
+          ${!isOpen ? `<i data-lucide="${securityIcon}" class="network-lock-icon"></i>` : ''}
+        </div>
+        <div class="network-item-sub">
+          ${isConnected ? 'Conectada · ' + network.frequency : getWifiSecurityLabel(network.security) + ' · ' + network.frequency}
+        </div>
+      </div>
+      <div class="network-signal-bars" title="Señal: ${network.signal}/4">
+        ${signalBarsHTML}
+      </div>
+      <div class="network-item-actions">
+        ${actionBtnsHTML}
+        ${actionHTML}
+      </div>
+    </div>
+    ${passwordHTML}
+  `;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ BLUETOOTH PANEL — Overlay
+═══════════════════════════════════════════════════════════════ */
+
+function openBluetoothPanel() {
+  const panel = document.getElementById('bluetooth-panel');
+  if (!panel) return;
+  closeQuickCenter();
+  closeControlCenter();
+  closeNotificationCenter();
+  closeWifiPanel();
+  panel.classList.remove('hidden');
+  renderBluetoothPanel();
+  refreshIcons();
+  if (bluetoothEnabled) {
+    rescanBluetoothDevices();
+  }
+}
+
+function closeBluetoothPanel() {
+  const panel = document.getElementById('bluetooth-panel');
+  if (!panel) return;
+  panel.classList.add('hidden');
+}
+
+function toggleBluetoothPanel() {
+  const panel = document.getElementById('bluetooth-panel');
+  if (!panel) return;
+  if (panel.classList.contains('hidden')) openBluetoothPanel();
+  else closeBluetoothPanel();
+}
+
+function renderBluetoothPanel() {
+  const empty = document.getElementById('bt-empty-state');
+  const content = document.getElementById('bt-panel-content');
+  const pairedList = document.getElementById('bt-paired-list');
+  const availableList = document.getElementById('bt-available-list');
+  const subtitle = document.getElementById('bt-panel-subtitle');
+  const footer = document.getElementById('bt-panel-footer');
+  if (!content) return;
+
+  if (!bluetoothEnabled) {
+    if (empty) empty.hidden = false;
+    content.hidden = true;
+    if (footer) footer.hidden = true;
+    if (subtitle) subtitle.textContent = 'Bluetooth desactivado';
+    refreshIcons();
+    return;
+  }
+
+  if (empty) empty.hidden = true;
+  content.hidden = false;
+  if (footer) footer.hidden = false;
+
+  const paired = BLUETOOTH_DEVICES.filter(d => d.paired);
+  const available = BLUETOOTH_DEVICES.filter(d => !d.paired);
+
+  if (pairedList) {
+    pairedList.innerHTML = paired.length
+      ? paired.map(d => getBluetoothDeviceHTML(d, 'paired')).join('')
+      : `<div class="network-empty-state" style="padding:20px 12px;"><small>No hay dispositivos emparejados.</small></div>`;
+  }
+
+  if (availableList) {
+    if (btScanInProgress) {
+      availableList.innerHTML = `
+        <div class="network-loading">
+          <i data-lucide="loader-circle" class="network-spinner"></i>
+          <span>Buscando dispositivos...</span>
+        </div>
+      `;
+    } else {
+      availableList.innerHTML = available.length
+        ? available.map(d => getBluetoothDeviceHTML(d, 'available')).join('')
+        : `<div class="network-empty-state" style="padding:20px 12px;"><small>No se encontraron dispositivos nuevos.</small></div>`;
+    }
+  }
+
+  if (subtitle) {
+    const connectedCount = BLUETOOTH_DEVICES.filter(d => d.connected).length;
+    subtitle.textContent = connectedCount > 0
+      ? `${connectedCount} dispositivo${connectedCount === 1 ? '' : 's'} conectado${connectedCount === 1 ? '' : 's'}`
+      : `${paired.length} emparejado${paired.length === 1 ? '' : 's'}`;
+  }
+
+  refreshIcons();
+}
+
+function getBluetoothDeviceHTML(device, mode = 'paired') {
+  const isConnected = device.connected;
+  const batteryClass = getBatteryClass(device.battery);
+
+  const iconHTML = `<i data-lucide="${device.icon}"></i>`;
+
+  const batteryHTML = (device.paired && device.battery > 0) ? `
+    <div class="network-battery ${batteryClass}" title="Batería: ${device.battery}%">
+      <div class="network-battery-bar">
+        <span class="network-battery-fill" style="width: ${device.battery}%;"></span>
+      </div>
+      <span>${device.battery}%</span>
+    </div>
+  ` : '';
+
+  let actionHTML = '';
+  if (mode === 'paired') {
+    if (isConnected) {
+      actionHTML = `
+        <button class="network-connect-btn disconnect" type="button"
+                onclick="event.stopPropagation(); disconnectBluetoothDevice('${device.id}')">
+          Desconectar
+        </button>
+      `;
+    } else {
+      actionHTML = `
+        <button class="network-connect-btn" type="button"
+                onclick="event.stopPropagation(); connectBluetoothDevice('${device.id}')">
+          Conectar
+        </button>
+      `;
+    }
+  } else {
+    actionHTML = `
+      <button class="network-connect-btn" type="button"
+              onclick="event.stopPropagation(); pairBluetoothDevice('${device.id}')">
+        Emparejar
+      </button>
+    `;
+  }
+
+  const forgetBtn = (mode === 'paired' && !isConnected) ? `
+    <button class="network-item-btn danger" type="button" title="Olvidar dispositivo"
+            onclick="event.stopPropagation(); forgetBluetoothDevice('${device.id}')">
+      <i data-lucide="trash-2"></i>
+    </button>
+  ` : '';
+
+  return `
+    <div class="network-item ${isConnected ? 'connected' : ''}" data-bt-id="${device.id}">
+      <div class="network-item-icon">${iconHTML}</div>
+      <div class="network-item-meta">
+        <div class="network-item-title">${escapeHtml(device.name)}</div>
+        <div class="network-item-sub">
+          ${isConnected ? 'Conectado' : (mode === 'paired' ? 'Emparejado' : 'Dispositivo cercano')}
+          ${batteryHTML ? ' · ' : ''}
+          ${batteryHTML}
+        </div>
+      </div>
+      <div class="network-item-actions">
+        ${forgetBtn}
+        ${actionHTML}
+      </div>
+    </div>
+  `;
+}
+
+function openNetworkSettings() {
+  closeWifiPanel();
+  openApp('settings');
+  settingsState.activeSettingsTab = 'system';
+  renderSettingsApp();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ FILES: Context Menu + Rename Modal + Move Menu
+═══════════════════════════════════════════════════════════════ */
+
+function ensureFsContextMenu() {
+  if (fsContextMenuEl) return fsContextMenuEl;
+  const el = document.createElement('div');
+  el.className = 'fs-context-menu';
+  document.body.appendChild(el);
+  fsContextMenuEl = el;
+  return el;
+}
+
+function hideFsContextMenu() {
+  if (fsContextMenuEl) {
+    fsContextMenuEl.classList.remove('open');
+    setTimeout(() => {
+      if (fsContextMenuEl) fsContextMenuEl.innerHTML = '';
+    }, 160);
+  }
+}
+
+function hideAllFsMoveMenus() {
+  document.querySelectorAll('.fs-context-menu').forEach(el => {
+    if (el === fsContextMenuEl) {
+      el.classList.remove('open');
+      setTimeout(() => { if (el) el.innerHTML = ''; }, 160);
+    } else {
+      el.remove();
+    }
+  });
+}
+
+function showFsContextMenu(ev, panel, targetItem, win) {
+  ev.preventDefault();
+  ev.stopPropagation();
+
+  const state = getFsPanelState(panel);
+
+  const menu = ensureFsContextMenu();
+  menu.innerHTML = '';
+
+  const isMulti = state.selected.size > 1;
+  const itemsCount = state.selected.size;
+
+  if (targetItem && !isMulti) {
+    const icon = targetItem.type === 'folder' ? 'folder' : targetItem.type === 'image' ? 'image' : targetItem.type === 'audio' ? 'music' : 'file-text';
+    const header = document.createElement('div');
+    header.className = 'fs-ctx-header';
+    header.innerHTML = `
+      <div class="fs-ctx-header-icon">
+        ${targetItem.type === 'image' && targetItem.path ? `<img src="${escapeHtml(targetItem.path)}" alt="" onerror="this.style.display='none';this.parentElement.innerHTML='<i data-lucide=\\'${icon}\\'></i>';" />` : `<i data-lucide="${icon}"></i>`}
+      </div>
+      <div class="fs-ctx-header-meta">
+        <div class="fs-ctx-header-title">${escapeHtml(targetItem.label || targetItem.name)}</div>
+        <div class="fs-ctx-header-sub">${targetItem.type === 'folder' ? 'Carpeta' : (targetItem.size || 'Archivo')}</div>
+      </div>
+    `;
+    menu.appendChild(header);
+  }
+
+  const appendItem = (opts) => {
+    const btn = document.createElement('button');
+    btn.className = 'fs-ctx-item' + (opts.danger ? ' danger' : '');
+    btn.type = 'button';
+    btn.innerHTML = `
+      <span class="fs-ctx-icon"><i data-lucide="${opts.icon}"></i></span>
+      <span class="fs-ctx-label">${escapeHtml(opts.label)}</span>
+      ${opts.shortcut ? `<span class="fs-ctx-shortcut">${escapeHtml(opts.shortcut)}</span>` : ''}
+    `;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hideFsContextMenu();
+      opts.action();
+    });
+    menu.appendChild(btn);
+  };
+
+  const appendSep = () => {
+    const sep = document.createElement('div');
+    sep.className = 'fs-ctx-sep';
+    menu.appendChild(sep);
+  };
+
+  if (targetItem && !isMulti) {
+    if (targetItem.type === 'folder') {
+      appendItem({
+        icon: 'folder-open',
+        label: 'Abrir carpeta',
+        action: () => fsOpenFolder(panel, targetItem)
+      });
+    } else if (targetItem.type === 'image') {
+      appendItem({
+        icon: 'image',
+        label: 'Establecer como fondo',
+        action: () => setCustomWallpaperFromFile(targetItem.path)
+      });
+    } else if (targetItem.type === 'audio') {
+      appendItem({
+        icon: 'play',
+        label: 'Reproducir',
+        action: () => SpotifyApp.togglePlayPause()
+      });
+    }
+
+    appendItem({
+      icon: 'pencil',
+      label: 'Renombrar',
+      shortcut: 'F2',
+      action: () => fsPromptRename(panel, targetItem)
+    });
+
+    appendSep();
+  }
+
+  const moveLabel = isMulti ? `Mover ${itemsCount} elementos a...` : 'Mover a...';
+  appendItem({
+    icon: 'folder-input',
+    label: moveLabel,
+    action: () => fsPromptMove(panel, isMulti ? Array.from(state.selected) : [targetItem])
+  });
+
+  if (targetItem && !isMulti) {
+    appendItem({
+      icon: 'check-square',
+      label: 'Seleccionar',
+      action: () => {
+        state.selected.clear();
+        state.selected.add(targetItem);
+        fsRefresh(panel);
+      }
+    });
+  }
+
+  if (itemsCount > 0) {
+    appendSep();
+    appendItem({
+      icon: 'trash-2',
+      label: isMulti ? `Eliminar ${itemsCount} elementos` : 'Eliminar',
+      shortcut: 'Supr',
+      danger: true,
+      action: () => fsDeleteSelection(panel)
+    });
+  }
+
+  appendSep();
+  appendItem({
+    icon: 'folder-plus',
+    label: 'Nueva carpeta aquí',
+    action: () => fsCreateFolder(panel)
+  });
+  appendItem({
+    icon: 'file-plus',
+    label: 'Nuevo archivo de texto',
+    action: () => fsCreateFile(panel)
+  });
+
+  menu.classList.add('open');
+  refreshIcons();
+
+  const rect = menu.getBoundingClientRect();
+  const margin = 10;
+  let left = ev.clientX;
+  let top = ev.clientY;
+  if (left + rect.width + margin > window.innerWidth) left = window.innerWidth - rect.width - margin;
+  if (top + rect.height + margin > window.innerHeight) top = window.innerHeight - rect.height - margin;
+  left = Math.max(margin, left);
+  top = Math.max(margin, top);
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+}
+
+function ensureFsRenameModal() {
+  if (fsRenameModalEl) return fsRenameModalEl;
+  const modal = document.createElement('div');
+  modal.className = 'fs-rename-modal';
+  modal.innerHTML = `
+    <div class="fs-rename-dialog">
+      <div class="fs-rename-header">
+        <div class="fs-rename-icon"><i data-lucide="pencil"></i></div>
+        <div>
+          <strong id="fs-rename-title">Renombrar</strong>
+          <small id="fs-rename-sub">Escribí el nuevo nombre</small>
+        </div>
+      </div>
+      <input class="fs-rename-input" id="fs-rename-input" type="text" maxlength="120" autocomplete="off">
+      <div class="fs-rename-actions">
+        <button class="fs-rename-btn" id="fs-rename-cancel" type="button">Cancelar</button>
+        <button class="fs-rename-btn primary" id="fs-rename-confirm" type="button">Confirmar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  fsRenameModalEl = modal;
+
+  const input = modal.querySelector('#fs-rename-input');
+  const cancel = modal.querySelector('#fs-rename-cancel');
+  const confirm = modal.querySelector('#fs-rename-confirm');
+
+  cancel.onclick = () => closeFsRenameModal();
+
+  modal.onmousedown = (e) => {
+    if (e.target === modal) closeFsRenameModal();
+  };
+
+  confirm.onclick = () => {
+    const value = input.value.trim();
+    const cb = fsRenameCallback;
+    if (typeof cb === 'function') {
+      const ok = cb(value);
+      if (ok !== false) closeFsRenameModal();
+    } else {
+      closeFsRenameModal();
+    }
+  };
+
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      confirm.click();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeFsRenameModal();
+    }
+  });
+  input.addEventListener('keyup', (e) => e.stopPropagation());
+  input.addEventListener('keypress', (e) => e.stopPropagation());
+
+  refreshIcons();
+  return modal;
+}
+
+function openFsRenameModal(opts) {
+  const { title = 'Renombrar', sub = 'Escribí el nuevo nombre', initial = '', onConfirm } = opts || {};
+  const modal = ensureFsRenameModal();
+  modal.querySelector('#fs-rename-title').textContent = title;
+  modal.querySelector('#fs-rename-sub').textContent = sub;
+  const input = modal.querySelector('#fs-rename-input');
+  input.value = initial;
+  fsRenameCallback = onConfirm;
+
+  modal.classList.add('open');
+  setTimeout(() => {
+    input.focus();
+    input.select();
+  }, 60);
+}
+
+function closeFsRenameModal() {
+  if (fsRenameModalEl) fsRenameModalEl.classList.remove('open');
+  fsRenameCallback = null;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ WEATHER: City Dropdown
+═══════════════════════════════════════════════════════════════ */
+
+function closeAllCityDropdowns() {
+  document.querySelectorAll('.weather-city-dropdown.open').forEach(d => {
+    d.classList.remove('open');
+    setTimeout(() => d.remove(), 180);
+  });
+}
+
+function buildCitySelectorHTML(widgetId, activeCityId) {
+  return WEATHER_CITIES.map(city => `
+    <button class="weather-city-option ${city.id === activeCityId ? 'active' : ''}"
+            type="button"
+            data-city-option="${city.id}"
+            data-widget-target="${widgetId}">
+      <span class="weather-city-option-name">${city.name}</span>
+      <span class="weather-city-option-region">${city.region}</span>
+      ${city.id === activeCityId ? '<i data-lucide="check" class="weather-city-option-check"></i>' : ''}
+    </button>
+  `).join('');
+}
+
+function openCityDropdown(widgetId, anchorEl) {
+  closeAllCityDropdowns();
+  const widget = desktopWidgets.find(w => w.id === widgetId);
+  if (!widget) return;
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'weather-city-dropdown';
+  dropdown.dataset.widgetId = widgetId;
+  dropdown.innerHTML = `
+    <div class="weather-city-dropdown-header">
+      <i data-lucide="map-pin"></i>
+      <span>Elegir ciudad</span>
+    </div>
+    <div class="weather-city-dropdown-list">
+      ${buildCitySelectorHTML(widgetId, widget.cityId || DEFAULT_WEATHER_CITY_ID)}
+    </div>
+  `;
+  document.body.appendChild(dropdown);
+
+  const rect = anchorEl.getBoundingClientRect();
+  const ddRect = dropdown.getBoundingClientRect();
+  let left = rect.left;
+  let top = rect.bottom + 6;
+
+  if (left + ddRect.width + 10 > window.innerWidth) {
+    left = window.innerWidth - ddRect.width - 10;
+  }
+  if (top + ddRect.height + 10 > window.innerHeight) {
+    top = rect.top - ddRect.height - 6;
+  }
+  left = Math.max(10, left);
+  top = Math.max(10, top);
+
+  dropdown.style.left = `${left}px`;
+  dropdown.style.top = `${top}px`;
+
+  dropdown.querySelectorAll('[data-city-option]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const cityId = btn.dataset.cityOption;
+      selectCityForWidget(widgetId, cityId);
+      closeAllCityDropdowns();
+    });
+  });
+
+  requestAnimationFrame(() => dropdown.classList.add('open'));
+  refreshIcons();
+}
+
+async function selectCityForWidget(widgetId, cityId) {
+  const widget = desktopWidgets.find(w => w.id === widgetId);
+  if (!widget) return;
+  if (widget.cityId === cityId) return;
+
+  widget.cityId = cityId;
+  saveDesktopWidgets();
+
+  const el = document.getElementById(widgetId);
+  if (!el) return;
+
+  const body = el.querySelector('.weather-body');
+  if (body) {
+    const iconWrap = body.querySelector('.weather-icon-wrap');
+    if (iconWrap) {
+      iconWrap.innerHTML = '<i data-lucide="loader-circle" class="weather-spinner"></i>';
+      iconWrap.style.color = 'var(--accent)';
+    }
+  }
+  refreshIcons();
+
+  const result = await fetchWeatherForCity(cityId, { force: false });
+  const data = result.ok ? result.data : null;
+
+  const body2 = el.querySelector('.weather-body');
+  if (body2) {
+    body2.outerHTML = renderWeatherWidgetHTML(widget, data);
+  }
+
+  refreshIcons();
+  attachWeatherWidgetListeners(widget.id);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ DELEGATED HANDLER: Manejo de errores de imagen
+═══════════════════════════════════════════════════════════════ */
+
+function handleImageError(e) {
+  if (!(e.target instanceof HTMLImageElement)) return;
+  e.target.classList.add('img-broken');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ PANEL DE AUDIO AVANZADO — Helpers y lógica
+═══════════════════════════════════════════════════════════════ */
+
+function loadAudioMixerState() {
+  try {
+    const raw = localStorage.getItem(AUDIO_PANEL_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.master === 'number') audioPanelState.master = parsed.master;
+        if (typeof parsed.masterMuted === 'boolean') audioPanelState.masterMuted = parsed.masterMuted;
+        if (parsed.activeDevice) audioPanelState.activeDevice = parsed.activeDevice;
+        if (parsed.appVolumes && typeof parsed.appVolumes === 'object') {
+          audioPanelState.appVolumes = parsed.appVolumes;
+        }
+      }
+    }
+  } catch (e) {}
+}
+
+function saveAudioMixerState() {
+  try {
+    const serializable = {
+      master: audioPanelState.master,
+      masterMuted: audioPanelState.masterMuted,
+      activeDevice: audioPanelState.activeDevice,
+      appVolumes: audioPanelState.appVolumes
+    };
+    localStorage.setItem(AUDIO_PANEL_STORAGE_KEY, JSON.stringify(serializable));
+  } catch (e) {}
+}
+
+function getAudioAppState(appId) {
+  if (!audioPanelState.appVolumes[appId]) {
+    const def = AUDIO_APP_DEFAULTS[appId] || { volume: 0.5, muted: false };
+    audioPanelState.appVolumes[appId] = { volume: def.volume, muted: def.muted };
+  }
+  return audioPanelState.appVolumes[appId];
+}
+
+function getActiveAudioApps() {
+  const apps = [];
+  const seen = new Set();
+
+  // ─── 1. Apps con ventana abierta ───
+  Object.keys(openWindows).forEach(winId => {
+    const entry = openWindows[winId];
+    if (!entry?.win) return;
+    const appId = entry.appId;
+    if (!appId || appId === 'store') return;
+    if (seen.has(appId)) return;
+    const app = APPS[appId];
+    if (!app) return;
+    seen.add(appId);
+    const count = getInstancesOfApp(appId).length;
+    apps.push({
+      id: appId,
+      title: app.title,
+      sub: app.sub || '',
+      icon: app.icon,
+      image: app.image,
+      accent: AUDIO_APP_ACCENTS[appId] || '#b4befe',
+      instances: count
+    });
+  });
+
+  // ─── 2. ★ Spotify "fantasma": aparece si hay track cargado o suena ───
+  //         (aunque no haya ventana abierta de la app music)
+  //         Esto cubre el caso del Topbar Player: si el topbar está
+  //         visible, significa que hay un track cargado → debe aparecer.
+  if (window.SpotifyApp && !seen.has('music')) {
+    const current = SpotifyApp.getCurrentTrack();
+    const hasTrack = !!current;
+    const isPlaying = spotify.isPlaying;
+
+    if (hasTrack || isPlaying) {
+      seen.add('music');
+      const musicApp = APPS.music;
+      apps.push({
+        id: 'music',
+        title: musicApp?.title || 'Spotify',
+        sub: isPlaying
+          ? `Reproduciendo · ${current?.title || 'cargando...'}`
+          : `En pausa · ${current?.title || '—'}`,
+        icon: musicApp?.icon || 'music',
+        image: musicApp?.image || null,
+        accent: AUDIO_APP_ACCENTS.music,
+        instances: 1,
+        virtual: true
+      });
+    }
+  }
+
+  // ─── 3. Sistema siempre presente ───
+  apps.push({
+    id: 'system',
+    title: 'Sistema',
+    sub: 'Sonidos del sistema',
+    icon: 'cpu',
+    image: null,
+    accent: AUDIO_APP_ACCENTS.system,
+    instances: 1,
+    isSystem: true
+  });
+
+  // ─── 4. Ordenar: Spotify primero, luego por instancias, luego alfabético ───
+  apps.sort((a, b) => {
+    if (a.id === 'music') return -1;
+    if (b.id === 'music') return 1;
+    if (a.isSystem) return 1;
+    if (b.isSystem) return -1;
+    return a.title.localeCompare(b.title);
+  });
+
+  return apps;
+}
+
+function setAudioMasterVolume(pct, { fromSpotify = false } = {}) {
+  const v = Math.max(0, Math.min(1, pct / 100));
+  audioPanelState.master = v;
+  audioPanelState.masterMuted = v === 0;
+
+  // Sincronizar con Spotify (fuente única de verdad)
+  if (window.SpotifyApp && !fromSpotify) {
+    if (SpotifyApp.isMuted() && v > 0) {
+      SpotifyApp.toggleMute();
+    }
+    SpotifyApp.setVolume(v);
+  }
+
+  // Sincronizar slider del Quick Center y tray
+  const qVol = document.getElementById('volume-slider');
+  if (qVol && Number(qVol.value) !== Math.round(v * 100)) {
+    qVol.value = String(Math.round(v * 100));
+    if (typeof syncSliderFill === 'function') syncSliderFill(qVol);
+  }
+  const qVal = document.getElementById('quick-volume-value');
+  if (qVal) qVal.textContent = `${Math.round(v * 100)}%`;
+  const trayNum = document.getElementById('tray-volume-num');
+  if (trayNum) trayNum.textContent = `${Math.round(v * 100)}%`;
+
+  updateTrayVolumeIcon();
+  updateAudioMasterUI();
+  saveAudioMixerState();
+}
+
+function toggleAudioMasterMute() {
+  if (audioPanelState.masterMuted || audioPanelState.master === 0) {
+    // Desmutear: restaurar último volumen o 80%
+    const restored = audioPanelState.master > 0 ? audioPanelState.master : 0.8;
+    audioPanelState.masterMuted = false;
+    setAudioMasterVolume(restored * 100);
+  } else {
+    // Mutear
+    audioPanelState.masterMuted = true;
+    if (window.SpotifyApp && !SpotifyApp.isMuted()) {
+      SpotifyApp.toggleMute();
+    }
+    audioPanelState.lastSpotifyVolume = audioPanelState.master;
+    updateAudioMasterUI();
+    updateTrayVolumeIcon();
+    saveAudioMixerState();
+  }
+}
+
+function setAppVolume(appId, pct) {
+  const v = Math.max(0, Math.min(1, pct / 100));
+  const state = getAudioAppState(appId);
+  state.volume = v;
+  if (v > 0 && state.muted) state.muted = false;
+
+  // Si es Spotify, aplicar real (multiplicado por master)
+  if (appId === 'music' && window.SpotifyApp) {
+    // Spotify ya se controla desde master, así que aquí solo guardamos el estado visual
+    // (Spotify solo tiene un volumen real; el master ya lo controla)
+    // Para hacerlo más realista, el volumen de Spotify es el master, así que este slider es decorativo
+  }
+
+  saveAudioMixerState();
+  updateAudioMixerItemUI(appId);
+  updateAudioPanelSubtitle();
+}
+
+function toggleAppMute(appId) {
+  const state = getAudioAppState(appId);
+  state.muted = !state.muted;
+  if (appId === 'music' && window.SpotifyApp) {
+    const isMuted = SpotifyApp.isMuted();
+    if (state.muted && !isMuted) SpotifyApp.toggleMute();
+    if (!state.muted && isMuted) SpotifyApp.toggleMute();
+  }
+  saveAudioMixerState();
+  updateAudioMixerItemUI(appId);
+}
+
+function selectAudioDevice(deviceId) {
+  const device = AUDIO_DEVICES.find(d => d.id === deviceId);
+  if (!device) return;
+  audioPanelState.activeDevice = deviceId;
+  saveAudioMixerState();
+  renderAudioPanel();
+  showToast('Dispositivo de Audio', `Salida → ${device.name}`, 'speaker');
+}
+
+function updateAudioMasterUI() {
+  const pct = Math.round(audioPanelState.master * 100);
+  const isMuted = audioPanelState.masterMuted || audioPanelState.master === 0;
+
+  const valEl = document.getElementById('audio-master-value');
+  if (valEl) valEl.textContent = isMuted ? 'Mute' : `${pct}%`;
+
+  const fill = document.getElementById('audio-master-fill');
+  if (fill) fill.style.width = `${isMuted ? 0 : pct}%`;
+
+  const knob = document.getElementById('audio-master-knob');
+  if (knob) knob.style.left = `${isMuted ? 0 : pct}%`;
+
+  const muteBtn = document.getElementById('audio-master-mute');
+  if (muteBtn) muteBtn.classList.toggle('muted', isMuted);
+
+  const muteIcon = document.getElementById('audio-master-mute-icon');
+  if (muteIcon) {
+    const iconName = isMuted ? 'volume-x' : (pct === 0 ? 'volume' : pct < 50 ? 'volume-1' : 'volume-2');
+    if (muteIcon.getAttribute('data-lucide') !== iconName) {
+      muteIcon.setAttribute('data-lucide', iconName);
+      if (typeof refreshIcons === 'function') refreshIcons();
+    }
+  }
+
+  const masterIcon = document.getElementById('audio-master-icon');
+  if (masterIcon) {
+    const iconName = isMuted ? 'volume-x' : (pct === 0 ? 'volume' : pct < 50 ? 'volume-1' : 'volume-2');
+    if (masterIcon.getAttribute('data-lucide') !== iconName) {
+      masterIcon.setAttribute('data-lucide', iconName);
+      if (typeof refreshIcons === 'function') refreshIcons();
+    }
+  }
+}
+
+function updateAudioMixerItemUI(appId) {
+  const item = document.querySelector(`.audio-mixer-item[data-app-id="${appId}"]`);
+  if (!item) return;
+  const state = getAudioAppState(appId);
+  const pct = Math.round(state.volume * 100);
+  const isMuted = state.muted;
+
+  const fill = item.querySelector('.audio-slider-fill');
+  if (fill) fill.style.width = `${isMuted ? 0 : pct}%`;
+  const knob = item.querySelector('.audio-slider-knob');
+  if (knob) knob.style.left = `${isMuted ? 0 : pct}%`;
+  const pctEl = item.querySelector('.audio-mixer-pct');
+  if (pctEl) pctEl.textContent = isMuted ? 'Mute' : `${pct}%`;
+  const muteBtn = item.querySelector('.audio-mini-btn');
+  if (muteBtn) muteBtn.classList.toggle('muted', isMuted);
+  item.classList.toggle('muted', isMuted);
+}
+
+function updateAudioPanelSubtitle() {
+  const apps = getActiveAudioApps().filter(a => !a.isSystem);
+  const count = apps.length;
+  const el = document.getElementById('audio-panel-subtitle');
+  if (el) {
+    el.textContent = count === 0
+      ? 'Sin aplicaciones abiertas'
+      : `${count} aplicación${count === 1 ? '' : 'es'} con audio`;
+  }
+  const countEl = document.getElementById('audio-apps-count');
+  if (countEl) countEl.textContent = String(count);
+}
+
+function renderAudioPanel() {
+  const listEl = document.getElementById('audio-mixer-list');
+  const devicesEl = document.getElementById('audio-devices-list');
+  if (!listEl || !devicesEl) return;
+
+  // 1. Master
+  updateAudioMasterUI();
+
+  // 2. Apps
+  const apps = getActiveAudioApps();
+  const visibleApps = apps.filter(a => !a.isSystem);
+
+  if (visibleApps.length === 0 && !apps.find(a => a.isSystem)) {
+    listEl.innerHTML = `
+      <div class="audio-mixer-empty">
+        <strong>Sin aplicaciones con audio</strong>
+        Abrí alguna app desde el dock para verla acá.
+      </div>
+    `;
+  } else {
+    // Sistema siempre visible
+    const allToRender = apps;
+
+    listEl.innerHTML = allToRender.map(app => {
+      const state = getAudioAppState(app.id);
+      const pct = Math.round(state.volume * 100);
+      const isMuted = state.muted;
+      const iconHTML = app.image
+        ? `<img src="${escapeHtml(app.image)}" alt="" onerror="this.style.display='none'; this.parentElement.innerHTML='<i data-lucide=\\'${app.icon}\\'></i>'; refreshIcons();" />`
+        : `<i data-lucide="${app.icon}"></i>`;
+      const instancesBadge = app.instances > 1
+        ? `<span class="audio-mixer-instances">${app.instances}×</span>`
+        : '';
+
+      const showVisualizer = app.id === 'music';
+
+      return `
+        <div class="audio-mixer-item ${isMuted ? 'muted' : ''}"
+             data-app-id="${app.id}"
+             style="--app-audio-accent: ${app.accent};">
+          <div class="audio-mixer-head">
+            <div class="audio-mixer-icon">${iconHTML}</div>
+            <div class="audio-mixer-info">
+              <div class="audio-mixer-title">
+                <strong>${escapeHtml(app.title)}</strong>
+                ${instancesBadge}
+              </div>
+              <span class="audio-mixer-sub">${escapeHtml(app.sub || 'Aplicación')}</span>
+            </div>
+            <div class="audio-mixer-value">
+              <span class="audio-mixer-pct">${isMuted ? 'Mute' : `${pct}%`}</span>
+            </div>
+          </div>
+
+          <div class="audio-slider-row">
+            <button class="audio-mini-btn ${isMuted ? 'muted' : ''}"
+                    type="button"
+                    data-app-mute="${app.id}"
+                    title="${isMuted ? 'Activar' : 'Silenciar'}">
+              <i data-lucide="${isMuted ? 'volume-x' : 'volume-2'}"></i>
+            </button>
+            <div class="audio-slider-track" data-app-slider="${app.id}">
+              <div class="audio-slider-fill" style="width: ${isMuted ? 0 : pct}%"></div>
+              <div class="audio-slider-knob" style="left: ${isMuted ? 0 : pct}%"></div>
+            </div>
+          </div>
+
+          ${showVisualizer ? `
+            <div class="audio-mixer-visualizer" data-audio-visualizer>
+              ${Array.from({ length: 32 }).map(() => `<span class="audio-mixer-visualizer-bar" style="height: 8%"></span>`).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 3. Devices
+  devicesEl.innerHTML = AUDIO_DEVICES.map(device => {
+    const isActive = audioPanelState.activeDevice === device.id;
+    return `
+      <button class="audio-device-item ${isActive ? 'active' : ''}"
+              type="button"
+              data-audio-device="${device.id}">
+        <div class="audio-device-icon"><i data-lucide="${device.icon}"></i></div>
+        <div class="audio-device-info">
+          <span class="audio-device-name">${escapeHtml(device.name)}</span>
+          <span class="audio-device-sub">${escapeHtml(device.sub)}</span>
+        </div>
+        <span class="audio-device-check"><i data-lucide="check"></i></span>
+      </button>
+    `;
+  }).join('');
+
+  updateAudioPanelSubtitle();
+
+  // Bind events
+  bindAudioPanelEvents();
+
+  if (typeof refreshIcons === 'function') refreshIcons();
+}
+
+function bindAudioPanelEvents() {
+  // Master slider
+  const masterTrack = document.getElementById('audio-master-slider');
+  if (masterTrack && !masterTrack.dataset.bound) {
+    masterTrack.dataset.bound = '1';
+    bindAudioSlider(masterTrack, (pct) => setAudioMasterVolume(pct));
+  }
+
+  // Master mute
+  const masterMute = document.getElementById('audio-master-mute');
+  if (masterMute && !masterMute.dataset.bound) {
+    masterMute.dataset.bound = '1';
+    masterMute.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleAudioMasterMute();
+    });
+  }
+
+  // App sliders
+  document.querySelectorAll('[data-app-slider]').forEach(track => {
+    if (track.dataset.bound) return;
+    track.dataset.bound = '1';
+    const appId = track.dataset.appSlider;
+    bindAudioSlider(track, (pct) => setAppVolume(appId, pct));
+  });
+
+  // App mute buttons
+  document.querySelectorAll('[data-app-mute]').forEach(btn => {
+    if (btn.dataset.bound) return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleAppMute(btn.dataset.appMute);
+    });
+  });
+
+  // Devices
+  document.querySelectorAll('[data-audio-device]').forEach(btn => {
+    if (btn.dataset.bound) return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectAudioDevice(btn.dataset.audioDevice);
+    });
+  });
+}
+
+function bindAudioSlider(trackEl, onChange) {
+  const computePct = (clientX) => {
+    const rect = trackEl.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    return pct;
+  };
+
+  const onMove = (e) => {
+    const pct = computePct(e.clientX);
+    onChange(pct);
+  };
+
+  const onDown = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    trackEl.classList.add('dragging');
+    onMove(e);
+
+    const onUp = () => {
+      trackEl.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  trackEl.addEventListener('mousedown', onDown);
+
+  // Touch support
+  const onTouchMove = (e) => {
+    if (e.touches && e.touches[0]) {
+      const pct = computePct(e.touches[0].clientX);
+      onChange(pct);
+    }
+  };
+  trackEl.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    trackEl.classList.add('dragging');
+    onTouchMove(e);
+    const onTouchEnd = () => {
+      trackEl.classList.remove('dragging');
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
+    };
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
+  }, { passive: false });
+}
+
+function openAudioPanel() {
+  const panel = document.getElementById('audio-panel');
+  if (!panel) return;
+
+  // Cerrar otros paneles
+  if (typeof closeWifiPanel === 'function') closeWifiPanel();
+  if (typeof closeBluetoothPanel === 'function') closeBluetoothPanel();
+  if (typeof closeNotificationCenter === 'function') closeNotificationCenter();
+  if (typeof closeQuickCenter === 'function') closeQuickCenter();
+  if (typeof closeControlCenter === 'function') closeControlCenter();
+
+  panel.classList.remove('hidden');
+  renderAudioPanel();
+  startAudioPeakMeter();
+  if (typeof refreshIcons === 'function') refreshIcons();
+}
+
+function closeAudioPanel() {
+  const panel = document.getElementById('audio-panel');
+  if (!panel) return;
+  panel.classList.add('hidden');
+  stopAudioPeakMeter();
+}
+
+function toggleAudioPanel() {
+  const panel = document.getElementById('audio-panel');
+  if (!panel) return;
+  if (panel.classList.contains('hidden')) openAudioPanel();
+  else closeAudioPanel();
+}
+
+function updateTrayVolumeIcon() {
+  const iconEl = document.querySelector('#tray-volume-item i, #tray-volume-item svg');
+  if (!iconEl) return;
+  const pct = Math.round(audioPanelState.master * 100);
+  const isMuted = audioPanelState.masterMuted || audioPanelState.master === 0;
+  const iconName = isMuted ? 'volume-x' : (pct < 20 ? 'volume' : pct < 50 ? 'volume-1' : 'volume-2');
+  if (iconEl.getAttribute('data-lucide') !== iconName) {
+    iconEl.outerHTML = `<i data-lucide="${iconName}" class="tray-icon"></i>`;
+    if (typeof refreshIcons === 'function') refreshIcons();
+  }
+}
+
+/* ─── Peak meter (visualizador L/R) ─── */
+function startAudioPeakMeter() {
+  if (audioPanelState.peakRafId !== null) return;
+  const tick = () => {
+    audioPanelState.peakRafId = requestAnimationFrame(tick);
+    updateAudioPeakMeter();
+  };
+  audioPanelState.peakRafId = requestAnimationFrame(tick);
+}
+
+function stopAudioPeakMeter() {
+  if (audioPanelState.peakRafId !== null) {
+    cancelAnimationFrame(audioPanelState.peakRafId);
+    audioPanelState.peakRafId = null;
+  }
+  audioPanelState.peakSmoothL = 0;
+  audioPanelState.peakSmoothR = 0;
+  const l = document.getElementById('audio-peak-l');
+  const r = document.getElementById('audio-peak-r');
+  const lv = document.getElementById('audio-peak-l-value');
+  const rv = document.getElementById('audio-peak-r-value');
+  if (l) l.style.width = '0%';
+  if (r) r.style.width = '0%';
+  if (lv) lv.textContent = '-∞ dB';
+  if (rv) rv.textContent = '-∞ dB';
+}
+
+function updateAudioPeakMeter() {
+  let levelL = 0;
+  let levelR = 0;
+
+  if (window.SpotifyApp && SpotifyApp.isPlaying()) {
+    const data = SpotifyApp.getAnalyserData();
+    if (data && data.length > 0) {
+      // Tomamos la mitad izquierda y derecha del espectro como aproximación
+      const half = Math.floor(data.length / 2);
+      let sumL = 0, sumR = 0;
+      for (let i = 0; i < half; i++) sumL += data[i];
+      for (let i = half; i < data.length; i++) sumR += data[i];
+      levelL = sumL / half / 255;
+      levelR = sumR / (data.length - half) / 255;
+    }
+  } else {
+    // Sin música: pequeño ruido aleatorio para dar vida
+    levelL = Math.random() * 0.05;
+    levelR = Math.random() * 0.05;
+  }
+
+  // Suavizado
+  audioPanelState.peakSmoothL += (levelL - audioPanelState.peakSmoothL) * 0.35;
+  audioPanelState.peakSmoothR += (levelR - audioPanelState.peakSmoothR) * 0.35;
+
+  const pctL = Math.min(100, audioPanelState.peakSmoothL * 100);
+  const pctR = Math.min(100, audioPanelState.peakSmoothR * 100);
+
+  const l = document.getElementById('audio-peak-l');
+  const r = document.getElementById('audio-peak-r');
+  if (l) l.style.width = `${pctL}%`;
+  if (r) r.style.width = `${pctR}%`;
+
+  // dB aproximado (aproximación lineal)
+  const dbFromPct = (pct) => {
+    if (pct <= 1) return '-∞ dB';
+    const db = 20 * Math.log10(pct / 100);
+    if (db < -60) return '-∞ dB';
+    return `${db.toFixed(0)} dB`;
+  };
+
+  const lv = document.getElementById('audio-peak-l-value');
+  const rv = document.getElementById('audio-peak-r-value');
+  if (lv) lv.textContent = dbFromPct(pctL);
+  if (rv) rv.textContent = dbFromPct(pctR);
+
+  // Actualizar visualizador de Spotify en el mixer
+  const viz = document.querySelector('[data-audio-visualizer]');
+  if (viz) {
+    const bars = viz.querySelectorAll('.audio-mixer-visualizer-bar');
+    if (bars.length > 0 && window.SpotifyApp && SpotifyApp.isPlaying()) {
+      const data = SpotifyApp.getAnalyserData();
+      if (data && data.length > 0) {
+        const step = Math.floor(data.length / bars.length);
+        bars.forEach((bar, i) => {
+          const v = data[i * step] / 255;
+          const h = Math.max(8, v * 100);
+          bar.style.height = `${h}%`;
+        });
+      }
+    } else if (bars.length > 0) {
+      bars.forEach((bar, i) => {
+        const h = 8 + Math.random() * 12;
+        bar.style.height = `${h}%`;
+      });
+    }
+  }
+}
+
+/* ─── Sync con Spotify ─── */
+function syncAudioPanelWithSpotify() {
+  if (!window.SpotifyApp) return;
+  const spotifyVol = SpotifyApp.getVolume();
+  const spotifyMuted = SpotifyApp.isMuted();
+
+  // Si Spotify cambió de volumen (ej: desde el Quick Center), sincronizar master
+  const expected = Math.round(audioPanelState.master * 100);
+  const actual = Math.round(spotifyVol * 100);
+  if (actual !== expected) {
+    audioPanelState.master = spotifyVol;
+    audioPanelState.masterMuted = spotifyMuted;
+    updateAudioMasterUI();
+    updateTrayVolumeIcon();
+    saveAudioMixerState();
+  }
+
+  // Sync estado visual de Spotify en el mixer
+  const spotifyAppState = getAudioAppState('music');
+  if (spotifyMuted !== spotifyAppState.muted) {
+    spotifyAppState.muted = spotifyMuted;
+    updateAudioMixerItemUI('music');
+  }
+}
+
+/* ─── Reset ─── */
+function resetAudioMixer() {
+  audioPanelState.master = 0.80;
+  audioPanelState.masterMuted = false;
+  audioPanelState.appVolumes = {};
+  audioPanelState.activeDevice = 'speakers';
+  saveAudioMixerState();
+
+  if (window.SpotifyApp) {
+    if (SpotifyApp.isMuted()) SpotifyApp.toggleMute();
+    SpotifyApp.setVolume(0.80);
+  }
+  const qVol = document.getElementById('volume-slider');
+  if (qVol) {
+    qVol.value = '80';
+    if (typeof syncSliderFill === 'function') syncSliderFill(qVol);
+  }
+  const qVal = document.getElementById('quick-volume-value');
+  if (qVal) qVal.textContent = '80%';
+  const trayNum = document.getElementById('tray-volume-num');
+  if (trayNum) trayNum.textContent = '80%';
+
+  updateTrayVolumeIcon();
+  renderAudioPanel();
+  showToast('Mezclador restablecido', 'Volúmenes por defecto restaurados.', 'rotate-ccw');
+}
+
+function openAudioSettings() {
+  closeAudioPanel();
+  if (typeof openApp === 'function') {
+    openApp('settings');
+    if (typeof settingsState !== 'undefined') {
+      settingsState.activeSettingsTab = 'system';
+      if (typeof renderSettingsApp === 'function') renderSettingsApp();
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ PARTE 9/10 — FEATURES DEL SISTEMA
+   ═══════════════════════════════════════════════════════════════
+   Designer · Wallpapers · Stars · Game Mode+HUD · Store ·
+   WiFi/BT · DND · Brightness · Perfiles · Fondos animados
    ═══════════════════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════════════
@@ -19103,37 +17734,6 @@ function toggleGameMode(explicitState = null) {
  * Sincroniza el estado visual de Game Mode en TODOS los puntos de la UI:
  *   - Quick Center (pill switch #gamemode-toggle)
  *   - HUD Overlay (botón #hud-gamemode-toggle + texto #hud-gamemode-text)
- *   - Topbar (badge #topbar-gamemode-badge)
- */
-function syncGameModeUI() {
-  // 1) Quick Center — pill switch
-  const gmToggle = document.getElementById('gamemode-toggle');
-  if (gmToggle) {
-    gmToggle.classList.toggle('active', gameModeActive);
-    gmToggle.setAttribute('aria-pressed', String(gameModeActive));
-  }
-
-  // 2) HUD Overlay — botón y texto
-  const hudGmBtn = document.getElementById('hud-gamemode-toggle');
-  const hudGmText = document.getElementById('hud-gamemode-text');
-  if (hudGmBtn) {
-    hudGmBtn.classList.toggle('active', gameModeActive);
-  }
-  if (hudGmText) {
-    hudGmText.textContent = `Modo Juego: ${gameModeActive ? 'ON' : 'OFF'}`;
-  }
-
-  // 3) Topbar — badge
-  const topbarBadge = document.getElementById('topbar-gamemode-badge');
-  if (topbarBadge) {
-    topbarBadge.style.display = gameModeActive ? 'flex' : 'none';
-  }
-}
-
-/**
- * Sincroniza el estado visual de Game Mode en TODOS los puntos de la UI:
- *   - Quick Center (pill switch #gamemode-toggle)
- *   - HUD Overlay (botón pill #hud-gamemode-toggle + texto #hud-gamemode-text)
  *   - Topbar (badge #topbar-gamemode-badge)
  *   - Game Library (si está abierta, refresca su badge)
  */
@@ -19947,684 +18547,6 @@ function applyBrightness(val) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ★ PANEL DE AUDIO AVANZADO — Helpers y lógica
-   ═══════════════════════════════════════════════════════════════ */
-
-function loadAudioMixerState() {
-  try {
-    const raw = localStorage.getItem(AUDIO_PANEL_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        if (typeof parsed.master === 'number') audioPanelState.master = parsed.master;
-        if (typeof parsed.masterMuted === 'boolean') audioPanelState.masterMuted = parsed.masterMuted;
-        if (parsed.activeDevice) audioPanelState.activeDevice = parsed.activeDevice;
-        if (parsed.appVolumes && typeof parsed.appVolumes === 'object') {
-          audioPanelState.appVolumes = parsed.appVolumes;
-        }
-      }
-    }
-  } catch (e) {}
-}
-
-function saveAudioMixerState() {
-  try {
-    const serializable = {
-      master: audioPanelState.master,
-      masterMuted: audioPanelState.masterMuted,
-      activeDevice: audioPanelState.activeDevice,
-      appVolumes: audioPanelState.appVolumes
-    };
-    localStorage.setItem(AUDIO_PANEL_STORAGE_KEY, JSON.stringify(serializable));
-  } catch (e) {}
-}
-
-function getAudioAppState(appId) {
-  if (!audioPanelState.appVolumes[appId]) {
-    const def = AUDIO_APP_DEFAULTS[appId] || { volume: 0.5, muted: false };
-    audioPanelState.appVolumes[appId] = { volume: def.volume, muted: def.muted };
-  }
-  return audioPanelState.appVolumes[appId];
-}
-
-function getActiveAudioApps() {
-  const apps = [];
-  const seen = new Set();
-
-  // ─── 1. Apps con ventana abierta ───
-  Object.keys(openWindows).forEach(winId => {
-    const entry = openWindows[winId];
-    if (!entry?.win) return;
-    const appId = entry.appId;
-    if (!appId || appId === 'store') return;
-    if (seen.has(appId)) return;
-    const app = APPS[appId];
-    if (!app) return;
-    seen.add(appId);
-    const count = getInstancesOfApp(appId).length;
-    apps.push({
-      id: appId,
-      title: app.title,
-      sub: app.sub || '',
-      icon: app.icon,
-      image: app.image,
-      accent: AUDIO_APP_ACCENTS[appId] || '#b4befe',
-      instances: count
-    });
-  });
-
-  // ─── 2. ★ Spotify "fantasma": aparece si hay track cargado o suena ───
-  //         (aunque no haya ventana abierta de la app music)
-  //         Esto cubre el caso del Topbar Player: si el topbar está
-  //         visible, significa que hay un track cargado → debe aparecer.
-  if (window.SpotifyApp && !seen.has('music')) {
-    const current = SpotifyApp.getCurrentTrack();
-    const hasTrack = !!current;
-    const isPlaying = spotify.isPlaying;
-
-    if (hasTrack || isPlaying) {
-      seen.add('music');
-      const musicApp = APPS.music;
-      apps.push({
-        id: 'music',
-        title: musicApp?.title || 'Spotify',
-        sub: isPlaying
-          ? `Reproduciendo · ${current?.title || 'cargando...'}`
-          : `En pausa · ${current?.title || '—'}`,
-        icon: musicApp?.icon || 'music',
-        image: musicApp?.image || null,
-        accent: AUDIO_APP_ACCENTS.music,
-        instances: 1,
-        virtual: true
-      });
-    }
-  }
-
-  // ─── 3. Sistema siempre presente ───
-  apps.push({
-    id: 'system',
-    title: 'Sistema',
-    sub: 'Sonidos del sistema',
-    icon: 'cpu',
-    image: null,
-    accent: AUDIO_APP_ACCENTS.system,
-    instances: 1,
-    isSystem: true
-  });
-
-  // ─── 4. Ordenar: Spotify primero, luego por instancias, luego alfabético ───
-  apps.sort((a, b) => {
-    if (a.id === 'music') return -1;
-    if (b.id === 'music') return 1;
-    if (a.isSystem) return 1;
-    if (b.isSystem) return -1;
-    return a.title.localeCompare(b.title);
-  });
-
-  return apps;
-}
-
-function setAudioMasterVolume(pct, { fromSpotify = false } = {}) {
-  const v = Math.max(0, Math.min(1, pct / 100));
-  audioPanelState.master = v;
-  audioPanelState.masterMuted = v === 0;
-
-  // Sincronizar con Spotify (fuente única de verdad)
-  if (window.SpotifyApp && !fromSpotify) {
-    if (SpotifyApp.isMuted() && v > 0) {
-      SpotifyApp.toggleMute();
-    }
-    SpotifyApp.setVolume(v);
-  }
-
-  // Sincronizar slider del Quick Center y tray
-  const qVol = document.getElementById('volume-slider');
-  if (qVol && Number(qVol.value) !== Math.round(v * 100)) {
-    qVol.value = String(Math.round(v * 100));
-    if (typeof syncSliderFill === 'function') syncSliderFill(qVol);
-  }
-  const qVal = document.getElementById('quick-volume-value');
-  if (qVal) qVal.textContent = `${Math.round(v * 100)}%`;
-  const trayNum = document.getElementById('tray-volume-num');
-  if (trayNum) trayNum.textContent = `${Math.round(v * 100)}%`;
-
-  updateTrayVolumeIcon();
-  updateAudioMasterUI();
-  saveAudioMixerState();
-}
-
-function toggleAudioMasterMute() {
-  if (audioPanelState.masterMuted || audioPanelState.master === 0) {
-    // Desmutear: restaurar último volumen o 80%
-    const restored = audioPanelState.master > 0 ? audioPanelState.master : 0.8;
-    audioPanelState.masterMuted = false;
-    setAudioMasterVolume(restored * 100);
-  } else {
-    // Mutear
-    audioPanelState.masterMuted = true;
-    if (window.SpotifyApp && !SpotifyApp.isMuted()) {
-      SpotifyApp.toggleMute();
-    }
-    audioPanelState.lastSpotifyVolume = audioPanelState.master;
-    updateAudioMasterUI();
-    updateTrayVolumeIcon();
-    saveAudioMixerState();
-  }
-}
-
-function setAppVolume(appId, pct) {
-  const v = Math.max(0, Math.min(1, pct / 100));
-  const state = getAudioAppState(appId);
-  state.volume = v;
-  if (v > 0 && state.muted) state.muted = false;
-
-  // Si es Spotify, aplicar real (multiplicado por master)
-  if (appId === 'music' && window.SpotifyApp) {
-    // Spotify ya se controla desde master, así que aquí solo guardamos el estado visual
-    // (Spotify solo tiene un volumen real; el master ya lo controla)
-    // Para hacerlo más realista, el volumen de Spotify es el master, así que este slider es decorativo
-  }
-
-  saveAudioMixerState();
-  updateAudioMixerItemUI(appId);
-  updateAudioPanelSubtitle();
-}
-
-function toggleAppMute(appId) {
-  const state = getAudioAppState(appId);
-  state.muted = !state.muted;
-  if (appId === 'music' && window.SpotifyApp) {
-    const isMuted = SpotifyApp.isMuted();
-    if (state.muted && !isMuted) SpotifyApp.toggleMute();
-    if (!state.muted && isMuted) SpotifyApp.toggleMute();
-  }
-  saveAudioMixerState();
-  updateAudioMixerItemUI(appId);
-}
-
-function selectAudioDevice(deviceId) {
-  const device = AUDIO_DEVICES.find(d => d.id === deviceId);
-  if (!device) return;
-  audioPanelState.activeDevice = deviceId;
-  saveAudioMixerState();
-  renderAudioPanel();
-  showToast('Dispositivo de Audio', `Salida → ${device.name}`, 'speaker');
-}
-
-function updateAudioMasterUI() {
-  const pct = Math.round(audioPanelState.master * 100);
-  const isMuted = audioPanelState.masterMuted || audioPanelState.master === 0;
-
-  const valEl = document.getElementById('audio-master-value');
-  if (valEl) valEl.textContent = isMuted ? 'Mute' : `${pct}%`;
-
-  const fill = document.getElementById('audio-master-fill');
-  if (fill) fill.style.width = `${isMuted ? 0 : pct}%`;
-
-  const knob = document.getElementById('audio-master-knob');
-  if (knob) knob.style.left = `${isMuted ? 0 : pct}%`;
-
-  const muteBtn = document.getElementById('audio-master-mute');
-  if (muteBtn) muteBtn.classList.toggle('muted', isMuted);
-
-  const muteIcon = document.getElementById('audio-master-mute-icon');
-  if (muteIcon) {
-    const iconName = isMuted ? 'volume-x' : (pct === 0 ? 'volume' : pct < 50 ? 'volume-1' : 'volume-2');
-    if (muteIcon.getAttribute('data-lucide') !== iconName) {
-      muteIcon.setAttribute('data-lucide', iconName);
-      if (typeof refreshIcons === 'function') refreshIcons();
-    }
-  }
-
-  const masterIcon = document.getElementById('audio-master-icon');
-  if (masterIcon) {
-    const iconName = isMuted ? 'volume-x' : (pct === 0 ? 'volume' : pct < 50 ? 'volume-1' : 'volume-2');
-    if (masterIcon.getAttribute('data-lucide') !== iconName) {
-      masterIcon.setAttribute('data-lucide', iconName);
-      if (typeof refreshIcons === 'function') refreshIcons();
-    }
-  }
-}
-
-function updateAudioMixerItemUI(appId) {
-  const item = document.querySelector(`.audio-mixer-item[data-app-id="${appId}"]`);
-  if (!item) return;
-  const state = getAudioAppState(appId);
-  const pct = Math.round(state.volume * 100);
-  const isMuted = state.muted;
-
-  const fill = item.querySelector('.audio-slider-fill');
-  if (fill) fill.style.width = `${isMuted ? 0 : pct}%`;
-  const knob = item.querySelector('.audio-slider-knob');
-  if (knob) knob.style.left = `${isMuted ? 0 : pct}%`;
-  const pctEl = item.querySelector('.audio-mixer-pct');
-  if (pctEl) pctEl.textContent = isMuted ? 'Mute' : `${pct}%`;
-  const muteBtn = item.querySelector('.audio-mini-btn');
-  if (muteBtn) muteBtn.classList.toggle('muted', isMuted);
-  item.classList.toggle('muted', isMuted);
-}
-
-function updateAudioPanelSubtitle() {
-  const apps = getActiveAudioApps().filter(a => !a.isSystem);
-  const count = apps.length;
-  const el = document.getElementById('audio-panel-subtitle');
-  if (el) {
-    el.textContent = count === 0
-      ? 'Sin aplicaciones abiertas'
-      : `${count} aplicación${count === 1 ? '' : 'es'} con audio`;
-  }
-  const countEl = document.getElementById('audio-apps-count');
-  if (countEl) countEl.textContent = String(count);
-}
-
-function renderAudioPanel() {
-  const listEl = document.getElementById('audio-mixer-list');
-  const devicesEl = document.getElementById('audio-devices-list');
-  if (!listEl || !devicesEl) return;
-
-  // 1. Master
-  updateAudioMasterUI();
-
-  // 2. Apps
-  const apps = getActiveAudioApps();
-  const visibleApps = apps.filter(a => !a.isSystem);
-
-  if (visibleApps.length === 0 && !apps.find(a => a.isSystem)) {
-    listEl.innerHTML = `
-      <div class="audio-mixer-empty">
-        <strong>Sin aplicaciones con audio</strong>
-        Abrí alguna app desde el dock para verla acá.
-      </div>
-    `;
-  } else {
-    // Sistema siempre visible
-    const allToRender = apps;
-
-    listEl.innerHTML = allToRender.map(app => {
-      const state = getAudioAppState(app.id);
-      const pct = Math.round(state.volume * 100);
-      const isMuted = state.muted;
-      const iconHTML = app.image
-        ? `<img src="${escapeHtml(app.image)}" alt="" onerror="this.style.display='none'; this.parentElement.innerHTML='<i data-lucide=\\'${app.icon}\\'></i>'; refreshIcons();" />`
-        : `<i data-lucide="${app.icon}"></i>`;
-      const instancesBadge = app.instances > 1
-        ? `<span class="audio-mixer-instances">${app.instances}×</span>`
-        : '';
-
-      const showVisualizer = app.id === 'music';
-
-      return `
-        <div class="audio-mixer-item ${isMuted ? 'muted' : ''}"
-             data-app-id="${app.id}"
-             style="--app-audio-accent: ${app.accent};">
-          <div class="audio-mixer-head">
-            <div class="audio-mixer-icon">${iconHTML}</div>
-            <div class="audio-mixer-info">
-              <div class="audio-mixer-title">
-                <strong>${escapeHtml(app.title)}</strong>
-                ${instancesBadge}
-              </div>
-              <span class="audio-mixer-sub">${escapeHtml(app.sub || 'Aplicación')}</span>
-            </div>
-            <div class="audio-mixer-value">
-              <span class="audio-mixer-pct">${isMuted ? 'Mute' : `${pct}%`}</span>
-            </div>
-          </div>
-
-          <div class="audio-slider-row">
-            <button class="audio-mini-btn ${isMuted ? 'muted' : ''}"
-                    type="button"
-                    data-app-mute="${app.id}"
-                    title="${isMuted ? 'Activar' : 'Silenciar'}">
-              <i data-lucide="${isMuted ? 'volume-x' : 'volume-2'}"></i>
-            </button>
-            <div class="audio-slider-track" data-app-slider="${app.id}">
-              <div class="audio-slider-fill" style="width: ${isMuted ? 0 : pct}%"></div>
-              <div class="audio-slider-knob" style="left: ${isMuted ? 0 : pct}%"></div>
-            </div>
-          </div>
-
-          ${showVisualizer ? `
-            <div class="audio-mixer-visualizer" data-audio-visualizer>
-              ${Array.from({ length: 32 }).map(() => `<span class="audio-mixer-visualizer-bar" style="height: 8%"></span>`).join('')}
-            </div>
-          ` : ''}
-        </div>
-      `;
-    }).join('');
-  }
-
-  // 3. Devices
-  devicesEl.innerHTML = AUDIO_DEVICES.map(device => {
-    const isActive = audioPanelState.activeDevice === device.id;
-    return `
-      <button class="audio-device-item ${isActive ? 'active' : ''}"
-              type="button"
-              data-audio-device="${device.id}">
-        <div class="audio-device-icon"><i data-lucide="${device.icon}"></i></div>
-        <div class="audio-device-info">
-          <span class="audio-device-name">${escapeHtml(device.name)}</span>
-          <span class="audio-device-sub">${escapeHtml(device.sub)}</span>
-        </div>
-        <span class="audio-device-check"><i data-lucide="check"></i></span>
-      </button>
-    `;
-  }).join('');
-
-  updateAudioPanelSubtitle();
-
-  // Bind events
-  bindAudioPanelEvents();
-
-  if (typeof refreshIcons === 'function') refreshIcons();
-}
-
-function bindAudioPanelEvents() {
-  // Master slider
-  const masterTrack = document.getElementById('audio-master-slider');
-  if (masterTrack && !masterTrack.dataset.bound) {
-    masterTrack.dataset.bound = '1';
-    bindAudioSlider(masterTrack, (pct) => setAudioMasterVolume(pct));
-  }
-
-  // Master mute
-  const masterMute = document.getElementById('audio-master-mute');
-  if (masterMute && !masterMute.dataset.bound) {
-    masterMute.dataset.bound = '1';
-    masterMute.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleAudioMasterMute();
-    });
-  }
-
-  // App sliders
-  document.querySelectorAll('[data-app-slider]').forEach(track => {
-    if (track.dataset.bound) return;
-    track.dataset.bound = '1';
-    const appId = track.dataset.appSlider;
-    bindAudioSlider(track, (pct) => setAppVolume(appId, pct));
-  });
-
-  // App mute buttons
-  document.querySelectorAll('[data-app-mute]').forEach(btn => {
-    if (btn.dataset.bound) return;
-    btn.dataset.bound = '1';
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleAppMute(btn.dataset.appMute);
-    });
-  });
-
-  // Devices
-  document.querySelectorAll('[data-audio-device]').forEach(btn => {
-    if (btn.dataset.bound) return;
-    btn.dataset.bound = '1';
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      selectAudioDevice(btn.dataset.audioDevice);
-    });
-  });
-}
-
-function bindAudioSlider(trackEl, onChange) {
-  const computePct = (clientX) => {
-    const rect = trackEl.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-    return pct;
-  };
-
-  const onMove = (e) => {
-    const pct = computePct(e.clientX);
-    onChange(pct);
-  };
-
-  const onDown = (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    trackEl.classList.add('dragging');
-    onMove(e);
-
-    const onUp = () => {
-      trackEl.classList.remove('dragging');
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-    };
-
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  };
-
-  trackEl.addEventListener('mousedown', onDown);
-
-  // Touch support
-  const onTouchMove = (e) => {
-    if (e.touches && e.touches[0]) {
-      const pct = computePct(e.touches[0].clientX);
-      onChange(pct);
-    }
-  };
-  trackEl.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    trackEl.classList.add('dragging');
-    onTouchMove(e);
-    const onTouchEnd = () => {
-      trackEl.classList.remove('dragging');
-      document.removeEventListener('touchmove', onTouchMove);
-      document.removeEventListener('touchend', onTouchEnd);
-    };
-    document.addEventListener('touchmove', onTouchMove, { passive: false });
-    document.addEventListener('touchend', onTouchEnd);
-  }, { passive: false });
-}
-
-function openAudioPanel() {
-  const panel = document.getElementById('audio-panel');
-  if (!panel) return;
-
-  // Cerrar otros paneles
-  if (typeof closeWifiPanel === 'function') closeWifiPanel();
-  if (typeof closeBluetoothPanel === 'function') closeBluetoothPanel();
-  if (typeof closeNotificationCenter === 'function') closeNotificationCenter();
-  if (typeof closeQuickCenter === 'function') closeQuickCenter();
-  if (typeof closeControlCenter === 'function') closeControlCenter();
-
-  panel.classList.remove('hidden');
-  renderAudioPanel();
-  startAudioPeakMeter();
-  if (typeof refreshIcons === 'function') refreshIcons();
-}
-
-function closeAudioPanel() {
-  const panel = document.getElementById('audio-panel');
-  if (!panel) return;
-  panel.classList.add('hidden');
-  stopAudioPeakMeter();
-}
-
-function toggleAudioPanel() {
-  const panel = document.getElementById('audio-panel');
-  if (!panel) return;
-  if (panel.classList.contains('hidden')) openAudioPanel();
-  else closeAudioPanel();
-}
-
-function updateTrayVolumeIcon() {
-  const iconEl = document.querySelector('#tray-volume-item i, #tray-volume-item svg');
-  if (!iconEl) return;
-  const pct = Math.round(audioPanelState.master * 100);
-  const isMuted = audioPanelState.masterMuted || audioPanelState.master === 0;
-  const iconName = isMuted ? 'volume-x' : (pct < 20 ? 'volume' : pct < 50 ? 'volume-1' : 'volume-2');
-  if (iconEl.getAttribute('data-lucide') !== iconName) {
-    iconEl.outerHTML = `<i data-lucide="${iconName}" class="tray-icon"></i>`;
-    if (typeof refreshIcons === 'function') refreshIcons();
-  }
-}
-
-/* ─── Peak meter (visualizador L/R) ─── */
-function startAudioPeakMeter() {
-  if (audioPanelState.peakRafId !== null) return;
-  const tick = () => {
-    audioPanelState.peakRafId = requestAnimationFrame(tick);
-    updateAudioPeakMeter();
-  };
-  audioPanelState.peakRafId = requestAnimationFrame(tick);
-}
-
-function stopAudioPeakMeter() {
-  if (audioPanelState.peakRafId !== null) {
-    cancelAnimationFrame(audioPanelState.peakRafId);
-    audioPanelState.peakRafId = null;
-  }
-  audioPanelState.peakSmoothL = 0;
-  audioPanelState.peakSmoothR = 0;
-  const l = document.getElementById('audio-peak-l');
-  const r = document.getElementById('audio-peak-r');
-  const lv = document.getElementById('audio-peak-l-value');
-  const rv = document.getElementById('audio-peak-r-value');
-  if (l) l.style.width = '0%';
-  if (r) r.style.width = '0%';
-  if (lv) lv.textContent = '-∞ dB';
-  if (rv) rv.textContent = '-∞ dB';
-}
-
-function updateAudioPeakMeter() {
-  let levelL = 0;
-  let levelR = 0;
-
-  if (window.SpotifyApp && SpotifyApp.isPlaying()) {
-    const data = SpotifyApp.getAnalyserData();
-    if (data && data.length > 0) {
-      // Tomamos la mitad izquierda y derecha del espectro como aproximación
-      const half = Math.floor(data.length / 2);
-      let sumL = 0, sumR = 0;
-      for (let i = 0; i < half; i++) sumL += data[i];
-      for (let i = half; i < data.length; i++) sumR += data[i];
-      levelL = sumL / half / 255;
-      levelR = sumR / (data.length - half) / 255;
-    }
-  } else {
-    // Sin música: pequeño ruido aleatorio para dar vida
-    levelL = Math.random() * 0.05;
-    levelR = Math.random() * 0.05;
-  }
-
-  // Suavizado
-  audioPanelState.peakSmoothL += (levelL - audioPanelState.peakSmoothL) * 0.35;
-  audioPanelState.peakSmoothR += (levelR - audioPanelState.peakSmoothR) * 0.35;
-
-  const pctL = Math.min(100, audioPanelState.peakSmoothL * 100);
-  const pctR = Math.min(100, audioPanelState.peakSmoothR * 100);
-
-  const l = document.getElementById('audio-peak-l');
-  const r = document.getElementById('audio-peak-r');
-  if (l) l.style.width = `${pctL}%`;
-  if (r) r.style.width = `${pctR}%`;
-
-  // dB aproximado (aproximación lineal)
-  const dbFromPct = (pct) => {
-    if (pct <= 1) return '-∞ dB';
-    const db = 20 * Math.log10(pct / 100);
-    if (db < -60) return '-∞ dB';
-    return `${db.toFixed(0)} dB`;
-  };
-
-  const lv = document.getElementById('audio-peak-l-value');
-  const rv = document.getElementById('audio-peak-r-value');
-  if (lv) lv.textContent = dbFromPct(pctL);
-  if (rv) rv.textContent = dbFromPct(pctR);
-
-  // Actualizar visualizador de Spotify en el mixer
-  const viz = document.querySelector('[data-audio-visualizer]');
-  if (viz) {
-    const bars = viz.querySelectorAll('.audio-mixer-visualizer-bar');
-    if (bars.length > 0 && window.SpotifyApp && SpotifyApp.isPlaying()) {
-      const data = SpotifyApp.getAnalyserData();
-      if (data && data.length > 0) {
-        const step = Math.floor(data.length / bars.length);
-        bars.forEach((bar, i) => {
-          const v = data[i * step] / 255;
-          const h = Math.max(8, v * 100);
-          bar.style.height = `${h}%`;
-        });
-      }
-    } else if (bars.length > 0) {
-      bars.forEach((bar, i) => {
-        const h = 8 + Math.random() * 12;
-        bar.style.height = `${h}%`;
-      });
-    }
-  }
-}
-
-/* ─── Sync con Spotify ─── */
-function syncAudioPanelWithSpotify() {
-  if (!window.SpotifyApp) return;
-  const spotifyVol = SpotifyApp.getVolume();
-  const spotifyMuted = SpotifyApp.isMuted();
-
-  // Si Spotify cambió de volumen (ej: desde el Quick Center), sincronizar master
-  const expected = Math.round(audioPanelState.master * 100);
-  const actual = Math.round(spotifyVol * 100);
-  if (actual !== expected) {
-    audioPanelState.master = spotifyVol;
-    audioPanelState.masterMuted = spotifyMuted;
-    updateAudioMasterUI();
-    updateTrayVolumeIcon();
-    saveAudioMixerState();
-  }
-
-  // Sync estado visual de Spotify en el mixer
-  const spotifyAppState = getAudioAppState('music');
-  if (spotifyMuted !== spotifyAppState.muted) {
-    spotifyAppState.muted = spotifyMuted;
-    updateAudioMixerItemUI('music');
-  }
-}
-
-/* ─── Reset ─── */
-function resetAudioMixer() {
-  audioPanelState.master = 0.80;
-  audioPanelState.masterMuted = false;
-  audioPanelState.appVolumes = {};
-  audioPanelState.activeDevice = 'speakers';
-  saveAudioMixerState();
-
-  if (window.SpotifyApp) {
-    if (SpotifyApp.isMuted()) SpotifyApp.toggleMute();
-    SpotifyApp.setVolume(0.80);
-  }
-  const qVol = document.getElementById('volume-slider');
-  if (qVol) {
-    qVol.value = '80';
-    if (typeof syncSliderFill === 'function') syncSliderFill(qVol);
-  }
-  const qVal = document.getElementById('quick-volume-value');
-  if (qVal) qVal.textContent = '80%';
-  const trayNum = document.getElementById('tray-volume-num');
-  if (trayNum) trayNum.textContent = '80%';
-
-  updateTrayVolumeIcon();
-  renderAudioPanel();
-  showToast('Mezclador restablecido', 'Volúmenes por defecto restaurados.', 'rotate-ccw');
-}
-
-function openAudioSettings() {
-  closeAudioPanel();
-  if (typeof openApp === 'function') {
-    openApp('settings');
-    if (typeof settingsState !== 'undefined') {
-      settingsState.activeSettingsTab = 'system';
-      if (typeof renderSettingsApp === 'function') renderSettingsApp();
-    }
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ★ PARTE 11/12 — PERFILES + MEDIA PLAYER + FONDOS ANIMADOS
-   ═══════════════════════════════════════════════════════════════ */
-
-/* ═══════════════════════════════════════════════════════════════
    ★ PERFILES DE USUARIO
 ═══════════════════════════════════════════════════════════════ */
 
@@ -20678,12 +18600,12 @@ function closeAllOpenApps() {
    ★ MEDIA PLAYER SETUP (stub)
    ═══════════════════════════════════════════════════════════════
    El reproductor viejo ya no existe. Todo el manejo de reproducción
-   está en `SpotifyApp` (BLOQUE 8). Este stub se deja solo por
+   está en `SpotifyApp` (PARTE 4). Este stub se deja solo por
    compatibilidad con llamadas que pudieran quedar dando vueltas.
 */
 
 function setupMediaPlayer() {
-  // No-op: el reproductor es SpotifyApp (BLOQUE 8).
+  // No-op: el reproductor es SpotifyApp (PARTE 4).
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -21347,153 +19269,1958 @@ function syncAnimatedBgPreviews() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ★ PARTE 12/12 — CIERRE
+   ★ PARTE 10/10 — BOOTSTRAP + INTEGRACIÓN + CIERRE
+   ═══════════════════════════════════════════════════════════════
+   DOMContentLoaded · setupUIActions · setupShortcuts · sesión ·
+   carga de estado · sliders · widget setup · device status ·
+   workspaces · telemetría · Spotify integration · wrappers ·
+   decoradores · cierre.
    ═══════════════════════════════════════════════════════════════ */
 
-/*
- * ╔══════════════════════════════════════════════════════════════╗
- * ║  NEBULA OS — script.js                                        ║
- * ║  Reorganizado y optimizado                                    ║
- * ║  © Nebula Team                                                ║
- * ╚══════════════════════════════════════════════════════════════╝
- *
- *  ESTRUCTURA DEL ARCHIVO (por orden de aparición):
- *
- *  PARTE 1  → Configuración y constantes
- *             APPS, DOCK_APPS, TABBED_APPS, WIDGET_CATALOG,
- *             WEATHER_CITIES, WMO_CODE_MAP, WALLPAPERS, THEME_PRESETS,
- *             STORE_THEMES, DOCK_PREVIEW_STYLES, SHIELD_FEATURES,
- *             VPN_SERVERS, STORE_PRODUCTS, VAULT_CATEGORIES,
- *             ACTIVITY_CATEGORIES, GAMELIB_GAMES, TASKMGR_SYSTEM_PROCESSES,
- *             VSC_FILE_TREE, VSC_FILE_CONTENTS, VSC_PROBLEMS, STARS_CONFIG,
- *             BLUETOOTH_DEVICES, WIFI_NETWORKS, todas las STORAGE_KEYS,
- *             constantes de animación y de toasts.
- *             + Constantes de Spotify (SPOTIFY_*).
- *
- *  PARTE 2  → Estado global (variables mutables)
- *             openWindows, activeWinId, currentWorkspace, systemMetrics,
- *             gameModeActive, currentProfile, designerState, shieldState,
- *             updatesState, notifications, desktopWidgets, storeProducts,
- *             settingsState, vaultState, activityLog, taskmgr*, gamelib*,
- *             vsc*, FILE_SYSTEM, stars*, etc.
- *             + Objeto `spotify` (runtime state del reproductor).
- *
- *  PARTE 3  → Helpers y utilidades
- *             refreshIcons, escapeHtml, generateWinId, getInstancesOfApp,
- *             normalizeZIndexes, syncSliderFill, updateClock, formatTime,
- *             getTimeAgo, getRelativeTime, updateBatteryUI,
- *             getWifiSignalClass, getBluetoothDeviceById, getCityById,
- *             getWmoInfo, formatGameHours, getVscFileByName, highlightVscLine,
- *             calculatePasswordStrength, generatePassword, updateMetrics,
- *             simulatePing, buildDockPreviewHTML, getAppTileHTML.
- *             + Helpers de Spotify (spFormatTime, spGetTrackCover, etc.).
- *
- *  PARTE 4  → Bootstrap principal
- *             DOMContentLoaded (async), setupUIActions, setupShortcuts,
- *             saveSessionState, restoreSessionState, loadPersistedState,
- *             applySettings, migrateNotesFormat, setupSliders,
- *             setupAdvancedWidget, updateWidgetTime, simulateMetrics,
- *             setupDeviceStatus, setupKeyboardAccessibility,
- *             switchWorkspace, moveWindowToWorkspace, setupWmTrashZone,
- *             setupTelemetryLoop, setupWeatherAutoRefresh,
- *             setupSpotifyIntegration + subfunciones.
- *
- *  PARTE 5  → Sistema de ventanas
- *             openApp, focusWindow, closeApp (sin pausar música),
- *             maximizeApp, restoreWindow, minimizeApp, setupWindowResize,
- *             sistema de tabs, runWindowAnimation, updateTopBar, renderDock,
- *             dock previews, dock context menu, Window Manager completo,
- *             getAppContent (router principal).
- *
- *  PARTE 6  → Overlays y menús
- *             Launcher, Context Menu, Control/Quick Center,
- *             Notification Center overlay, Store overlay,
- *             WiFi panel, Bluetooth panel,
- *             Files context menu + rename modal + move menu,
- *             Weather city dropdown.
- *
- *  PARTE 7  → Widgets + Notificaciones + Toasts
- *             addDesktopWidget, removeDesktopWidget, saveDesktopWidgets,
- *             renderDesktopWidgets, setupDraggableWidget, updateWidgetStats,
- *             addWeatherWidget, fetchWeatherForCity, renderWeatherWidgetHTML,
- *             addGamingHubWidget, renderGamingHubWidgetHTML,
- *             updateGamingHubWidget, addNotificationToHistory,
- *             updateNotifBadge, renderNotificationCenter, showToast,
- *             closeToast, calendario y notas.
- *
- *  PARTE 8  → Multimedia: APP SPOTIFY COMPLETA
- *             SpotifyApp (motor de audio HTMLAudioElement + Web Audio API),
- *             getSpotifyAppHTML, setupSpotifyApp, vistas (Home, Playlist,
- *             Artist, Album, Search, Liked, Library, Queue), tracklist,
- *             visualizer, track menu, modales de playlists,
- *             wrappers globales, integración con Control Center / HUD / Nova.
- *
- *  PARTE 9A → Nova AI + Files + Settings
- *             setupNovaAI, parseAndExecuteNovaAction (con Spotify),
- *             getDefaultFileSystem, setupFiles, fsRefresh, fsBindGridEvents,
- *             fsHandleDrop, fsUpdatePreview, searchFilesInSystem,
- *             renderSettingsApp, setSettingsTab, runShieldScan,
- *             getShieldSecurityHTML, getShieldVaultHTML,
- *             getSystemSettingsHTML, getGamingSettingsHTML,
- *             getDesignerStylesHTML, getDesignerWallpapersHTML,
- *             getUpdatesSettingsHTML, getSettingsNavHTML.
- *
- *  PARTE 9B → Vault + Activity + Task Manager + Game Library +
- *             VSCode + Browser
- *             loadVaultEntries, getVaultAppHTML, renderVault,
- *             attemptUnlockVault, modales del Vault,
- *             logActivity, renderActivityApp, getTaskmgrAppHTML,
- *             buildTaskmgrProcesses, renderGamelibApp,
- *             setupVscApp, getVscAppHTML, setupBrowserApp.
- *
- *  PARTE 10 → Features del sistema
- *             applyThemePreset, setLive* (Designer),
- *             applyWallpaper, createStars, setStarsParallaxEnabled,
- *             toggleGameMode, toggleGamerOverlay, updateHUDTelemetry,
- *             takeGamerScreenshot, simulateRamBoost,
- *             renderStore, installStoreProduct, uninstallStoreProduct,
- *             toggleWifi, toggleBluetooth, renderConnectivityState,
- *             toggleDnd, applyBrightness.
- *
- *  PARTE 11 → Perfiles + Media Player + Fondos animados
- *             switchProfile, closeAllOpenApps, setupMediaPlayer (stub),
- *             motor de fondos animados (Particle, Matrix, Aurora),
- *             getAnimatedBgsGalleryHTML, syncAnimatedBgPreviews.
- *
- *  PARTE 12 → Este cierre.
- *
- *
- *  NOTAS DE MANTENIMIENTO:
- *
- *  · Todas las variables `stars*` y `STARS_CONFIG` están declaradas UNA SOLA VEZ
- *    en las PARTES 1 y 2. NO deben redeclararse en ninguna otra parte.
- *
- *  · `getAppContent()` es el ROUTER principal. Si agregás una app nueva,
- *    registrala en APPS, agregala al switch de getAppContent, y agregá su
- *    setup en openApp().
- *
- *  · Para agregar un widget nuevo: agregalo a WIDGET_CATALOG, a los
- *    defaultPositions en addDesktopWidget(), y a renderDesktopWidgets().
- *
- *  · Para agregar un tema nuevo: agregalo a THEME_PRESETS y automáticamente
- *    va a aparecer en el Designer.
- *
- *  · El sistema de Toasts usa `activeToasts` (array) — no redeclarar.
- *
- *  · El sistema de session usa `SESSION_STORAGE_KEY` — no redeclarar.
- *
- *  · ★ El motor de Spotify vive en `SpotifyApp` (IIFE en PARTE 8).
- *    El estado runtime está en `spotify` (PARTE 2).
- *    La persistencia usa `SPOTIFY_STORAGE_KEY`.
- *    La biblioteca viene de `assets/music/library.json` con fallback a
- *    `SPOTIFY_DEFAULT_LIBRARY`.
- *
- *  · Si modificás el diseño CSS, revisá los nombres de clases en el HTML
- *    generado por JS. Todas las clases usan el prefijo del componente
- *    (ej: `weather-`, `shield-`, `vault-`, `taskmgr-`, `gamelib-`, `vsc-`,
- *    `sp-` para Spotify).
- *
- * ═══════════════════════════════════════════════════════════════
+/* ─── Bootstrap del sistema (DOMContentLoaded) ─── */
+document.addEventListener('DOMContentLoaded', async () => {
+  const bootScreen = document.getElementById('boot-screen');
+  setTimeout(() => bootScreen && bootScreen.classList.add('boot-complete'), 850);
+  setTimeout(() => bootScreen && bootScreen.remove(), 1450);
+
+  // 1. Fondo y estrellas
+  createStars();
+  initAnimatedBackground();
+
+  // 2. Cargar estado persistido del sistema
+  loadPersistedState();
+  loadAudioMixerState();
+  loadNotifications();
+  loadGamelibState();
+  loadActivityLog();
+  vaultState.entries = loadVaultEntries();
+  loadVaultMasterMeta();
+
+  // 3. ★ SPOTIFY: inicializar el motor de audio ANTES que la UI
+  //    (espera a que cargue library.json o el fallback)
+  try {
+    await SpotifyApp.init();
+  } catch (err) {
+    console.warn('[Spotify] Falló init, se usará fallback:', err);
+  }
+
+  // 4. Inicializar UI
+  updateNotifBadge();
+  renderDock();
+  setupSliders();
+  updateClock();
+  setInterval(updateClock, 1000);
+  applyWallpaper(currentWallpaperIndex);
+  applySettings();
+  setupDeviceStatus();
+  setupKeyboardAccessibility();
+  setupAdvancedWidget();
+  setupTelemetryLoop();
+  setupWeatherAutoRefresh();
+  setupShortcuts();
+  renderDesktopWidgets();
+  renderConnectivityState();
+  renderDndState();
+  renderWifiPanel();
+  renderBluetoothPanel();
+  updateActivityDockBadge();
+  applyBrightness(currentBrightness);
+  updateToastPosition();
+  syncAllSliders();
+  refreshIcons();
+
+  // 5. ★ SPOTIFY: conectar el motor con la UI global
+  //    (topbar, HUD, Control Center, atajos, widget)
+  setupSpotifyIntegration();
+
+  // 6. Aplicar glass-panel a módulos principales
+  document.querySelectorAll('.waybar-module, #dock, #control-center, #quick-center, #launcher, #notification-center').forEach(el => {
+    el.classList.add('glass-panel');
+  });
+
+  // 7. Setup de atajos y listeners de UI
+  setupUIActions();
+
+  // 8. Restaurar sesión (último, después de todo)
+  restoreSessionState();
+  syncVpnQuickCenterState();
+
+  // 9. Guardar sesión al cerrar
+  window.addEventListener('beforeunload', () => {
+    saveSessionState(true);
+    if (window.SpotifyApp && typeof SpotifyApp.flushState === 'function') {
+      SpotifyApp.flushState();
+    }
+  });
+
+  // 10. Fondos animados: sync con Game Mode
+  setInterval(syncAnimatedBgWithGameMode, 800);
+});
+
+/* ─── Atajos de teclado globales (VS Code) ─── */
+document.addEventListener('keydown', (e) => {
+  if (activeWinId && openWindows[activeWinId]?.appId === 'vscode') {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+      e.preventDefault();
+      toggleVscSearch();
+    }
+    if (e.key === 'Escape' && vscSearchOpen) {
+      e.preventDefault();
+      toggleVscSearch();
+    }
+  }
+});
+
+/* ─── Guardar sesión al cerrar la pestaña ─── */
+window.addEventListener('beforeunload', () => {
+  saveSessionState(true);
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ UI ACTIONS SETUP (listeners de topbar, panels, etc.)
+═══════════════════════════════════════════════════════════════ */
+
+function setupUIActions() {
+  const sysTrayBtn = document.getElementById('sys-tray-btn');
+  const clockCenter = document.getElementById('clock-center');
+  const controlCenter = document.getElementById('control-center');
+  const quickCenter = document.getElementById('quick-center');
+  const trayHudToggle = document.getElementById('tray-hud-toggle');
+  const topbarProfilePill = document.getElementById('topbar-profile-pill');
+  const trayNotifBtn = document.getElementById('tray-notif-btn');
+  const notifClearBtn = document.getElementById('notif-clear-btn');
+
+  const toggleControlCenter = () => {
+    closeQuickCenter();
+    closeNotificationCenter();
+    closeAudioPanel?.();
+    closeWifiPanel?.();
+    closeBluetoothPanel?.();
+
+    const wasHidden = controlCenter?.classList.contains('hidden');
+    controlCenter?.classList.toggle('hidden');
+
+    // Marcar visualmente el topbar
+    if (clockCenter) {
+      clockCenter.classList.toggle('active', wasHidden);
+    }
+
+    if (wasHidden) {
+      resetCalendarToToday();
+    }
+    refreshIcons();
+  };
+
+  const toggleQuickCenter = () => {
+    if (controlCenter && !controlCenter.classList.contains('hidden')) {
+      closeControlCenter();
+    }
+    closeNotificationCenter();
+    quickCenter?.classList.toggle('hidden');
+    updateToastPosition();
+    syncAllSliders();
+    syncVpnQuickCenterState();
+    renderConnectivityState();
+    refreshIcons();
+  };
+
+  if (sysTrayBtn) sysTrayBtn.addEventListener('click', (e) => {
+    if (e.target.closest('#tray-hud-toggle')) return;
+    toggleQuickCenter();
+  });
+
+  const trayWifiItem = document.getElementById('tray-wifi-item');
+  if (trayWifiItem) {
+    trayWifiItem.style.cursor = 'pointer';
+    trayWifiItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleWifiPanel();
+    });
+  }
+
+  const trayBtItem = document.getElementById('tray-bt-item');
+  if (trayBtItem) {
+    trayBtItem.style.cursor = 'pointer';
+    trayBtItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleBluetoothPanel();
+    });
+  }
+
+  // ★ Panel de Audio — click en el item de volumen del tray
+  const trayVolumeItem = document.getElementById('tray-volume-item');
+  if (trayVolumeItem) {
+    trayVolumeItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof toggleAudioPanel === 'function') toggleAudioPanel();
+    });
+  }
+
+  // ★ Panel de Audio — botón cerrar
+  const audioPanelCloseBtn = document.getElementById('audio-panel-close');
+  if (audioPanelCloseBtn) {
+    audioPanelCloseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof closeAudioPanel === 'function') closeAudioPanel();
+    });
+  }
+
+  if (clockCenter) clockCenter.addEventListener('click', toggleControlCenter);
+
+  if (trayHudToggle) trayHudToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleGamerOverlay();
+  });
+
+  if (topbarProfilePill) topbarProfilePill.addEventListener('click', () => {
+    const next = currentProfile === 'gamer' ? 'streamer' : currentProfile === 'streamer' ? 'studio' : 'gamer';
+    switchProfile(next);
+  });
+
+  if (trayNotifBtn) {
+    trayNotifBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      toggleNotificationCenter();
+    }, true);
+  }
+
+  if (notifClearBtn) {
+    notifClearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      clearAllNotifications();
+    });
+  }
+
+  // Click global: cerrar paneles si se clickea afuera
+  document.addEventListener('click', (e) => {
+    const isPlayerClick = e.target.closest('#cc-spotify-player');
+    const isCalendarClick = e.target.closest('.calendar-panel') || e.target.closest('#notes-list');
+    const isHudClick = e.target.closest('#gamer-overlay');
+    const isWMClick = e.target.closest('#window-manager-overlay');
+    const isDockCtxClick = e.target.closest('.dock-context-menu');
+    const isWmCardCtxClick = e.target.closest('.wm-card-context-menu');
+    const isFsCtxClick = e.target.closest('.fs-context-menu');
+    const isFsRenameClick = e.target.closest('.fs-rename-modal');
+    const isCitySelectorClick = e.target.closest('.weather-city-selector');
+    const isNotifPanelClick = e.target.closest('#notification-center');
+    const isNotifBtnClick = e.target.closest('#tray-notif-btn');
+    const isStoreClick = e.target.closest('#store-overlay');
+    const isWifiPanelClick = e.target.closest('#wifi-panel');
+    const isWifiBtnClick = e.target.closest('#tray-wifi-item');
+    const isBtPanelClick = e.target.closest('#bluetooth-panel');
+    const isBtBtnClick = e.target.closest('#tray-bt-item');
+    const isAudioPanelClick = e.target.closest('#audio-panel');
+    const isAudioBtnClick = e.target.closest('#tray-volume-item');
+
+    if (!isDockCtxClick) hideDockContextMenu();
+    if (!isWmCardCtxClick) hideWmCardContextMenu();
+    if (!isFsCtxClick) hideFsContextMenu();
+    if (!isCitySelectorClick) closeAllCityDropdowns();
+
+    if (!sysTrayBtn?.contains(e.target)
+        && !clockCenter?.contains(e.target)
+        && !controlCenter?.contains(e.target)
+        && !quickCenter?.contains(e.target)
+        && !isAudioPanelClick
+        && !isAudioBtnClick
+        && !isPlayerClick
+        && !isCalendarClick
+        && !isHudClick
+        && !isWMClick
+        && !isDockCtxClick
+        && !isWmCardCtxClick
+        && !isFsCtxClick
+        && !isFsRenameClick
+        && !isCitySelectorClick
+        && !isNotifPanelClick
+        && !isNotifBtnClick
+        && !isStoreClick
+        && !isWifiPanelClick
+        && !isWifiBtnClick
+        && !isBtPanelClick
+        && !isBtBtnClick) {
+      closeControlCenter();
+      closeQuickCenter();
+      closeNotificationCenter();
+      closeStore();
+      closeWifiPanel();
+      closeBluetoothPanel();
+    }
+    hideContextMenu();
+  });
+
+  // Right click: cerrar context menus
+  document.addEventListener('contextmenu', (e) => {
+    if (!e.target.closest('.dock-item')) hideDockContextMenu();
+    if (!e.target.closest('.wm-card')) hideWmCardContextMenu();
+  });
+
+  // Escape: cerrar todo
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      closeControlCenter();
+      closeQuickCenter();
+      closeNotificationCenter();
+      closeStore();
+      closeWifiPanel();
+      closeBluetoothPanel();
+      if (gamerOverlayVisible) toggleGamerOverlay();
+      if (windowManagerOpen) closeWindowManager();
+      hideDockContextMenu();
+      hideWmCardContextMenu();
+      hideFsContextMenu();
+      closeFsRenameModal();
+      closeAllCityDropdowns();
+    }
+  });
+
+  // Resize/blur/scroll: cerrar menús flotantes
+  window.addEventListener('resize', () => {
+    hideDockContextMenu();
+    hideWmCardContextMenu();
+    hideFsContextMenu();
+    closeAllCityDropdowns();
+  });
+  window.addEventListener('blur', () => {
+    hideDockContextMenu();
+    hideWmCardContextMenu();
+    hideFsContextMenu();
+    closeAllCityDropdowns();
+  });
+  document.addEventListener('scroll', () => {
+    hideDockContextMenu();
+    hideWmCardContextMenu();
+    hideFsContextMenu();
+    closeAllCityDropdowns();
+  }, true);
+
+  // Right click sobre el escritorio: context menu
+  document.getElementById('screen').addEventListener('contextmenu', (e) => {
+    if (e.target.closest('#context-menu') || e.target.closest('.window') || e.target.closest('.desktop-widget')) return;
+    if (e.target.closest('.dock-item')) return;
+    if (e.target.closest('#window-manager-overlay')) return;
+    if (e.target.closest('#store-overlay')) return;
+    e.preventDefault();
+    showContextMenu(e.clientX, e.clientY);
+  });
+
+  // Fullscreen change: restaurar ventana si sale de fullscreen
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && fullscreenWindowId) {
+      const id = fullscreenWindowId;
+      fullscreenWindowId = null;
+      restoreWindow(id);
+    }
+  });
+
+  // Window Manager: click afuera para cerrar
+  const wmOverlay = document.getElementById('window-manager-overlay');
+  if (wmOverlay) {
+    wmOverlay.addEventListener('mousedown', (e) => {
+      if (e.target === wmOverlay) closeWindowManager();
+    });
+  }
+
+  // Setup trash zone del WM
+  setupWmTrashZone();
+
+  // Slider fills dinámicos
+  document.addEventListener('input', (e) => {
+    if (e.target instanceof HTMLInputElement && e.target.type === 'range') {
+      syncSliderFill(e.target);
+    }
+  });
+    // Slider fills dinámicos
+  document.addEventListener('input', (e) => {
+    if (e.target instanceof HTMLInputElement && e.target.type === 'range') {
+      syncSliderFill(e.target);
+    }
+  });
+
+  // ★ Click extendido en el topbar central:
+  //   si hacés click en cualquier zona vacía del medio del topbar,
+  //   se abre el Control Center. NO interfiere con los módulos
+  //   izquierdo ni derecho.
+  const topbar = document.getElementById('topbar');
+  if (topbar) {
+    topbar.addEventListener('click', (e) => {
+      // Ignorar clicks en módulos interactivos
+      if (e.target.closest('.waybar-module.left')) return;
+      if (e.target.closest('.waybar-module.right')) return;
+      if (e.target.closest('.waybar-module.center')) return; // ya lo maneja el listener propio
+      if (e.target.closest('.topbar-profile-pill')) return;
+      if (e.target.closest('.topbar-gamemode-badge')) return;
+      if (e.target.closest('.ws')) return;
+      if (e.target.closest('.logo')) return;
+      if (e.target.closest('.sys-tray')) return;
+
+      // Si el click fue en la franja vacía del topbar → toggle CC
+      toggleControlCenter();
+    });
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ ATAJOS DE TECLADO
+═══════════════════════════════════════════════════════════════ */
+
+function setupShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    // ★ Control Center — Super/Cmd + C
+    //   (evitamos Ctrl+C porque es copiar)
+    if ((e.metaKey || e.key === 'Meta') && (e.key === 'c' || e.key === 'C')) {
+      e.preventDefault();
+      toggleControlCenterFromShortcut();
+      return;
+    }
+
+    // HUD (Alt+Z / Alt+G / Meta+G)
+    if ((e.altKey && (e.key === 'z' || e.key === 'Z' || e.key === 'g' || e.key === 'G')) ||
+        (e.metaKey && (e.key === 'g' || e.key === 'G'))) {
+      e.preventDefault();
+      toggleGamerOverlay();
+      return;
+    }
+
+    // ★ SPOTIFY — Atajos globales de audio
+    if (isEditableTarget(e.target)) return;
+
+    // Ignorar si el usuario está en la app Spotify con foco propio (ella maneja sus atajos)
+    if (activeWinId && openWindows[activeWinId]?.appId === 'music') return;
+
+    // Ctrl/Cmd + Shift + Space: play/pause
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.code === 'Space' || e.key === ' ')) {
+      e.preventDefault();
+      SpotifyApp.togglePlayPause();
+      return;
+    }
+
+    // Ctrl/Cmd + Alt + Space: play/pause (alternativa)
+    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.code === 'Space' || e.key === ' ')) {
+      e.preventDefault();
+      SpotifyApp.togglePlayPause();
+      return;
+    }
+
+    // Ctrl/Cmd + Alt + →: siguiente track
+    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'ArrowRight' || e.code === 'ArrowRight')) {
+      e.preventDefault();
+      SpotifyApp.next();
+      return;
+    }
+
+    // Ctrl/Cmd + Alt + ←: track anterior
+    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'ArrowLeft' || e.code === 'ArrowLeft')) {
+      e.preventDefault();
+      SpotifyApp.prev();
+      return;
+    }
+
+    // Ctrl/Cmd + Alt + ↑: subir volumen (+5)
+    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'ArrowUp' || e.code === 'ArrowUp')) {
+      e.preventDefault();
+      const newVol = Math.min(1, (spotify.volume || 0) + 0.05);
+      SpotifyApp.setVolume(newVol);
+      showToast('Volumen', `${Math.round(newVol * 100)}%`, 'volume-2');
+      return;
+    }
+
+    // Ctrl/Cmd + Alt + ↓: bajar volumen (-5)
+    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'ArrowDown' || e.code === 'ArrowDown')) {
+      e.preventDefault();
+      const newVol = Math.max(0, (spotify.volume || 0) - 0.05);
+      SpotifyApp.setVolume(newVol);
+      showToast('Volumen', `${Math.round(newVol * 100)}%`, 'volume-1');
+      return;
+    }
+
+    // Ctrl/Cmd + Alt + M: mute toggle
+    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'm' || e.key === 'M')) {
+      e.preventDefault();
+      SpotifyApp.toggleMute();
+      showToast(
+        spotify.muted ? 'Mute Activado' : 'Mute Desactivado',
+        spotify.muted ? 'El audio está silenciado.' : 'El audio volvió a sonar.',
+        spotify.muted ? 'volume-x' : 'volume-2'
+      );
+      return;
+    }
+
+    // Ctrl/Cmd + Alt + L: toggle like del track actual
+    if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'l' || e.key === 'L')) {
+      e.preventDefault();
+      const current = SpotifyApp.getCurrentTrack();
+      if (current) {
+        SpotifyApp.toggleLike(current.id);
+        showToast(
+          spIsTrackLiked(current.id) ? 'Agregado a Tus me gusta' : 'Quitado de Tus me gusta',
+          current.title,
+          'heart'
+        );
+      }
+      return;
+    }
+  });
+}
+
+/* ─── ¿Es un target editable (input/textarea/contenteditable)? ─── */
+function isEditableTarget(target) {
+  if (!target) return false;
+  const tag = target.tagName ? target.tagName.toLowerCase() : '';
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+  if (target.isContentEditable) return true;
+  return false;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ PERSISTENCIA DE SESIÓN
+═══════════════════════════════════════════════════════════════ */
+
+function saveSessionState(immediate = false) {
+  if (isRestoringSession || isResizing) return;
+
+  const doSave = () => {
+    try {
+      const windowsData = {};
+      Object.keys(openWindows).forEach(winId => {
+        const entry = openWindows[winId];
+        const win = entry?.win;
+        if (!entry || !win) return;
+
+        const isMaximized = win.classList.contains('maximized');
+        const isMinimized = win.classList.contains('minimized');
+
+        let tabsData = null;
+        if (TABBED_APPS.has(entry.appId)) {
+          const state = windowTabsState.get(win);
+          if (state) {
+            tabsData = {
+              tabs: state.tabs.map(t => ({ id: t.id, label: t.label, kind: t.kind || null })),
+              activeTabId: state.activeTabId,
+              counter: state.counter
+            };
+          }
+        }
+
+        windowsData[winId] = {
+          appId: entry.appId,
+          ws: parseInt(win.dataset.ws, 10) || 1,
+          top: win.style.top || '',
+          left: win.style.left || '',
+          width: win.style.width || '',
+          height: win.style.height || '',
+          zIndex: parseInt(win.style.zIndex, 10) || 100,
+          minimized: isMinimized,
+          maximized: isMaximized,
+          oldW: win.dataset.oldW || '',
+          oldH: win.dataset.oldH || '',
+          oldT: win.dataset.oldT || '',
+          oldL: win.dataset.oldL || '',
+          tabs: tabsData
+        };
+      });
+
+      const sessionData = {
+        v: 2,
+        windows: windowsData,
+        activeWinId: activeWinId,
+        currentWorkspace: currentWorkspace,
+        zIndexCounter: zIndexCounter,
+        appInstanceCounter: appInstanceCounter
+      };
+
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionData));
+    } catch (e) {}
+  };
+
+  if (immediate) {
+    if (sessionSaveTimeout) {
+      clearTimeout(sessionSaveTimeout);
+      sessionSaveTimeout = null;
+    }
+    doSave();
+  } else {
+    if (sessionSaveTimeout) clearTimeout(sessionSaveTimeout);
+    sessionSaveTimeout = setTimeout(() => {
+      sessionSaveTimeout = null;
+      doSave();
+    }, 300);
+  }
+}
+
+function scheduleSaveSession() {
+  saveSessionState(false);
+}
+
+function restoreSessionState() {
+  let sessionData = null;
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return;
+    sessionData = JSON.parse(raw);
+  } catch (e) {
+    return;
+  }
+
+  if (!sessionData || typeof sessionData !== 'object') return;
+  if (!sessionData.windows || typeof sessionData.windows !== 'object') return;
+
+  const winIds = Object.keys(sessionData.windows);
+  if (winIds.length === 0) {
+    if (typeof sessionData.currentWorkspace === 'number' &&
+        sessionData.currentWorkspace >= 1 &&
+        sessionData.currentWorkspace <= TOTAL_WORKSPACES) {
+      currentWorkspace = sessionData.currentWorkspace;
+    }
+    return;
+  }
+
+  isRestoringSession = true;
+
+  try {
+    if (sessionData.appInstanceCounter && typeof sessionData.appInstanceCounter === 'object') {
+      appInstanceCounter = { ...sessionData.appInstanceCounter };
+    }
+    if (typeof sessionData.zIndexCounter === 'number' && sessionData.zIndexCounter > 100) {
+      zIndexCounter = sessionData.zIndexCounter;
+    }
+    if (typeof sessionData.currentWorkspace === 'number' &&
+        sessionData.currentWorkspace >= 1 &&
+        sessionData.currentWorkspace <= TOTAL_WORKSPACES) {
+      currentWorkspace = sessionData.currentWorkspace;
+    }
+
+    const sortedEntries = winIds
+      .map(id => ({ id, data: sessionData.windows[id] }))
+      .filter(e => e.data && APPS[e.data.appId])
+      .sort((a, b) => (a.data.zIndex || 100) - (b.data.zIndex || 100));
+
+    sortedEntries.forEach(({ id, data }) => {
+      if (openWindows[id]) return;
+      openApp(data.appId, true, {
+        winId: id,
+        ws: data.ws,
+        top: data.top,
+        left: data.left,
+        width: data.width,
+        height: data.height,
+        zIndex: data.zIndex,
+        minimized: !!data.minimized,
+        maximized: !!data.maximized,
+        oldW: data.oldW,
+        oldH: data.oldH,
+        oldT: data.oldT,
+        oldL: data.oldL,
+        tabs: data.tabs || null,
+        silent: true
+      });
+    });
+
+    const buttons = document.querySelectorAll('#ws-switcher button');
+    buttons.forEach((btn, index) => {
+      btn.className = (index + 1 === currentWorkspace) ? 'active' : '';
+    });
+
+    Object.values(openWindows).forEach(entry => {
+      const win = entry?.win;
+      if (!win) return;
+      const winWs = parseInt(win.dataset.ws, 10);
+      if (winWs !== currentWorkspace) {
+        win.style.display = 'none';
+      } else if (win.classList.contains('minimized')) {
+        win.style.display = 'none';
+      } else {
+        win.style.display = 'flex';
+      }
+    });
+
+    const targetActive = sessionData.activeWinId;
+    if (targetActive && openWindows[targetActive]) {
+      const entry = openWindows[targetActive];
+      const win = entry.win;
+      const winWs = parseInt(win.dataset.ws, 10);
+      if (winWs === currentWorkspace && !win.classList.contains('minimized')) {
+        focusWindow(targetActive);
+      } else {
+        updateTopBar(null);
+      }
+    } else {
+      activeWinId = null;
+      updateTopBar(null);
+    }
+
+    renderDock();
+    if (windowManagerOpen) renderWindowManager();
+    refreshIcons();
+  } catch (e) {
+  } finally {
+    isRestoringSession = false;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ CARGA DE ESTADO PERSISTIDO
+═══════════════════════════════════════════════════════════════ */
+
+function loadPersistedState() {
+  try {
+    const savedGm = localStorage.getItem(GAMEMODE_STORAGE_KEY);
+    if (savedGm !== null) gameModeActive = JSON.parse(savedGm);
+    if (gameModeActive) document.body.classList.add('game-mode-active');
+
+    // ★ Sincronizar UI después de un pequeño delay para que el DOM esté listo
+    setTimeout(syncGameModeUI, 0);
+
+    const savedProf = localStorage.getItem(PROFILE_STORAGE_KEY);
+    if (savedDesigner) {
+      designerState = { ...designerState, ...savedDesigner };
+      const root = document.documentElement;
+      root.style.setProperty('--accent', designerState.accent);
+      root.style.setProperty('--panel-color', designerState.panelColor);
+      root.style.setProperty('--blur-amount', `${designerState.blurAmount}px`);
+      root.style.setProperty('--radius-md', `${designerState.borderRadius}px`);
+      root.style.setProperty('--radius-lg', `${parseInt(designerState.borderRadius, 10) + 6}px`);
+      document.body.classList.toggle('dock-unified-bottom', designerState.dockStyle === 'unified-bottom');
+      applyDockPreviewStyle(designerState.dockPreviewStyle || 'blueprint');
+
+      if (typeof designerState.shadowStrength === 'number') {
+        applyShadowStrength(designerState.shadowStrength);
+      } else {
+        applyShadowStrength(55);
+      }
+    } else {
+      applyDockPreviewStyle('blueprint');
+      applyShadowStrength(55);
+    }
+
+    const savedWidgets = JSON.parse(localStorage.getItem(WIDGETS_STORAGE_KEY));
+    if (Array.isArray(savedWidgets)) {
+      const validTypes = new Set(['clock', 'weather', 'gaming-hub', 'now-playing', 'system-monitor-pro', 'music-visualizer']);
+      desktopWidgets = savedWidgets
+        .filter(w => w && typeof w === 'object' && validTypes.has(w.type))
+        .map(w => {
+          if (w.type === 'weather') {
+            const cityId = w.cityId || DEFAULT_WEATHER_CITY_ID;
+            return {
+              id: w.id || ('widget-weather-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)),
+              type: 'weather',
+              x: typeof w.x === 'number' ? w.x : window.innerWidth - 280,
+              y: typeof w.y === 'number' ? w.y : 60,
+              cityId
+            };
+          }
+          return w;
+        });
+    }
+
+    loadInstalledProducts();
+
+    const wpIndex = Number.parseInt(localStorage.getItem(WALLPAPER_STORAGE_KEY), 10);
+    if (Number.isInteger(wpIndex) && WALLPAPERS[wpIndex]) currentWallpaperIndex = wpIndex;
+
+    const savedSettings = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY));
+    if (savedSettings) settingsState = { ...settingsState, ...savedSettings };
+
+    const savedWifi = localStorage.getItem(WIFI_STORAGE_KEY);
+    if (savedWifi !== null) wifiEnabled = JSON.parse(savedWifi);
+
+    const savedBt = localStorage.getItem(BT_STORAGE_KEY);
+    if (savedBt !== null) bluetoothEnabled = JSON.parse(savedBt);
+
+    const savedDnd = localStorage.getItem(DND_STORAGE_KEY);
+    if (savedDnd !== null) dndEnabled = JSON.parse(savedDnd);
+
+    const savedBrightness = localStorage.getItem(BRIGHTNESS_STORAGE_KEY);
+    if (savedBrightness !== null) {
+      const parsed = Number(savedBrightness);
+      if (!Number.isNaN(parsed)) currentBrightness = parsed;
+    }
+
+    const rawNotes = JSON.parse(localStorage.getItem(CALENDAR_NOTES_STORAGE_KEY) || '{}');
+    calendarState.notes = migrateNotesFormat(rawNotes);
+
+    const savedShield = JSON.parse(localStorage.getItem(SHIELD_STORAGE_KEY));
+    if (savedShield && typeof savedShield === 'object') {
+      shieldState = { ...shieldState, ...savedShield, scanInProgress: false, scanProgress: 0 };
+    }
+
+    const savedUpdates = JSON.parse(localStorage.getItem(UPDATES_STORAGE_KEY));
+    if (savedUpdates && typeof savedUpdates === 'object') {
+      updatesState = { ...updatesState, ...savedUpdates, updateInProgress: false, updateProgress: 0, updateStage: '' };
+    }
+  } catch (e) {}
+}
+
+function applySettings() {
+  const screen = document.getElementById('screen');
+  document.body.classList.toggle('no-blur', !settingsState.transparency);
+  if (screen) screen.classList.toggle('reduce-motion', !settingsState.animations);
+}
+
+function toggleSetting(setting) {
+  if (!Object.prototype.hasOwnProperty.call(settingsState, setting)) return;
+  settingsState[setting] = !settingsState[setting];
+  applySettings();
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settingsState));
+  } catch (e) {}
+}
+
+/* ─── Migración de notas (formato viejo → nuevo) ─── */
+function migrateNotesFormat(notes) {
+  if (!notes || typeof notes !== 'object') return {};
+  const migrated = {};
+  Object.keys(notes).forEach(key => {
+    const value = notes[key];
+    if (Array.isArray(value)) {
+      migrated[key] = value.filter(v => typeof v === 'string' && v.trim().length > 0);
+    } else if (typeof value === 'string' && value.trim().length > 0) {
+      migrated[key] = [value];
+    }
+  });
+  return migrated;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SETUP DE SLIDERS
+═══════════════════════════════════════════════════════════════ */
+
+function setupSliders() {
+  const initSlider = (id, callback) => {
+    const slider = document.getElementById(id);
+    if (!slider) return;
+
+    const updateBg = () => {
+      syncSliderFill(slider);
+      if (callback) callback(slider.value);
+    };
+
+    slider.addEventListener('input', updateBg);
+    updateBg();
+  };
+
+  initSlider('brightness-slider', val => {
+    applyBrightness(val);
+  });
+  initSlider('volume-slider', val => {
+    setSystemVolume(val);
+  });
+}
+
+/* ─── Volumen del sistema → Spotify (wrapper) ─── */
+function setSystemVolume(val) {
+  const pct = Number(val);
+  if (Number.isNaN(pct)) return;
+
+  // Actualizar siempre los labels del tray y quick center
+  const volNum = document.getElementById('tray-volume-num');
+  const qVolVal = document.getElementById('quick-volume-value');
+  if (volNum) volNum.textContent = `${pct}%`;
+  if (qVolVal) qVolVal.textContent = `${pct}%`;
+
+  // ★ Delegar al motor de Spotify
+  if (window.SpotifyApp && typeof SpotifyApp.setVolume === 'function') {
+    SpotifyApp.setVolume(pct / 100);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SETUP DEL WIDGET DE CONTROL CENTER (Calendario + Métricas)
+═══════════════════════════════════════════════════════════════ */
+
+function setupAdvancedWidget() {
+  renderCalendar();
+  renderNotesList();
+  updateWidgetTime();
+  updateMetrics();
+  setInterval(updateWidgetTime, 60000);
+  setInterval(simulateMetrics, 3000);
+
+  document.getElementById('calendar-prev')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    changeCalendarMonth(-1);
+  });
+  document.getElementById('calendar-next')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    changeCalendarMonth(1);
+  });
+  document.getElementById('save-note')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    saveCalendarNote();
+  });
+  document.getElementById('note-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      saveCalendarNote();
+    }
+  });
+
+  renderConnectivityState();
+}
+
+function updateWidgetTime() {
+  const now = new Date();
+  const time = document.getElementById('widget-time');
+  const uptime = document.getElementById('widget-uptime');
+  if (time) time.textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  if (uptime) {
+    const elapsedMinutes = Math.floor((Date.now() - widgetStartedAt) / 60000);
+    uptime.textContent = `uptime: ${elapsedMinutes < 60 ? `${elapsedMinutes}m` : `${Math.floor(elapsedMinutes / 60)}h ${elapsedMinutes % 60}m`}`;
+  }
+}
+
+function simulateMetrics() {
+  if (!gameModeActive) {
+    systemMetrics.ram = Math.max(25, Math.min(55, systemMetrics.ram + Math.round((Math.random() - 0.5) * 6)));
+    systemMetrics.cpu = Math.max(8, Math.min(78, systemMetrics.cpu + Math.round((Math.random() - 0.5) * 16)));
+    systemMetrics.temp = Math.max(30, Math.min(68, systemMetrics.temp + Math.round((Math.random() - 0.5) * 8)));
+  }
+  updateMetrics();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SETUP DEL ESTADO DE DISPOSITIVOS (Batería)
+═══════════════════════════════════════════════════════════════ */
+
+function setupDeviceStatus() {
+  const hasRealBattery = typeof navigator.getBattery === 'function';
+
+  if (hasRealBattery) {
+    navigator.getBattery().then(battery => {
+      const updateBattery = () => updateBatteryUI(battery.level * 100, battery.charging);
+      updateBattery();
+      battery.addEventListener('levelchange', updateBattery);
+      battery.addEventListener('chargingchange', updateBattery);
+    }).catch(() => startSimulatedBattery());
+  } else {
+    startSimulatedBattery();
+  }
+}
+
+function startSimulatedBattery() {
+  let mockLevel = 53;
+  let mockCharging = false;
+
+  const update = () => updateBatteryUI(mockLevel, mockCharging);
+  update();
+
+  setInterval(() => {
+    if (mockCharging) {
+      mockLevel = Math.min(100, mockLevel + 1);
+      if (mockLevel >= 100) mockCharging = false;
+    } else {
+      mockLevel = Math.max(0, mockLevel - 1);
+      if (mockLevel <= 15) mockCharging = true;
+    }
+    update();
+  }, 30000);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ ACCESIBILIDAD POR TECLADO
+═══════════════════════════════════════════════════════════════ */
+
+function setupKeyboardAccessibility() {
+  document.addEventListener('keydown', e => {
+    if (e.target.closest('.fs-rename-modal')) return;
+    const tag = e.target?.tagName?.toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return;
+
+    if (!['Enter', ' '].includes(e.key)) return;
+    const target = e.target.closest('[role="button"][tabindex="0"]');
+    if (!target) return;
+    e.preventDefault();
+    target.click();
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ WORKSPACES (Cambio y movimiento de ventanas)
+═══════════════════════════════════════════════════════════════ */
+
+function switchWorkspace(num) {
+  currentWorkspace = num;
+
+  const buttons = document.querySelectorAll('#ws-switcher button');
+  buttons.forEach((btn, index) => {
+    btn.className = (index + 1 === num) ? 'active' : '';
+  });
+
+  let hasActiveInWorkspace = false;
+  Object.values(openWindows).forEach(entry => {
+    const win = entry?.win;
+    if (!win) return;
+    if (parseInt(win.dataset.ws) === currentWorkspace) {
+      if (!win.classList.contains('minimized')) {
+        win.style.display = 'flex';
+        hasActiveInWorkspace = true;
+      }
+    } else {
+      win.style.display = 'none';
+    }
+  });
+
+  if (!hasActiveInWorkspace) updateTopBar(null);
+  hideDockPreview();
+  renderDock();
+
+  if (windowManagerOpen) renderWindowManager();
+
+  scheduleSaveSession();
+}
+
+function moveWindowToWorkspace(winId, targetWs) {
+  const entry = openWindows[winId];
+  if (!entry?.win) return false;
+  const win = entry.win;
+
+  const currentWs = parseInt(win.dataset.ws, 10);
+  if (currentWs === targetWs) return false;
+
+  win.dataset.ws = String(targetWs);
+
+  if (targetWs !== currentWorkspace) {
+    win.style.display = 'none';
+    if (activeWinId === winId) {
+      activeWinId = null;
+      updateTopBar(null);
+    }
+  } else {
+    if (!win.classList.contains('minimized')) {
+      win.style.display = 'flex';
+    }
+  }
+
+  renderDock();
+  if (windowManagerOpen) renderWindowManager();
+
+  const appTitle = APPS[entry.appId]?.title || entry.appId;
+  showToast(
+    'Ventana movida',
+    `${appTitle} → Space ${targetWs}`,
+    'move'
+  );
+
+  saveSessionState(true);
+
+  return true;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ WM TRASH ZONE (Drop zone para eliminar ventanas)
+═══════════════════════════════════════════════════════════════ */
+
+function setupWmTrashZone() {
+  const trash = document.getElementById('wm-trash-zone');
+  if (!trash) return;
+
+  trash.addEventListener('dragover', (e) => {
+    if (!wmDragState) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    trash.classList.add('drag-over');
+  });
+
+  trash.addEventListener('dragleave', (e) => {
+    if (!trash.contains(e.relatedTarget)) {
+      trash.classList.remove('drag-over');
+    }
+  });
+
+  trash.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    trash.classList.remove('drag-over');
+    if (!wmDragState) return;
+    const { winId } = wmDragState;
+    if (!winId || !openWindows[winId]) return;
+    deleteWindowFromWm(winId);
+    wmDragState.justDropped = true;
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SETUP DE MÉTRICAS DE TAREA (Loop de telemetría)
+═══════════════════════════════════════════════════════════════ */
+
+function setupTelemetryLoop() {
+  setInterval(() => {
+    if (gameModeActive) {
+      systemMetrics.fps = 142 + Math.floor(Math.random() * 3);
+      systemMetrics.gpu = Math.max(50, Math.min(88, systemMetrics.gpu + Math.round((Math.random() - 0.5) * 6)));
+      systemMetrics.vram = 4.6 + Math.random() * 0.4;
+    } else {
+      systemMetrics.fps = 120 + Math.floor(Math.random() * 20);
+      systemMetrics.gpu = Math.max(20, Math.min(65, systemMetrics.gpu + Math.round((Math.random() - 0.5) * 8)));
+    }
+    simulatePing();
+    if (gamerOverlayVisible) updateHUDTelemetry();
+    updateWidgetStats();
+    updateGamingHubWidget();
+  }, 1200);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SETUP DE AUTO-REFRESH DE CLIMA
+═══════════════════════════════════════════════════════════════ */
+
+function setupWeatherAutoRefresh() {
+  setInterval(() => {
+    desktopWidgets.filter(w => w.type === 'weather').forEach(async (widget) => {
+      const result = await fetchWeatherForCity(widget.cityId, { force: true });
+      if (!result.ok) return;
+      const el = document.getElementById(widget.id);
+      if (!el) return;
+      const body = el.querySelector('.weather-body');
+      if (body) {
+        body.outerHTML = renderWeatherWidgetHTML(widget, result.data);
+        refreshIcons();
+        attachWeatherWidgetListeners(widget.id);
+      }
+    });
+  }, WEATHER_FETCH_INTERVAL_MS);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY — Integración con la UI global
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Se llama una vez que SpotifyApp.init() ya terminó.
+ * Conecta el motor con:
+ *   - Topbar (botón "Ahora suena")
+ *   - HUD (barra de reproducción del gaming overlay)
+ *   - Control Center (#cc-spotify-player)
+ *   - Sliders de volumen del sistema
+ *   - Atajos de teclado (ya en setupShortcuts)
+ *   - Notificaciones de cambio de track
  */
+function setupSpotifyIntegration() {
+  if (!window.SpotifyApp) {
+    console.warn('[Spotify] SpotifyApp no está disponible. Abortando integración.');
+    return;
+  }
+
+  // 1. Sincronizar UI inicial con el estado actual del motor
+  updateSpotifyGlobalUI();
+
+  // 2. Suscribirse a eventos del motor para reflejar en UI global
+  SpotifyApp.on('trackchange', () => {
+    updateSpotifyGlobalUI();
+    updateSpotifyTopbar();
+    updatePlayerBackground();
+    addSpotifyNotification();
+  });
+
+  SpotifyApp.on('play', () => {
+    updateSpotifyGlobalPlayState(true);
+  });
+
+  SpotifyApp.on('pause', () => {
+    updateSpotifyGlobalPlayState(false);
+  });
+
+  SpotifyApp.on('volume', ({ volume, muted }) => {
+    updateSpotifyVolumeUI(volume, muted);
+    if (typeof syncAudioPanelWithSpotify === 'function') syncAudioPanelWithSpotify();
+    if (typeof updateAudioMasterUI === 'function') updateAudioMasterUI();
+    if (typeof updateTrayVolumeIcon === 'function') updateTrayVolumeIcon();
+  });
+
+  SpotifyApp.on('shuffle', ({ shuffle }) => {
+    document.querySelectorAll('#cc-shuffle, #spot-shuffle').forEach(el => {
+      el.classList.toggle('active', shuffle);
+    });
+  });
+
+  SpotifyApp.on('repeat', ({ repeat }) => {
+    document.querySelectorAll('#cc-repeat, #spot-repeat').forEach(el => {
+      el.classList.toggle('active', repeat !== 'off');
+      el.dataset.repeat = repeat;
+    });
+  });
+
+  SpotifyApp.on('liked', () => {
+    // Actualizar corazones en la UI
+    document.querySelectorAll('[data-spotify-like]').forEach(btn => {
+      const id = btn.dataset.spotifyLike;
+      btn.classList.toggle('liked', spIsTrackLiked(id));
+    });
+  });
+
+  SpotifyApp.on('progress', () => {
+    // Este evento se emite muchas veces; el update visual lo hace el propio motor
+    // Pero actualizamos el HUD si está visible
+    if (gamerOverlayVisible) updateHUDMediaInfo();
+  });
+
+  SpotifyApp.on('error', ({ error, context }) => {
+    console.warn('[Spotify] Error:', context, error);
+    showToast('Spotify', 'No se pudo reproducir el track.', 'alert-circle');
+  });
+
+  // 3. Botones del Control Center (rewire)
+  const ccPlayBtn = document.getElementById('cc-play-btn');
+  if (ccPlayBtn) {
+    ccPlayBtn.onclick = (e) => {
+      e.stopPropagation();
+      SpotifyApp.togglePlayPause();
+    };
+  }
+
+  const ccShuffleBtn = document.getElementById('cc-shuffle');
+  if (ccShuffleBtn) {
+    ccShuffleBtn.onclick = (e) => {
+      e.stopPropagation();
+      SpotifyApp.toggleShuffle();
+    };
+  }
+
+  const ccRepeatBtn = document.getElementById('cc-repeat');
+  if (ccRepeatBtn) {
+    ccRepeatBtn.onclick = (e) => {
+      e.stopPropagation();
+      SpotifyApp.cycleRepeat();
+    };
+  }
+
+  // 4. Botones del HUD (rewire)
+  const hudPlayBtn = document.getElementById('hud-play-btn');
+  if (hudPlayBtn) {
+    hudPlayBtn.onclick = (e) => {
+      e.stopPropagation();
+      SpotifyApp.togglePlayPause();
+    };
+  }
+
+  // 5. Botones globales del index.html que usan wrappers viejos
+  //    (los wrappers los definimos en BLOQUE 8/15, pero por las dudas
+  //     dejamos los onclick reasignados aquí)
+  window.toggleMediaPlayback = function() { SpotifyApp.togglePlayPause(); };
+  window.nextTrack = function() { SpotifyApp.next(); };
+  window.previousTrack = function() { SpotifyApp.prev(); };
+
+  // 6. Click en la barra de progreso del Control Center (seek)
+  const ccTrack = document.querySelector('.cc-progress-track');
+  if (ccTrack) {
+    ccTrack.style.cursor = 'pointer';
+    ccTrack.onclick = (e) => {
+      e.stopPropagation();
+      const rect = ccTrack.getBoundingClientRect();
+      const pct = (e.clientX - rect.left) / rect.width;
+      const current = SpotifyApp.getCurrentTrack();
+      if (current && current.duration) {
+        SpotifyApp.seek(pct * current.duration);
+      }
+    };
+  }
+
+  // 7. Inyectar el topbar "Ahora suena" si todavía no existe
+  //    (el index.html lo va a tener, pero por las dudas)
+  ensureTopbarNowPlaying();
+
+  // ★ Forzar update inmediato: si Spotify ya tiene un track restaurado
+  //   desde localStorage, el widget debe aparecer sin esperar
+  //   a que se emita un evento 'trackchange'.
+  updateSpotifyTopbar();
+
+  // 8. Restaurar volumen del sistema al slider del Control Center
+  const volSlider = document.getElementById('volume-slider');
+  if (volSlider) {
+    const pct = Math.round((spotify.volume || 0.8) * 100);
+    volSlider.value = String(pct);
+    syncSliderFill(volSlider);
+    const label = document.getElementById('quick-volume-value');
+    if (label) label.textContent = `${pct}%`;
+    const trayNum = document.getElementById('tray-volume-num');
+    if (trayNum) trayNum.textContent = `${pct}%`;
+  }
+
+  // 9. Sincronizar UI de shuffle/repeat global
+  document.querySelectorAll('#cc-shuffle, #spot-shuffle').forEach(el => {
+    el.classList.toggle('active', spotify.shuffle);
+  });
+  document.querySelectorAll('#cc-repeat, #spot-repeat').forEach(el => {
+    el.classList.toggle('active', spotify.repeat !== 'off');
+    el.dataset.repeat = spotify.repeat;
+  });
+
+  refreshIcons();
+}
+
+/* ─── Sincronizar TODA la UI global con el estado del motor ─── */
+function updateSpotifyGlobalUI() {
+  const current = SpotifyApp.getCurrentTrack();
+
+  // Control Center
+  const ccArt = document.getElementById('cc-media-art');
+  const ccTitle = document.getElementById('cc-media-title');
+  const ccArtist = document.getElementById('cc-media-artist');
+  const ccBg = document.getElementById('cc-media-bg');
+  const ccTotal = document.getElementById('cc-time-total');
+
+  if (current) {
+    if (ccArt) ccArt.src = spGetTrackCover(current);
+    if (ccTitle) ccTitle.textContent = current.title || '—';
+    if (ccArtist) ccArtist.textContent = current.artist || '—';
+    if (ccBg) ccBg.style.backgroundImage = `url("${spGetTrackCover(current)}")`;
+    if (ccTotal) ccTotal.textContent = spFormatTime(current.duration || 0);
+  } else {
+    if (ccTitle) ccTitle.textContent = 'Sin reproducción';
+    if (ccArtist) ccArtist.textContent = 'Elegí un track';
+  }
+
+  // HUD
+  const hudArt = document.getElementById('hud-media-art');
+  const hudTitle = document.getElementById('hud-media-title');
+  const hudArtist = document.getElementById('hud-media-artist');
+  const hudBg = document.getElementById('hud-media-bg');
+
+  if (current) {
+    if (hudArt) hudArt.src = spGetTrackCover(current);
+    if (hudTitle) hudTitle.textContent = current.title || '—';
+    if (hudArtist) hudArtist.textContent = current.artist || '—';
+    if (hudBg) hudBg.style.backgroundImage = `url("${spGetTrackCover(current)}")`;
+  }
+
+  updateSpotifyGlobalPlayState(spotify.isPlaying);
+  updateSpotifyVolumeUI(spotify.volume, spotify.muted);
+  updateSpotifyTopbar();
+}
+
+/* ─── Actualizar iconos de play/pause en todos los reproductores ─── */
+function updateSpotifyGlobalPlayState(isPlaying) {
+  const iconName = isPlaying ? 'pause' : 'play';
+  ['cc-play-btn', 'hud-play-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = `<i data-lucide="${iconName}"></i>`;
+  });
+  document.querySelectorAll('#spot-play-btn').forEach(btn => {
+    btn.innerHTML = `<i data-lucide="${iconName}"></i>`;
+  });
+
+  const dot = document.getElementById('cc-eq-dot');
+  if (dot) dot.classList.toggle('paused', !isPlaying);
+
+  refreshIcons();
+}
+
+/* ─── Actualizar sliders/num de volumen en toda la UI ─── */
+function updateSpotifyVolumeUI(volume, muted) {
+  const pct = Math.round((muted ? 0 : volume) * 100);
+
+  const volSlider = document.getElementById('volume-slider');
+  if (volSlider && Number(volSlider.value) !== pct) {
+    volSlider.value = String(pct);
+    syncSliderFill(volSlider);
+  }
+
+  const quickVal = document.getElementById('quick-volume-value');
+  if (quickVal) quickVal.textContent = `${pct}%`;
+
+  const trayNum = document.getElementById('tray-volume-num');
+  if (trayNum) trayNum.textContent = `${pct}%`;
+
+  document.querySelectorAll('#spot-volume-slider').forEach(el => {
+    const newVal = String(pct);
+    if (el.value !== newVal) {
+      el.value = newVal;
+      syncSliderFill(el);
+    }
+  });
+}
+
+/* ─── Topbar "Ahora suena" ─── */
+function ensureTopbarNowPlaying() {
+  let el = document.getElementById('topbar-now-playing');
+  if (el) return el;
+
+  const right = document.querySelector('.waybar-module.right');
+  if (!right) return null;
+
+  el = document.createElement('div');
+  el.id = 'topbar-now-playing';
+  el.className = 'hidden';
+  el.setAttribute('role', 'button');
+  el.setAttribute('tabindex', '0');
+  el.title = 'Reproducción actual — click para abrir Spotify';
+  el.innerHTML = `
+    <div class="tnp-cover-wrap">
+      <img class="tnp-cover" id="tnp-cover" src="" alt="" />
+      <span class="tnp-eq" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+    <div class="tnp-meta">
+      <span class="tnp-title" id="tnp-title">Sin reproducción</span>
+      <span class="tnp-artist" id="tnp-artist">—</span>
+    </div>
+    <button class="tnp-play" id="tnp-play" type="button" aria-label="Reproducir/Pausar">
+      <i data-lucide="play"></i>
+    </button>
+    <div class="tnp-progress" aria-hidden="true">
+      <span class="tnp-progress-fill" id="tnp-progress-fill"></span>
+    </div>
+  `;
+  const sysTray = right.querySelector('.sys-tray');
+  if (sysTray) {
+    right.insertBefore(el, sysTray);
+  } else {
+    right.appendChild(el);
+  }
+
+  el.addEventListener('click', (e) => {
+    if (e.target.closest('.tnp-play')) return;
+    openApp('music');
+  });
+
+  el.querySelector('.tnp-play')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    SpotifyApp.togglePlayPause();
+  });
+
+  refreshIcons();
+  return el;
+}
+
+/* ─── Actualizar contenido del topbar ─── */
+function updateSpotifyTopbar() {
+  const el = document.getElementById('topbar-now-playing');
+  if (!el) return;
+
+  const current = SpotifyApp.getCurrentTrack();
+  if (!current) {
+    el.classList.add('hidden');
+    return;
+  }
+
+  el.classList.remove('hidden');
+
+  const cover = document.getElementById('tnp-cover');
+  if (cover) {
+    cover.src = spGetTrackCover(current);
+    cover.alt = current.title || '';
+  }
+
+  const title = document.getElementById('tnp-title');
+  if (title) title.textContent = spTruncate(current.title || '—', 26);
+
+  const artist = document.getElementById('tnp-artist');
+  if (artist) artist.textContent = spTruncate(current.artist || '—', 30);
+
+  el.classList.toggle('playing', spotify.isPlaying);
+
+  const playBtn = document.getElementById('tnp-play');
+  if (playBtn) {
+    playBtn.innerHTML = `<i data-lucide="${spotify.isPlaying ? 'pause' : 'play'}"></i>`;
+  }
+
+  refreshIcons();
+}
+
+/* ─── Notificación al cambiar de track ─── */
+function addSpotifyNotification() {
+  const current = SpotifyApp.getCurrentTrack();
+  if (!current) return;
+
+  // Solo si no está en DND y el HUD no está visible
+  if (dndEnabled || gamerOverlayVisible) return;
+
+  addNotificationToHistory(
+    `♪ ${current.title}`,
+    `${current.artist}${current.album ? ' · ' + current.album : ''}`,
+    'music'
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY — Wrappers globales (compatibilidad con el resto del sistema)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Control de reproducción ─── */
+
+function toggleMediaPlayback() {
+  if (window.SpotifyApp) SpotifyApp.togglePlayPause();
+}
+
+function nextTrack() {
+  if (window.SpotifyApp) SpotifyApp.next();
+}
+
+function previousTrack() {
+  if (window.SpotifyApp) SpotifyApp.prev();
+}
+
+function playFirstTrack() {
+  if (!window.SpotifyApp) return;
+  const all = SpotifyApp.getAllTracks();
+  if (all.length === 0) return;
+  SpotifyApp.play(all[0].id);
+}
+
+/* ─── Volumen del sistema → Spotify ─── */
+/* (setSystemVolume ya está definido en PARTE 10 y delega en SpotifyApp) */
+
+/* ─── Progress / Background (visual, sin estado) ─── */
+
+function updateHUDMediaInfo() {
+  if (!gamerOverlayVisible) return;
+  if (!window.SpotifyApp) return;
+
+  const current = SpotifyApp.getCurrentTrack();
+  const cur = SpotifyApp.getCurrentTime();
+  const dur = SpotifyApp.getDuration() || (current ? current.duration : 0);
+  const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
+
+  const hudFill = document.getElementById('hud-progress-fill');
+  const hudTime = document.getElementById('hud-progress-time');
+  if (hudFill) hudFill.style.width = `${pct}%`;
+  if (hudTime) hudTime.textContent = `${spFormatTime(cur)} / ${spFormatTime(dur)}`;
+
+  // Media info del HUD
+  if (current) {
+    const hudArt = document.getElementById('hud-media-art');
+    const hudTitle = document.getElementById('hud-media-title');
+    const hudArtist = document.getElementById('hud-media-artist');
+    if (hudArt) hudArt.src = spGetTrackCover(current);
+    if (hudTitle) hudTitle.textContent = current.title || '—';
+    if (hudArtist) hudArtist.textContent = current.artist || '—';
+  }
+}
+
+function updatePlayerBackground() {
+  const current = window.SpotifyApp ? SpotifyApp.getCurrentTrack() : null;
+  if (!current) return;
+
+  const cover = spGetTrackCover(current);
+  const ccBg = document.getElementById('cc-media-bg');
+  if (ccBg) ccBg.style.backgroundImage = `url("${cover}")`;
+  const hudBg = document.getElementById('hud-media-bg');
+  if (hudBg) hudBg.style.backgroundImage = `url("${cover}")`;
+}
+
+/* ─── Shuffle / Repeat sync global ─── */
+
+function syncSpotifyShuffleRepeatUI() {
+  if (!window.SpotifyApp) return;
+  const shuffle = spotify.shuffle;
+  const repeat = spotify.repeat;
+
+  document.querySelectorAll('#cc-shuffle, #spot-shuffle, [data-sp-action="shuffle"]').forEach(el => {
+    el.classList.toggle('active', shuffle);
+  });
+  document.querySelectorAll('#cc-repeat, #spot-repeat, [data-sp-action="repeat"]').forEach(el => {
+    el.classList.toggle('active', repeat !== 'off');
+    el.dataset.repeat = repeat;
+  });
+}
+
+/* ─── Quick Center Player: stub (la lógica real vive en SpotifyApp) ─── */
+
+function setupQuickCenterPlayer() {
+  // No-op: la integración se hace en setupSpotifyIntegration (PARTE 10).
+  // Este stub existe solo por compatibilidad con llamadas antiguas.
+}
+
+/* ─── Progress: forzar actualización de la UI global cada 500ms ─── */
+/* El motor ya emite 'progress' pero solo actuliza el Spotify app.
+   Para el Control Center y el HUD, hacemos un poll liviano. */
+
+(function startGlobalSpotifyProgressPoll() {
+  let ticks = 0;
+  setInterval(() => {
+    if (!window.SpotifyApp) return;
+    if (!spotify.isPlaying) return;
+
+    const dur = SpotifyApp.getDuration() || (SpotifyApp.getCurrentTrack()?.duration || 0);
+    const pct = dur > 0 ? Math.min(100, (SpotifyApp.getCurrentTime() / dur) * 100) : 0;
+
+    // Control Center: tiempo actual
+    const ccCurrent = document.getElementById('cc-time-current');
+    if (ccCurrent) ccCurrent.textContent = spFormatTime(SpotifyApp.getCurrentTime());
+
+    // Control Center: barra de progreso
+    const ccFill = document.getElementById('cc-progress-fill');
+    if (ccFill) ccFill.style.width = `${pct}%`;
+
+    // ★ Topbar Now Playing: barra de progreso
+    const tnpFill = document.getElementById('tnp-progress-fill');
+    if (tnpFill) tnpFill.style.width = `${pct}%`;
+
+    // HUD
+    updateHUDMediaInfo();
+
+    // Cada ~5s (10 ticks), refresh completo por si hubo cambios
+    ticks++;
+    if (ticks >= 10) {
+      ticks = 0;
+      // Por si cambió algo externamente
+    }
+  }, 500);
+})();
+
+/* ─── Suscripción de eventos para actualizar la UI global ─── */
+
+(function bindSpotifyGlobalEvents() {
+  if (!window.SpotifyApp) return;
+
+  SpotifyApp.on('trackchange', () => {
+    updateSpotifyGlobalUI();
+    // Notificar (silencioso si HUD visible)
+    if (!gamerOverlayVisible && !dndEnabled) {
+      const current = SpotifyApp.getCurrentTrack();
+      if (current) {
+        addNotificationToHistory(
+          `♪ ${current.title}`,
+          `${current.artist}${current.album ? ' · ' + current.album : ''}`,
+          'music'
+        );
+      }
+    }
+  });
+
+  SpotifyApp.on('play', () => {
+    updateSpotifyGlobalPlayState(true);
+  });
+
+  SpotifyApp.on('pause', () => {
+    updateSpotifyGlobalPlayState(false);
+  });
+
+  SpotifyApp.on('volume', ({ volume, muted }) => {
+    updateSpotifyVolumeUI(volume, muted);
+  });
+
+  SpotifyApp.on('shuffle', () => {
+    syncSpotifyShuffleRepeatUI();
+  });
+
+  SpotifyApp.on('repeat', () => {
+    syncSpotifyShuffleRepeatUI();
+  });
+
+  SpotifyApp.on('liked', () => {
+    // Refrescar corazones en el Control Center si aplica
+    // (el CC no muestra corazón actualmente, pero dejamos el hook)
+  });
+
+  SpotifyApp.on('error', ({ error, context }) => {
+    // Silencioso en consola, toast solo si es error de reproducción
+    if (context === 'play' || context === 'play-promise' || context === 'audio-element') {
+      // Evitar spam: solo mostrar 1 por minuto
+      const now = Date.now();
+      if (!window.__lastSpotifyErrorToast || now - window.__lastSpotifyErrorToast > 60000) {
+        window.__lastSpotifyErrorToast = now;
+        showToast('Spotify', 'No se pudo reproducir la canción. Revisá los archivos MP3.', 'alert-circle');
+      }
+    }
+  });
+})();
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ Atajos del Control Center (botones del HTML)
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * El HTML del Control Center tiene onclick inline que llaman a:
+ *   - previousTrack()
+ *   - toggleMediaPlayback()
+ *   - nextTrack()
+ *   - toggleShuffle()  ← no existe, hay que crearlo
+ *   - cycleRepeat()    ← no existe, hay que crearlo
+ *
+ * Los tres primeros ya están arriba como wrappers.
+ * Los dos últimos los agregamos acá.
+ */
+
+function toggleShuffle() {
+  if (window.SpotifyApp) SpotifyApp.toggleShuffle();
+}
+
+function cycleRepeat() {
+  if (window.SpotifyApp) SpotifyApp.cycleRepeat();
+}
+
+/* ─── Botones del Control Center y HUD con id (agregar listeners) ─── */
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Los botones del CC y del HUD ya tienen onclick inline en el HTML.
+  // Pero por las dudas, si alguno tiene un ID y no onclick, lo bindeamos.
+  // Este DOMContentLoaded corre después del principal (registro tardío),
+  // así que solo actúa sobre elementos que ya existen.
+
+  const ccShuffle = document.getElementById('cc-shuffle');
+  if (ccShuffle && !ccShuffle.dataset.bound) {
+    ccShuffle.dataset.bound = '1';
+    ccShuffle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleShuffle();
+    });
+  }
+
+  const ccRepeat = document.getElementById('cc-repeat');
+  if (ccRepeat && !ccRepeat.dataset.bound) {
+    ccRepeat.dataset.bound = '1';
+    ccRepeat.addEventListener('click', (e) => {
+      e.stopPropagation();
+      cycleRepeat();
+    });
+  }
+
+  // Botón de play/pause del CC
+  const ccPlay = document.getElementById('cc-play-btn');
+  if (ccPlay && !ccPlay.dataset.bound) {
+    ccPlay.dataset.bound = '1';
+    ccPlay.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleMediaPlayback();
+    });
+  }
+
+  // Botón de play/pause del HUD
+  const hudPlay = document.getElementById('hud-play-btn');
+  if (hudPlay && !hudPlay.dataset.bound) {
+    hudPlay.dataset.bound = '1';
+    hudPlay.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleMediaPlayback();
+    });
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY — Comandos desde Nova AI
+   ═══════════════════════════════════════════════════════════════
+   Función helper que Nova puede llamar para controlar el reproductor
+   por lenguaje natural. Se usa desde parseAndExecuteNovaAction.
+*/
+
+function handleSpotifyNovaCommand(query) {
+  if (!window.SpotifyApp) return null;
+  const q = String(query || '').toLowerCase().trim();
+
+  // ─── Reproducir canción específica ───
+  const playMatch = q.match(/(?:reproduc[ií]|pon[eé]?|toc[áa]|play)\s+(?:la\s+)?(?:canci[oó]n\s+)?["“']?(.+?)["”']?\s*(?:de\s+(.+))?$/i);
+  if (playMatch) {
+    const [, songQuery, artistQuery] = playMatch;
+    const results = SpotifyApp.search(songQuery.trim());
+    let target = results.tracks[0];
+
+    // Si hay artista, filtrar
+    if (target && artistQuery) {
+      const filtered = results.tracks.filter(t =>
+        t.artist.toLowerCase().includes(artistQuery.toLowerCase().trim())
+      );
+      if (filtered.length > 0) target = filtered[0];
+    }
+
+    if (target) {
+      SpotifyApp.play(target.id);
+      return {
+        replyText: `Reproduciendo "${target.title}" de ${target.artist}.`,
+        actionTaken: `Spotify: ${target.title}`
+      };
+    }
+    return {
+      replyText: `No encontré "${songQuery.trim()}" en tu biblioteca.`,
+      actionTaken: null
+    };
+  }
+
+  // ─── Pausar ───
+  if (/\b(paus[áa]|pausar|deten[eé]|stop|par[áa])\b/.test(q) && /(m[uú]sica|canci[oó]n|spotify|reproducci[oó]n|track)/.test(q)) {
+    SpotifyApp.pause();
+    return {
+      replyText: 'Música pausada.',
+      actionTaken: 'Spotify: Pausa'
+    };
+  }
+
+  // ─── Siguiente ───
+  if (/\b(siguiente|next|salta|saltar|pr[oó]xima)\b/.test(q) && /(m[uú]sica|canci[oó]n|spotify|track)/.test(q)) {
+    SpotifyApp.next();
+    const next = SpotifyApp.getCurrentTrack();
+    return {
+      replyText: next ? `Reproduciendo "${next.title}" de ${next.artist}.` : 'Cambiando de canción...',
+      actionTaken: 'Spotify: Siguiente'
+    };
+  }
+
+  // ─── Anterior ───
+  if (/\b(anterior|prev|volver|atr[áa]s)\b/.test(q) && /(m[uú]sica|canci[oó]n|spotify|track)/.test(q)) {
+    SpotifyApp.prev();
+    const prev = SpotifyApp.getCurrentTrack();
+    return {
+      replyText: prev ? `Reproduciendo "${prev.title}" de ${prev.artist}.` : 'Volviendo a la canción anterior...',
+      actionTaken: 'Spotify: Anterior'
+    };
+  }
+
+  // ─── Play / Resume genérico ───
+  if (/\b(reproduc[ií]|pon[eé]?|toc[áa]|play|dale)\b/.test(q) && /(m[uú]sica|canci[oó]n|spotify|algo|track)/.test(q)) {
+    if (SpotifyApp.getCurrentTrack() && SpotifyApp.isPlaying() === false) {
+      SpotifyApp.resume();
+      return { replyText: 'Reanudando la música.', actionTaken: 'Spotify: Play' };
+    }
+    const all = SpotifyApp.getAllTracks();
+    if (all.length > 0) {
+      SpotifyApp.play(all[0].id);
+      return { replyText: `Reproduciendo "${all[0].title}" de ${all[0].artist}.`, actionTaken: 'Spotify: Play' };
+    }
+    return { replyText: 'No hay música en tu biblioteca todavía.', actionTaken: null };
+  }
+
+  // ─── Subir volumen ───
+  if (/(sub[íi]|sube|aument[áa]|m[áa]s)\s*(el\s+)?volumen/.test(q) || /^volumen\s*\+\s*\d+/.test(q)) {
+    const match = q.match(/\+\s*(\d+)/);
+    const delta = match ? parseInt(match[1], 10) / 100 : 0.1;
+    const newVol = Math.min(1, SpotifyApp.getVolume() + delta);
+    SpotifyApp.setVolume(newVol);
+    return {
+      replyText: `Volumen al ${Math.round(newVol * 100)}%.`,
+      actionTaken: 'Spotify: Volumen'
+    };
+  }
+
+  // ─── Bajar volumen ───
+  if (/(baj[áa]|baja|reduc[íi]|reduce|menos)\s*(el\s+)?volumen/.test(q) || /^volumen\s*-\s*\d+/.test(q)) {
+    const match = q.match(/-\s*(\d+)/);
+    const delta = match ? parseInt(match[1], 10) / 100 : 0.1;
+    const newVol = Math.max(0, SpotifyApp.getVolume() - delta);
+    SpotifyApp.setVolume(newVol);
+    return {
+      replyText: `Volumen al ${Math.round(newVol * 100)}%.`,
+      actionTaken: 'Spotify: Volumen'
+    };
+  }
+
+  // ─── Me gusta ───
+  if (/(me gusta|like|favorit[oa]|guardar?)\s+(esta|la|esta canci[oó]n)/.test(q)) {
+    const current = SpotifyApp.getCurrentTrack();
+    if (current) {
+      SpotifyApp.toggleLike(current.id);
+      const liked = SpotifyApp.isLiked(current.id);
+      return {
+        replyText: liked ? `Agregué "${current.title}" a Tus me gusta.` : `Quité "${current.title}" de Tus me gusta.`,
+        actionTaken: liked ? 'Spotify: Like' : 'Spotify: Unlike'
+      };
+    }
+  }
+
+  // ─── Aleatorio ───
+  if (/(aleatorio|shuffle|random)/.test(q) && /(m[uú]sica|reproduc|spotify|poner)/.test(q)) {
+    SpotifyApp.setShuffle(true);
+    return { replyText: 'Modo aleatorio activado.', actionTaken: 'Spotify: Shuffle' };
+  }
+
+  // ─── Abrir Spotify ───
+  if (/(abr[íi]|abre|open|mostrar)\s+spotify/.test(q) || /\bspotify\b/.test(q) && /(abr|mostrar|open)/.test(q)) {
+    openApp('music');
+    return { replyText: 'Abriendo Spotify.', actionTaken: 'Spotify: Abrir app' };
+  }
+
+  return null;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY — Limpieza al cerrar ventana
+   ═══════════════════════════════════════════════════════════════ */
+
+window.addEventListener('beforeunload', () => {
+  if (window.SpotifyApp && typeof SpotifyApp.flushState === 'function') {
+    SpotifyApp.flushState();
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ SPOTIFY — Decorador para closeApp (agrega cleanup)
+   ═══════════════════════════════════════════════════════════════ */
+
+(function decorateSpotifyCloseApp() {
+  if (typeof closeApp !== 'function') return;
+  if (closeApp.__spotifyDecorated) return;
+
+  const original = closeApp;
+  window.closeApp = function(winId) {
+    const entry = openWindows[winId];
+    if (entry?.appId === 'music') {
+      const win = entry.win;
+      const ui = spotifyUIState.get(win);
+      if (ui) {
+        if (ui.visualizerRaf) cancelAnimationFrame(ui.visualizerRaf);
+        if (ui.progressInterval) clearInterval(ui.progressInterval);
+        if (Array.isArray(ui.unsubs)) {
+          ui.unsubs.forEach(unsub => { try { unsub(); } catch (e) {} });
+        }
+        spotifyUIState.delete(win);
+      }
+    }
+    return original.call(this, winId);
+  };
+  window.closeApp.__spotifyDecorated = true;
+})();
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ FIN DEL ARCHIVO — script.js
+   ═══════════════════════════════════════════════════════════════
+
+   ESTRUCTURA FINAL (por orden de aparición):
+
+     PARTE  1/10 → Configuración y constantes
+     PARTE  2/10 → Estado global (variables mutables)
+     PARTE  3/10 → Helpers y utilidades
+     PARTE  4/10 → Motor Spotify (IIFE SpotifyApp)
+     PARTE  5/10 → Sistema de ventanas
+     PARTE  6/10 → Apps (Terminal · Nova · Files · Settings · Vault ·
+                   Activity · Taskmgr · Gamelib · VSCode · Browser ·
+                   Spotify UI)
+     PARTE  7/10 → Widgets + Notificaciones + Toasts + Calendario
+     PARTE  8/10 → Overlays y menús (Launcher · Context · CC/QC ·
+                   Notif overlay · Store · WiFi · BT · Files ctx ·
+                   Weather dropdown · Audio Panel)
+     PARTE  9/10 → Features del sistema (Designer · Wallpapers · Stars ·
+                   Game Mode+HUD · Store · WiFi/BT · DND · Brightness ·
+                   Perfiles · Fondos animados)
+     PARTE 10/10 → Bootstrap + Integración + Cierre
+
+   ═══════════════════════════════════════════════════════════════
+
+   NOTAS DE MANTENIMIENTO:
+
+   · Todas las variables `stars*` y `STARS_CONFIG` están declaradas
+     UNA SOLA VEZ en las PARTES 1 y 2. NO deben redeclararse.
+
+   · `getAppContent()` es el ROUTER principal. Si agregás una app nueva,
+     registrala en APPS, agregala al switch de getAppContent, y agregá su
+     setup en openApp().
+
+   · Para agregar un widget nuevo: agregalo a WIDGET_CATALOG, a los
+     defaultPositions en addDesktopWidget(), y a renderDesktopWidgets().
+
+   · Para agregar un tema nuevo: agregalo a THEME_PRESETS y automáticamente
+     va a aparecer en el Designer.
+
+   · El sistema de Toasts usa `activeToasts` (array) — no redeclarar.
+
+   · El sistema de session usa `SESSION_STORAGE_KEY` — no redeclarar.
+
+   · ★ El motor de Spotify vive en `SpotifyApp` (IIFE en PARTE 4).
+     El estado runtime está en `spotify` (PARTE 2).
+     La persistencia usa `SPOTIFY_STORAGE_KEY`.
+     La biblioteca viene de `assets/music/library.json` con fallback a
+     `SPOTIFY_DEFAULT_LIBRARY`.
+
+   · Duplicados eliminados respecto al original:
+     - toggleControlCenterFromShortcut (unificado en toggleControlCenter)
+     - syncGameModeUI (dejada solo la versión completa)
+     - updateSpotifyGlobalUI (dejada solo la de PARTE 8)
+     - updateHUDMediaInfo (dejada solo la de PARTE 8)
+     - updateSpotifyGlobalPlayState (dejada solo la de PARTE 8)
+     - updateSpotifyVolumeUI (dejada solo la de PARTE 8)
+     - setSystemVolume (dejada solo la de PARTE 4/PARTE 10)
+     - setupMediaPlayer (dejado como stub con comentario)
+
+   ═══════════════════════════════════════════════════════════════ */
 
 /* FIN DEL ARCHIVO */
