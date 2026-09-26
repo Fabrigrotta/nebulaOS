@@ -10,33 +10,34 @@
 </head>
 <body>
 
+<!-- ═══════════════════════════════════════════════════════════
+     BOOT SCREEN
+     ═══════════════════════════════════════════════════════════ -->
 <div id="boot-screen" aria-label="Iniciando Nebula OS">
   <div class="boot-logo-mark" aria-hidden="true">
-     <svg viewBox="0 0 24 24" width="76" height="76" fill="currentColor"><path d="M12 2.5a.5.5 0 0 1 .5.5v1.5a.5.5 0 0 1-1 0V3a.5.5 0 0 1 .5-.5zm5.5 2.5a.5.5 0 0 1 .7.7l-1 1a.5.5 0 1 1-.7-.7l1-1zM21.5 12a.5.5 0 0 1-.5.5h-1.5a.5.5 0 0 1 0-1H21a.5.5 0 0 1 .5.5zm-2.5 5.5a.5.5 0 0 1-.7.7l-1-1a.5.5 0 1 1 .7-.7l1 1zM12 21.5a.5.5 0 0 1-.5-.5v-1.5a.5.5 0 0 1 1 0V21a.5.5 0 0 1-.5.5zm-5.5-2.5a.5.5 0 0 1-.7-.7l1-1a.5.5 0 1 1 .7.7l1 1zM2.5 12a.5.5 0 0 1 .5-.5h1.5a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm2.5-5.5a.5.5 0 0 1 .7-.7l1 1a.5.5 0 1 1-.7.7l-1-1zM12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg>
+    <svg viewBox="0 0 24 24" width="76" height="76" fill="currentColor"><path d="M12 2.5a.5.5 0 0 1 .5.5v1.5a.5.5 0 0 1-1 0V3a.5.5 0 0 1 .5-.5zm5.5 2.5a.5.5 0 0 1 .7.7l-1 1a.5.5 0 1 1-.7-.7l1-1zM21.5 12a.5.5 0 0 1-.5.5h-1.5a.5.5 0 0 1 0-1H21a.5.5 0 0 1 .5.5zm-2.5 5.5a.5.5 0 0 1-.7.7l-1-1a.5.5 0 1 1 .7-.7l1 1zM12 21.5a.5.5 0 0 1-.5-.5v-1.5a.5.5 0 0 1 1 0V21a.5.5 0 0 1-.5.5zm-5.5-2.5a.5.5 0 0 1-.7-.7l1-1a.5.5 0 1 1 .7.7l1 1zM2.5 12a.5.5 0 0 1 .5-.5h1.5a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm2.5-5.5a.5.5 0 0 1 .7-.7l1 1a.5.5 0 1 1-.7.7l-1-1zM12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg>
     <img src="./assets/images/logosSO/nebulaLogo.png" alt="Logo de Nebula OS" width="76" height="76">
   </div>
   <div class="boot-wordmark">NEBULA OS</div>
   <div class="boot-status">Iniciando entorno gráfico Gamer & IA</div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════
+     SCREEN — Contenedor principal
+     ═══════════════════════════════════════════════════════════ -->
 <div id="screen">
-  <!-- Fondo Animado (Canvas) -->
+
+  <!-- ─── CAPAS DE FONDO ─── -->
   <canvas id="animated-bg-canvas"></canvas>
-
-  <!-- Fondo Estrellas -->
   <div id="background-layer"></div>
-
-  <!-- CAPA DE WIDGETS DE ESCRITORIO -->
-  <div id="desktop-widgets-layer"></div>
   <div id="stars-layer-far" class="stars-layer"></div>
   <div id="stars-layer-mid" class="stars-layer"></div>
   <div id="stars-layer-near" class="stars-layer"></div>
-</div>
 
-  <!-- CAPA DE WIDGETS DE ESCRITORIO -->
+  <!-- ─── CAPA DE WIDGETS DE ESCRITORIO ─── -->
   <div id="desktop-widgets-layer"></div>
 
-  <!-- TOP BAR -->
+  <!-- ─── TOPBAR ─── -->
   <div id="topbar">
     <div class="waybar-module left">
       <div class="logo" title="Administrador de Escritorios" onclick="toggleWindowManager()" role="button" tabindex="0">
@@ -62,7 +63,7 @@
 
       <span class="active-app" id="active-app-name">Escritorio</span>
     </div>
-    
+
     <div class="waybar-module center" id="clock-center" tabindex="0" role="button" aria-label="Abrir calendario y centro de control">
       <span id="clock">
         <span class="clock-time" id="clock-time">00:00:00</span>
@@ -70,7 +71,7 @@
         <span class="clock-date" id="clock-date">sáb 1</span>
       </span>
     </div>
-    
+
     <div class="waybar-module right" id="sys-tray-btn">
       <div class="sys-tray">
         <div class="item hud-btn" id="tray-hud-toggle" title="Gaming Overlay HUD (Alt+Z / Win+G)">
@@ -101,7 +102,11 @@
     </div>
   </div>
 
-  <!-- WIDGET DE CALENDARIO Y CENTRO DE CONTROL -->
+  <!-- ═══════════════════════════════════════════════════════════
+       OVERLAYS DEL SISTEMA (anclados al topbar)
+       ═══════════════════════════════════════════════════════════ -->
+
+  <!-- ─── CONTROL CENTER ─── -->
   <div id="control-center" class="hidden" aria-label="Centro de control">
     <div class="widget-header">
       <div>
@@ -130,7 +135,7 @@
     </div>
   </div>
 
-  <!-- MENÚ DE UTILIDADES DE LA BANDEJA -->
+  <!-- ─── QUICK CENTER (Utilidades & Gaming) ─── -->
   <div id="quick-center" class="hidden" aria-label="Utilidades del sistema">
     <div class="quick-panel-heading">
       <div class="widget-kicker">CENTRO DE CONTROL</div>
@@ -252,7 +257,7 @@
     </div>
   </div>
 
-    <!-- PANEL DE REDES WIFI -->
+  <!-- ─── PANEL DE REDES WIFI ─── -->
   <div id="wifi-panel" class="hidden" aria-label="Panel de Redes WiFi">
     <div class="network-panel-header">
       <div>
@@ -286,7 +291,7 @@
     </div>
   </div>
 
-  <!-- PANEL DE DISPOSITIVOS BLUETOOTH -->
+  <!-- ─── PANEL DE DISPOSITIVOS BLUETOOTH ─── -->
   <div id="bluetooth-panel" class="hidden" aria-label="Gestor de Dispositivos Bluetooth">
     <div class="network-panel-header">
       <div>
@@ -326,7 +331,7 @@
     </div>
   </div>
 
-  <!-- CENTRO DE NOTIFICACIONES -->
+  <!-- ─── CENTRO DE NOTIFICACIONES ─── -->
   <div id="notification-center" class="hidden" aria-label="Centro de notificaciones">
     <div class="notif-panel-header">
       <div>
@@ -355,285 +360,7 @@
     </div>
   </div>
 
-  <!-- GAMING OVERLAY (HUD FLOTANTE TRANSLÚCIDO) -->
-  <div id="gamer-overlay" class="gamer-overlay hidden" aria-label="Nebula Gaming Overlay">
-    <div class="hud-container glass-panel">
-
-      <!-- ═══ HEADER ═══ -->
-      <div class="hud-header">
-        <div class="hud-title">
-          <span class="hud-badge"><i data-lucide="activity"></i> NEBULA HUD</span>
-          <strong>GAMING PERFORMANCE HUB</strong>
-          <span class="hud-shortcut-hint">Presioná <kbd>Alt</kbd> + <kbd>Z</kbd> o <kbd>Win</kbd> + <kbd>G</kbd> para alternar</span>
-        </div>
-        <div class="hud-actions">
-          <button class="hud-tool-btn" type="button" onclick="takeGamerScreenshot()">
-            <i data-lucide="camera"></i> Captura
-          </button>
-          <button class="hud-tool-btn" type="button" onclick="simulateRamBoost()">
-            <i data-lucide="sparkles"></i> Optimizar
-          </button>
-<button class="hud-gamemode-btn" id="hud-gamemode-toggle" type="button" onclick="toggleGameMode()">
-  <span class="hud-pulse-dot"></span>
-  <span id="hud-gamemode-text">GAME MODE</span>
-</button>
-          <button class="hud-close-btn" type="button" onclick="toggleGamerOverlay()" aria-label="Cerrar HUD">
-            <i data-lucide="x"></i>
-          </button>
-        </div>
-      </div>
-
-      <!-- ═══ TELEMETRÍA ═══ -->
-      <div class="hud-telemetry-grid">
-
-        <!-- FPS (destacado, columna izquierda) -->
-        <div class="hud-card hud-fps-card">
-          <div class="hud-card-header">
-            <i data-lucide="gauge"></i>
-            <span>FPS TIEMPO REAL</span>
-          </div>
-          <div class="hud-fps-val" id="hud-fps">144</div>
-          <div class="hud-fps-label">ESTABLES · 144Hz G-SYNC</div>
-          <div class="hud-fps-bar">
-            <div class="hud-fps-fill"></div>
-          </div>
-        </div>
-
-        <!-- GPU -->
-        <div class="hud-card">
-          <div class="hud-card-header">
-            <i data-lucide="cpu"></i>
-            <span>GPU (RTX 4080 SUPRIM)</span>
-          </div>
-          <div class="hud-stat-row">
-            <span>Uso GPU</span>
-            <strong id="hud-gpu-usage">62%</strong>
-          </div>
-          <div class="hud-mini-meter">
-            <div class="meter-bar" id="hud-gpu-bar" style="width: 62%"></div>
-          </div>
-          <div class="hud-stat-row">
-            <span>VRAM</span>
-            <strong id="hud-vram-usage">4.8 / 16 GB</strong>
-          </div>
-          <div class="hud-stat-row">
-            <span>Temperatura</span>
-            <strong id="hud-gpu-temp">57°C</strong>
-          </div>
-        </div>
-
-        <!-- CPU -->
-        <div class="hud-card">
-          <div class="hud-card-header">
-            <i data-lucide="cpu"></i>
-            <span>CPU (Ryzen 9 7950X)</span>
-          </div>
-          <div class="hud-stat-row">
-            <span>Uso CPU</span>
-            <strong id="hud-cpu-usage">35%</strong>
-          </div>
-          <div class="hud-mini-meter">
-            <div class="meter-bar" id="hud-cpu-bar" style="width: 35%"></div>
-          </div>
-          <div class="hud-stat-row">
-            <span>Frecuencia</span>
-            <strong id="hud-cpu-freq">4.20 GHz (Estándar)</strong>
-          </div>
-          <div class="hud-stat-row">
-            <span>RAM Sistema</span>
-            <strong id="hud-ram-stat">12.5 / 32 GB (39%)</strong>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- ═══ REPRODUCTOR (al pie del HUD, ancho completo) ═══ -->
-      <div id="media-player-hud" aria-label="Reproductor de música">
-        <div class="hud-media-bg" id="hud-media-bg"></div>
-
-        <div class="hud-media-block">
-          <img src="./assets/images/apps/spotify/tapaAlbum2.jpg" alt="Track Art" id="hud-media-art">
-          <div class="hud-media-info">
-            <strong id="hud-media-title">Bocanada</strong>
-            <small id="hud-media-artist">Gustavo Cerati</small>
-          </div>
-        </div>
-
-        <div class="hud-media-btns">
-          <button class="hud-mbtn" onclick="previousTrack()" title="Anterior">
-            <i data-lucide="skip-back"></i>
-          </button>
-          <button class="hud-mbtn main" id="hud-play-btn" onclick="toggleMediaPlayback()" title="Reproducir/Pausar">
-            <i data-lucide="play"></i>
-          </button>
-          <button class="hud-mbtn" onclick="nextTrack()" title="Siguiente">
-            <i data-lucide="skip-forward"></i>
-          </button>
-        </div>
-
-        <div class="hud-progress-block">
-          <div class="hud-progress-label">
-            <i data-lucide="music"></i>
-            <span id="hud-progress-time">0:00 / 4:32</span>
-          </div>
-          <div class="hud-progress-track">
-            <span id="hud-progress-fill" style="width: 0%"></span>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- CONTENEDOR DE VENTANAS -->
-  <div id="windows-container"></div>
-
-  <!-- DOCK -->
-  <div id="dock"></div>
-
-  <!-- LAUNCHER OVERLAY -->
-  <div id="launcher-overlay">
-    <div id="launcher">
-      <div class="searchbar">
-        <i data-lucide="search" class="searchbar-icon"></i>
-        <input type="text" id="launcher-input" placeholder="Buscar aplicaciones o comandos..." autocomplete="off">
-      </div>
-      <div id="launcher-results"></div>
-    </div>
-  </div>
-
-  <!-- WINDOW MANAGER OVERLAY (Administrador de Escritorios + Ventanas) -->
-  <div id="window-manager-overlay" aria-label="Administrador de escritorios" aria-hidden="true">
-    <div class="wm-container">
-      <header class="wm-header">
-        <div class="wm-header-left">
-          <span class="wm-kicker">NEBULA WORKSPACES</span>
-          <h2>Administrador de Escritorios</h2>
-          <p id="wm-subtitle">Cargando espacios de trabajo...</p>
-        </div>
-        <div class="wm-header-right">
-          <span class="wm-shortcut-hint"><kbd>Esc</kbd> para cerrar</span>
-          <button class="wm-close-btn" type="button" onclick="toggleWindowManager()" aria-label="Cerrar administrador">
-            <i data-lucide="x"></i>
-          </button>
-        </div>
-      </header>
-
-      <!-- TIRA DE WORKSPACES -->
-      <div class="wm-workspaces-strip" id="wm-workspaces-strip"></div>
-
-      <!-- VENTANAS DEL WORKSPACE ACTIVO -->
-      <div class="wm-section-heading" id="wm-section-heading">
-        <span class="wm-section-dot"></span>
-        <span id="wm-section-title">Ventanas del Space 1</span>
-      </div>
-
-      <div class="wm-grid" id="wm-grid"></div>
-      <div class="wm-empty" id="wm-empty" hidden>
-        <i data-lucide="layout-grid"></i>
-        <strong>No hay ventanas abiertas</strong>
-        <span>Abrí una app desde el dock o el lanzador para verla acá.</span>
-      </div>
-
-      <!-- ★ PAPELERA DE VENTANAS (visible solo al arrastrar) -->
-      <div class="wm-trash-zone" id="wm-trash-zone" aria-label="Papelera de ventanas">
-        <div class="wm-trash-inner">
-          <i data-lucide="trash-2" class="wm-trash-icon"></i>
-          <strong class="wm-trash-title">Soltá para eliminar</strong>
-          <small class="wm-trash-sub">La ventana se cerrará permanentemente</small>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- MENÚ CONTEXTUAL DEL ESCRITORIO CON ICONOS VECTORIALES -->
-  <div id="context-menu" class="context-menu" role="menu">
-    <div class="context-item" tabindex="0" role="button" onclick="openContextApp('terminal')">
-      <span class="c-icon"><i data-lucide="terminal"></i></span> Abrir Terminal aquí
-    </div>
-    <div class="context-item" tabindex="0" role="button" onclick="openContextApp('files')">
-      <span class="c-icon"><i data-lucide="folder"></i></span> Abrir Archivos
-    </div>
-    <div class="context-item" tabindex="0" role="button" onclick="openContextApp('nova')">
-      <span class="c-icon"><i data-lucide="sparkles"></i></span> Preguntar a Nova AI
-    </div>
-    <div class="context-separator"></div>
-    <div class="context-item" tabindex="0" role="button" onclick="toggleGamerOverlay()">
-      <span class="c-icon"><i data-lucide="activity"></i></span> Abrir Gaming Overlay (HUD)
-    </div>
-    <div class="context-item" tabindex="0" role="button" onclick="toggleGameMode()">
-      <span class="c-icon"><i data-lucide="gamepad-2"></i></span> Alternar Modo Juego
-    </div>
-    <div class="context-separator"></div>
-    <div class="context-item" tabindex="0" role="button" onclick="openSettingsTab('designer')">
-      <span class="c-icon"><i data-lucide="palette"></i></span> Nebula Designer (Personalizar)
-    </div>
-    <div class="context-item" tabindex="0" role="button" onclick="cycleWallpaper()">
-      <span class="c-icon"><i data-lucide="image"></i></span> Siguiente fondo de pantalla
-    </div>
-    <div class="context-separator"></div>
-    <div class="context-item" tabindex="0" role="button" onclick="addWeatherWidget()">
-      <span class="c-icon"><i data-lucide="cloud-sun"></i></span> Añadir Widget: Clima
-    </div>
-    <div class="context-item" tabindex="0" role="button" onclick="addDesktopWidget('clock')">
-      <span class="c-icon"><i data-lucide="clock"></i></span> Añadir Widget: Reloj Digital Flotante
-    </div>
-    <div class="context-item" tabindex="0" role="button" onclick="clearDesktopWidgets()">
-      <span class="c-icon"><i data-lucide="trash-2"></i></span> Limpiar Widgets de Escritorio
-    </div>
-    <div class="context-separator"></div>
-    <div class="context-item" tabindex="0" role="button" onclick="refreshDesktop()">
-      <span class="c-icon"><i data-lucide="refresh-cw"></i></span> Actualizar escritorio
-    </div>
-  </div>
-
-  <!-- ★ NEBULA STORE OVERLAY -->
-  <div id="store-overlay" class="hidden" aria-label="Nebula Store">
-    <div class="store-container">
-
-      <!-- ═══ HEADER ═══ -->
-      <header class="store-header">
-        <div class="store-header-left">
-          <span class="store-kicker">NEBULA STORE</span>
-          <h2>Tienda de Personalización</h2>
-          <span id="store-subtitle">12 productos · 0 instalados</span>
-        </div>
-        <button class="store-close-btn" id="store-close-btn" type="button" title="Cerrar tienda" aria-label="Cerrar tienda">
-          <i data-lucide="x"></i>
-        </button>
-      </header>
-
-      <!-- ═══ TOOLBAR: categorías + búsqueda + filtro ═══ -->
-      <div class="store-toolbar">
-        <div class="store-categories" id="store-categories" role="tablist">
-          <button class="store-cat-btn active" data-cat="all"        type="button">Todo</button>
-          <button class="store-cat-btn"        data-cat="theme"      type="button">Temas</button>
-          <button class="store-cat-btn"        data-cat="widget"     type="button">Widgets</button>
-          <button class="store-cat-btn"        data-cat="wallpaper"  type="button">Wallpapers</button>
-          <button class="store-cat-btn"        data-cat="app"        type="button">Apps</button>
-          <button class="store-cat-btn"        data-cat="game"       type="button">Juegos</button>
-        </div>
-
-        <div class="store-toolbar-right">
-          <label class="store-search">
-            <i data-lucide="search"></i>
-            <input type="search" id="store-search-input" placeholder="Buscar en la tienda..." autocomplete="off" aria-label="Buscar productos">
-          </label>
-
-          <button class="store-installed-toggle" id="store-installed-toggle" type="button" aria-pressed="false">
-            <i data-lucide="check-circle-2"></i>
-            <span>Solo instalados</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- ═══ GRID ═══ -->
-      <div class="store-grid" id="store-grid"></div>
-
-    </div>
-  </div>
-
-  <!-- ★ PANEL DE AUDIO AVANZADO (MEZCLADOR) -->
+  <!-- ─── PANEL DE AUDIO AVANZADO (MEZCLADOR) ─── -->
   <div id="audio-panel" class="hidden" aria-label="Panel de Audio Avanzado">
     <div class="audio-panel-header">
       <div>
@@ -716,10 +443,301 @@
     </div>
   </div>
 
-  <!-- CONTENEDOR DE NOTIFICACIONES TOAST -->
-  <div id="toast-container" class="toast-container" aria-live="polite"></div>
-</div>
+  <!-- ═══════════════════════════════════════════════════════════
+       GAMING OVERLAY (HUD FLOTANTE TRANSLÚCIDO)
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="gamer-overlay" class="gamer-overlay hidden" aria-label="Nebula Gaming Overlay">
+    <div class="hud-container glass-panel">
 
+      <!-- ─── HEADER ─── -->
+      <div class="hud-header">
+        <div class="hud-title">
+          <span class="hud-badge"><i data-lucide="activity"></i> NEBULA HUD</span>
+          <strong>GAMING PERFORMANCE HUB</strong>
+          <span class="hud-shortcut-hint">Presioná <kbd>Alt</kbd> + <kbd>Z</kbd> o <kbd>Win</kbd> + <kbd>G</kbd> para alternar</span>
+        </div>
+        <div class="hud-actions">
+          <button class="hud-tool-btn" type="button" onclick="takeGamerScreenshot()">
+            <i data-lucide="camera"></i> Captura
+          </button>
+          <button class="hud-tool-btn" type="button" onclick="simulateRamBoost()">
+            <i data-lucide="sparkles"></i> Optimizar
+          </button>
+          <button class="hud-gamemode-btn" id="hud-gamemode-toggle" type="button" onclick="toggleGameMode()">
+            <span class="hud-pulse-dot"></span>
+            <span id="hud-gamemode-text">GAME MODE</span>
+          </button>
+          <button class="hud-close-btn" type="button" onclick="toggleGamerOverlay()" aria-label="Cerrar HUD">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ─── TELEMETRÍA ─── -->
+      <div class="hud-telemetry-grid">
+
+        <!-- FPS (destacado, columna izquierda) -->
+        <div class="hud-card hud-fps-card">
+          <div class="hud-card-header">
+            <i data-lucide="gauge"></i>
+            <span>FPS TIEMPO REAL</span>
+          </div>
+          <div class="hud-fps-val" id="hud-fps">144</div>
+          <div class="hud-fps-label">ESTABLES · 144Hz G-SYNC</div>
+          <div class="hud-fps-bar">
+            <div class="hud-fps-fill"></div>
+          </div>
+        </div>
+
+        <!-- GPU -->
+        <div class="hud-card">
+          <div class="hud-card-header">
+            <i data-lucide="cpu"></i>
+            <span>GPU (RTX 4080 SUPRIM)</span>
+          </div>
+          <div class="hud-stat-row">
+            <span>Uso GPU</span>
+            <strong id="hud-gpu-usage">62%</strong>
+          </div>
+          <div class="hud-mini-meter">
+            <div class="meter-bar" id="hud-gpu-bar" style="width: 62%"></div>
+          </div>
+          <div class="hud-stat-row">
+            <span>VRAM</span>
+            <strong id="hud-vram-usage">4.8 / 16 GB</strong>
+          </div>
+          <div class="hud-stat-row">
+            <span>Temperatura</span>
+            <strong id="hud-gpu-temp">57°C</strong>
+          </div>
+        </div>
+
+        <!-- CPU -->
+        <div class="hud-card">
+          <div class="hud-card-header">
+            <i data-lucide="cpu"></i>
+            <span>CPU (Ryzen 9 7950X)</span>
+          </div>
+          <div class="hud-stat-row">
+            <span>Uso CPU</span>
+            <strong id="hud-cpu-usage">35%</strong>
+          </div>
+          <div class="hud-mini-meter">
+            <div class="meter-bar" id="hud-cpu-bar" style="width: 35%"></div>
+          </div>
+          <div class="hud-stat-row">
+            <span>Frecuencia</span>
+            <strong id="hud-cpu-freq">4.20 GHz (Estándar)</strong>
+          </div>
+          <div class="hud-stat-row">
+            <span>RAM Sistema</span>
+            <strong id="hud-ram-stat">12.5 / 32 GB (39%)</strong>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ─── REPRODUCTOR (al pie del HUD, ancho completo) ─── -->
+      <div id="media-player-hud" aria-label="Reproductor de música">
+        <div class="hud-media-bg" id="hud-media-bg"></div>
+
+        <div class="hud-media-block">
+          <img src="./assets/images/apps/spotify/tapaAlbum2.jpg" alt="Track Art" id="hud-media-art">
+          <div class="hud-media-info">
+            <strong id="hud-media-title">Bocanada</strong>
+            <small id="hud-media-artist">Gustavo Cerati</small>
+          </div>
+        </div>
+
+        <div class="hud-media-btns">
+          <button class="hud-mbtn" onclick="previousTrack()" title="Anterior">
+            <i data-lucide="skip-back"></i>
+          </button>
+          <button class="hud-mbtn main" id="hud-play-btn" onclick="toggleMediaPlayback()" title="Reproducir/Pausar">
+            <i data-lucide="play"></i>
+          </button>
+          <button class="hud-mbtn" onclick="nextTrack()" title="Siguiente">
+            <i data-lucide="skip-forward"></i>
+          </button>
+        </div>
+
+        <div class="hud-progress-block">
+          <div class="hud-progress-label">
+            <i data-lucide="music"></i>
+            <span id="hud-progress-time">0:00 / 4:32</span>
+          </div>
+          <div class="hud-progress-track">
+            <span id="hud-progress-fill" style="width: 0%"></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       CONTENEDORES DE CONTENIDO DINÁMICO
+       ═══════════════════════════════════════════════════════════ -->
+
+  <!-- ─── CONTENEDOR DE VENTANAS ─── -->
+  <div id="windows-container"></div>
+
+  <!-- ─── DOCK ─── -->
+  <div id="dock"></div>
+
+  <!-- ─── LAUNCHER OVERLAY ─── -->
+  <div id="launcher-overlay">
+    <div id="launcher">
+      <div class="searchbar">
+        <i data-lucide="search" class="searchbar-icon"></i>
+        <input type="text" id="launcher-input" placeholder="Buscar aplicaciones o comandos..." autocomplete="off">
+      </div>
+      <div id="launcher-results"></div>
+    </div>
+  </div>
+
+  <!-- ─── WINDOW MANAGER OVERLAY ─── -->
+  <div id="window-manager-overlay" aria-label="Administrador de escritorios" aria-hidden="true">
+    <div class="wm-container">
+      <header class="wm-header">
+        <div class="wm-header-left">
+          <span class="wm-kicker">NEBULA WORKSPACES</span>
+          <h2>Administrador de Escritorios</h2>
+          <p id="wm-subtitle">Cargando espacios de trabajo...</p>
+        </div>
+        <div class="wm-header-right">
+          <span class="wm-shortcut-hint"><kbd>Esc</kbd> para cerrar</span>
+          <button class="wm-close-btn" type="button" onclick="toggleWindowManager()" aria-label="Cerrar administrador">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- TIRA DE WORKSPACES -->
+      <div class="wm-workspaces-strip" id="wm-workspaces-strip"></div>
+
+      <!-- VENTANAS DEL WORKSPACE ACTIVO -->
+      <div class="wm-section-heading" id="wm-section-heading">
+        <span class="wm-section-dot"></span>
+        <span id="wm-section-title">Ventanas del Space 1</span>
+      </div>
+
+      <div class="wm-grid" id="wm-grid"></div>
+      <div class="wm-empty" id="wm-empty" hidden>
+        <i data-lucide="layout-grid"></i>
+        <strong>No hay ventanas abiertas</strong>
+        <span>Abrí una app desde el dock o el lanzador para verla acá.</span>
+      </div>
+
+      <!-- PAPELERA DE VENTANAS (visible solo al arrastrar) -->
+      <div class="wm-trash-zone" id="wm-trash-zone" aria-label="Papelera de ventanas">
+        <div class="wm-trash-inner">
+          <i data-lucide="trash-2" class="wm-trash-icon"></i>
+          <strong class="wm-trash-title">Soltá para eliminar</strong>
+          <small class="wm-trash-sub">La ventana se cerrará permanentemente</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── MENÚ CONTEXTUAL DEL ESCRITORIO ─── -->
+  <div id="context-menu" class="context-menu" role="menu">
+    <div class="context-item" tabindex="0" role="button" onclick="openContextApp('terminal')">
+      <span class="c-icon"><i data-lucide="terminal"></i></span> Abrir Terminal aquí
+    </div>
+    <div class="context-item" tabindex="0" role="button" onclick="openContextApp('files')">
+      <span class="c-icon"><i data-lucide="folder"></i></span> Abrir Archivos
+    </div>
+    <div class="context-item" tabindex="0" role="button" onclick="openContextApp('nova')">
+      <span class="c-icon"><i data-lucide="sparkles"></i></span> Preguntar a Nova AI
+    </div>
+    <div class="context-separator"></div>
+    <div class="context-item" tabindex="0" role="button" onclick="toggleGamerOverlay()">
+      <span class="c-icon"><i data-lucide="activity"></i></span> Abrir Gaming Overlay (HUD)
+    </div>
+    <div class="context-item" tabindex="0" role="button" onclick="toggleGameMode()">
+      <span class="c-icon"><i data-lucide="gamepad-2"></i></span> Alternar Modo Juego
+    </div>
+    <div class="context-separator"></div>
+    <div class="context-item" tabindex="0" role="button" onclick="openSettingsTab('designer')">
+      <span class="c-icon"><i data-lucide="palette"></i></span> Nebula Designer (Personalizar)
+    </div>
+    <div class="context-item" tabindex="0" role="button" onclick="cycleWallpaper()">
+      <span class="c-icon"><i data-lucide="image"></i></span> Siguiente fondo de pantalla
+    </div>
+    <div class="context-separator"></div>
+    <div class="context-item" tabindex="0" role="button" onclick="addWeatherWidget()">
+      <span class="c-icon"><i data-lucide="cloud-sun"></i></span> Añadir Widget: Clima
+    </div>
+    <div class="context-item" tabindex="0" role="button" onclick="addDesktopWidget('clock')">
+      <span class="c-icon"><i data-lucide="clock"></i></span> Añadir Widget: Reloj Digital Flotante
+    </div>
+    <div class="context-item" tabindex="0" role="button" onclick="clearDesktopWidgets()">
+      <span class="c-icon"><i data-lucide="trash-2"></i></span> Limpiar Widgets de Escritorio
+    </div>
+    <div class="context-separator"></div>
+    <div class="context-item" tabindex="0" role="button" onclick="refreshDesktop()">
+      <span class="c-icon"><i data-lucide="refresh-cw"></i></span> Actualizar escritorio
+    </div>
+  </div>
+
+  <!-- ─── NEBULA STORE OVERLAY ─── -->
+  <div id="store-overlay" class="hidden" aria-label="Nebula Store">
+    <div class="store-container">
+
+      <!-- HEADER -->
+      <header class="store-header">
+        <div class="store-header-left">
+          <span class="store-kicker">NEBULA STORE</span>
+          <h2>Tienda de Personalización</h2>
+          <span id="store-subtitle">12 productos · 0 instalados</span>
+        </div>
+        <button class="store-close-btn" id="store-close-btn" type="button" title="Cerrar tienda" aria-label="Cerrar tienda">
+          <i data-lucide="x"></i>
+        </button>
+      </header>
+
+      <!-- TOOLBAR: categorías + búsqueda + filtro -->
+      <div class="store-toolbar">
+        <div class="store-categories" id="store-categories" role="tablist">
+          <button class="store-cat-btn active" data-cat="all"        type="button">Todo</button>
+          <button class="store-cat-btn"        data-cat="theme"      type="button">Temas</button>
+          <button class="store-cat-btn"        data-cat="widget"     type="button">Widgets</button>
+          <button class="store-cat-btn"        data-cat="wallpaper"  type="button">Wallpapers</button>
+          <button class="store-cat-btn"        data-cat="app"        type="button">Apps</button>
+          <button class="store-cat-btn"        data-cat="game"       type="button">Juegos</button>
+        </div>
+
+        <div class="store-toolbar-right">
+          <label class="store-search">
+            <i data-lucide="search"></i>
+            <input type="search" id="store-search-input" placeholder="Buscar en la tienda..." autocomplete="off" aria-label="Buscar productos">
+          </label>
+
+          <button class="store-installed-toggle" id="store-installed-toggle" type="button" aria-pressed="false">
+            <i data-lucide="check-circle-2"></i>
+            <span>Solo instalados</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- GRID -->
+      <div class="store-grid" id="store-grid"></div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       TOASTS (notificaciones flotantes)
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+</div>
+<!-- /#screen -->
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCRIPTS
+     ═══════════════════════════════════════════════════════════ -->
 <!-- Luxon: manejo de zonas horarias para el widget de clima -->
 <script src="https://cdn.jsdelivr.net/npm/luxon@3.5.0/build/global/luxon.min.js"></script>
 <script src="script.js"></script>
