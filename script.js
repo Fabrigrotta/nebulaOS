@@ -9,9 +9,9 @@
    PARTE  3/10 → Helpers y utilidades
    PARTE  4/10 → Motor Spotify (IIFE SpotifyApp)
    PARTE  5/10 → Sistema de ventanas
-   PARTE  6/10 → Apps (Terminal · Nova · Files · Settings · Vault ·
-                 Activity · Taskmgr · Gamelib · VSCode · Browser ·
-                 Spotify UI)
+   PARTE  6/10 → Apps (Terminal · Asteroids · Nova · Files · Settings ·
+                 Vault · Activity · Taskmgr · Gamelib · VSCode ·
+                 Browser · Spotify UI)
    PARTE  7/10 → Widgets + Notificaciones + Toasts + Calendario
    PARTE  8/10 → Overlays y menús (Launcher · Context · CC/QC ·
                  Notif overlay · Store · WiFi · BT · Files ctx ·
@@ -4419,21 +4419,17 @@ function setupTerminalPanel(panel) {
   };
 
   const handleKeydown = (e) => {
+    // ★ Si Asteroids está corriendo, la terminal no procesa nada
+    //   (el juego tiene sus propios listeners globales)
+    if (window.AsteroidsGame && AsteroidsGame.isRunning()) {
+      return;
+    }
+
     // Ctrl+T / Cmd+T: nueva pestaña
     if ((e.ctrlKey || e.metaKey) && (e.key === 't' || e.key === 'T')) {
       e.preventDefault();
       const winEl = panel.closest('.window');
       if (winEl?.dataset.winId) addWindowTab(winEl.dataset.winId);
-      return;
-    }
-    // Ctrl+W / Cmd+W: cerrar pestaña actual
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'w' || e.key === 'W')) {
-      e.preventDefault();
-      const winEl = panel.closest('.window');
-      if (winEl?.dataset.winId) {
-        const state = getWindowTabsState(winEl);
-        if (state.activeTabId) closeWindowTab(winEl.dataset.winId, state.activeTabId);
-      }
       return;
     }
 
@@ -4492,6 +4488,41 @@ function setupTerminalPanel(panel) {
 
       if (cmd.length > 0) {
         const result = processTerminalCommand(cmd, state);
+
+        // ★ Caso especial: comando "asteroids" → lanzar el mini-juego
+        if (result && typeof result === 'object' && result.__asteroids) {
+          // Mostrar un "loading" retro antes de arrancar
+          appendTerminalLine(history, '> Iniciando Asteroids...', 'term-accent');
+          appendTerminalLine(history, '> Presioná Q para salir al prompt.', 'term-hint');
+          appendTerminalLine(history, '', '');
+
+          // Deshabilitar el input mientras el juego corre
+          activeInput.disabled = true;
+
+          // Guardar referencia al prompt actual para restaurar al salir
+          const panelEl = panel;
+          window.__asteroidsOnExit = () => {
+            // Restaurar la terminal
+            try {
+              // Reconstruir el prompt de la terminal
+              rebuildPrompt();
+            } catch (e) {}
+          };
+
+          // Arrancar el juego en el panel de la terminal
+          setTimeout(() => {
+            const launched = AsteroidsGame.start(panelEl);
+            if (!launched) {
+              appendTerminalLine(history, '> Error: el juego ya está corriendo.', 'term-error');
+              activeInput.disabled = false;
+              rebuildPrompt();
+            }
+          }, 180);
+
+          return;
+        }
+
+        // Caso normal: string, array de strings, o array de {text, cls}
         if (typeof result === 'string') {
           result.split('\n').forEach(line => appendTerminalLine(history, line, ''));
         } else if (Array.isArray(result)) {
@@ -4857,6 +4888,46 @@ function processTerminalCommand(rawCmd, state) {
     return `${count} ventana${count === 1 ? '' : 's'} cerrada${count === 1 ? '' : 's'}.`;
   }
 
+  // ─── asteroids ───
+  if (lower === 'asteroids' || lower === 'ast') {
+    // Devolvemos un comando especial que el caller detecta y ejecuta
+    return { __asteroids: true };
+  }
+  if (lower === 'asteroids --help' || lower === 'ast --help' || lower === 'asteroids -h') {
+    return [
+      { text: 'ASTEROIDS — mini-juego oculto', cls: 'term-accent' },
+      '',
+      { text: 'Uso:  asteroids          Inicia una partida', cls: '' },
+      { text: '      asteroids --help    Muestra esta ayuda', cls: '' },
+      { text: '      asteroids --highscore    Muestra tu mejor puntaje', cls: '' },
+      { text: '      asteroids --reset-score  Borra tu mejor puntaje', cls: '' },
+      '',
+      { text: 'Controles:', cls: 'term-hint' },
+      { text: '  ← / A         Rotar izquierda', cls: '' },
+      { text: '  → / D         Rotar derecha', cls: '' },
+      { text: '  ↑ / W         Propulsar', cls: '' },
+      { text: '  ESPACIO       Disparar', cls: '' },
+      { text: '  P o ESC       Pausa', cls: '' },
+      { text: '  Q             Salir a la terminal', cls: '' },
+      { text: '  R             Reintentar (en Game Over)', cls: '' }
+    ];
+  }
+  if (lower === 'asteroids --highscore' || lower === 'ast --highscore') {
+    const hs = AsteroidsGame.getHighScore();
+    return [
+      { text: 'ASTEROIDS — High Score', cls: 'term-accent' },
+      '',
+      { text: `  Puntaje máximo: ${String(hs).padStart(5, '0')}`, cls: '' }
+    ];
+  }
+  if (lower === 'asteroids --reset-score' || lower === 'ast --reset-score') {
+    AsteroidsGame.resetHighScore();
+    return [
+      { text: 'High Score de Asteroids reseteado.', cls: 'term-accent' },
+      { text: 'La próxima partida arrancará desde cero.', cls: 'term-hint' }
+    ];
+  }
+
   // ─── matrix ───
   if (lower === 'matrix') {
     return [
@@ -4875,6 +4946,1260 @@ function processTerminalCommand(rawCmd, state) {
   // ─── Fallback ───
   return `comando no encontrado: ${cmd.split(' ')[0]}. Probá "help".`;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   ★ ASTERIODS — Mini-juego oculto en la terminal
+   ═══════════════════════════════════════════════════════════════
+   Se activa escribiendo "asteroids" (o "ast") en la terminal.
+   Reemplaza el panel de la terminal por un <canvas> jugable.
+   Al salir con Q, restaura el prompt intacto.
+
+   Controles:
+     ← / A   Rotar izquierda
+     → / D   Rotar derecha
+     ↑ / W   Propulsar
+     Espacio Disparar
+     P / Esc Pausa
+     Q       Salir al prompt
+     R       Reintentar (en Game Over)
+
+   High score persistido en: 'nebula-os:asteroids-highscore'
+   ═══════════════════════════════════════════════════════════════ */
+
+const AsteroidsGame = (() => {
+
+  /* ─────────────────────────────────────────────────────────────
+     CONSTANTES
+  ───────────────────────────────────────────────────────────── */
+  const STORAGE_KEY = 'nebula-os:asteroids-highscore';
+
+  const TICK_MS = 16;
+  const SHIP_RADIUS = 12;
+  const SHIP_ROTATION_SPEED = 0.08;
+  const SHIP_THRUST = 0.14;
+  const SHIP_FRICTION = 0.992;
+  const SHIP_MAX_SPEED = 5.5;
+  const BULLET_SPEED = 7.5;
+  const BULLET_LIFETIME_MS = 1100;
+  const BULLET_COOLDOWN_MS = 160;
+  const MAX_BULLETS = 5;
+
+  const ASTEROID_SIZES = {
+    large:  { radius: 42, score: 20, splitsInto: 2, nextSize: 'medium', minSpeed: 0.35, maxSpeed: 0.9  },
+    medium: { radius: 24, score: 50, splitsInto: 2, nextSize: 'small',  minSpeed: 0.55, maxSpeed: 1.35 },
+    small:  { radius: 12, score: 100, splitsInto: 0, nextSize: null,    minSpeed: 0.9,  maxSpeed: 2.0  }
+  };
+
+  const INITIAL_ASTEROIDS = 4;
+  const RESPAWN_INVULNERABLE_MS = 2200;
+
+  /* ─────────────────────────────────────────────────────────────
+     ESTADO
+  ───────────────────────────────────────────────────────────── */
+  const state = {
+    running: false,
+    paused: false,
+    gameOver: false,
+    waitingRestart: false,
+
+    canvas: null,
+    ctx: null,
+    container: null,
+
+    rafId: null,
+    lastTick: 0,
+    listeners: [],
+    resizeObserver: null,
+
+    ship: null,
+    bullets: [],
+    asteroids: [],
+    particles: [],
+    stars: [],
+
+    score: 0,
+    highScore: 0,
+    lives: 3,
+    level: 1,
+
+    keys: Object.create(null),
+    lastShotAt: 0,
+
+    colors: {
+      accent: '#b4befe',
+      accentRgb: '180, 190, 254',
+      red:    '#f38ba8',
+      orange: '#fab387',
+      green:  '#a6e3a1',
+      text:   '#cdd6f4',
+      sub:    '#9399b2',
+      bg:     'rgba(8, 10, 16, 0.98)'
+    }
+  };
+
+  /* ─────────────────────────────────────────────────────────────
+     HELPERS
+  ───────────────────────────────────────────────────────────── */
+  const rand = (min, max) => min + Math.random() * (max - min);
+  const randInt = (min, max) => Math.floor(rand(min, max + 1));
+
+  function loadHighScore() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const n = parseInt(raw, 10);
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    } catch (e) { return 0; }
+  }
+
+  function saveHighScore(value) {
+    try { localStorage.setItem(STORAGE_KEY, String(value)); } catch (e) {}
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ESTILOS INYECTADOS (una sola vez)
+  ───────────────────────────────────────────────────────────── */
+  function ensureStyles() {
+    if (document.getElementById('asteroids-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'asteroids-styles';
+    style.textContent = `
+      .asteroids-wrap {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        background: ${state.colors.bg};
+        overflow: hidden;
+        display: flex;
+        align-items: stretch;
+        justify-content: stretch;
+      }
+      .asteroids-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: crosshair;
+      }
+      .asteroids-hud {
+        position: absolute;
+        top: 10px;
+        left: 14px;
+        right: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        pointer-events: none;
+        font-family: "JetBrains Mono", monospace;
+        color: #cdd6f4;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1.2px;
+        text-shadow: 0 0 8px rgba(180, 190, 254, 0.5);
+      }
+      .asteroids-hud-left {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .asteroids-hud-right {
+        text-align: right;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .asteroids-hud-val {
+        color: #b4befe;
+        font-size: 15px;
+        letter-spacing: 1px;
+      }
+      .asteroids-hud-label {
+        color: #9399b2;
+        font-size: 9px;
+        letter-spacing: 2px;
+        font-weight: 800;
+      }
+      .asteroids-lives {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #b4befe;
+        font-size: 14px;
+      }
+      .asteroids-lives svg {
+        width: 14px;
+        height: 14px;
+        filter: drop-shadow(0 0 5px rgba(180, 190, 254, 0.7));
+      }
+      .asteroids-overlay {
+        position: absolute;
+        inset: 0;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background: rgba(8, 10, 16, 0.82);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        z-index: 5;
+        font-family: "JetBrains Mono", monospace;
+        color: #cdd6f4;
+        text-align: center;
+        padding: 20px;
+      }
+      .asteroids-overlay.open { display: flex; }
+      .asteroids-overlay-title {
+        color: #b4befe;
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: 6px;
+        text-shadow: 0 0 20px rgba(180, 190, 254, 0.6);
+        margin: 0;
+      }
+      .asteroids-overlay-sub {
+        color: #9399b2;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+      .asteroids-overlay-stats {
+        display: flex;
+        gap: 28px;
+        margin: 8px 0 4px;
+      }
+      .asteroids-overlay-stat {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-items: center;
+      }
+      .asteroids-overlay-stat strong {
+        color: #b4befe;
+        font-size: 22px;
+        font-weight: 800;
+        text-shadow: 0 0 10px rgba(180, 190, 254, 0.5);
+      }
+      .asteroids-overlay-stat small {
+        color: #9399b2;
+        font-size: 9px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        font-weight: 800;
+      }
+      .asteroids-overlay-keys {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-top: 6px;
+        max-width: 420px;
+      }
+      .asteroids-overlay-keys kbd {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 5px;
+        padding: 3px 8px;
+        color: #b4befe;
+        font-family: inherit;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+      }
+      .asteroids-overlay-hint {
+        color: #9399b2;
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        margin-top: 10px;
+        opacity: 0.8;
+      }
+      .asteroids-overlay-hint b { color: #b4befe; }
+      .asteroids-levelup {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #b4befe;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: 8px;
+        text-shadow: 0 0 22px rgba(180, 190, 254, 0.8);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 4;
+      }
+      .asteroids-levelup.show { opacity: 1; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     LECTURA DE COLORES DEL TEMA ACTIVO
+  ───────────────────────────────────────────────────────────── */
+  function refreshColors() {
+    const root = document.documentElement;
+    const cs = getComputedStyle(root);
+    const accent = (cs.getPropertyValue('--accent') || '').trim() || '#b4befe';
+    const accentRgb = hexToRgbString(accent) || '180, 190, 254';
+
+    state.colors.accent = accent;
+    state.colors.accentRgb = accentRgb;
+    state.colors.red    = (cs.getPropertyValue('--accent-red')    || '').trim() || '#f38ba8';
+    state.colors.orange = (cs.getPropertyValue('--accent-orange') || '').trim() || '#fab387';
+    state.colors.green  = (cs.getPropertyValue('--accent-green')  || '').trim() || '#a6e3a1';
+    state.colors.text   = (cs.getPropertyValue('--text-main')     || '').trim() || '#cdd6f4';
+    state.colors.sub    = (cs.getPropertyValue('--text-sub')      || '').trim() || '#9399b2';
+  }
+
+  function hexToRgbString(hex) {
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+    if (!m) return null;
+    return `${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}`;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     CANVAS + DIMENSIONES
+  ───────────────────────────────────────────────────────────── */
+  function resizeCanvas() {
+    if (!state.canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = state.canvas.clientWidth;
+    const h = state.canvas.clientHeight;
+    state.canvas.width  = Math.max(1, Math.floor(w * dpr));
+    state.canvas.height = Math.max(1, Math.floor(h * dpr));
+    if (state.ctx) state.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    state.width = w;
+    state.height = h;
+  }
+
+  function getW() { return state.canvas ? state.canvas.clientWidth  : 0; }
+  function getH() { return state.canvas ? state.canvas.clientHeight : 0; }
+
+  /* ─────────────────────────────────────────────────────────────
+     WRAP-AROUND (mundo toroidal)
+  ───────────────────────────────────────────────────────────── */
+  function wrapPosition(entity) {
+    const w = getW();
+    const h = getH();
+    const r = entity.radius || 0;
+    if (entity.x < -r) entity.x = w + r;
+    if (entity.x > w + r) entity.x = -r;
+    if (entity.y < -r) entity.y = h + r;
+    if (entity.y > h + r) entity.y = -r;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     SPAWNERS
+  ───────────────────────────────────────────────────────────── */
+  function createShip() {
+    return {
+      x: getW() / 2,
+      y: getH() / 2,
+      vx: 0,
+      vy: 0,
+      angle: -Math.PI / 2,
+      radius: SHIP_RADIUS,
+      thrusting: false,
+      invulnerableUntil: performance.now() + RESPAWN_INVULNERABLE_MS,
+      alive: true
+    };
+  }
+
+  function createAsteroid(size, x = null, y = null, avoidShip = false) {
+    const cfg = ASTEROID_SIZES[size];
+    const w = getW();
+    const h = getH();
+
+    let px = x, py = y;
+    if (px === null || py === null) {
+      // Spawn desde afuera del canvas
+      const edge = randInt(0, 3);
+      const margin = cfg.radius + 20;
+      if (edge === 0) { px = rand(0, w); py = -margin; }
+      else if (edge === 1) { px = w + margin; py = rand(0, h); }
+      else if (edge === 2) { px = rand(0, w); py = h + margin; }
+      else { px = -margin; py = rand(0, h); }
+    }
+
+    if (avoidShip && state.ship) {
+      const dx = px - state.ship.x;
+      const dy = py - state.ship.y;
+      if (Math.hypot(dx, dy) < 160) {
+        px = rand(0, w);
+        py = rand(0, h);
+      }
+    }
+
+    const angle = rand(0, Math.PI * 2);
+    const speed = rand(cfg.minSpeed, cfg.maxSpeed);
+
+    // Forma irregular (para que no sea un círculo perfecto)
+    const vertices = randInt(8, 12);
+    const shape = [];
+    for (let i = 0; i < vertices; i++) {
+      const a = (i / vertices) * Math.PI * 2;
+      const r = cfg.radius * rand(0.78, 1.18);
+      shape.push({ angle: a, radius: r });
+    }
+
+    return {
+      x: px,
+      y: py,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      radius: cfg.radius,
+      size,
+      angle: rand(0, Math.PI * 2),
+      spin: rand(-0.03, 0.03),
+      shape,
+      hp: 1
+    };
+  }
+
+  function spawnAsteroidWave() {
+    const count = INITIAL_ASTEROIDS + Math.min(state.level - 1, 5);
+    for (let i = 0; i < count; i++) {
+      state.asteroids.push(createAsteroid('large', null, null, true));
+    }
+  }
+
+  function createBullet(x, y, angle) {
+    return {
+      x, y,
+      vx: Math.cos(angle) * BULLET_SPEED,
+      vy: Math.sin(angle) * BULLET_SPEED,
+      radius: 2,
+      createdAt: performance.now(),
+      trail: []
+    };
+  }
+
+  function spawnExplosionParticles(x, y, radius, baseColor = null) {
+    const count = Math.min(28, Math.floor(radius * 0.9));
+    const color = baseColor || state.colors.accent;
+    for (let i = 0; i < count; i++) {
+      const angle = rand(0, Math.PI * 2);
+      const speed = rand(0.5, 3.2);
+      state.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 1,
+        decay: rand(0.012, 0.03),
+        size: rand(1, 2.6),
+        color
+      });
+    }
+  }
+
+  function ensureStarfield() {
+    const count = Math.min(90, Math.floor((getW() * getH()) / 16000));
+    state.stars = [];
+    for (let i = 0; i < count; i++) {
+      state.stars.push({
+        x: rand(0, getW()),
+        y: rand(0, getH()),
+        r: rand(0.4, 1.6),
+        a: rand(0.2, 0.9),
+        twinklePhase: rand(0, Math.PI * 2),
+        twinkleSpeed: rand(0.008, 0.025)
+      });
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     UPDATE
+  ───────────────────────────────────────────────────────────── */
+  function updateShip(dt) {
+    const ship = state.ship;
+    if (!ship || !ship.alive) return;
+
+    const k = state.keys;
+
+    if (k['ArrowLeft'] || k['a'] || k['A'])  ship.angle -= SHIP_ROTATION_SPEED;
+    if (k['ArrowRight'] || k['d'] || k['D']) ship.angle += SHIP_ROTATION_SPEED;
+
+    ship.thrusting = !!(k['ArrowUp'] || k['w'] || k['W']);
+    if (ship.thrusting) {
+      ship.vx += Math.cos(ship.angle) * SHIP_THRUST;
+      ship.vy += Math.sin(ship.angle) * SHIP_THRUST;
+
+      // Partículas de propulsión
+      const tailX = ship.x - Math.cos(ship.angle) * ship.radius;
+      const tailY = ship.y - Math.sin(ship.angle) * ship.radius;
+      state.particles.push({
+        x: tailX + rand(-2, 2),
+        y: tailY + rand(-2, 2),
+        vx: -Math.cos(ship.angle) * rand(0.6, 1.8) + ship.vx * 0.4,
+        vy: -Math.sin(ship.angle) * rand(0.6, 1.8) + ship.vy * 0.4,
+        life: 1,
+        decay: 0.05,
+        size: rand(1, 2.2),
+        color: state.colors.orange
+      });
+    }
+
+    // Fricción + límite de velocidad
+    ship.vx *= SHIP_FRICTION;
+    ship.vy *= SHIP_FRICTION;
+    const sp = Math.hypot(ship.vx, ship.vy);
+    if (sp > SHIP_MAX_SPEED) {
+      ship.vx = (ship.vx / sp) * SHIP_MAX_SPEED;
+      ship.vy = (ship.vy / sp) * SHIP_MAX_SPEED;
+    }
+
+    ship.x += ship.vx;
+    ship.y += ship.vy;
+
+    wrapPosition(ship);
+  }
+
+  function updateBullets(dt) {
+    const now = performance.now();
+    const w = getW();
+    const h = getH();
+
+    for (let i = state.bullets.length - 1; i >= 0; i--) {
+      const b = state.bullets[i];
+      b.trail.push({ x: b.x, y: b.y });
+      if (b.trail.length > 6) b.trail.shift();
+
+      b.x += b.vx;
+      b.y += b.vy;
+
+      // Fuera de pantalla o expirada
+      if (
+        now - b.createdAt > BULLET_LIFETIME_MS ||
+        b.x < -20 || b.x > w + 20 ||
+        b.y < -20 || b.y > h + 20
+      ) {
+        state.bullets.splice(i, 1);
+      }
+    }
+  }
+
+  function updateAsteroids(dt) {
+    const w = getW();
+    const h = getH();
+
+    for (const a of state.asteroids) {
+      a.x += a.vx;
+      a.y += a.vy;
+      a.angle += a.spin;
+      wrapPosition(a);
+    }
+  }
+
+  function updateParticles(dt) {
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+      const p = state.particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vx *= 0.985;
+      p.vy *= 0.985;
+      p.life -= p.decay;
+      if (p.life <= 0) state.particles.splice(i, 1);
+    }
+  }
+
+  function updateStars(dt) {
+    for (const s of state.stars) {
+      s.twinklePhase += s.twinkleSpeed * 16;
+    }
+  }
+
+  function fireBullet() {
+    const now = performance.now();
+    if (now - state.lastShotAt < BULLET_COOLDOWN_MS) return;
+    if (state.bullets.length >= MAX_BULLETS) return;
+    const ship = state.ship;
+    if (!ship || !ship.alive) return;
+
+    const noseX = ship.x + Math.cos(ship.angle) * ship.radius;
+    const noseY = ship.y + Math.sin(ship.angle) * ship.radius;
+    state.bullets.push(createBullet(noseX, noseY, ship.angle));
+    state.lastShotAt = now;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     COLISIONES
+  ───────────────────────────────────────────────────────────── */
+  function bulletHitsAsteroid(b, a) {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    return (dx * dx + dy * dy) < (a.radius + b.radius) * (a.radius + b.radius);
+  }
+
+  function shipHitsAsteroid(ship, a) {
+    const dx = ship.x - a.x;
+    const dy = ship.y - a.y;
+    const r = ship.radius + a.radius;
+    return (dx * dx + dy * dy) < r * r;
+  }
+
+  function destroyAsteroid(a, bulletsIdx = -1) {
+    const cfg = ASTEROID_SIZES[a.size];
+
+    // Sumar puntos
+    state.score += cfg.score;
+
+    // Partículas de explosión
+    spawnExplosionParticles(a.x, a.y, a.radius, state.colors.accent);
+
+    // Dividir si corresponde
+    if (cfg.splitsInto > 0 && cfg.nextSize) {
+      for (let i = 0; i < cfg.splitsInto; i++) {
+        const child = createAsteroid(cfg.nextSize, a.x, a.y);
+        // Empujar en direcciones opuestas
+        const angle = rand(0, Math.PI * 2);
+        const speed = rand(0.5, 1.6);
+        child.vx = Math.cos(angle) * speed;
+        child.vy = Math.sin(angle) * speed;
+        state.asteroids.push(child);
+      }
+    }
+
+    // Remover el asteroide
+    const idx = state.asteroids.indexOf(a);
+    if (idx !== -1) state.asteroids.splice(idx, 1);
+
+    // Remover el bullet
+    if (bulletsIdx >= 0) state.bullets.splice(bulletsIdx, 1);
+  }
+
+  function destroyShip() {
+    const ship = state.ship;
+    if (!ship) return;
+    ship.alive = false;
+    spawnExplosionParticles(ship.x, ship.y, 22, state.colors.red);
+    state.lives -= 1;
+
+    if (state.lives <= 0) {
+      endGame();
+    } else {
+      // Respawn tras un breve delay
+      setTimeout(() => {
+        if (!state.running) return;
+        if (state.lives > 0) {
+          state.ship = createShip();
+        }
+      }, 700);
+    }
+  }
+
+  function checkCollisions() {
+    // Bullets vs Asteroids
+    for (let bi = state.bullets.length - 1; bi >= 0; bi--) {
+      const b = state.bullets[bi];
+      for (let ai = state.asteroids.length - 1; ai >= 0; ai--) {
+        const a = state.asteroids[ai];
+        if (bulletHitsAsteroid(b, a)) {
+          destroyAsteroid(a, bi);
+          break;
+        }
+      }
+    }
+
+    // Ship vs Asteroids
+    const ship = state.ship;
+    if (ship && ship.alive) {
+      const inv = performance.now() < ship.invulnerableUntil;
+      if (!inv) {
+        for (const a of state.asteroids) {
+          if (shipHitsAsteroid(ship, a)) {
+            destroyShip();
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  function checkLevelComplete() {
+    if (state.asteroids.length === 0 && !state.gameOver) {
+      state.level += 1;
+      showLevelUp();
+      spawnAsteroidWave();
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     RENDER
+  ───────────────────────────────────────────────────────────── */
+  function drawBackground() {
+    const ctx = state.ctx;
+    const w = getW();
+    const h = getH();
+    ctx.fillStyle = state.colors.bg;
+    ctx.fillRect(0, 0, w, h);
+
+    // Grid sutil
+    ctx.save();
+    ctx.strokeStyle = `rgba(${state.colors.accentRgb}, 0.04)`;
+    ctx.lineWidth = 1;
+    const gridSize = 60;
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += gridSize) {
+      ctx.moveTo(x, 0); ctx.lineTo(x, h);
+    }
+    for (let y = 0; y <= h; y += gridSize) {
+      ctx.moveTo(0, y); ctx.lineTo(w, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Estrellas
+    for (const s of state.stars) {
+      const twinkle = 0.6 + 0.4 * Math.sin(s.twinklePhase);
+      ctx.fillStyle = `rgba(255, 255, 255, ${(s.a * twinkle).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawShip() {
+    const ship = state.ship;
+    if (!ship || !ship.alive) return;
+
+    const ctx = state.ctx;
+    const now = performance.now();
+    const inv = now < ship.invulnerableUntil;
+
+    // Parpadeo durante invulnerabilidad
+    if (inv && Math.floor(now / 100) % 2 === 0) return;
+
+    ctx.save();
+    ctx.translate(ship.x, ship.y);
+    ctx.rotate(ship.angle);
+
+    // Triángulo principal
+    ctx.beginPath();
+    ctx.moveTo(ship.radius, 0);
+    ctx.lineTo(-ship.radius * 0.75, -ship.radius * 0.7);
+    ctx.lineTo(-ship.radius * 0.45, 0);
+    ctx.lineTo(-ship.radius * 0.75, ship.radius * 0.7);
+    ctx.closePath();
+
+    ctx.strokeStyle = state.colors.accent;
+    ctx.lineWidth = 1.8;
+    ctx.shadowColor = state.colors.accent;
+    ctx.shadowBlur = 14;
+    ctx.stroke();
+
+    // Fuego del thruster
+    if (ship.thrusting) {
+      ctx.beginPath();
+      ctx.moveTo(-ship.radius * 0.45, 0);
+      ctx.lineTo(-ship.radius * 1.4 - rand(0, 4), 0);
+      ctx.strokeStyle = state.colors.orange;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = state.colors.orange;
+      ctx.shadowBlur = 16;
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function drawBullets() {
+    const ctx = state.ctx;
+    for (const b of state.bullets) {
+      // Trail
+      if (b.trail.length > 1) {
+        ctx.save();
+        ctx.strokeStyle = `rgba(${state.colors.accentRgb}, 0.25)`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let i = 0; i < b.trail.length; i++) {
+          const t = b.trail[i];
+          if (i === 0) ctx.moveTo(t.x, t.y);
+          else ctx.lineTo(t.x, t.y);
+        }
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Bullet
+      ctx.save();
+      ctx.fillStyle = state.colors.accent;
+      ctx.shadowColor = state.colors.accent;
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.radius + 0.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawAsteroids() {
+    const ctx = state.ctx;
+    for (const a of state.asteroids) {
+      ctx.save();
+      ctx.translate(a.x, a.y);
+      ctx.rotate(a.angle);
+
+      ctx.beginPath();
+      const shape = a.shape;
+      for (let i = 0; i < shape.length; i++) {
+        const v = shape[i];
+        const px = Math.cos(v.angle) * v.radius;
+        const py = Math.sin(v.angle) * v.radius;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+
+      // Color según tamaño
+      let color = state.colors.accent;
+      if (a.size === 'medium') color = state.colors.sub;
+      if (a.size === 'small')  color = state.colors.orange;
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.8;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+      ctx.stroke();
+
+      ctx.restore();
+    }
+  }
+
+  function drawParticles() {
+    const ctx = state.ctx;
+    for (const p of state.particles) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function render() {
+    if (!state.ctx) return;
+    drawBackground();
+    drawParticles();
+    drawAsteroids();
+    drawBullets();
+    drawShip();
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     HUD DOM
+  ───────────────────────────────────────────────────────────── */
+  function updateHud() {
+    if (!state.hudScore) return;
+    state.hudScore.textContent = String(state.score).padStart(5, '0');
+    state.hudHigh.textContent  = String(state.highScore).padStart(5, '0');
+    state.hudLevel.textContent = String(state.level);
+
+    // Vidas como corazones/naves
+    if (state.hudLives) {
+      const hearts = [];
+      for (let i = 0; i < Math.max(0, state.lives); i++) {
+        hearts.push('<i data-lucide="heart"></i>');
+      }
+      state.hudLives.innerHTML = hearts.join('') || '<span style="opacity:0.3">—</span>';
+      if (typeof refreshIcons === 'function') refreshIcons();
+    }
+  }
+
+  function buildHudDOM() {
+    const wrap = document.createElement('div');
+    wrap.className = 'asteroids-wrap';
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'asteroids-canvas';
+    wrap.appendChild(canvas);
+
+    const hud = document.createElement('div');
+    hud.className = 'asteroids-hud';
+    hud.innerHTML = `
+      <div class="asteroids-hud-left">
+        <span class="asteroids-hud-label">SCORE</span>
+        <span class="asteroids-hud-val" data-ast="score">00000</span>
+        <span class="asteroids-hud-label" style="margin-top:6px;">LIVES</span>
+        <span class="asteroids-lives" data-ast="lives"></span>
+      </div>
+      <div class="asteroids-hud-right">
+        <span class="asteroids-hud-label">HIGH SCORE</span>
+        <span class="asteroids-hud-val" data-ast="high">00000</span>
+        <span class="asteroids-hud-label" style="margin-top:6px;">LEVEL</span>
+        <span class="asteroids-hud-val" data-ast="level">1</span>
+      </div>
+    `;
+    wrap.appendChild(hud);
+
+    const levelUp = document.createElement('div');
+    levelUp.className = 'asteroids-levelup';
+    levelUp.textContent = 'LEVEL UP';
+    wrap.appendChild(levelUp);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'asteroids-overlay';
+    wrap.appendChild(overlay);
+
+    state.hudScore  = hud.querySelector('[data-ast="score"]');
+    state.hudHigh   = hud.querySelector('[data-ast="high"]');
+    state.hudLevel  = hud.querySelector('[data-ast="level"]');
+    state.hudLives  = hud.querySelector('[data-ast="lives"]');
+    state.overlayEl = overlay;
+    state.levelUpEl = levelUp;
+
+    return { wrap, canvas };
+  }
+
+  function showOverlay(html) {
+    if (!state.overlayEl) return;
+    state.overlayEl.innerHTML = html;
+    state.overlayEl.classList.add('open');
+    if (typeof refreshIcons === 'function') refreshIcons();
+  }
+
+  function hideOverlay() {
+    if (!state.overlayEl) return;
+    state.overlayEl.classList.remove('open');
+  }
+
+  function showPause() {
+    showOverlay(`
+      <h2 class="asteroids-overlay-title">PAUSA</h2>
+      <p class="asteroids-overlay-sub">Sistema en espera</p>
+      <div class="asteroids-overlay-keys">
+        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
+        <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd>
+        <kbd>ESPACIO</kbd>
+      </div>
+      <p class="asteroids-overlay-hint">
+        Presioná <b>P</b> para reanudar · <b>Q</b> para salir a la terminal
+      </p>
+    `);
+  }
+
+  function showGameOver() {
+    const isNewHigh = state.score > state.highScore;
+    if (isNewHigh) {
+      state.highScore = state.score;
+      saveHighScore(state.highScore);
+    }
+    updateHud();
+
+    showOverlay(`
+      <h2 class="asteroids-overlay-title">GAME OVER</h2>
+      <p class="asteroids-overlay-sub">${isNewHigh ? '¡Nuevo récord!' : 'Buena partida'}</p>
+      <div class="asteroids-overlay-stats">
+        <div class="asteroids-overlay-stat">
+          <strong>${String(state.score).padStart(5, '0')}</strong>
+          <small>Score</small>
+        </div>
+        <div class="asteroids-overlay-stat">
+          <strong>${String(state.highScore).padStart(5, '0')}</strong>
+          <small>High Score</small>
+        </div>
+        <div class="asteroids-overlay-stat">
+          <strong>${state.level}</strong>
+          <small>Nivel</small>
+        </div>
+      </div>
+      <div class="asteroids-overlay-keys">
+        <kbd>R</kbd><span style="color:#9399b2;font-size:11px;align-self:center;">Reintentar</span>
+        <kbd>Q</kbd><span style="color:#9399b2;font-size:11px;align-self:center;">Salir</span>
+      </div>
+    `);
+  }
+
+  function showLevelUp() {
+    if (!state.levelUpEl) return;
+    state.levelUpEl.textContent = `NIVEL ${state.level}`;
+    state.levelUpEl.classList.add('show');
+    setTimeout(() => state.levelUpEl && state.levelUpEl.classList.remove('show'), 1400);
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     LOOP PRINCIPAL
+  ───────────────────────────────────────────────────────────── */
+  function loop(now) {
+    if (!state.running) return;
+    state.rafId = requestAnimationFrame(loop);
+
+    if (state.paused || state.gameOver) {
+      render();
+      return;
+    }
+
+    const dt = Math.min(48, now - (state.lastTick || now));
+    state.lastTick = now;
+
+    updateStars(dt);
+    updateShip(dt);
+    updateBullets(dt);
+    updateAsteroids(dt);
+    updateParticles(dt);
+
+    checkCollisions();
+    checkLevelComplete();
+
+    render();
+    updateHud();
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     EVENTOS
+  ───────────────────────────────────────────────────────────── */
+  function onKeyDown(e) {
+    if (!state.running) return;
+
+    const k = e.key;
+    const lower = k.length === 1 ? k.toLowerCase() : k;
+
+    // Prevenir scroll con flechas/espacio
+    if (
+      lower === 'ArrowLeft' || lower === 'ArrowRight' ||
+      lower === 'ArrowUp'   || lower === 'ArrowDown'  ||
+      k === ' ' || k === 'Spacebar'
+    ) {
+      e.preventDefault();
+    }
+
+    // Toggle pausa
+    if (lower === 'p' || k === 'Escape') {
+      e.preventDefault();
+      togglePause();
+      return;
+    }
+
+    // Salir
+    if (lower === 'q') {
+      e.preventDefault();
+      AsteroidsGame.stop();
+      return;
+    }
+
+    // Reintentar desde game over
+    if (state.gameOver && (lower === 'r')) {
+      e.preventDefault();
+      restart();
+      return;
+    }
+
+    // Ignorar input si está pausado o game over
+    if (state.paused || state.gameOver) return;
+
+    // Registrar tecla
+    if (lower === ' ' || k === 'Spacebar') {
+      state.keys[' '] = true;
+      fireBullet();
+    } else {
+      state.keys[lower] = true;
+      state.keys[k] = true;
+    }
+  }
+
+  function onKeyUp(e) {
+    if (!state.running) return;
+    const k = e.key;
+    const lower = k.length === 1 ? k.toLowerCase() : k;
+    if (lower === ' ' || k === 'Spacebar') {
+      state.keys[' '] = false;
+    } else {
+      state.keys[lower] = false;
+      state.keys[k] = false;
+    }
+  }
+
+  function attachListeners() {
+    const kd = (e) => onKeyDown(e);
+    const ku = (e) => onKeyUp(e);
+    window.addEventListener('keydown', kd);
+    window.addEventListener('keyup', ku);
+    state.listeners.push(['keydown', kd], ['keyup', ku]);
+
+    const onResize = () => {
+      resizeCanvas();
+      ensureStarfield();
+    };
+    window.addEventListener('resize', onResize);
+    state.listeners.push(['resize', onResize]);
+  }
+
+  function detachListeners() {
+    for (const [type, fn] of state.listeners) {
+      window.removeEventListener(type, fn);
+    }
+    state.listeners = [];
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     CICLO DE VIDA
+  ───────────────────────────────────────────────────────────── */
+  function togglePause() {
+    if (state.gameOver) return;
+    state.paused = !state.paused;
+    if (state.paused) {
+      showPause();
+    } else {
+      hideOverlay();
+      state.lastTick = performance.now();
+    }
+  }
+
+  function endGame() {
+    state.gameOver = true;
+    state.paused = false;
+    showGameOver();
+  }
+
+  function restart() {
+    hideOverlay();
+    state.gameOver = false;
+    state.paused = false;
+    state.score = 0;
+    state.lives = 3;
+    state.level = 1;
+    state.bullets = [];
+    state.asteroids = [];
+    state.particles = [];
+    state.ship = createShip();
+    state.lastShotAt = 0;
+    state.keys = Object.create(null);
+    spawnAsteroidWave();
+    state.lastTick = performance.now();
+    updateHud();
+  }
+
+  function start(container) {
+    if (state.running) return true;
+
+    refreshColors();
+    ensureStyles();
+
+    state.running = true;
+    state.paused = false;
+    state.gameOver = false;
+    state.container = container;
+
+    // Construir DOM
+    const { wrap, canvas } = buildHudDOM();
+    container.appendChild(wrap);
+    state.wrapEl = wrap;
+    state.canvas = canvas;
+    state.ctx = canvas.getContext('2d');
+
+    // Tamaño inicial
+    requestAnimationFrame(() => {
+      resizeCanvas();
+      ensureStarfield();
+    });
+
+    // Estado inicial
+    state.highScore = loadHighScore();
+    state.score = 0;
+    state.lives = 3;
+    state.level = 1;
+    state.bullets = [];
+    state.asteroids = [];
+    state.particles = [];
+    state.stars = [];
+    state.keys = Object.create(null);
+    state.ship = createShip();
+    spawnAsteroidWave();
+
+    // HUD inicial
+    updateHud();
+    hideOverlay();
+
+    // Listeners
+    attachListeners();
+
+    // ResizeObserver por si el panel cambia de tamaño
+    if (typeof ResizeObserver !== 'undefined') {
+      state.resizeObserver = new ResizeObserver(() => {
+        resizeCanvas();
+      });
+      state.resizeObserver.observe(wrap);
+    }
+
+    // Arrancar loop
+    state.lastTick = performance.now();
+    state.rafId = requestAnimationFrame(loop);
+
+    return true;
+  }
+
+  function stop() {
+    if (!state.running) return;
+
+    state.running = false;
+    state.paused = false;
+    state.gameOver = false;
+
+    if (state.rafId) {
+      cancelAnimationFrame(state.rafId);
+      state.rafId = null;
+    }
+
+    if (state.resizeObserver) {
+      state.resizeObserver.disconnect();
+      state.resizeObserver = null;
+    }
+
+    detachListeners();
+
+    // Guardar high score por las dudas
+    if (state.score > state.highScore) {
+      state.highScore = state.score;
+      saveHighScore(state.highScore);
+    }
+
+    // Remover DOM
+    if (state.wrapEl && state.wrapEl.parentNode) {
+      state.wrapEl.parentNode.removeChild(state.wrapEl);
+    }
+
+    // Reset refs
+    state.wrapEl = null;
+    state.canvas = null;
+    state.ctx = null;
+    state.overlayEl = null;
+    state.levelUpEl = null;
+    state.hudScore = null;
+    state.hudHigh = null;
+    state.hudLevel = null;
+    state.hudLives = null;
+    state.container = null;
+
+    // Avisar a la terminal que se restauró
+    if (typeof window.__asteroidsOnExit === 'function') {
+      try { window.__asteroidsOnExit(); } catch (e) {}
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     API PÚBLICA
+  ───────────────────────────────────────────────────────────── */
+  return {
+    start,
+    stop,
+    isRunning: () => state.running,
+    getHighScore: () => loadHighScore(),
+    resetHighScore: () => {
+      try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+    }
+  };
+
+})();
+
+// Exponer globalmente para debug
+window.AsteroidsGame = AsteroidsGame;
 
 /* ═══════════════════════════════════════════════════════════════
    ★ DOCK
@@ -21342,7 +22667,7 @@ window.addEventListener('beforeunload', () => {
      PARTE  3/10 → Helpers y utilidades
      PARTE  4/10 → Motor Spotify (IIFE SpotifyApp)
      PARTE  5/10 → Sistema de ventanas
-     PARTE  6/10 → Apps (Terminal · Nova · Files · Settings · Vault ·
+     PARTE  6/10 → Apps (Terminal · Asteroids · Nova · Files · Settings · Vault ·
                    Activity · Taskmgr · Gamelib · VSCode · Browser ·
                    Spotify UI)
      PARTE  7/10 → Widgets + Notificaciones + Toasts + Calendario
@@ -21355,42 +22680,6 @@ window.addEventListener('beforeunload', () => {
      PARTE 10/10 → Bootstrap + Integración + Cierre
 
    ═══════════════════════════════════════════════════════════════
-
-   NOTAS DE MANTENIMIENTO:
-
-   · Todas las variables `stars*` y `STARS_CONFIG` están declaradas
-     UNA SOLA VEZ en las PARTES 1 y 2. NO deben redeclararse.
-
-   · `getAppContent()` es el ROUTER principal. Si agregás una app nueva,
-     registrala en APPS, agregala al switch de getAppContent, y agregá su
-     setup en openApp().
-
-   · Para agregar un widget nuevo: agregalo a WIDGET_CATALOG, a los
-     defaultPositions en addDesktopWidget(), y a renderDesktopWidgets().
-
-   · Para agregar un tema nuevo: agregalo a THEME_PRESETS y automáticamente
-     va a aparecer en el Designer.
-
-   · El sistema de Toasts usa `activeToasts` (array) — no redeclarar.
-
-   · El sistema de session usa `SESSION_STORAGE_KEY` — no redeclarar.
-
-   · ★ El motor de Spotify vive en `SpotifyApp` (IIFE en PARTE 4).
-     El estado runtime está en `spotify` (PARTE 2).
-     La persistencia usa `SPOTIFY_STORAGE_KEY`.
-     La biblioteca viene de `assets/music/library.json` con fallback a
-     `SPOTIFY_DEFAULT_LIBRARY`.
-
-   · Duplicados eliminados respecto al original:
-     - toggleControlCenterFromShortcut (unificado en toggleControlCenter)
-     - syncGameModeUI (dejada solo la versión completa)
-     - updateSpotifyGlobalUI (dejada solo la de PARTE 8)
-     - updateHUDMediaInfo (dejada solo la de PARTE 8)
-     - updateSpotifyGlobalPlayState (dejada solo la de PARTE 8)
-     - updateSpotifyVolumeUI (dejada solo la de PARTE 8)
-     - setSystemVolume (dejada solo la de PARTE 4/PARTE 10)
-     - setupMediaPlayer (dejado como stub con comentario)
-
    ═══════════════════════════════════════════════════════════════ */
 
 /* FIN DEL ARCHIVO */
